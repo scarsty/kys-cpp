@@ -287,7 +287,12 @@ RoleDto roleDto(
     int roleId,
     CatalogDetail detail)
 {
-    const auto metadata = chessRoleMetadata(content, roleId);
+    const auto metadata = chessRoleMetadata(
+        content,
+        roleId,
+        detail == CatalogDetail::Compact
+            ? EffectDescriptionStyle::Compact
+            : EffectDescriptionStyle::Full);
     RoleDto dto;
     dto.role_id = metadata.roleId;
     dto.name = metadata.name;
@@ -318,7 +323,10 @@ EquipmentInfoDto equipmentInfoDto(
     int itemId,
     EquipmentProjection projection)
 {
-    const auto metadata = chessEquipmentMetadata(content, itemId);
+    const auto metadata = chessEquipmentMetadata(
+        content,
+        itemId,
+        EffectDescriptionStyle::Full);
     EquipmentInfoDto dto;
     dto.item_id = metadata.itemId;
     dto.name = metadata.name;
@@ -482,7 +490,8 @@ ComboDto comboDto(
         effectiveCount,
         activeThresholdIndex,
         -1,
-        contributions ? *contributions : std::vector<ResolvedChessComboContribution>{}),
+        contributions ? *contributions : std::vector<ResolvedChessComboContribution>{},
+        full ? EffectDescriptionStyle::Full : EffectDescriptionStyle::Compact),
         full);
 }
 
@@ -512,7 +521,10 @@ std::optional<ComboDto> inspectComboDto(
         progress->effectiveCount,
         progress->activeThresholdIndex,
         -1,
-        progress->contributions);
+        progress->contributions,
+        detail == ComboInspectionDetail::Full
+            ? EffectDescriptionStyle::Full
+            : EffectDescriptionStyle::Compact);
     return detail == ComboInspectionDetail::Full
         ? comboDto(metadata, true)
         : comboSummaryDto(metadata);
@@ -531,7 +543,10 @@ PreparedBattleDto preparedBattleDto(
         ? analyzePreparedChessBattle(
             battle,
             content,
-            maximumFrames)
+            maximumFrames,
+            compact
+                ? EffectDescriptionStyle::Compact
+                : EffectDescriptionStyle::Full)
         : projectPreparedChessBattle(battle, content);
     PreparedBattleDto prepared;
     if (observationCompact || full)

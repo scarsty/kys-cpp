@@ -1,4 +1,5 @@
 #include "battle/BattleCore.h"
+#include "battle/BattleCoreDetail.h"
 #include "BattleCoreTestHelpers.h"
 
 #include "BattleLogTestHelpers.h"
@@ -21,6 +22,222 @@ using namespace KysChess::Battle;
 using namespace KysChess::Battle::Test;
 using namespace KysChess;
 using namespace BattlePresentationTest;
+
+namespace
+{
+
+BattleStatusEffectOrigin addTrueQiStatus(
+    BattleRuntimeState& state,
+    int sourceUnitId,
+    int stacks,
+    int pureDamagePerHit)
+{
+    const BattleStatusEffectOrigin origin{
+        .binding = {
+            .kind = EffectSourceKind::Magic,
+            .sourceId = 106,
+            .ownerUnitId = sourceUnitId,
+            .sourceTeam = state.units.requireCore(sourceUnitId).team,
+        },
+        .ruleId = EffectRuleId{ static_cast<std::uint64_t>(106) << 32 },
+        .ruleOrder = 4,
+    };
+    auto& effects = state.units.require(sourceUnitId).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::TrueQi,
+        .sourceUnitId = sourceUnitId,
+        .stacks = stacks,
+        .potency = pureDamagePerHit,
+        .origin = origin,
+        .appliedSequence = effects.nextStatusSequence++,
+    });
+    return origin;
+}
+
+EffectCommand orderedDamageCommand(
+    const EffectSourceBinding& binding,
+    EffectRuleId ruleId,
+    std::uint32_t ruleOrder)
+{
+    return {
+        .metadata = {
+            .binding = binding,
+            .ruleId = ruleId,
+            .event = EffectEvent::HitBeforeDamage,
+            .ruleOrder = ruleOrder,
+            .targetUnitId = 1,
+            .eventSourceUnitId = 0,
+        },
+        .value = DealDamageEffectCommand{},
+    };
+}
+
+}
+
+TEST_CASE("True-Qi intrinsic hit command preserves the removed consumer contract",
+          "[battle][core][true-qi][contract]")
+{
+    auto frame = hitDamageFrameState(20, 100);
+    auto& state = frame.state;
+    const auto origin = addTrueQiStatus(state, 0, 3, 9);
+    EffectRule authoredSuccessor;
+    authoredSuccessor.id = EffectRuleId{ origin.ruleId.value + 1 };
+    authoredSuccessor.event = EffectEvent::HitBeforeDamage;
+    authoredSuccessor.selector.kind = EffectSelectorKind::HitTarget;
+    authoredSuccessor.actions = { EffectAction{ DealDamageAction{} } };
+    state.effectRules.append(origin.binding, authoredSuccessor);
+    const EffectRuleId earlierRule{ origin.ruleId.value - 1 };
+    const EffectRuleId laterRule = authoredSuccessor.id;
+    BattleEffectDispatchResult dispatched;
+    dispatched.commands = {
+        orderedDamageCommand(origin.binding, earlierRule, origin.ruleOrder - 1),
+        // Removing the explicit consumer shifts every later bound rule down by
+        // one runtime order. The intrinsic command retains the vacated order
+        // and must sort before that now-equal successor.
+        orderedDamageCommand(origin.binding, laterRule, origin.ruleOrder + 1),
+    };
+    BattleAttackEvent event;
+    event.type = BattleAttackEventType::Hit;
+    event.sourceUnitId = 0;
+    event.unitId = 1;
+    event.position = { 105, 100, 0 };
+    event.provenance = state.attacks.attacks.front().provenance;
+
+    CoreDetail::insertTrueQiHitDamage(state, event, dispatched);
+
+    REQUIRE(dispatched.commands.size() == 3);
+    const auto& intrinsic = dispatched.commands[1];
+    CHECK(intrinsic.metadata.binding == origin.binding);
+    CHECK(intrinsic.metadata.ruleId == intrinsicStatusEffectRuleId(origin.ruleId));
+    CHECK(intrinsic.metadata.ruleId != authoredSuccessor.id);
+    CHECK(intrinsic.metadata.event == EffectEvent::HitBeforeDamage);
+    CHECK(intrinsic.metadata.ruleOrder == origin.ruleOrder + 1);
+    CHECK(intrinsic.metadata.actionOrder == 0);
+    CHECK(intrinsic.metadata.targetOrder == 0);
+    CHECK(intrinsic.metadata.targetUnitId == 1);
+    CHECK(intrinsic.metadata.eventSourceUnitId == 0);
+    CHECK(intrinsic.metadata.commandOrdinal == 1);
+    CHECK(dispatched.commands[0].metadata.commandOrdinal == 0);
+    CHECK(dispatched.commands[2].metadata.commandOrdinal == 2);
+
+    const auto& damage = std::get<DealDamageEffectCommand>(intrinsic.value);
+    CHECK(damage.amount == 27);
+    CHECK(damage.action.amount.flat == 27);
+    CHECK(damage.action.kind == BattleDamageKind::Pure);
+    CHECK(damage.action.appliesDamageModifiers);
+    CHECK(damage.action.triggersHurtInvincibility);
+    CHECK(damage.transactionCount == 1);
+
+    REQUIRE(dispatched.activations.size() == 1);
+    CHECK(dispatched.activations.front().binding == origin.binding);
+    CHECK(dispatched.activations.front().ruleId
+        == intrinsicStatusEffectRuleId(origin.ruleId));
+    CHECK(dispatched.activations.front().targetUnitIds == std::vector<int>{ 1 });
+}
+
+TEST_CASE("True-Qi damage is queued before the accepted base hit",
+          "[battle][core][true-qi][ordering]")
+{
+    auto frame = hitDamageFrameState(20, 100);
+    addTrueQiStatus(frame.state, 0, 3, 9);
+    const auto castId = frame.state.attacks.attacks.front().provenance.cast.castId;
+
+    const auto result = runBattleFrame(frame.state);
+
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 27, 35 });
+    CHECK(frame.state.units.requireCore(1).vitals.hp == 38);
+    const auto& aggregate = frame.state.castLifecycle.runtime(castId).aggregate;
+    CHECK(aggregate.totalActualHpDamage == 62);
+    CHECK(aggregate.highestActualHpDamage == 35);
+    CHECK(aggregate.distinctHitUnitIds
+        == std::set<int>{ 1 });
+}
+
+TEST_CASE("Lethal True-Qi damage resolves before and suppresses the base hit",
+          "[battle][core][true-qi][ordering][death]")
+{
+    auto frame = hitDamageFrameState(20, 25);
+    addTrueQiStatus(frame.state, 0, 3, 9);
+
+    const auto result = runBattleFrame(frame.state);
+
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 25 });
+    CHECK_FALSE(frame.state.units.requireCore(1).alive);
+    const auto lifecycle = frame.state.castLifecycle.snapshot();
+    REQUIRE(lifecycle.retiredCasts.size() == 1);
+    CHECK(lifecycle.retiredCasts.front().aggregate.totalActualHpDamage == 25);
+    CHECK(lifecycle.retiredCasts.front().aggregate.distinctHitUnitIds
+        == std::set<int>{ 1 });
+    CHECK(frame.state.castLifecycle.activeCastCount() == 0);
+    CHECK(frame.state.castLifecycle.trackedWorkCount() == 0);
+}
+
+TEST_CASE("True-Qi contributes once for every accepted contact of a multi-hit attack",
+          "[battle][core][true-qi][multi-hit]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 105, 100, 0 }),
+        unit(2, 1, { 205, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    addTrueQiStatus(state, 0, 3, 9);
+
+    BattleAttackInstance projectile{ ordinaryProjectilePayload() };
+    projectile.id = 10;
+    projectile.state.attackSourceUnitId = 0;
+    projectile.state.skillId = 101;
+    projectile.state.skillMagicPower = 240;
+    projectile.state.preferredTargetUnitId = 1;
+    projectile.state.requirePreferredTarget = true;
+    projectile.state.totalFrame = 30;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+    appendTrackedAttack(state, std::move(projectile));
+
+    const auto rootProvenance = state.attacks.attacks.front().provenance;
+    BattleAttackInstance followUp{ ordinaryProjectilePayload() };
+    followUp.id = 11;
+    followUp.state.attackSourceUnitId = 0;
+    followUp.state.skillId = 101;
+    followUp.state.skillMagicPower = 240;
+    followUp.state.preferredTargetUnitId = 2;
+    followUp.state.requirePreferredTarget = true;
+    followUp.state.totalFrame = 30;
+    followUp.state.operationType = BattleOperationType::RangedProjectile;
+    followUp.state.position = { 200, 100, 0 };
+    followUp.state.velocity = { 5, 0, 0 };
+    const auto reservation = state.castLifecycle.reserveAttack(
+        rootProvenance.cast.castId,
+        {
+            .parentAttackId = rootProvenance.attackId,
+            .origin = BattleAttackOriginKind::FollowUp,
+            .mainProjectile = false,
+        });
+    followUp.provenance = completeAttackProvenance(
+        reservation.provenance,
+        battleAttackIdFromRuntimeId(followUp.id));
+    followUp.castWork = reservation.work;
+    state.castLifecycle.transferToLiveAttack(
+        followUp.castWork,
+        followUp.provenance.attackId);
+    state.attacks.attacks.push_back(std::move(followUp));
+
+    const auto castId = state.attacks.attacks.front().provenance.cast.castId;
+    const auto result = runBattleFrame(state);
+
+    const auto firstTargetDamage = damageLogAmountsFor(result, 1);
+    const auto secondTargetDamage = damageLogAmountsFor(result, 2);
+    REQUIRE(firstTargetDamage.size() >= 2);
+    REQUIRE(secondTargetDamage.size() >= 2);
+    CHECK(firstTargetDamage.front() == 27);
+    CHECK(secondTargetDamage.front() == 27);
+    const auto& aggregate = state.castLifecycle.runtime(castId).aggregate;
+    CHECK(aggregate.distinctHitUnitIds == std::set<int>{ 1, 2 });
+}
 
 
 
@@ -691,4 +908,3 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsBounceChainTerminalReasons", "[bat
     REQUIRE(terminalLog != result.logEvents.end());
     CHECK(damageLog < terminalLog);
 }
-

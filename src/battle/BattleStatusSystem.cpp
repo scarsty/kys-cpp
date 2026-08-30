@@ -197,6 +197,15 @@ int projectRemainingPoisonDamage(
 namespace
 {
 
+int addAndClamp(int lhs, int rhs, int minimum, int maximum)
+{
+    assert(minimum <= maximum);
+    return static_cast<int>(std::clamp<std::int64_t>(
+        static_cast<std::int64_t>(lhs) + rhs,
+        minimum,
+        maximum));
+}
+
 std::uint64_t allocateStatusSequence(BattleStatusEffectState& effects)
 {
     assert(effects.nextStatusSequence > 0);
@@ -221,6 +230,7 @@ BattleTypedStatusInstance& appendStatus(
         : request.stacks;
     status.potency = request.potency;
     status.secondaryPotency = request.secondaryPotency;
+    status.origin = request.origin;
     status.appliedSequence = allocateStatusSequence(effects);
     effects.statuses.push_back(status);
     return effects.statuses.back();
@@ -301,19 +311,22 @@ bool absorbControlProtection(
     assert(durationFrames > 0);
     if (request.controlLowHpImmunityPct > 0
         && result.target.maxHp > 0
-        && result.target.hp * 100 < result.target.maxHp * request.controlLowHpImmunityPct)
+        && static_cast<std::int64_t>(result.target.hp) * 100
+            < static_cast<std::int64_t>(result.target.maxHp)
+                * request.controlLowHpImmunityPct)
     {
         result.outcome = BattleStatusApplyOutcome::BlockedByControlImmunity;
         return true;
     }
 
-    int reductionPct = result.target.effects.freezeReductionPct;
+    std::int64_t reductionPct = result.target.effects.freezeReductionPct;
     if (request.targetHasShield)
     {
         reductionPct += result.target.effects.shieldFreezeResPct;
     }
-    reductionPct = std::clamp(reductionPct, 0, 100);
-    durationFrames = durationFrames * (100 - reductionPct) / 100;
+    reductionPct = std::clamp<std::int64_t>(reductionPct, 0, 100);
+    durationFrames = static_cast<int>(
+        static_cast<std::int64_t>(durationFrames) * (100 - reductionPct) / 100);
 
     const int immunityAbsorbed = std::min(durationFrames, result.target.effects.controlImmunityFrames);
     result.target.effects.controlImmunityFrames -= immunityAbsorbed;
@@ -375,7 +388,12 @@ void tickPoison(
     if (config.poisonDamageIntervalFrames > 0
         && poisonDamageDue(config.frame, config.poisonDamageIntervalFrames))
     {
-        int damage = std::max(1, target.hp() * poison->potency / 100);
+        const auto scaledDamage = static_cast<std::int64_t>(target.hp())
+            * poison->potency / 100;
+        const int damage = static_cast<int>(std::clamp<std::int64_t>(
+            scaledDamage,
+            1,
+            std::numeric_limits<int>::max()));
         result.events.push_back({
             BattleStatusEventType::PoisonDamage,
             target.id(),
@@ -412,7 +430,12 @@ void tickBleed(
 
     if (bleed->tickFramesRemaining <= 0)
     {
-        int damage = std::max(1, target.maxHp() * bleed->stacks / 100);
+        const auto scaledDamage = static_cast<std::int64_t>(target.maxHp())
+            * bleed->stacks * bleed->potency / 100;
+        const int damage = static_cast<int>(std::clamp<std::int64_t>(
+            scaledDamage,
+            1,
+            std::numeric_limits<int>::max()));
         result.events.push_back({
             BattleStatusEventType::BleedDamage,
             target.id(),
@@ -588,14 +611,13 @@ BattleStatusApplyResult BattleStatusSystem::apply(
                 poison = &appendStatus(effects, request, durationFrames);
             }
             const int before = active ? poison->stacks : 0;
-            poison->stacks = std::clamp(
-                before + request.stacks,
-                0,
-                *request.stackLimit);
+            poison->stacks = addAndClamp(
+                before, request.stacks, 0, *request.stackLimit);
             poison->remainingFrames = durationFrames;
             poison->maximumFrames = std::max(poison->maximumFrames, durationFrames);
             poison->potency = request.potency;
             poison->sourceUnitId = request.sourceUnitId;
+            poison->origin = request.origin;
             result.applied = poison->stacks != before;
             result.value = poison->stacks;
             result.outcome = BattleStatusApplyOutcome::StackChanged;
@@ -616,10 +638,13 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         poison->maximumFrames = std::max(poison->maximumFrames, durationFrames);
         poison->potency = request.potency;
         poison->sourceUnitId = request.sourceUnitId;
+        poison->origin = request.origin;
         result.applied = true;
         result.value = request.potency;
         result.outcome = active
             ? (request.stack == EffectStackPolicy::Replace
+                ? BattleStatusApplyOutcome::Replaced
+                : request.stack == EffectStackPolicy::KeepStrongest
                 ? BattleStatusApplyOutcome::Replaced
                 : BattleStatusApplyOutcome::Refreshed)
             : BattleStatusApplyOutcome::Applied;
@@ -632,7 +657,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         int after = request.stacks;
         if (request.stack == EffectStackPolicy::AddStack)
         {
-            after = std::clamp(before + request.stacks, 0, *request.stackLimit);
+            after = addAndClamp(before, request.stacks, 0, *request.stackLimit);
         }
         else if (request.stack == EffectStackPolicy::KeepStrongest)
         {
@@ -673,6 +698,8 @@ BattleStatusApplyResult BattleStatusSystem::apply(
                 bleed->tickFramesRemaining = config_.bleedDamageIntervalFrames;
             }
             bleed->sourceUnitId = request.sourceUnitId;
+            bleed->potency = request.potency;
+            bleed->origin = request.origin;
         }
         result.applied = after != before;
         result.value = after;
@@ -689,7 +716,11 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         switch (request.stack)
         {
         case EffectStackPolicy::Independent:
-            after += durationFrames;
+            after = addAndClamp(
+                after,
+                durationFrames,
+                0,
+                std::numeric_limits<int>::max());
             break;
         case EffectStackPolicy::Refresh:
         case EffectStackPolicy::KeepStrongest:
@@ -812,6 +843,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             first->stacks = request.stacks;
             first->potency = request.potency;
             first->secondaryPotency = request.secondaryPotency;
+            first->origin = request.origin;
             result.value = first->stacks;
             result.outcome = BattleStatusApplyOutcome::Refreshed;
         }
@@ -834,6 +866,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             first->stacks = request.stacks;
             first->potency = request.potency;
             first->secondaryPotency = request.secondaryPotency;
+            first->origin = request.origin;
             result.applied = true;
             result.value = first->stacks;
             result.outcome = BattleStatusApplyOutcome::Replaced;
@@ -867,12 +900,14 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         else
         {
             const int before = first->stacks;
-            first->stacks = std::clamp(first->stacks + request.stacks, 0, *request.stackLimit);
+            first->stacks = addAndClamp(
+                first->stacks, request.stacks, 0, *request.stackLimit);
             if (request.stacks > 0)
             {
                 first->sourceUnitId = request.sourceUnitId;
                 first->potency = request.potency;
                 first->secondaryPotency = request.secondaryPotency;
+                first->origin = request.origin;
                 if (durationFrames > 0)
                 {
                     first->remainingFrames = durationFrames;
@@ -1147,7 +1182,6 @@ BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
             result.damageReductionPct += status.secondaryPotency * status.stacks;
             break;
         case BattleStatusKind::TrueQi:
-            result.pureDamagePerHit += status.potency * status.stacks;
             break;
         case BattleStatusKind::Poison:
         case BattleStatusKind::Bleed:

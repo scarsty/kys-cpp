@@ -489,6 +489,68 @@ TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle]
     CHECK(keptPoison->potency == 12);
     CHECK(keptPoison->sourceUnitId == 3);
 
+    BattleStatusApplyRequest equal = weaker;
+    equal.potency = 12;
+    equal.durationFrames = 180;
+    const auto equalKept = system.apply(stacked.target, equal);
+
+    CHECK_FALSE(equalKept.applied);
+    CHECK(equalKept.outcome == BattleStatusApplyOutcome::KeptStronger);
+    const auto* equalPoison = equalKept.target.effects.find(
+        KysChess::BattleStatusKind::Poison);
+    REQUIRE(equalPoison);
+    CHECK(equalPoison->remainingFrames == 150);
+    CHECK(equalPoison->stacks == 5);
+    CHECK(equalPoison->potency == 12);
+    CHECK(equalPoison->sourceUnitId == 3);
+
+    BattleStatusApplyRequest stronger = weaker;
+    stronger.potency = 13;
+    stronger.durationFrames = 180;
+    stronger.stacks = 6;
+    stronger.origin = BattleStatusEffectOrigin{
+        .binding = {
+            .kind = KysChess::EffectSourceKind::Magic,
+            .sourceId = 21,
+            .ownerUnitId = 4,
+            .sourceTeam = 0,
+        },
+        .ruleId = KysChess::EffectRuleId{ 21 },
+        .ruleOrder = 7,
+    };
+    const auto strongerApplied = system.apply(equalKept.target, stronger);
+
+    REQUIRE(strongerApplied.applied);
+    CHECK(strongerApplied.outcome == BattleStatusApplyOutcome::Replaced);
+    const auto* strongerPoison = strongerApplied.target.effects.find(
+        KysChess::BattleStatusKind::Poison);
+    REQUIRE(strongerPoison);
+    CHECK(strongerPoison->remainingFrames == 180);
+    CHECK(strongerPoison->stacks == 6);
+    CHECK(strongerPoison->potency == 13);
+    CHECK(strongerPoison->sourceUnitId == 4);
+    CHECK(strongerPoison->origin == stronger.origin);
+
+    BattleStatusApplyRequest reset = stronger;
+    reset.sourceUnitId = 5;
+    reset.durationFrames = 90;
+    reset.stacks = 2;
+    reset.potency = 10;
+    reset.stack = KysChess::EffectStackPolicy::Replace;
+    reset.origin.reset();
+    const auto resetApplied = system.apply(strongerApplied.target, reset);
+
+    REQUIRE(resetApplied.applied);
+    CHECK(resetApplied.outcome == BattleStatusApplyOutcome::Replaced);
+    const auto* resetPoison = resetApplied.target.effects.find(
+        KysChess::BattleStatusKind::Poison);
+    REQUIRE(resetPoison);
+    CHECK(resetPoison->remainingFrames == 90);
+    CHECK(resetPoison->stacks == 2);
+    CHECK(resetPoison->potency == 10);
+    CHECK(resetPoison->sourceUnitId == 5);
+    CHECK_FALSE(resetPoison->origin);
+
     const auto consumed = system.consume(kept.target, {
         .kind = KysChess::BattleStatusKind::Poison,
         .stacks = 2,
@@ -499,6 +561,94 @@ TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle]
     REQUIRE(consumed.target.effects.find(KysChess::BattleStatusKind::Poison));
     CHECK(consumed.target.effects.find(KysChess::BattleStatusKind::Poison)->stacks == 3);
     CHECK(system.snapshot(consumed.target).stacks(KysChess::BattleStatusKind::Poison) == 3);
+}
+
+TEST_CASE("BattleStatusSystem refreshes stacked status origin even at the layer cap",
+          "[battle][status][origin][stack]")
+{
+    BattleStatusSystem system({});
+    BattleStatusApplyRequest first;
+    first.kind = KysChess::BattleStatusKind::TrueQi;
+    first.sourceUnitId = 1;
+    first.stacks = 10;
+    first.potency = 9;
+    first.stack = KysChess::EffectStackPolicy::AddStack;
+    first.stackLimit = 10;
+    first.origin = BattleStatusEffectOrigin{
+        .binding = {
+            .kind = KysChess::EffectSourceKind::Magic,
+            .sourceId = 106,
+            .ownerUnitId = 1,
+            .sourceTeam = 0,
+            .runtimeInstanceId = 7,
+        },
+        .ruleId = KysChess::EffectRuleId{ 100 },
+        .ruleOrder = 4,
+    };
+    const auto applied = system.apply(statusUnit(1), first);
+    REQUIRE(applied.applied);
+
+    auto cappedRefresh = first;
+    cappedRefresh.stacks = 1;
+    cappedRefresh.origin->binding.runtimeInstanceId = 8;
+    cappedRefresh.origin->ruleId = KysChess::EffectRuleId{ 200 };
+    cappedRefresh.origin->ruleOrder = 9;
+    const auto refreshed = system.apply(applied.target, cappedRefresh);
+
+    CHECK_FALSE(refreshed.applied);
+    CHECK(refreshed.outcome == BattleStatusApplyOutcome::StackChanged);
+    const auto* trueQi = refreshed.target.effects.find(
+        KysChess::BattleStatusKind::TrueQi);
+    REQUIRE(trueQi);
+    CHECK(trueQi->stacks == 10);
+    CHECK(trueQi->potency == 9);
+    CHECK(trueQi->origin == cappedRefresh.origin);
+}
+
+TEST_CASE("BattleStatusSystem saturates additive status arithmetic",
+          "[battle][status][stack][boundary]")
+{
+    const auto verifyLayers = [](KysChess::BattleStatusKind kind, int durationFrames)
+    {
+        BattleStatusSystem system({});
+        BattleStatusApplyRequest request;
+        request.kind = kind;
+        request.sourceUnitId = 1;
+        request.durationFrames = durationFrames;
+        request.stacks = std::numeric_limits<int>::max() - 1;
+        request.potency = 1;
+        request.stack = KysChess::EffectStackPolicy::AddStack;
+        request.stackLimit = std::numeric_limits<int>::max();
+
+        const auto first = system.apply(statusUnit(2), request);
+        REQUIRE(first.target.effects.find(kind));
+        CHECK(first.target.effects.find(kind)->stacks
+            == std::numeric_limits<int>::max() - 1);
+
+        request.stacks = 10;
+        const auto second = system.apply(first.target, request);
+        REQUIRE(second.target.effects.find(kind));
+        CHECK(second.target.effects.find(kind)->stacks
+            == std::numeric_limits<int>::max());
+    };
+
+    verifyLayers(KysChess::BattleStatusKind::Poison, 30);
+    verifyLayers(KysChess::BattleStatusKind::Bleed, 0);
+    verifyLayers(KysChess::BattleStatusKind::TrueQi, 0);
+
+    BattleStatusSystem system({});
+    BattleStatusApplyRequest stun;
+    stun.kind = KysChess::BattleStatusKind::Stun;
+    stun.sourceUnitId = 1;
+    stun.durationFrames = std::numeric_limits<int>::max() - 1;
+    stun.stack = KysChess::EffectStackPolicy::Independent;
+    const auto firstStun = system.apply(statusUnit(2), stun);
+    stun.durationFrames = 10;
+    const auto secondStun = system.apply(firstStun.target, stun);
+    REQUIRE(secondStun.target.effects.find(KysChess::BattleStatusKind::Stun));
+    CHECK(secondStun.target.effects.find(KysChess::BattleStatusKind::Stun)
+              ->remainingFrames
+        == std::numeric_limits<int>::max());
 }
 
 TEST_CASE("BattleStatusSystem_RemainingPoisonProjectionUsesFutureTickSchedule", "[battle][status][poison][unit]")
@@ -642,6 +792,88 @@ TEST_CASE("BattleDamageSystem_TransactionShieldAbsorbsHpDamageFirst", "[battle][
     CHECK(result.events[0].value == 50);
     CHECK(result.events[1].type == BattleDamageEventType::DamageApplied);
     CHECK(result.events[1].value == 30);
+}
+
+TEST_CASE("BattleDamageSystem consumes one damage-block charge per eligible transaction",
+          "[battle][damage][status][charge]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 40;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defenderStatus = statusUnit(2);
+    input.defenderStatus.effects.statuses.push_back({
+        .kind = KysChess::BattleStatusKind::DamageBlockLayer,
+        .sourceUnitId = 2,
+        .stacks = 2,
+    });
+
+    const auto first = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(first.blockedByDamageLayer);
+    CHECK(first.finalHpDamage == 0);
+    const auto* remaining = first.defenderStatus.effects.find(
+        KysChess::BattleStatusKind::DamageBlockLayer);
+    REQUIRE(remaining);
+    CHECK(remaining->stacks == 1);
+
+    input.defender = first.defender;
+    input.defenderStatus = first.defenderStatus;
+    const auto second = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(second.blockedByDamageLayer);
+    CHECK(second.finalHpDamage == 0);
+    CHECK_FALSE(second.defenderStatus.effects.has(
+        KysChess::BattleStatusKind::DamageBlockLayer));
+
+    input.defender = second.defender;
+    input.defenderStatus = second.defenderStatus;
+    const auto unblocked = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK_FALSE(unblocked.blockedByDamageLayer);
+    CHECK(unblocked.finalHpDamage == 40);
+}
+
+TEST_CASE("BattleDamageSystem consumes the next-hit cap even when it does not reduce damage",
+          "[battle][damage][status][charge][cap]")
+{
+    const auto resolve = [](int damage)
+    {
+        BattleDamageTransactionInput input;
+        input.request.attackerUnitId = 1;
+        input.request.defenderUnitId = 2;
+        input.request.baseDamage = damage;
+        input.attacker = unit();
+        input.attacker.id = 1;
+        input.defender = unit();
+        input.defender.id = 2;
+        input.defenderStatus = statusUnit(2);
+        input.defenderStatus.effects.statuses.push_back({
+            .kind = KysChess::BattleStatusKind::SingleHitCapLayer,
+            .sourceUnitId = 2,
+            .stacks = 1,
+            .potency = 30,
+        });
+        return BattleDamageSystem().resolveTransaction(input);
+    };
+
+    const auto belowCap = resolve(20);
+    CHECK(belowCap.singleHitCapConsumed);
+    CHECK_FALSE(belowCap.singleHitCapped);
+    CHECK(belowCap.finalHpDamage == 20);
+    CHECK_FALSE(belowCap.defenderStatus.effects.has(
+        KysChess::BattleStatusKind::SingleHitCapLayer));
+
+    const auto aboveCap = resolve(50);
+    CHECK(aboveCap.singleHitCapConsumed);
+    CHECK(aboveCap.singleHitCapped);
+    CHECK(aboveCap.finalHpDamage == 30);
+    CHECK_FALSE(aboveCap.defenderStatus.effects.has(
+        KysChess::BattleStatusKind::SingleHitCapLayer));
 }
 
 TEST_CASE("BattleDamageSystem_TransactionInvincibilityBlocksNormalDamageButNotExecute", "[battle][damage][unit]")

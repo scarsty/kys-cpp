@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <format>
 #include <iterator>
+#include <limits>
 #include <memory_resource>
 #include <optional>
 #include <span>
@@ -762,7 +763,6 @@ BattleEffectOwnedEvent makeHitEffectEvent(
     assert(effectEvent == EffectEvent::MainProjectileBeforeDamage
         || effectEvent == EffectEvent::HitBeforeDamage);
     assert(event.provenance.valid());
-    const auto& attacker = state.units.require(event.sourceUnitId);
     HitEventData payload;
     payload.provenance = event.provenance;
     payload.targetUnitId = event.unitId;
@@ -778,16 +778,9 @@ BattleEffectOwnedEvent makeHitEffectEvent(
     payload.preDefenseDamage = std::max(0, event.scriptedDamage);
     payload.damageKind = event.damageKind;
 
-    const auto attackerStatus = BattleStatusSystem({}).snapshot(
-        attacker.statusDamageState());
-    EffectFormulaInputs formulaInputs;
-    formulaInputs.accumulatedStateValue = attackerStatus.pureDamagePerHit;
     return BattleEffectEventBridge().makeEvent(
         state,
-        CoreDetail::nextEffectEventHeader(
-            state,
-            event.sourceUnitId,
-            std::move(formulaInputs)),
+        CoreDetail::nextEffectEventHeader(state, event.sourceUnitId),
         effectEvent,
         std::move(payload));
 }
@@ -1103,7 +1096,9 @@ void resolveTypedHitEvent(
         state,
         event,
         EffectEvent::HitBeforeDamage);
-    reduceDispatched(BattleEffectEventBridge().dispatch(state, hitEvent));
+    auto hitDispatched = BattleEffectEventBridge().dispatch(state, hitEvent);
+    CoreDetail::insertTrueQiHitDamage(state, event, hitDispatched);
+    reduceDispatched(std::move(hitDispatched));
 
     const int ignoreDefensePct = currentHitIgnoreDefensePct(
         state,
@@ -1171,6 +1166,70 @@ void resolveTypedHitEvent(
 
 namespace CoreDetail
 {
+
+void insertTrueQiHitDamage(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    BattleEffectDispatchResult& dispatched)
+{
+    const auto* trueQi = state.units.require(event.sourceUnitId)
+        .status.effects.find(BattleStatusKind::TrueQi);
+    if (!trueQi || trueQi->stacks <= 0 || trueQi->potency <= 0) return;
+    assert(trueQi->origin);
+    assert(!isIntrinsicEffectRuleId(trueQi->origin->ruleId));
+    assert(trueQi->origin->ruleOrder < std::numeric_limits<std::uint32_t>::max());
+
+    const EffectRuleId intrinsicRuleId = intrinsicStatusEffectRuleId(
+        trueQi->origin->ruleId);
+    assert(std::ranges::none_of(state.effectRules.rules(), [&](const auto& bound)
+    {
+        return bound.binding == trueQi->origin->binding
+            && bound.rule.id == intrinsicRuleId;
+    }));
+
+    const long long evaluatedAmount = static_cast<long long>(trueQi->potency)
+        * trueQi->stacks;
+    assert(evaluatedAmount <= std::numeric_limits<int>::max());
+    const int amount = static_cast<int>(evaluatedAmount);
+
+    DealDamageAction action;
+    action.amount.flat = amount;
+    action.kind = BattleDamageKind::Pure;
+    EffectCommand intrinsic{
+        .metadata = {
+            .binding = trueQi->origin->binding,
+            .ruleId = intrinsicRuleId,
+            .event = EffectEvent::HitBeforeDamage,
+            .ruleOrder = trueQi->origin->ruleOrder + 1,
+            .actionOrder = 0,
+            .targetOrder = 0,
+            .targetUnitId = event.unitId,
+            .eventSourceUnitId = event.sourceUnitId,
+        },
+        .value = DealDamageEffectCommand{
+            .action = std::move(action),
+            .amount = amount,
+        },
+    };
+    const auto laterCommand = std::ranges::find_if(dispatched.commands, [&](const auto& candidate)
+    {
+        const auto candidateSource = static_cast<int>(candidate.metadata.binding.kind);
+        const auto intrinsicSource = static_cast<int>(intrinsic.metadata.binding.kind);
+        return candidateSource > intrinsicSource
+            || (candidateSource == intrinsicSource
+                && candidate.metadata.ruleOrder >= intrinsic.metadata.ruleOrder);
+    });
+    dispatched.commands.insert(laterCommand, std::move(intrinsic));
+    for (std::uint64_t ordinal = 0; ordinal < dispatched.commands.size(); ++ordinal)
+    {
+        dispatched.commands[ordinal].metadata.commandOrdinal = ordinal;
+    }
+    dispatched.activations.push_back({
+        trueQi->origin->binding,
+        intrinsicRuleId,
+        { event.unitId },
+    });
+}
 
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,

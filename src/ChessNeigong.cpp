@@ -1,6 +1,7 @@
 #include "ChessNeigong.h"
 
 #include "ChessBattleEffectParser.h"
+#include "ChessBattleEffectValidation.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
@@ -110,6 +111,16 @@ bool loadChessNeigong(
                 }
                 def.rules.push_back(std::move(rule));
             }
+        }
+        std::string lifecycleError;
+        if (!validateEffectRules(def.rules, lifecycleError))
+        {
+            emitChessDiagnostic(
+                diagnostics,
+                ChessDiagnosticSeverity::Error,
+                "內功配置",
+                std::format("內功「{}」：{}", def.name, lifecycleError));
+            return false;
         }
         pool.push_back(std::move(def));
     }

@@ -217,6 +217,30 @@ TEST_CASE("JSON protocol role compact projection removes repeated static metadat
     CHECK(full.result->str.contains("\"effect_note\""));
 }
 
+TEST_CASE("JSON protocol role detail selects the contained effect-description style",
+          "[chess][protocol][inspect][role][effects]")
+{
+    const auto content = actualContent();
+    REQUIRE(content);
+    ChessJsonProtocol protocol(content);
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000042"}})")).ok);
+
+    const auto compact = parseResponse(protocol.handleLine(
+        R"({"id":2,"method":"inspect_role","params":{"role_id":69,"detail":"compact"}})"));
+    REQUIRE(compact.ok);
+    REQUIRE(compact.result);
+    CHECK(compact.result->str.contains("戰意+1層"));
+    CHECK_FALSE(compact.result->str.contains("獲得1層戰意"));
+
+    const auto full = parseResponse(protocol.handleLine(
+        R"({"id":3,"method":"inspect_role","params":{"role_id":69,"detail":"full"}})"));
+    REQUIRE(full.ok);
+    REQUIRE(full.result);
+    CHECK(full.result->str.contains("獲得1層戰意"));
+    CHECK_FALSE(full.result->str.contains("戰意+1層"));
+}
+
 TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",
           "[chess][protocol][challenge][actual-config]")
 {

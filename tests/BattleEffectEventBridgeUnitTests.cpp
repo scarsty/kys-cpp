@@ -310,9 +310,6 @@ TEST_CASE("BattleEffectEventBridge converts completed attack damage without gues
             .frame = 21,
             .eventOrdinal = 2001,
             .ownerUnitId = 1,
-            .formulaInputs = {
-                .accumulatedStateValue = 9,
-            },
         },
         transaction,
         EffectAttackDamageOrigin{ provenance },
@@ -326,7 +323,6 @@ TEST_CASE("BattleEffectEventBridge converts completed attack damage without gues
 
     const auto context = event.context();
     CHECK(context.header.eventOrdinal == 2001);
-    CHECK(context.header.formulaInputs.accumulatedStateValue == 9);
     const auto& payload = std::get<DamageResultEventData>(context.payload);
     CHECK(payload.transactionId == 501);
     CHECK(payload.attackerBefore->hp == 100);

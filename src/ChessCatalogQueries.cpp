@@ -33,7 +33,10 @@ void appendItemStat(std::vector<std::string>& effects, std::string_view name, in
     }
 }
 
-RenderedEffectDescription magicEffects(const ChessGameContent& content, int magicId)
+RenderedEffectDescription magicEffects(
+    const ChessGameContent& content,
+    int magicId,
+    EffectDescriptionStyle descriptionStyle)
 {
     const auto definition = std::ranges::find(
         content.magicEffects(),
@@ -44,7 +47,7 @@ RenderedEffectDescription magicEffects(const ChessGameContent& content, int magi
         {EffectDescriptionContainerKind::Magic, definition->rules});
     return renderEffectDescription(
         document,
-        EffectDescriptionStyle::Full,
+        descriptionStyle,
         {});
 }
 
@@ -305,9 +308,10 @@ ChessCalculatedStats chessStatDelta(
 ChessAbilityMetadata chessAbilityMetadata(
     const ChessGameContent& content,
     const ChessMagicDefinition& magic,
-    std::vector<ChessAbilityStarPower> powerByStar)
+    std::vector<ChessAbilityStarPower> powerByStar,
+    EffectDescriptionStyle descriptionStyle)
 {
-    auto effects = magicEffects(content, magic.ID);
+    auto effects = magicEffects(content, magic.ID, descriptionStyle);
     const bool hasConfiguredEffects = hasDescriptionRows(effects);
     return {
         magic.ID,
@@ -328,17 +332,25 @@ ChessAbilityMetadata chessAbilityMetadata(
 std::vector<ChessAbilityMetadata> chessAbilitiesForRoleStar(
     const ChessGameContent& content,
     const ChessRoleDefinition& role,
-    int star)
+    int star,
+    EffectDescriptionStyle descriptionStyle)
 {
     std::vector<ChessAbilityMetadata> result;
     for (const auto& [magic, power] : chessRoleMagicsForStar(content, role, star))
     {
-        result.push_back(chessAbilityMetadata(content, *magic, {{star, power}}));
+        result.push_back(chessAbilityMetadata(
+            content,
+            *magic,
+            {{star, power}},
+            descriptionStyle));
     }
     return result;
 }
 
-ChessRoleMetadata chessRoleMetadata(const ChessGameContent& content, int roleId)
+ChessRoleMetadata chessRoleMetadata(
+    const ChessGameContent& content,
+    int roleId,
+    EffectDescriptionStyle descriptionStyle)
 {
     const auto* role = content.role(roleId);
     assert(role);
@@ -379,7 +391,8 @@ ChessRoleMetadata chessRoleMetadata(const ChessGameContent& content, int roleId)
         result.abilities.push_back(chessAbilityMetadata(
             content,
             *magic,
-            {{star, role->MagicPower[slot]}}));
+            {{star, role->MagicPower[slot]}},
+            descriptionStyle));
     }
     for (const auto& combo : content.combos())
     {
@@ -391,7 +404,10 @@ ChessRoleMetadata chessRoleMetadata(const ChessGameContent& content, int roleId)
     return result;
 }
 
-ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, int itemId)
+ChessEquipmentMetadata chessEquipmentMetadata(
+    const ChessGameContent& content,
+    int itemId,
+    EffectDescriptionStyle descriptionStyle)
 {
     const auto& definition = requireEquipment(content, itemId);
     const auto* item = content.item(itemId);
@@ -414,7 +430,7 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
         {EffectDescriptionContainerKind::Equipment, definition.rules});
     result.specialEffects = renderEffectDescription(
         equipmentDocument,
-        EffectDescriptionStyle::Full,
+        descriptionStyle,
         {});
     result.countsAsCombos = countsAsComboNames(definition.managementRules);
     if (!result.countsAsCombos.empty())
@@ -439,7 +455,7 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
             {EffectDescriptionContainerKind::EquipmentSynergy, synergy.rules});
         bonus.effects = renderEffectDescription(
             synergyDocument,
-            EffectDescriptionStyle::Full,
+            descriptionStyle,
             {});
         result.characterBonuses.push_back(std::move(bonus));
     }
@@ -453,7 +469,8 @@ ChessComboMetadata chessComboMetadata(
     int effectiveCount,
     int activeThresholdIndex,
     int nextThresholdIndex,
-    const std::vector<ResolvedChessComboContribution>& contributions)
+    const std::vector<ResolvedChessComboContribution>& contributions,
+    EffectDescriptionStyle descriptionStyle)
 {
     ChessComboMetadata result;
     result.comboId = definition.id;
@@ -498,7 +515,7 @@ ChessComboMetadata chessComboMetadata(
             {EffectDescriptionContainerKind::ComboThreshold, threshold.rules});
         metadata.effects = renderEffectDescription(
             thresholdDocument,
-            EffectDescriptionStyle::Full,
+            descriptionStyle,
             {});
         for (const auto& rule : threshold.managementRules)
         {
@@ -630,10 +647,11 @@ const char* chessEffectCatalogSourceLabel(ChessEffectCatalogSource source)
 }
 
 std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
-    const ChessGameContent& content)
+    const ChessGameContent& content,
+    EffectDescriptionStyle descriptionStyle)
 {
     std::vector<ChessEffectCatalogEntry> result;
-    const auto appendRules = [&result](
+    const auto appendRules = [&result, descriptionStyle](
         ChessEffectCatalogSource source,
         const std::string& sourceName,
         const std::string& sourceContext,
@@ -654,7 +672,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 .sourceRuleCount = rules.size(),
                 .effects = renderEffectDescription(
                     document,
-                    EffectDescriptionStyle::Full,
+                    descriptionStyle,
                     {}),
             });
         }

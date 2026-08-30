@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <type_traits>
 
 using namespace KysChess::Battle;
@@ -189,6 +190,22 @@ TEST_CASE("BattleHitResolver applies the typed single-hit cap", "[battle][hit_re
     const auto result = resolveHit(input);
 
     CHECK(result.finalHpDamage == 25);
+}
+
+TEST_CASE("BattleHitResolver widens typed single-hit cap arithmetic",
+          "[battle][hit_resolver][damage][unit][boundary]")
+{
+    auto input = hitInput();
+    input.skill.resolvedBaseDamage = 100;
+    input.defender.vitals.maxHp = std::numeric_limits<int>::max();
+    input.damageModifiers.incomingFinal.push_back({
+        KysChess::DamageModifierOperation::CapSingleHitAtMaxHpPercent,
+        100,
+    });
+
+    const auto result = resolveHit(input);
+
+    CHECK(result.finalHpDamage == 100);
 }
 
 TEST_CASE("BattleHitResolver returns dash hitstun as an accepted-hit command", "[battle][hit_resolver][unit]")

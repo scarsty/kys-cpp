@@ -1,6 +1,7 @@
 #include "ChessCombo.h"
 
 #include "ChessBattleEffectParser.h"
+#include "ChessBattleEffectValidation.h"
 #include "ChessGameContent.h"
 #include "ChessSessionTypes.h"
 #include "battle/ChessComboResolver.h"
@@ -260,6 +261,16 @@ std::vector<ComboDef> loadChessCombos(
                         return {};
                     thresh.rules.push_back(std::move(rule));
                 }
+            }
+            std::string lifecycleError;
+            if (!validateEffectRules(thresh.rules, lifecycleError))
+            {
+                emitChessDiagnostic(
+                    diagnostics,
+                    ChessDiagnosticSeverity::Error,
+                    "羈絆配置",
+                    std::format("「{}」閾值「{}」：{}", def.name, thresh.name, lifecycleError));
+                return {};
             }
             if (const auto managementRuleNodes = tNode["管理規則"])
             {

@@ -16,6 +16,15 @@ class BattleRuntimeUnits;
 
 inline constexpr int DurationlessNegativeStatusShieldCost = 50;
 
+struct BattleStatusEffectOrigin
+{
+    EffectSourceBinding binding;
+    EffectRuleId ruleId;
+    std::uint32_t ruleOrder{};
+
+    bool operator==(const BattleStatusEffectOrigin&) const = default;
+};
+
 struct BattleTypedStatusInstance
 {
     BattleStatusKind kind{};
@@ -26,6 +35,7 @@ struct BattleTypedStatusInstance
     int stacks = 1;
     int potency = 0;
     int secondaryPotency = 0;
+    std::optional<BattleStatusEffectOrigin> origin;
     std::uint64_t appliedSequence{};
 
     bool operator==(const BattleTypedStatusInstance&) const = default;
@@ -139,6 +149,7 @@ struct BattleStatusApplyRequest
     int stacks = 1;
     int potency = 0;
     int secondaryPotency = 0;
+    std::optional<BattleStatusEffectOrigin> origin;
     EffectStackPolicy stack = EffectStackPolicy::Independent;
     std::optional<int> stackLimit;
     bool targetHasShield = false;
@@ -223,7 +234,6 @@ struct BattleStatusQuerySnapshot
     int damageTakenPct = 0;
     int damageReductionPct = 0;
     int skillDamagePct = 0;
-    int pureDamagePerHit = 0;
 
     bool has(BattleStatusKind kind) const;
     int stacks(BattleStatusKind kind) const;

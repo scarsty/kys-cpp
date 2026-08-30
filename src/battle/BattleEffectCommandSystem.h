@@ -34,7 +34,6 @@ struct BattleAttributeModifierInstance
     EffectStackPolicy stack{};
     std::optional<int> stackLimit;
     int stackCount = 1;
-    bool perStack = false;
     int eventSourceUnitId = -1;
     bool negative{};
 };

@@ -1342,6 +1342,16 @@ struct CommandEmitter
         return BattleEffectSystem::evaluateNumber(number, stateContext, target);
     }
 
+    std::pair<int, int> evaluateStatusEffects(
+        const ApplyStatusAction& action,
+        const EffectUnitSnapshot& target) const
+    {
+        return evaluateStatusRuntimeValues(action, [&](const EffectNumber& number)
+        {
+            return evaluate(number, target);
+        });
+    }
+
     void emit(const EffectAction& effectAction,
               const EffectUnitSnapshot& target,
               std::uint32_t actionOrder,
@@ -1409,36 +1419,27 @@ struct CommandEmitter
             },
             [&](const ApplyStatusAction& action)
             {
-                const int applicationCount = action.applicationCount
-                    ? evaluate(*action.applicationCount, target)
-                    : 1;
-                assert(applicationCount > 0);
-                for (int application = 0; application < applicationCount; ++application)
-                {
-                    auto applicationMetadata = metadata;
-                    if (application > 0)
-                    {
-                        applicationMetadata.commandOrdinal = nextCommandOrdinal++;
-                    }
-                    commands.push_back({ applicationMetadata, ApplyStatusEffectCommand{
-                        action,
-                        evaluate(action.potency, target),
-                        evaluate(action.secondaryPotency, target),
-                        action.duration
-                            ? std::optional<int>{ evaluate(*action.duration, target) }
-                            : std::nullopt,
-                    } });
-                }
+                const auto [potency, secondaryPotency] = evaluateStatusEffects(action, target);
+                commands.push_back({ metadata, ApplyStatusEffectCommand{
+                    action,
+                    potency,
+                    secondaryPotency,
+                    action.duration
+                        ? std::optional<int>{ evaluate(*action.duration, target) }
+                        : std::nullopt,
+                } });
             },
             [&](const ConsumeStatusAction& action)
             {
                 std::optional<ApplyStatusEffectCommand> whenDepleted;
                 if (action.whenDepleted)
                 {
+                    const auto [potency, secondaryPotency] = evaluateStatusEffects(
+                        *action.whenDepleted, target);
                     whenDepleted = ApplyStatusEffectCommand{
                         *action.whenDepleted,
-                        evaluate(action.whenDepleted->potency, target),
-                        evaluate(action.whenDepleted->secondaryPotency, target),
+                        potency,
+                        secondaryPotency,
                         action.whenDepleted->duration
                             ? std::optional<int>{ evaluate(*action.whenDepleted->duration, target) }
                             : std::nullopt,
@@ -1719,12 +1720,6 @@ int EffectUnitSnapshot::stackCount(BattleStatusKind stack) const
         {
             return status.state == stack ? total + status.stacks : total;
         });
-}
-
-int EffectUnitSnapshot::statusPotency(BattleStatusKind state) const
-{
-    const auto status = std::ranges::find(statusDetails, state, &EffectStatusSnapshot::state);
-    return status != statusDetails.end() ? status->potency : 0;
 }
 
 bool EffectUnitSnapshot::usesMagic(int magicId) const
@@ -2222,16 +2217,21 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
                 return *value;
             }
             throw std::logic_error("實際生命傷害公式需要 DamageResolved payload");
-        case EffectNumberBase::AccumulatedStateValue:
-            if (context.header.formulaInputs.accumulatedStateValue)
-            {
-                return *context.header.formulaInputs.accumulatedStateValue;
-            }
-            throw std::logic_error("累積狀態公式缺少 typed input");
-        case EffectNumberBase::SourceStatusPotency:
+        case EffectNumberBase::SourceStatusEffectValue:
+        {
             assert(number.status);
-            return context.header.owner->statusPotency(*number.status);
-        case EffectNumberBase::SourceStatusStacks:
+            assert(number.statusEffect);
+            const auto status = std::ranges::find(
+                context.header.owner->statusDetails,
+                *number.status,
+                &EffectStatusSnapshot::state);
+            if (status == context.header.owner->statusDetails.end()) return 0;
+            return statusEffectRuntimeValueSlot(*number.statusEffect)
+                    == StatusRuntimeValueSlot::Potency
+                ? status->potency
+                : status->secondaryPotency;
+        }
+        case EffectNumberBase::SourceStatusQuantity:
             assert(number.status);
             return context.header.owner->stackCount(*number.status);
         case EffectNumberBase::StoredStateValue:
@@ -2494,26 +2494,32 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
 namespace
 {
 
-void aggregateEventStatusPotency(std::vector<EffectCommand>& commands)
+void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
 {
+    const auto sumsPoisonDamage = [](const ApplyStatusEffectCommand& command)
+    {
+        const auto* poison = std::get_if<PoisonStatusEffects>(&command.action.effects);
+        return poison
+            && poison->sameEventMerge == PoisonSameEventMerge::SumDamagePercent;
+    };
     std::vector<EffectCommand> aggregated;
     aggregated.reserve(commands.size());
     for (auto& command : commands)
     {
         auto* status = std::get_if<ApplyStatusEffectCommand>(&command.value);
-        if (!status || !status->action.aggregatePotencyWithinEvent)
+        if (!status || !sumsPoisonDamage(*status))
         {
             aggregated.push_back(std::move(command));
             continue;
         }
 
         assert(status->action.status == BattleStatusKind::Poison);
-        assert(status->action.stack == EffectStackPolicy::KeepStrongest);
+        assert(status->action.reapplication == StatusReapplicationPolicy::KeepHigherDamage);
         const auto sameAggregate = [&](EffectCommand& candidate)
         {
             const auto* existing = std::get_if<ApplyStatusEffectCommand>(&candidate.value);
             return existing
-                && existing->action.aggregatePotencyWithinEvent
+                && sumsPoisonDamage(*existing)
                 && candidate.metadata.targetUnitId == command.metadata.targetUnitId
                 && candidate.metadata.binding.ownerUnitId == command.metadata.binding.ownerUnitId;
         };
@@ -2526,30 +2532,28 @@ void aggregateEventStatusPotency(std::vector<EffectCommand>& commands)
         }
 
         auto& existing = std::get<ApplyStatusEffectCommand>(existingCommand->value);
-        const auto combinedPotency = static_cast<long long>(existing.potency) + status->potency;
-        assert(combinedPotency <= std::numeric_limits<int>::max());
-        existing.potency = static_cast<int>(combinedPotency);
+        const auto combinedPotency = static_cast<std::int64_t>(existing.potency)
+            + status->potency;
+        existing.potency = static_cast<int>(std::min<std::int64_t>(
+            combinedPotency,
+            std::numeric_limits<int>::max()));
         const int existingDuration = existing.evaluatedDurationFrames.value_or(
             existing.action.durationFrames);
         const int addedDuration = status->evaluatedDurationFrames.value_or(
             status->action.durationFrames);
         existing.evaluatedDurationFrames = std::max(existingDuration, addedDuration);
-        existing.action.stacks = std::max(
-            existing.action.stacks,
-            status->action.stacks);
-        assert(existing.action.stackLimit);
-        assert(status->action.stackLimit);
-        existing.action.stackLimit = std::max(
-            *existing.action.stackLimit,
-            *status->action.stackLimit);
+        auto& existingQuantity = std::get<SetStatusTriggerCharges>(existing.action.quantity);
+        const auto& addedQuantity = std::get<SetStatusTriggerCharges>(status->action.quantity);
+        existingQuantity.count = std::max(existingQuantity.count, addedQuantity.count);
     }
 
     for (auto& command : aggregated)
     {
         if (auto* status = std::get_if<ApplyStatusEffectCommand>(&command.value);
-            status && status->action.aggregatePotencyWithinEvent)
+            status && sumsPoisonDamage(*status))
         {
-            status->action.aggregatePotencyWithinEvent = false;
+            std::get<PoisonStatusEffects>(status->action.effects).sameEventMerge
+                = PoisonSameEventMerge::None;
         }
     }
     commands = std::move(aggregated);
@@ -2844,7 +2848,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
             return entry.first.castId == cast->castId;
         });
     }
-    aggregateEventStatusPotency(result.commands);
+    aggregateEventPoisonDamagePercent(result.commands);
     return result;
 }
 

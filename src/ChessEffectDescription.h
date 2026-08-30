@@ -63,8 +63,6 @@ enum class DescriptionPlayerFact
     Condition,
     RuleQualifiers,
     Action,
-    StatusPotency,
-    StatusSecondaryPotency,
     BorrowedRuleActionCategories,
     CopiedMagicConditions,
     StateMachinePropagation,
@@ -188,14 +186,39 @@ struct EffectDescriptionFact
 
 struct DescriptionBranch;
 
+struct DescriptionStatusApplication
+{
+    EffectAction semanticAction;
+};
+
 struct DescriptionAction
 {
-    std::variant<EffectAction, std::shared_ptr<DescriptionBranch>> value;
+    std::variant<
+        EffectAction,
+        DescriptionStatusApplication,
+        std::shared_ptr<DescriptionBranch>> value;
     std::vector<DescriptionSourceField> sources;
     DescriptionFactLevel level = DescriptionFactLevel::Core;
     DescriptionPlayerProjection projection{ true, true };
     DescriptionPlayerFact playerFact = DescriptionPlayerFact::Action;
 };
+
+inline const EffectAction* descriptionEffectAction(const DescriptionAction& action)
+{
+    if (const auto* leaf = std::get_if<EffectAction>(&action.value)) return leaf;
+    if (const auto* status = std::get_if<DescriptionStatusApplication>(&action.value))
+        return &status->semanticAction;
+    return nullptr;
+}
+
+inline const ApplyStatusAction* descriptionStatusApplication(
+    const DescriptionAction& action)
+{
+    const auto* semantic = std::get_if<DescriptionStatusApplication>(&action.value);
+    return semantic
+        ? std::get_if<ApplyStatusAction>(&semantic->semanticAction.value)
+        : nullptr;
+}
 
 struct DescriptionActionGroup
 {

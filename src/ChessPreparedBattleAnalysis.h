@@ -75,6 +75,7 @@ ChessPreparedBattleAnalysis projectPreparedChessBattle(
 ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
-    int maximumFrames);
+    int maximumFrames,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
 
 }  // namespace KysChess

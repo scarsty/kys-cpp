@@ -128,6 +128,13 @@ DescriptionAction makeDescriptionAction(
         std::shared_ptr<ConditionalEffectAction>>(&action.value);
     if (!conditional)
     {
+        if (std::holds_alternative<ApplyStatusAction>(action.value))
+        {
+            return {
+                .value = DescriptionStatusApplication{ action },
+                .sources = { source },
+            };
+        }
         return {
             .value = action,
             .sources = { source },
@@ -310,6 +317,10 @@ void appendEffectNumberCoverage(
         number.status
             ? std::to_string(static_cast<int>(*number.status))
             : "absent");
+    append("statusEffect", !number.statusEffect,
+        number.statusEffect
+            ? std::to_string(static_cast<int>(*number.statusEffect))
+            : "absent");
     append("stateSlot", !number.stateSlot,
         number.stateSlot
             ? std::to_string(static_cast<int>(*number.stateSlot))
@@ -463,38 +474,117 @@ void appendApplyStatusCoverage(
             isDefault
                 ? DescriptionFieldDisposition::SchemaDefault
                 : DescriptionFieldDisposition::Visible,
-            std::move(value));
+            std::move(value),
+            DescriptionPlayerFact::Action);
     };
     const ApplyStatusAction defaults;
     appendAuditCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
         variantIndex, std::format("{}.status", path),
         DescriptionFieldDisposition::Visible,
-        std::to_string(static_cast<int>(action.status)));
+        std::to_string(static_cast<int>(action.status)),
+        DescriptionPlayerFact::Action);
     append("durationFrames", action.durationFrames == defaults.durationFrames,
         std::to_string(action.durationFrames));
     append("duration", !action.duration, action.duration ? "present" : "absent");
-    append("applicationCount", !action.applicationCount,
-        action.applicationCount ? "present" : "absent");
-    append("stacks", action.stacks == defaults.stacks, std::to_string(action.stacks));
-    append("stack", action.stack == defaults.stack,
-        std::to_string(static_cast<int>(action.stack)));
-    append("stackLimit", !action.stackLimit,
-        action.stackLimit ? std::to_string(*action.stackLimit) : "absent");
-    append("aggregatePotencyWithinEvent",
-        action.aggregatePotencyWithinEvent == defaults.aggregatePotencyWithinEvent,
-        action.aggregatePotencyWithinEvent ? "true" : "false");
+    append("quantity.variant", false, std::to_string(action.quantity.index()));
+    std::visit([&](const auto& quantity)
+    {
+        using T = std::decay_t<decltype(quantity)>;
+        if constexpr (std::is_same_v<T, NoStatusQuantity>)
+            append("quantity.none", false, "present");
+        else if constexpr (std::is_same_v<T, AddStatusLayers>)
+        {
+            append("quantity.addLayers", false, std::to_string(quantity.count));
+            append("quantity.limit", false, std::to_string(quantity.limit));
+        }
+        else if constexpr (std::is_same_v<T, SetStatusMarks>)
+            append("quantity.setMarks", false, std::to_string(quantity.count));
+        else if constexpr (std::is_same_v<T, AddDamageBlockCharges>)
+        {
+            append("quantity.addBlockCharges", false, std::to_string(quantity.count));
+            append("quantity.limit", false, std::to_string(quantity.limit));
+        }
+        else if constexpr (std::is_same_v<T, SetDamageBlockCharges>)
+            append("quantity.setBlockCharges", false, std::to_string(quantity.count));
+        else if constexpr (std::is_same_v<T, SetStatusTriggerCharges>)
+            append("quantity.triggerCharges", false, std::to_string(quantity.count));
+    }, action.quantity);
+    append("reapplication",
+        action.reapplication == StatusReapplicationPolicy::Implicit,
+        std::to_string(static_cast<int>(action.reapplication)));
+    append("effects.variant", false, std::to_string(action.effects.index()));
     if (action.duration)
         appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
-            variantIndex, *action.duration, std::format("{}.duration.value", path));
-    if (action.applicationCount)
+            variantIndex, *action.duration, std::format("{}.duration.value", path),
+            DescriptionPlayerFact::Action);
+    const auto appendEffectNumber = [&](const EffectNumber& number, std::string_view field)
+    {
         appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
-            variantIndex, *action.applicationCount, std::format("{}.applicationCount.value", path));
-    appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
-        variantIndex, action.potency, std::format("{}.potency", path),
-        DescriptionPlayerFact::StatusPotency);
-    appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
-        variantIndex, action.secondaryPotency, std::format("{}.secondaryPotency", path),
-        DescriptionPlayerFact::StatusSecondaryPotency);
+            variantIndex, number, std::format("{}.effects.{}", path, field),
+            DescriptionPlayerFact::Action);
+    };
+    std::visit([&](const auto& effects)
+    {
+        using T = std::decay_t<decltype(effects)>;
+        if constexpr (std::is_same_v<T, NoStatusEffects>)
+            append("effects.none", false, "present");
+        else if constexpr (std::is_same_v<T, PoisonStatusEffects>)
+        {
+            appendEffectNumber(effects.currentHpDamagePercent,
+                "perTrigger.currentHpDamagePercent");
+            append("effects.sameEventMerge",
+                effects.sameEventMerge == PoisonSameEventMerge::None,
+                std::to_string(static_cast<int>(effects.sameEventMerge)));
+        }
+        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
+            appendEffectNumber(effects.maxHpDamagePercent,
+                "perLayer.maxHpDamagePercent");
+        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
+        {
+            append("effects.persistent.blocksHealing", false,
+                effects.blocksHealing ? "true" : "false");
+            appendEffectNumber(effects.speedReductionPercent,
+                "persistent.speedReductionPercent");
+        }
+        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
+        {
+            appendEffectNumber(effects.damageTakenIncreasePercent,
+                "persistent.damageTakenIncreasePercent");
+            appendEffectNumber(effects.healingReductionPercent,
+                "persistent.healingReductionPercent");
+        }
+        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
+        {
+            append("effects.perTrigger.preventsCast", false,
+                effects.preventsCast ? "true" : "false");
+            appendEffectNumber(effects.originalTargetShield,
+                "perTrigger.originalTargetShield");
+        }
+        else if constexpr (std::is_same_v<T, BlindedStatusEffects>)
+            append("effects.perTrigger.preventsCast", false,
+                effects.preventsCast ? "true" : "false");
+        else if constexpr (std::is_same_v<T, NextIncomingAttackMissStatusEffects>)
+            append("effects.perTrigger.makesIncomingAttackMiss", false,
+                effects.makesIncomingAttackMiss ? "true" : "false");
+        else if constexpr (std::is_same_v<T, DamageBlockStatusEffects>)
+            append("effects.perTrigger.blocksPositiveNonExecuteDamage", false,
+                effects.blocksPositiveNonExecuteDamage ? "true" : "false");
+        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
+            appendEffectNumber(effects.damageCap, "perTrigger.damageCap");
+        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
+        {
+            appendEffectNumber(effects.skillDamageIncreasePercent,
+                "perLayer.skillDamageIncreasePercent");
+            appendEffectNumber(effects.damageReductionPercent,
+                "perLayer.damageReductionPercent");
+        }
+        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
+            appendEffectNumber(effects.pureDamagePerHit,
+                "perLayer.pureDamagePerHit");
+        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
+            appendEffectNumber(effects.deathPureDamage,
+                "perLayerValue.deathPureDamage");
+    }, action.effects);
 }
 
 void appendAttackPatternCoverage(
@@ -739,7 +829,6 @@ void appendActionCoverage(
                 scalarField("stack", typed.stack, defaults.stack);
                 optionalField("stackLimit", typed.stackLimit.has_value(),
                     typed.stackLimit ? std::to_string(*typed.stackLimit) : "absent");
-                scalarField("perStack", typed.perStack, defaults.perStack);
                 scalarField("stackScope", typed.stackScope, defaults.stackScope);
                 appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
                     variantIndex, typed.amount, std::format("{}.amount", path));
@@ -787,7 +876,7 @@ void appendActionCoverage(
             {
                 const ConsumeStatusAction defaults;
                 requiredField("status", typed.status);
-                scalarField("stacks", typed.stacks, defaults.stacks);
+                scalarField("quantity", typed.quantity, defaults.quantity);
                 scalarField("source", typed.source, defaults.source);
                 optionalField("whenDepleted", typed.whenDepleted.has_value(),
                     typed.whenDepleted ? "present" : "absent");

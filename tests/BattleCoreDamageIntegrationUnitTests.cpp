@@ -129,7 +129,7 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
             state,
             1,
             BattleAttribute::DodgeChance,
-            AttributeOperation::PercentAdd,
+            AttributeOperation::PercentagePointAdd,
             100);
 
         const auto result = runBattleFrame(state);
@@ -150,13 +150,13 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
             state,
             0,
             BattleAttribute::CriticalChance,
-            AttributeOperation::PercentAdd,
+            AttributeOperation::PercentagePointAdd,
             100);
         addTypedAttributeModifier(
             state,
             0,
             BattleAttribute::CriticalDamage,
-            AttributeOperation::PercentAdd,
+            AttributeOperation::PercentagePointAdd,
             35);
 
         const auto result = runBattleFrame(state);
@@ -180,7 +180,7 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
             state,
             1,
             BattleAttribute::BlockChance,
-            AttributeOperation::PercentAdd,
+            AttributeOperation::PercentagePointAdd,
             100);
 
         const auto result = runBattleFrame(state);
@@ -567,7 +567,7 @@ TEST_CASE("BattleFrameRunner_ExpiresDamageAbsorptionIntoSameFrameRandomPureDamag
             state,
             targetUnitId,
             BattleAttribute::DamageReduction,
-            AttributeOperation::PercentAdd,
+            AttributeOperation::PercentagePointAdd,
             25);
     }
 
@@ -745,7 +745,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime"
         state,
         1,
         BattleAttribute::MpRecoveryBonus,
-        AttributeOperation::PercentAdd,
+        AttributeOperation::PercentagePointAdd,
         50);
 
     auto result = runBattleFrame(state);
@@ -792,7 +792,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
         state,
         1,
         BattleAttribute::MpRecoveryBonus,
-        AttributeOperation::PercentAdd,
+        AttributeOperation::PercentagePointAdd,
         50);
 
     queuePendingDamage(state, first);
@@ -1060,4 +1060,3 @@ TEST_CASE("BattleFrameRunner_SummonedCloneDoesNotTransferAntiComboOwnership", "[
 
     CHECK_FALSE(state.units.require(2).comboFacts.appliedComboIds.contains(33));
 }
-

@@ -91,6 +91,7 @@ inline void checkEffectNumberEqual(const EffectNumber& lhs, const EffectNumber& 
     CHECK(lhs.base == rhs.base);
     CHECK(lhs.multiplierBase == rhs.multiplierBase);
     CHECK(lhs.status == rhs.status);
+    CHECK(lhs.statusEffect == rhs.statusEffect);
     CHECK(lhs.stateSlot == rhs.stateSlot);
     CHECK(lhs.flat == rhs.flat);
     CHECK(lhs.percent == rhs.percent);
@@ -172,13 +173,9 @@ inline void checkApplyStatusEqual(const ApplyStatusAction& lhs, const ApplyStatu
     CHECK(lhs.status == rhs.status);
     CHECK(lhs.durationFrames == rhs.durationFrames);
     checkOptionalEffectNumberEqual(lhs.duration, rhs.duration);
-    checkOptionalEffectNumberEqual(lhs.applicationCount, rhs.applicationCount);
-    CHECK(lhs.stacks == rhs.stacks);
-    checkEffectNumberEqual(lhs.potency, rhs.potency);
-    checkEffectNumberEqual(lhs.secondaryPotency, rhs.secondaryPotency);
-    CHECK(lhs.stack == rhs.stack);
-    CHECK(lhs.stackLimit == rhs.stackLimit);
-    CHECK(lhs.aggregatePotencyWithinEvent == rhs.aggregatePotencyWithinEvent);
+    CHECK(lhs.quantity == rhs.quantity);
+    CHECK(lhs.reapplication == rhs.reapplication);
+    CHECK(lhs.effects == rhs.effects);
 }
 
 inline void checkAttackPatternEqual(const AttackPattern& lhs, const AttackPattern& rhs)
@@ -344,7 +341,6 @@ inline void checkActionEqual(const EffectAction& lhs, const EffectAction& rhs)
             CHECK(left.durationFrames == right.durationFrames);
             CHECK(left.stack == right.stack);
             CHECK(left.stackLimit == right.stackLimit);
-            CHECK(left.perStack == right.perStack);
             CHECK(left.stackScope == right.stackScope);
         }
         else if constexpr (std::is_same_v<T, ModifyDamageAction>)
@@ -379,7 +375,7 @@ inline void checkActionEqual(const EffectAction& lhs, const EffectAction& rhs)
         else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
         {
             CHECK(left.status == right.status);
-            CHECK(left.stacks == right.stacks);
+            CHECK(left.quantity == right.quantity);
             CHECK(left.source == right.source);
             REQUIRE(left.whenDepleted.has_value() == right.whenDepleted.has_value());
             if (left.whenDepleted) checkApplyStatusEqual(*left.whenDepleted, *right.whenDepleted);

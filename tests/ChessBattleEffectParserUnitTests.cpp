@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <format>
@@ -113,7 +114,6 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
       持續幀數: 90
       合併方式: 增加層數
       層數上限: 3
-      每層: true
       疊加範圍: 事件來源
   - 屬性修正:
       屬性: 防禦
@@ -122,7 +122,6 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
       持續幀數: 90
       合併方式: 增加層數
       層數上限: 3
-      每層: true
       疊加範圍: 事件來源
   - 屬性修正:
       屬性: 速度
@@ -131,16 +130,14 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
       持續幀數: 90
       合併方式: 增加層數
       層數上限: 3
-      每層: true
       疊加範圍: 事件來源
   - 屬性修正:
       屬性: 暴擊率
-      方式: 百分比加算
+      方式: 百分點加算
       數值: 10
       持續幀數: 90
       合併方式: 增加層數
       層數上限: 3
-      每層: true
       疊加範圍: 事件來源
 )");
     const auto attributeShorthand = parseRuleText(R"(
@@ -155,65 +152,58 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
   持續幀數: 90
   合併方式: 增加層數
   層數上限: 3
-  每層: true
   疊加範圍: 事件來源
 )");
     checkRulesEqual(attributeCanonical, attributeShorthand);
 
-    const auto poisonShorthand = parseRuleText(R"(
+    const auto poisonRule = parseRuleText(R"(
 時機: 命中
 目標: 命中目標
-施毒:
+施加中毒:
+  可觸發次數: 3
   持續幀數: 90
-  層數: 3
-  強度: 7
+  重複套用: 保留較高傷害
+  同事件合併: 合計傷害百分比
+  效果:
+    每次觸發:
+      目前生命傷害百分比: 7
 )");
-    auto poisonCanonical = poisonShorthand;
-    ApplyStatusAction standardPoison;
-    standardPoison.status = BattleStatusKind::Poison;
-    standardPoison.durationFrames = 90;
-    standardPoison.stacks = 3;
-    standardPoison.potency.flat = 7;
-    standardPoison.stack = EffectStackPolicy::KeepStrongest;
-    standardPoison.stackLimit = 3;
-    standardPoison.aggregatePotencyWithinEvent = true;
-    poisonCanonical.actions = { EffectAction{ standardPoison } };
-    checkRulesEqual(poisonCanonical, poisonShorthand);
+    const auto& standardPoison = std::get<ApplyStatusAction>(
+        poisonRule.actions.front().value);
+    CHECK(standardPoison.quantity == StatusQuantityOperation{
+        SetStatusTriggerCharges{ 3 }});
+    CHECK(standardPoison.reapplication
+        == StatusReapplicationPolicy::KeepHigherDamage);
+    const auto& standardPoisonEffects = std::get<PoisonStatusEffects>(
+        standardPoison.effects);
+    CHECK(standardPoisonEffects.currentHpDamagePercent.flat == 7);
+    CHECK(standardPoisonEffects.sameEventMerge
+        == PoisonSameEventMerge::SumDamagePercent);
 
-    const auto resetPoisonShorthand = parseRuleText(R"(
+    const auto resetPoisonRule = parseRuleText(R"(
 時機: 絕招施放
 目標: 所有敵人
-施毒:
-  模式: 取代重設
+施加中毒:
+  可觸發次數: 5
   持續幀數: 150
-  層數: 5
-  強度: 10
+  重複套用: 取代並重設
+  效果:
+    每次觸發:
+      目前生命傷害百分比: 10
 )");
-    auto resetPoisonCanonical = resetPoisonShorthand;
-    ApplyStatusAction resetPoison;
-    resetPoison.status = BattleStatusKind::Poison;
-    resetPoison.durationFrames = 150;
-    resetPoison.stacks = 5;
-    resetPoison.potency.flat = 10;
-    resetPoison.stack = EffectStackPolicy::Replace;
-    resetPoison.stackLimit = 5;
-    resetPoisonCanonical.actions = { EffectAction{ resetPoison } };
-    checkRulesEqual(resetPoisonCanonical, resetPoisonShorthand);
+    const auto& resetPoison = std::get<ApplyStatusAction>(
+        resetPoisonRule.actions.front().value);
+    CHECK(resetPoison.quantity == StatusQuantityOperation{
+        SetStatusTriggerCharges{ 5 }});
+    CHECK(resetPoison.reapplication
+        == StatusReapplicationPolicy::ReplaceAndReset);
 
-    const auto boundedPoisonShorthand = parseRuleText(R"(
+    EffectRule removedPoisonRule;
+    CHECK_FALSE(parseEffectRule(YAML::Load(R"(
 時機: 命中
 目標: 命中目標
-施毒:
-  持續幀數:
-    固定: 90
-    最大: 30
-  層數: 3
-  強度: 7
-)");
-    auto boundedPoisonCanonical = boundedPoisonShorthand;
-    standardPoison.durationFrames = 30;
-    boundedPoisonCanonical.actions = { EffectAction{ standardPoison } };
-    checkRulesEqual(boundedPoisonCanonical, boundedPoisonShorthand);
+施毒: {持續幀數: 90, 層數: 3, 強度: 7}
+)"), removedPoisonRule, EffectRuleId{ 2 }, "已移除的施毒簡式"));
 
     const auto controlledCanonical = parseRuleText(R"(
 時機: 命中
@@ -228,11 +218,11 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
   - 套用狀態:
       狀態: 寒毒
       持續幀數: 90
-      層數: 2
-      強度: {基準: 來源最大生命, 百分比: 3}
-      次要強度: 4
-      合併方式: 增加層數
-      層數上限: 6
+      重複套用: 刷新持續時間
+      效果:
+        持續生效:
+          禁止受到治療: true
+          速度降低百分比: {基準: 來源最大生命, 百分比: 3}
 )");
     const auto controlledShorthand = parseRuleText(R"(
 時機: 命中
@@ -246,11 +236,11 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
   - 套用狀態:
       狀態: 寒毒
       持續幀數: 90
-      層數: 2
-      強度: {來源最大生命百分比: 3}
-      次要強度: 4
-      合併方式: 增加層數
-      層數上限: 6
+      重複套用: 刷新持續時間
+      效果:
+        持續生效:
+          禁止受到治療: true
+          速度降低百分比: {來源最大生命百分比: 3}
 )");
     checkRulesEqual(controlledCanonical, controlledShorthand);
 
@@ -308,12 +298,17 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
       方位: 承受
       階段: 最終
       傷害種類: 全部
-      方式: 單次承傷上限
+      方式: 每次承傷不超過最大生命百分比
       數值: 20
 )", R"(
 時機: 開場
 目標: 自身
-單次承傷上限: 20
+傷害修正:
+  方位: 承受
+  階段: 最終
+  傷害種類: 全部
+  方式: 每次承傷不超過最大生命百分比
+  數值: 20
 )" },
         { R"(
 時機: 主彈命中
@@ -678,9 +673,11 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
     REQUIRE(status != nullptr);
     CHECK(status->status == BattleStatusKind::WitheredBone);
     CHECK(status->durationFrames == 120);
-    CHECK(status->potency.flat == 25);
-    CHECK(status->secondaryPotency.flat == 75);
-    CHECK(status->stack == EffectStackPolicy::Refresh);
+    CHECK(status->reapplication == StatusReapplicationPolicy::RefreshDuration);
+    const auto& witheredEffects = std::get<WitheredBoneStatusEffects>(
+        status->effects);
+    CHECK(witheredEffects.damageTakenIncreasePercent.flat == 25);
+    CHECK(witheredEffects.healingReductionPercent.flat == 75);
 
     const auto& fiveTiger = definitionWithId(definitions, 59);
     const auto& fiveTigerPlan = ruleWithEvent(fiveTiger, EffectEvent::CastPlanned);
@@ -783,20 +780,27 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
         &poisonExplosion.actions[0].value);
     REQUIRE(poisonExplosionDamage != nullptr);
     REQUIRE(poisonExplosion.repetitionCount);
-    CHECK(poisonExplosion.repetitionCount->base == EffectNumberBase::SourceStatusStacks);
+    CHECK(poisonExplosion.repetitionCount->base == EffectNumberBase::SourceStatusQuantity);
     CHECK(poisonExplosion.repetitionCount->status == BattleStatusKind::PoisonExplosion);
     CHECK(poisonExplosion.repetitionCount->minimum == 1);
     CHECK(poisonExplosion.selector.kind == EffectSelectorKind::UnitsInRadius);
     CHECK(poisonExplosionDamage->area.kind == DamageAreaKind::SingleTarget);
-    CHECK(poisonExplosionDamage->amount.base == EffectNumberBase::SourceStatusPotency);
+    CHECK(poisonExplosionDamage->amount.base == EffectNumberBase::SourceStatusEffectValue);
     CHECK(poisonExplosionDamage->amount.status == BattleStatusKind::PoisonExplosion);
+    CHECK(poisonExplosionDamage->amount.statusEffect
+        == StatusEffectValueKind::PoisonExplosionDeathPureDamage);
     CHECK_FALSE(poisonExplosionDamage->transactionCount);
     const auto* poisonExplosionStatus = std::get_if<ApplyStatusAction>(
         &poisonExplosion.actions[1].value);
     REQUIRE(poisonExplosionStatus != nullptr);
-    CHECK_FALSE(poisonExplosionStatus->applicationCount);
-    CHECK(descriptionText(std::span<const EffectRule>{&(poisonExplosion), 1}, EffectDescriptionStyle::Full, {}).find(
-        "依序重複毒爆層數的100%（至少1）次") != std::string::npos);
+    CHECK(std::holds_alternative<SetStatusTriggerCharges>(
+        poisonExplosionStatus->quantity));
+    const auto poisonExplosionDescription = descriptionText(
+        std::span<const EffectRule>{&(poisonExplosion), 1},
+        EffectDescriptionStyle::Full,
+        {});
+    CHECK(poisonExplosionDescription.find("100%") == std::string::npos);
+    CHECK(poisonExplosionDescription.find("強度") == std::string::npos);
 
     const auto& sevenStar = ruleWithEvent(
         definitionWithId(definitions, 39),
@@ -834,7 +838,8 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
     CHECK(heavenDragonStun.duration->flat == 25);
     CHECK(heavenDragonStun.duration->percent == 2500);
     CHECK(heavenDragonStun.duration->maximum == 150);
-    CHECK(heavenDragonStun.stack == EffectStackPolicy::Refresh);
+    CHECK(heavenDragonStun.reapplication
+        == StatusReapplicationPolicy::KeepLongerDuration);
 
     const auto& starShift = ruleWithEvent(
         definitionWithId(definitions, 43),
@@ -954,19 +959,28 @@ TEST_CASE("ChessBattleEffects_AnranUsesAttackTimesMissingHpRatio", "[battle][eff
     }
 }
 
-TEST_CASE("ChessBattleEffects_JiuyangQiDamageMatchesEveryOwnerCast",
-          "[battle][effects][magic][schema][cast_match]")
+TEST_CASE("ChessBattleEffects_JiuyangAuthorsTrueQiAsStatusOwnedHitDamage",
+          "[battle][effects][magic][schema][status]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
     const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
-    const auto& rule = ruleWithEvent(
-        definitionWithId(definitions, 106),
-        EffectEvent::HitBeforeDamage);
-    CHECK(rule.castMatch == EffectCastMatch::OwnerAnyCast);
-    CHECK(descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Full, {}).find("任意施放")
-          != std::string::npos);
+    const auto& jiuyang = definitionWithId(definitions, 106);
+    REQUIRE(jiuyang.rules.size() == 1);
+    const auto& producer = ruleWithEvent(jiuyang, EffectEvent::AttackCommitted);
+    REQUIRE(producer.actions.size() == 2);
+    const auto* trueQi = std::get_if<ApplyStatusAction>(&producer.actions[1].value);
+    REQUIRE(trueQi != nullptr);
+    CHECK(trueQi->status == BattleStatusKind::TrueQi);
+    CHECK(trueQi->quantity == StatusQuantityOperation{ AddStatusLayers{ 1, 10 } });
+    const auto* effects = std::get_if<TrueQiStatusEffects>(&trueQi->effects);
+    REQUIRE(effects != nullptr);
+    CHECK(effects->pureDamagePerHit.flat == 9);
+    CHECK(std::ranges::none_of(jiuyang.rules, [](const EffectRule& rule)
+    {
+        return rule.event == EffectEvent::HitBeforeDamage;
+    }));
 }
 
 TEST_CASE("ChessBattleEffects_XiaoyaoDeclaresActionPreservingStaggerRelease", "[battle][effects][magic][schema][control]")
@@ -1444,6 +1458,59 @@ TEST_CASE("ChessBattleEffects_CurrentHpBlastPreservesTypedDamagePolicy",
             CHECK(description.find("不觸發受傷無敵") != std::string::npos);
         }
     }
+}
+
+TEST_CASE("ChessBattleEffects_ShippedPersistentHitCapsPreserveAllThreePercentages",
+          "[battle][effects][damage-modifier][content]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content != nullptr);
+
+    std::vector<int> capPercentages;
+    const auto inspectRules = [&](std::span<const EffectRule> rules)
+    {
+        for (const auto& rule : rules)
+        {
+            for (const auto& action : rule.actions)
+            {
+                const auto* modifier = std::get_if<ModifyDamageAction>(
+                    &action.value);
+                if (!modifier
+                    || modifier->operation
+                        != DamageModifierOperation::CapSingleHitAtMaxHpPercent)
+                {
+                    continue;
+                }
+                CHECK(rule.event == EffectEvent::BattleInitialized);
+                CHECK(modifier->perspective
+                    == DamageModifierPerspective::Incoming);
+                CHECK(modifier->stage == DamageModifierStage::Final);
+                CHECK(modifier->channel == DamageChannel::All);
+                CHECK(modifier->durationFrames == 0);
+                CHECK(modifier->stack == EffectStackPolicy::Independent);
+                CHECK(modifier->amount.base == EffectNumberBase::Constant);
+                CHECK_FALSE(modifier->amount.multiplierBase);
+                CHECK_FALSE(modifier->amount.status);
+                CHECK_FALSE(modifier->amount.statusEffect);
+                CHECK_FALSE(modifier->amount.stateSlot);
+                CHECK(modifier->amount.percent == 0);
+                capPercentages.push_back(modifier->amount.flat);
+            }
+        }
+    };
+
+    for (const auto& combo : content->combos())
+        for (const auto& threshold : combo.thresholds)
+            inspectRules(threshold.rules);
+    for (const auto& equipment : content->equipment())
+        inspectRules(equipment.rules);
+    for (const auto& synergy : content->equipmentSynergies())
+        inspectRules(synergy.rules);
+    for (const auto& neigong : content->neigong())
+        inspectRules(neigong.rules);
+
+    std::ranges::sort(capPercentages);
+    CHECK(capPercentages == std::vector<int>{ 8, 8, 12 });
 }
 
 TEST_CASE("ChessBattleEffects_DeathBlastPreservesTypedDamagePolicy",

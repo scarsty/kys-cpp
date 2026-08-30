@@ -17,7 +17,8 @@ namespace
 std::vector<ChessComboMetadata> activeTeamSynergies(
     const ChessGameContent& content,
     const std::vector<Battle::BattleSetupRosterUnit>& roster,
-    const Battle::BattleRuntimeSetupSeed& setup)
+    const Battle::BattleRuntimeSetupSeed& setup,
+    EffectDescriptionStyle descriptionStyle)
 {
     std::vector<ChessComboMetadata> result;
     for (const auto& resolved : Battle::resolveBattleSetupCombos(roster, setup))
@@ -38,7 +39,8 @@ std::vector<ChessComboMetadata> activeTeamSynergies(
             resolved.effectiveMemberCount,
             resolved.activeThresholdIndex,
             resolved.nextThresholdIndex,
-            resolved.contributions));
+            resolved.contributions,
+            descriptionStyle));
     }
     return result;
 }
@@ -114,7 +116,8 @@ ChessPreparedBattleAnalysis projectPreparedChessBattle(
 ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
-    int maximumFrames)
+    int maximumFrames,
+    EffectDescriptionStyle descriptionStyle)
 {
     auto result = projectPreparedChessBattle(prepared, content);
     result.baselineStatsNote = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
@@ -126,7 +129,11 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
         const auto* role = content.role(source.roleId);
         assert(role);
         unit.baselineStats = chessPreparedUnitBaselineStats(content, source);
-        unit.abilities = chessAbilitiesForRoleStar(content, *role, source.star);
+        unit.abilities = chessAbilitiesForRoleStar(
+            content,
+            *role,
+            source.star,
+            descriptionStyle);
     }
 
     if (prepared.chosenMapId < 0 && !prepared.mapCandidates.empty())
@@ -138,8 +145,16 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
         prepared,
         content,
         maximumFrames);
-    result.allySynergies = activeTeamSynergies(content, input.setup.allyRoster, input.setup);
-    result.enemySynergies = activeTeamSynergies(content, input.setup.enemyRoster, input.setup);
+    result.allySynergies = activeTeamSynergies(
+        content,
+        input.setup.allyRoster,
+        input.setup,
+        descriptionStyle);
+    result.enemySynergies = activeTeamSynergies(
+        content,
+        input.setup.enemyRoster,
+        input.setup,
+        descriptionStyle);
 
     std::set<int> seenMagicIds;
     for (const auto& setupUnit : input.units)

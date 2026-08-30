@@ -218,8 +218,9 @@ TEST_CASE("EffectDescriptionDocument_ResolvesObservedSourceSeparatelyFromEffectO
         },
         .actions = {
             EffectAction{ EffectActionValue{ ApplyStatusAction{
-                .status = BattleStatusKind::Poison,
+                .status = BattleStatusKind::Stun,
                 .durationFrames = 30,
+                .reapplication = StatusReapplicationPolicy::KeepLongerDuration,
             } } },
         },
     };
@@ -423,10 +424,13 @@ TEST_CASE("EffectDescriptionDocument_PlayerProjectionAuthorizesGenericFieldsAndF
 觀察範圍: 效果擁有者同隊事件來源
 目標: 命中目標
 套用狀態:
-  狀態: 寒毒
-  強度: 25
-  次要強度: 75
-  合併方式: 刷新
+  狀態: 枯骨
+  持續幀數: 90
+  重複套用: 刷新持續時間
+  效果:
+    持續生效:
+      受到傷害增加百分比: 25
+      受到治療減少百分比: 75
 )");
     const std::array rules{rule};
     auto document = buildEffectDescriptionDocument({
@@ -451,17 +455,17 @@ TEST_CASE("EffectDescriptionDocument_PlayerProjectionAuthorizesGenericFieldsAndF
         return *entry;
     };
     constexpr DescriptionPlayerProjection bothPlayerStyles{true, true};
-    auto& potency = findCoverage(block, "actions[0].potency.flat");
-    auto& secondaryPotency = findCoverage(
-        block, "actions[0].secondaryPotency.flat");
+    auto& damageIncrease = findCoverage(
+        block, "actions[0].effects.persistent.damageTakenIncreasePercent.flat");
+    auto& healingReduction = findCoverage(
+        block, "actions[0].effects.persistent.healingReductionPercent.flat");
     auto& observation = findCoverage(block, "observation");
-    CHECK(potency.level == DescriptionFactLevel::Audit);
-    CHECK(potency.playerFact == DescriptionPlayerFact::StatusPotency);
-    CHECK(potency.projection == bothPlayerStyles);
-    CHECK(secondaryPotency.level == DescriptionFactLevel::Audit);
-    CHECK(secondaryPotency.playerFact
-        == DescriptionPlayerFact::StatusSecondaryPotency);
-    CHECK(secondaryPotency.projection == bothPlayerStyles);
+    CHECK(damageIncrease.level == DescriptionFactLevel::Audit);
+    CHECK(damageIncrease.playerFact == DescriptionPlayerFact::Action);
+    CHECK(damageIncrease.projection == bothPlayerStyles);
+    CHECK(healingReduction.level == DescriptionFactLevel::Audit);
+    CHECK(healingReduction.playerFact == DescriptionPlayerFact::Action);
+    CHECK(healingReduction.projection == bothPlayerStyles);
     CHECK(observation.level == DescriptionFactLevel::Decision);
     CHECK(observation.playerFact == DescriptionPlayerFact::Trigger);
     CHECK(observation.projection == bothPlayerStyles);
@@ -472,13 +476,14 @@ TEST_CASE("EffectDescriptionDocument_PlayerProjectionAuthorizesGenericFieldsAndF
         {}));
     CHECK(full.find("由效果持有者同隊事件來源觸發")
         != std::string::npos);
-    CHECK(full.find("強度為25") != std::string::npos);
-    CHECK(full.find("次要強度為75") != std::string::npos);
+    CHECK(full.find("受到傷害增加25%") != std::string::npos);
+    CHECK(full.find("受到治療減少75%") != std::string::npos);
 
     auto withoutFullPotency = document;
     findCoverage(
         withoutFullPotency.sections[0].blocks[0],
-        "actions[0].potency.flat").projection.full = false;
+        "actions[0].effects.persistent.damageTakenIncreasePercent.flat")
+        .projection.full = false;
     CHECK_THROWS_AS(
         renderEffectDescription(
             withoutFullPotency,
@@ -755,11 +760,6 @@ TEST_CASE("EffectDescriptionDocument_PreservesAdjacentAttributeActionsAndQualifi
         checkDoesNotCoalesce(ineligiblePolicy);
     }
 
-    auto perStack = eligible;
-    for (auto& action : perStack.actions)
-        std::get<ModifyAttributeAction>(action.value).perStack = true;
-    checkDoesNotCoalesce(perStack);
-
     auto permanent = eligible;
     for (auto& action : permanent.actions)
         std::get<ModifyAttributeAction>(action.value).durationFrames = 0;
@@ -892,16 +892,16 @@ TEST_CASE("ChessBattleEffects_PlayerPhrasesUseTypedSignsAndAttributeUnits",
 目標: 自身
 屬性修正:
   屬性: 傷害減免
-  方式: 百分比加算
+  方式: 百分點加算
   數值: 6
 )");
-    CHECK(descriptionText(std::span<const EffectRule>{&(reductionAttribute), 1}, EffectDescriptionStyle::Full, {}) == "減傷+6%");
+    CHECK(descriptionText(std::span<const EffectRule>{&(reductionAttribute), 1}, EffectDescriptionStyle::Full, {}) == "傷害減免+6%");
     auto changedReduction = reductionAttribute;
     auto& reduction = std::get<ModifyAttributeAction>(changedReduction.actions.front().value);
     reduction.amount.flat = -6;
-    CHECK(descriptionText(std::span<const EffectRule>{&(changedReduction), 1}, EffectDescriptionStyle::Full, {}) == "減傷-6%");
+    CHECK(descriptionText(std::span<const EffectRule>{&(changedReduction), 1}, EffectDescriptionStyle::Full, {}) == "傷害減免-6%");
     reduction.amount.flat = 0;
-    CHECK(descriptionText(std::span<const EffectRule>{&(changedReduction), 1}, EffectDescriptionStyle::Full, {}) == "減傷+0%");
+    CHECK(descriptionText(std::span<const EffectRule>{&(changedReduction), 1}, EffectDescriptionStyle::Full, {}) == "傷害減免+0%");
 
     const auto blockChance = parseRuleText(R"(
 時機: 開場
@@ -1312,19 +1312,39 @@ TEST_CASE("EffectDescriptionDocument_RendersRepresentativeContainerLifecycles",
     };
 
     CHECK(compactRows(39) == std::vector<std::string>{
-        "主彈命中：施加七星7層（150幀）",
-        "友軍命中七星目標：破防50%，消耗1層",
-        "  最後一層消耗時眩暈30幀",
+        "主彈命中：七星印記設為7枚（150幀；再施加時重設）",
+        "友軍命中七星目標：破防50%、耗1枚",
+        "  耗盡時眩暈30幀",
     });
     const auto sevenStarFull = rows(39, EffectDescriptionStyle::Full);
-    CHECK(std::ranges::any_of(sevenStarFull, [](const std::string& row)
-    {
-        return row.contains("任一友軍命中由效果持有者施加七星的敵人時");
-    }));
-    CHECK(std::ranges::none_of(sevenStarFull, [](const std::string& row)
-    {
-        return row.contains("由施法者施加七星");
-    }));
+    CHECK(sevenStarFull == std::vector<std::string>{
+        "主彈命中時，將該敵人的七星印記設為7枚，持續150幀；再次施加會重設印記與持續時間",
+        "任一友軍命中由效果持有者施加七星印記的敵人時，該次招式忽略50%防禦並消耗1枚印記",
+        "  印記耗盡時，使該敵人眩暈30幀",
+    });
+    CHECK(compactRows(26) == std::vector<std::string>{
+        "戰意+1層（每層增傷5%、減傷1%，最多10層）",
+        "  滿層增傷50%、減傷10%",
+    });
+    CHECK(rows(26, EffectDescriptionStyle::Full) == std::vector<std::string>{
+        "獲得1層戰意，最多10層；每層使招式傷害提高5%、受到傷害降低1%",
+        "10層時，招式傷害共提高50%、受到傷害共降低10%",
+    });
+    const auto battleSpiritDetailed = rows(26, EffectDescriptionStyle::Detailed);
+    CHECK(std::ranges::contains(battleSpiritDetailed, "  動作：增加戰意1層"));
+    CHECK(std::ranges::contains(battleSpiritDetailed, "  層數上限：10層"));
+    CHECK(std::ranges::contains(
+        battleSpiritDetailed, "  每層生效：招式傷害增加5%"));
+    CHECK(std::ranges::contains(
+        battleSpiritDetailed, "  每層生效：傷害減免1%"));
+
+    const auto sevenStarDetailed = rows(39, EffectDescriptionStyle::Detailed);
+    CHECK(std::ranges::contains(
+        sevenStarDetailed, "  動作：將七星印記設為7枚"));
+    CHECK(std::ranges::contains(sevenStarDetailed, "  持續時間：150幀"));
+    CHECK(std::ranges::contains(
+        sevenStarDetailed,
+        "  重複套用：重新設定印記數量並重計持續時間"));
     CHECK(compactRows(43) == std::vector<std::string>{
         "準備施放大招：依星級隨機借用1～2名敵人的大招效果",
     });
@@ -1336,19 +1356,18 @@ TEST_CASE("EffectDescriptionDocument_RendersRepresentativeContainerLifecycles",
         "施放大招：隨機複製另一名存活單位的絕招攻擊，不複製大招效果",
     });
     CHECK(compactRows(95) == std::vector<std::string>{
-        "獲得毒爆1層（強度為星級×60，最多5層）",
+        "毒爆+1層（每層爆炸傷害星級×60，最多5層）",
         "施法者死亡：逐層引爆",
-        "  每層依毒爆強度傷害5格內所有敵軍並施加中毒4層（強度為10，120幀）",
+        "  每層爆炸傷害5格內所有敵軍並施加中毒（4次、每次目前生命10%、120幀）",
     });
     CHECK(rows(95, EffectDescriptionStyle::Full) == std::vector<std::string>{
-        "獲得毒爆1層，強度為星級×60，最多5層",
+        "獲得1層毒爆，最多5層；每層提供星級×60死亡爆炸純粹傷害",
         "施法者死亡時，逐層引爆毒爆",
-        "  每層對5格內所有敵軍造成毒爆強度的100%純粹傷害",
-        "  並施加中毒4層（強度為10，持續120幀）",
+        "  每層對5格內所有敵軍造成該層「死亡爆炸純粹傷害」數值的純粹傷害",
+        "  並施加可觸發4次的中毒（每次造成目前生命10%傷害，持續120幀）",
     });
     CHECK(compactRows(126) == std::vector<std::string>{
-        "對生命比例最低的5名友軍施加單次承傷上限，強度為目標最大生命的15%",
-        "  取代既有狀態，最多1層",
+        "對生命比例最低的5名友軍下次承傷不超過目標最大生命的15%，至少1",
     });
 
     const auto& poison = definitionWithId(content->magicEffects(), 95);
@@ -1376,16 +1395,16 @@ TEST_CASE("EffectDescriptionDocument_RendersRepresentativeContainerLifecycles",
         });
     REQUIRE(producer != stackBlock->blocks.end());
     constexpr DescriptionPlayerProjection bothPlayerStyles{true, true};
-    bool foundProjectedPotency{};
+    bool foundProjectedEffectValue{};
     bool foundUnprojectedDefault{};
     for (const auto& entry : producer->coverage.fields)
     {
-        if (entry.playerFact != DescriptionPlayerFact::StatusPotency
-            && entry.playerFact != DescriptionPlayerFact::StatusSecondaryPotency)
+        if (!entry.source.path.starts_with(
+                "actions[0].effects.perLayerValue.deathPureDamage."))
             continue;
         if (entry.disposition == DescriptionFieldDisposition::Visible)
         {
-            foundProjectedPotency = true;
+            foundProjectedEffectValue = true;
             CHECK(entry.projection == bothPlayerStyles);
         }
         if (entry.disposition == DescriptionFieldDisposition::SchemaDefault)
@@ -1394,8 +1413,126 @@ TEST_CASE("EffectDescriptionDocument_RendersRepresentativeContainerLifecycles",
             CHECK(entry.projection == DescriptionPlayerProjection{});
         }
     }
-    CHECK(foundProjectedPotency);
+    CHECK(foundProjectedEffectValue);
     CHECK(foundUnprojectedDefault);
+}
+
+TEST_CASE("EffectDescriptionDocument_RendersStatusMergeAndCapSemanticsExplicitly",
+          "[battle][effects][description][status][golden]")
+{
+    auto poison = parseRuleText(R"(
+時機: 主彈命中
+目標: 命中目標
+施加中毒:
+  可觸發次數: 3
+  持續幀數: 90
+  重複套用: 保留較高傷害
+  同事件合併: 合計傷害百分比
+  效果:
+    每次觸發:
+      目前生命傷害百分比: 7
+)");
+    const auto poisonText = [&](EffectDescriptionStyle style)
+    {
+        return descriptionText(std::span<const EffectRule>{&poison, 1}, style, {});
+    };
+    const auto detailedPoison = poisonText(EffectDescriptionStyle::Detailed);
+    const auto fullPoison = poisonText(EffectDescriptionStyle::Full);
+    const auto compactPoison = poisonText(EffectDescriptionStyle::Compact);
+    CHECK(detailedPoison.find(
+        "同事件合併：同一效果擁有者在同一事件對同一目標施加時，先合計傷害百分比再比較較高傷害")
+        != std::string::npos);
+    CHECK(fullPoison.find(
+        "同一效果擁有者在同一事件對同一目標施加時，先合計傷害百分比再比較較高傷害")
+        != std::string::npos);
+    CHECK(compactPoison.find("同源同事件先合計毒傷%") != std::string::npos);
+
+    auto& poisonEffects = std::get<PoisonStatusEffects>(
+        std::get<ApplyStatusAction>(poison.actions[0].value).effects);
+    poisonEffects.sameEventMerge = PoisonSameEventMerge::None;
+    for (const auto style : {
+             EffectDescriptionStyle::Detailed,
+             EffectDescriptionStyle::Full,
+             EffectDescriptionStyle::Compact,
+         })
+    {
+        const auto withoutMerge = poisonText(style);
+        CAPTURE(style);
+        if (style == EffectDescriptionStyle::Detailed)
+            CHECK(withoutMerge != detailedPoison);
+        else if (style == EffectDescriptionStyle::Full)
+            CHECK(withoutMerge != fullPoison);
+        else
+            CHECK(withoutMerge != compactPoison);
+        CHECK(withoutMerge.find("同事件合併") == std::string::npos);
+        CHECK(withoutMerge.find("同源同事件") == std::string::npos);
+    }
+
+    const auto damageBlock = parseRuleText(R"(
+時機: 攻擊提交
+目標: 自身
+套用狀態:
+  狀態: 傷害抵擋
+  增加可抵擋次數: 2
+  可抵擋次數上限: 5
+  效果:
+    每次觸發:
+      抵擋非處決正傷害: true
+)", 2);
+    const auto fullDamageBlock = descriptionText(
+        std::span<const EffectRule>{&damageBlock, 1},
+        EffectDescriptionStyle::Full,
+        {});
+    const auto compactDamageBlock = descriptionText(
+        std::span<const EffectRule>{&damageBlock, 1},
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(fullDamageBlock.find(
+        "增加2次傷害抵擋，最多5次抵擋；每次抵擋一次非處決正傷害")
+        != std::string::npos);
+    CHECK(compactDamageBlock.find(
+        "傷害抵擋+2次（每次抵擋一次非處決正傷害，最多5次抵擋）")
+        != std::string::npos);
+    CHECK(fullDamageBlock.find("最多5層") == std::string::npos);
+    CHECK(compactDamageBlock.find("最多5層") == std::string::npos);
+
+    const auto persistentCap = parseRuleText(R"(
+時機: 開場
+目標: 自身
+傷害修正:
+  方位: 承受
+  階段: 最終
+  傷害種類: 全部
+  方式: 每次承傷不超過最大生命百分比
+  數值: 12
+)", 3);
+    const auto fullPersistentCap = descriptionText(
+        std::span<const EffectRule>{&persistentCap, 1},
+        EffectDescriptionStyle::Full,
+        {});
+    const auto compactPersistentCap = descriptionText(
+        std::span<const EffectRule>{&persistentCap, 1},
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(fullPersistentCap.find("每次承傷不超過最大生命的12%")
+        != std::string::npos);
+    CHECK(compactPersistentCap.find("每次承傷≤最大生命12%")
+        != std::string::npos);
+    CHECK(fullPersistentCap.find("下一次") == std::string::npos);
+    CHECK(fullPersistentCap.find("下次承傷") == std::string::npos);
+    CHECK(compactPersistentCap.find("下一次") == std::string::npos);
+    CHECK(compactPersistentCap.find("下次承傷") == std::string::npos);
+
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    const auto& consumableCap = definitionWithId(content->magicEffects(), 126);
+    const auto consumableText = descriptionText(
+        consumableCap.rules,
+        EffectDescriptionStyle::Full,
+        {});
+    INFO(consumableText);
+    CHECK(consumableText.find("下次承傷不超過目標最大生命的15%（至少1）")
+        != std::string::npos);
 }
 
 TEST_CASE("EffectDescriptionDocument_GenericFallbackSignatureCoversNestedTypedPayloads",
@@ -2062,16 +2199,16 @@ TEST_CASE("EffectDescriptionDocument_FormalContentMeetsCoverageAndRowContracts",
         for (const auto& threshold : combo.thresholds)
             checkContainer(EffectDescriptionContainerKind::ComboThreshold,
                 threshold.rules);
-    CHECK(maximumCompactRowWidth == 71);
+    CHECK(maximumCompactRowWidth == 70);
     std::string fallbackShapeCorpus;
     for (const auto& shape : fallbackShapes)
     {
         fallbackShapeCorpus += shape;
         fallbackShapeCorpus += '\n';
     }
-    CHECK(fallbackShapes.size() == 347);
+    CHECK(fallbackShapes.size() == 346);
     CHECK(chessSha256Hex(chessSha256(fallbackShapeCorpus))
-        == "d9eff921d80ffa8aec8f395dc2713c514a199c934374cfe1d11722d5343630b7");
+        == "ccc759057f0edbde47486c241a7663839726859b8e7283537e27ef3df0b12490");
 }
 
 TEST_CASE("EffectDescriptionDocument_PresentationContextOnlyOmitsMatchingBoundTrigger",
@@ -2216,21 +2353,31 @@ TEST_CASE("EffectDescriptionDocument_ArchetypesRejectUndeclaredShapeMutations",
         originalSevenStarRules, EffectDescriptionStyle::Full);
     const auto originalSevenStarCompact = playerRows(
         originalSevenStarRules, EffectDescriptionStyle::Compact);
-    for (const bool secondary : {false, true})
-    {
-        auto mutated = originalSevenStarRules;
-        auto& applied = std::get<ApplyStatusAction>(
-            mutated.front().actions.front().value);
-        (secondary ? applied.secondaryPotency : applied.potency).flat += 1;
-        CHECK_FALSE(std::ranges::contains(
-            archetypes(mutated),
-            DescriptionArchetype::StatusLifecycle));
-        CHECK(detailedRows(mutated) != originalSevenStarDetailed);
-        CHECK(playerRows(mutated, EffectDescriptionStyle::Full)
-            != originalSevenStarFull);
-        CHECK(playerRows(mutated, EffectDescriptionStyle::Compact)
-            != originalSevenStarCompact);
-    }
+    auto mutatedSevenStarQuantity = originalSevenStarRules;
+    auto& sevenStarApplication = std::get<ApplyStatusAction>(
+        mutatedSevenStarQuantity.front().actions.front().value);
+    ++std::get<SetStatusMarks>(sevenStarApplication.quantity).count;
+    CHECK(std::ranges::contains(
+        archetypes(mutatedSevenStarQuantity),
+        DescriptionArchetype::StatusLifecycle));
+    CHECK(detailedRows(mutatedSevenStarQuantity) != originalSevenStarDetailed);
+    CHECK(playerRows(mutatedSevenStarQuantity, EffectDescriptionStyle::Full)
+        != originalSevenStarFull);
+    CHECK(playerRows(mutatedSevenStarQuantity, EffectDescriptionStyle::Compact)
+        != originalSevenStarCompact);
+
+    auto mutatedSevenStarEffect = originalSevenStarRules;
+    auto& ignoredDefense = std::get<ModifyDamageAction>(
+        mutatedSevenStarEffect[1].actions.front().value);
+    ++ignoredDefense.amount.flat;
+    CHECK(std::ranges::contains(
+        archetypes(mutatedSevenStarEffect),
+        DescriptionArchetype::StatusLifecycle));
+    CHECK(detailedRows(mutatedSevenStarEffect) != originalSevenStarDetailed);
+    CHECK(playerRows(mutatedSevenStarEffect, EffectDescriptionStyle::Full)
+        != originalSevenStarFull);
+    CHECK(playerRows(mutatedSevenStarEffect, EffectDescriptionStyle::Compact)
+        != originalSevenStarCompact);
 
     const auto originalPoisonExplosionRules = definitionWithId(
         content->magicEffects(),
@@ -2241,19 +2388,30 @@ TEST_CASE("EffectDescriptionDocument_ArchetypesRejectUndeclaredShapeMutations",
         originalPoisonExplosionRules, EffectDescriptionStyle::Full);
     const auto originalPoisonExplosionCompact = playerRows(
         originalPoisonExplosionRules, EffectDescriptionStyle::Compact);
-    for (const bool secondary : {false, true})
-    {
-        auto mutated = originalPoisonExplosionRules;
-        auto& applied = std::get<ApplyStatusAction>(
-            mutated.front().actions.front().value);
-        (secondary ? applied.secondaryPotency : applied.potency).flat += 1;
-        CHECK(std::ranges::contains(
-            archetypes(mutated),
-            DescriptionArchetype::StackExplosion) == !secondary);
-        CHECK(detailedRows(mutated) != originalPoisonExplosionDetailed);
-        CHECK(playerRows(mutated, EffectDescriptionStyle::Full)
-            != originalPoisonExplosionFull);
-        CHECK(playerRows(mutated, EffectDescriptionStyle::Compact)
-            != originalPoisonExplosionCompact);
-    }
+    auto mutatedExplosionValue = originalPoisonExplosionRules;
+    auto& explosionApplication = std::get<ApplyStatusAction>(
+        mutatedExplosionValue.front().actions.front().value);
+    ++std::get<PoisonExplosionStatusEffects>(
+        explosionApplication.effects).deathPureDamage.percent;
+    CHECK(std::ranges::contains(
+        archetypes(mutatedExplosionValue),
+        DescriptionArchetype::StackExplosion));
+    CHECK(detailedRows(mutatedExplosionValue) != originalPoisonExplosionDetailed);
+    CHECK(playerRows(mutatedExplosionValue, EffectDescriptionStyle::Full)
+        != originalPoisonExplosionFull);
+    CHECK(playerRows(mutatedExplosionValue, EffectDescriptionStyle::Compact)
+        != originalPoisonExplosionCompact);
+
+    auto mutatedExplosionLayers = originalPoisonExplosionRules;
+    auto& layerApplication = std::get<ApplyStatusAction>(
+        mutatedExplosionLayers.front().actions.front().value);
+    ++std::get<AddStatusLayers>(layerApplication.quantity).limit;
+    CHECK(std::ranges::contains(
+        archetypes(mutatedExplosionLayers),
+        DescriptionArchetype::StackExplosion));
+    CHECK(detailedRows(mutatedExplosionLayers) != originalPoisonExplosionDetailed);
+    CHECK(playerRows(mutatedExplosionLayers, EffectDescriptionStyle::Full)
+        != originalPoisonExplosionFull);
+    CHECK(playerRows(mutatedExplosionLayers, EffectDescriptionStyle::Compact)
+        != originalPoisonExplosionCompact);
 }

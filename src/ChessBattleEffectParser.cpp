@@ -477,6 +477,369 @@ bool parseStackPolicy(const YAML::Node& node, EffectStackPolicy& out, std::strin
     return true;
 }
 
+bool parseStatusReapplication(
+    const YAML::Node& node,
+    StatusReapplicationPolicy& out,
+    std::string& error)
+{
+    if (!node) return true;
+    const auto label = node.as<std::string>();
+    const auto parsed = parseLabel<StatusReapplicationPolicy>(
+        label, statusReapplicationPolicyEnum);
+    if (!parsed)
+    {
+        error = std::format("未知重複套用方式「{}」", label);
+        return false;
+    }
+    out = *parsed;
+    return true;
+}
+
+template <typename Node>
+bool requiredTrue(
+    const Node& node,
+    std::string_view field,
+    bool& destination,
+    std::string& error)
+{
+    if (!node[field])
+    {
+        error = std::format("缺少「{}」欄位", field);
+        return false;
+    }
+    if (!optionalBool(node, field, destination, error)) return false;
+    if (!destination)
+    {
+        error = std::format("語意效果「{}」必須為 true", field);
+        return false;
+    }
+    return true;
+}
+
+bool parseStatusEffectPayload(
+    PayloadView& node,
+    ApplyStatusAction& action,
+    std::string& error)
+{
+    const auto& catalog = statusCatalogEntry(action.status);
+    const auto effectsNode = node["效果"];
+    if (catalog.effectScope == StatusEffectScope::None
+        || catalog.effectScope == StatusEffectScope::RuntimeOwned)
+    {
+        if (effectsNode)
+        {
+            error = std::format("狀態「{}」不可填寫「效果」", battleStatusLabel(action.status));
+            return false;
+        }
+        action.effects = NoStatusEffects{};
+        return true;
+    }
+    if (!effectsNode)
+    {
+        error = std::format("狀態「{}」需要「效果」", battleStatusLabel(action.status));
+        return false;
+    }
+
+    PayloadView effects(effectsNode, statusEffectsPayload);
+    if (!effects.validate(error)) return false;
+    std::string_view expectedScope;
+    switch (catalog.effectScope)
+    {
+    case StatusEffectScope::Persistent: expectedScope = "持續生效"; break;
+    case StatusEffectScope::PerLayer: expectedScope = "每層生效"; break;
+    case StatusEffectScope::PerTrigger: expectedScope = "每次觸發"; break;
+    case StatusEffectScope::PerLayerValue: expectedScope = "每層提供數值"; break;
+    case StatusEffectScope::None:
+    case StatusEffectScope::RuntimeOwned:
+        assert(false);
+        break;
+    }
+    const auto valuesNode = effects[expectedScope];
+    if (!valuesNode)
+    {
+        error = std::format(
+            "狀態「{}」的效果必須使用「{}」",
+            battleStatusLabel(action.status), expectedScope);
+        return false;
+    }
+    PayloadView values(valuesNode, statusEffectValuePayload);
+    if (!values.validate(error)) return false;
+
+    switch (action.status)
+    {
+    case BattleStatusKind::Poison:
+    {
+        PoisonStatusEffects parsed;
+        if (!parseEffectNumberNode(
+                values["目前生命傷害百分比"], parsed.currentHpDamagePercent, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::Bleed:
+    {
+        BleedStatusEffects parsed;
+        if (!parseEffectNumberNode(
+                values["最大生命傷害百分比"], parsed.maxHpDamagePercent, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::ColdPoison:
+    {
+        ColdPoisonStatusEffects parsed;
+        if (!requiredTrue(values, "禁止受到治療", parsed.blocksHealing, error)
+            || !parseEffectNumberNode(
+                values["速度降低百分比"], parsed.speedReductionPercent, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::WitheredBone:
+    {
+        WitheredBoneStatusEffects parsed;
+        if (!parseEffectNumberNode(
+                values["受到傷害增加百分比"], parsed.damageTakenIncreasePercent, error)
+            || !parseEffectNumberNode(
+                values["受到治療減少百分比"], parsed.healingReductionPercent, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::NeutralizeForce:
+    {
+        NeutralizeForceStatusEffects parsed;
+        if (!requiredTrue(values, "阻止本次施放", parsed.preventsCast, error)
+            || !parseEffectNumberNode(
+                values["原攻擊目標獲得護盾"], parsed.originalTargetShield, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::Blinded:
+    {
+        BlindedStatusEffects parsed;
+        if (!requiredTrue(values, "阻止本次施放", parsed.preventsCast, error)) return false;
+        action.effects = parsed;
+        break;
+    }
+    case BattleStatusKind::NextAttackMiss:
+    {
+        NextIncomingAttackMissStatusEffects parsed;
+        if (!requiredTrue(
+                values, "使本次受到攻擊落空", parsed.makesIncomingAttackMiss, error)) return false;
+        action.effects = parsed;
+        break;
+    }
+    case BattleStatusKind::DamageBlockLayer:
+    {
+        DamageBlockStatusEffects parsed;
+        if (!requiredTrue(
+                values, "抵擋非處決正傷害", parsed.blocksPositiveNonExecuteDamage, error)) return false;
+        action.effects = parsed;
+        break;
+    }
+    case BattleStatusKind::SingleHitCapLayer:
+    {
+        SingleHitCapStatusEffects parsed;
+        if (!parseEffectNumberNode(values["傷害上限"], parsed.damageCap, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::BattleSpirit:
+    {
+        BattleSpiritStatusEffects parsed;
+        if (!parseEffectNumberNode(
+                values["招式傷害增加百分比"], parsed.skillDamageIncreasePercent, error)
+            || !parseEffectNumberNode(
+                values["傷害減免百分比"], parsed.damageReductionPercent, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::TrueQi:
+    {
+        TrueQiStatusEffects parsed;
+        if (!parseEffectNumberNode(
+                values["命中附加純粹傷害"], parsed.pureDamagePerHit, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::PoisonExplosion:
+    {
+        PoisonExplosionStatusEffects parsed;
+        if (!parseEffectNumberNode(
+                values["死亡爆炸純粹傷害"], parsed.deathPureDamage, error)) return false;
+        action.effects = std::move(parsed);
+        break;
+    }
+    case BattleStatusKind::Stun:
+    case BattleStatusKind::MpBlocked:
+    case BattleStatusKind::SevenStarMark:
+    case BattleStatusKind::Shadowless:
+    case BattleStatusKind::NextAttackCritical:
+        assert(false);
+        break;
+    }
+
+    return values.finish(error) && effects.finish(error);
+}
+
+bool parseStatusQuantity(
+    PayloadView& node,
+    ApplyStatusAction& action,
+    std::string& error)
+{
+    const auto& catalog = statusCatalogEntry(action.status);
+    switch (catalog.quantity)
+    {
+    case StatusQuantityModel::None:
+        action.quantity = NoStatusQuantity{};
+        return true;
+    case StatusQuantityModel::Layers:
+    {
+        AddStatusLayers quantity;
+        if (!requiredInt(node, "增加層數", quantity.count, error)
+            || !requiredInt(node, "層數上限", quantity.limit, error)) return false;
+        action.quantity = quantity;
+        return true;
+    }
+    case StatusQuantityModel::TriggerCharges:
+    {
+        SetStatusTriggerCharges quantity;
+        if (!requiredInt(node, "可觸發次數", quantity.count, error)) return false;
+        action.quantity = quantity;
+        return true;
+    }
+    case StatusQuantityModel::Marks:
+    {
+        SetStatusMarks quantity;
+        if (!requiredInt(node, "設定印記層數", quantity.count, error)) return false;
+        action.quantity = quantity;
+        return true;
+    }
+    case StatusQuantityModel::DamageBlockCharges:
+    {
+        const bool adds = static_cast<bool>(node["增加可抵擋次數"]);
+        const bool sets = static_cast<bool>(node["設定可抵擋次數"]);
+        if (adds == sets)
+        {
+            error = "傷害抵擋必須擇一使用「增加可抵擋次數」或「設定可抵擋次數」";
+            return false;
+        }
+        if (adds)
+        {
+            AddDamageBlockCharges quantity;
+            if (!requiredInt(node, "增加可抵擋次數", quantity.count, error)
+                || !requiredInt(node, "可抵擋次數上限", quantity.limit, error)) return false;
+            action.quantity = quantity;
+        }
+        else
+        {
+            SetDamageBlockCharges quantity;
+            if (!requiredInt(node, "設定可抵擋次數", quantity.count, error)) return false;
+            action.quantity = quantity;
+        }
+        return true;
+    }
+    case StatusQuantityModel::Internal:
+        error = std::format("狀態「{}」不可由效果設定", battleStatusLabel(action.status));
+        return false;
+    }
+    assert(false);
+    return false;
+}
+
+bool parseSemanticStatusApplication(
+    PayloadView& node,
+    bool poisonApplication,
+    ApplyStatusAction& action,
+    std::string& error)
+{
+    if (poisonApplication)
+    {
+        action.status = BattleStatusKind::Poison;
+    }
+    else
+    {
+        std::string status;
+        if (!requiredString(node, "狀態", status, error)
+            || !parseStatusKind(status, action.status, error)) return false;
+        if (action.status == BattleStatusKind::Poison)
+        {
+            error = "中毒必須使用「施加中毒」動作";
+            return false;
+        }
+        if (!statusCatalogEntry(action.status).authorable)
+        {
+            error = std::format("狀態「{}」是執行期狀態，不可直接套用", status);
+            return false;
+        }
+    }
+
+    const auto& catalog = statusCatalogEntry(action.status);
+    const auto duration = node["持續幀數"];
+    if (catalog.duration == StatusDurationModel::RequiredPositive && !duration)
+    {
+        error = std::format("狀態「{}」需要「持續幀數」", battleStatusLabel(action.status));
+        return false;
+    }
+    if (catalog.duration != StatusDurationModel::RequiredPositive && duration)
+    {
+        error = std::format("狀態「{}」不可填寫「持續幀數」", battleStatusLabel(action.status));
+        return false;
+    }
+    if (duration)
+    {
+        if (duration.IsScalar())
+        {
+            if (!requiredInt(node, "持續幀數", action.durationFrames, error)) return false;
+        }
+        else if (!parseEffectNumberNode(duration, action.duration.emplace(), error)) return false;
+    }
+
+    if (!parseStatusQuantity(node, action, error)
+        || !parseStatusReapplication(node["重複套用"], action.reapplication, error)) return false;
+
+    if (!statusReapplicationPolicyAllowed(action.status, action.reapplication))
+    {
+        error = std::format(
+            "狀態「{}」不允許此重複套用方式", battleStatusLabel(action.status));
+        return false;
+    }
+    if (statusReapplicationPolicyRequired(action.status)
+        && action.reapplication == StatusReapplicationPolicy::Implicit)
+    {
+        error = std::format("狀態「{}」需要「重複套用」", battleStatusLabel(action.status));
+        return false;
+    }
+
+    if (!parseStatusEffectPayload(node, action, error)) return false;
+    if (poisonApplication)
+    {
+        auto& effects = std::get<PoisonStatusEffects>(action.effects);
+        if (const auto merge = node["同事件合併"])
+        {
+            const auto label = merge.as<std::string>();
+            const auto parsed = parseLabel<PoisonSameEventMerge>(
+                label, poisonSameEventMergeEnum);
+            if (!parsed)
+            {
+                error = std::format("未知中毒同事件合併方式「{}」", label);
+                return false;
+            }
+            effects.sameEventMerge = *parsed;
+        }
+        if (action.reapplication == StatusReapplicationPolicy::KeepHigherDamage
+            && effects.sameEventMerge != PoisonSameEventMerge::SumDamagePercent)
+        {
+            error = "保留較高傷害的中毒必須使用「同事件合併: 合計傷害百分比」";
+            return false;
+        }
+        if (action.reapplication == StatusReapplicationPolicy::ReplaceAndReset
+            && effects.sameEventMerge != PoisonSameEventMerge::None)
+        {
+            error = "取代並重設的中毒不可使用「同事件合併」";
+            return false;
+        }
+    }
+    return true;
+}
+
 bool parseDamageChannel(std::string_view label, DamageChannel& out, std::string& error)
 {
     const auto parsed = parseLabel<DamageChannel>(label, damageChannelEnum);
@@ -563,8 +926,7 @@ bool parseAttributeModifierQualifiers(
     std::string& error)
 {
     if (!optionalInt(node, "持續幀數", out.durationFrames, error)
-        || !parseStackPolicy(node["合併方式"], out.stack, error)
-        || !optionalBool(node, "每層", out.perStack, error)) return false;
+        || !parseStackPolicy(node["合併方式"], out.stack, error)) return false;
     if (node["層數上限"])
     {
         int limit{};
@@ -1096,41 +1458,11 @@ bool parseActionPayload(
         out.value = std::move(action);
         return true;
     }
-    if (type == "套用狀態")
+    if (type == "套用狀態" || type == "施加中毒")
     {
         ApplyStatusAction action;
-        std::string status;
-        if (!requiredString(node, "狀態", status, error)
-            || !parseStatusKind(status, action.status, error)
-            || !optionalInt(node, "層數", action.stacks, error)
-            || !parseStackPolicy(node["合併方式"], action.stack, error)) return false;
-        if (const auto duration = node["持續幀數"])
-        {
-            if (duration.IsScalar())
-            {
-                if (!requiredInt(node, "持續幀數", action.durationFrames, error)) return false;
-            }
-            else
-            {
-                EffectNumber formula;
-                if (!parseEffectNumberNode(duration, formula, error)) return false;
-                action.duration = std::move(formula);
-            }
-        }
-        if (node["套用次數"])
-        {
-            EffectNumber count;
-            if (!parseEffectNumberNode(node["套用次數"], count, error)) return false;
-            action.applicationCount = std::move(count);
-        }
-        if (node["強度"] && !parseEffectNumberNode(node["強度"], action.potency, error)) return false;
-        if (node["次要強度"] && !parseEffectNumberNode(node["次要強度"], action.secondaryPotency, error)) return false;
-        if (node["層數上限"])
-        {
-            int limit{};
-            if (!requiredInt(node, "層數上限", limit, error)) return false;
-            action.stackLimit = limit;
-        }
+        if (!parseSemanticStatusApplication(
+                node, type == "施加中毒", action, error)) return false;
         out.value = std::move(action);
         return true;
     }
@@ -1140,7 +1472,7 @@ bool parseActionPayload(
         std::string status;
         if (!requiredString(node, "狀態", status, error)
             || !parseStatusKind(status, action.status, error)
-            || !optionalInt(node, "層數", action.stacks, error)) return false;
+            || !optionalInt(node, "消耗數量", action.quantity, error)) return false;
         if (const auto source = node["狀態來源"])
         {
             const auto label = source.as<std::string>();
@@ -1152,20 +1484,20 @@ bool parseActionPayload(
             }
             action.source = *parsed;
         }
-        if (const auto depleted = node["最後一層"])
+        if (const auto depleted = node["最後一次"])
         {
             std::vector<EffectAction> nestedActions;
             if (!parseAuthorActionNode(depleted, nestedActions, error)) return false;
             if (nestedActions.size() != 1)
             {
-                error = "消耗最後一層需要恰好一個套用狀態動作";
+                error = "消耗最後一次需要恰好一個套用狀態動作";
                 return false;
             }
             auto nested = std::move(nestedActions.front());
             const auto* statusAction = std::get_if<ApplyStatusAction>(&nested.value);
             if (!statusAction)
             {
-                error = "消耗最後一層目前只允許套用狀態";
+                error = "消耗最後一次目前只允許套用狀態";
                 return false;
             }
             action.whenDepleted = *statusAction;
@@ -1661,7 +1993,10 @@ bool parseAttributeBonusMacro(
         }
         ModifyAttributeAction action = qualifierPrototype;
         action.attribute = attribute;
-        action.operation = operation;
+        action.operation = operation == AttributeOperation::PercentAdd
+                && battleAttributeUsesPercentagePoints(attribute)
+            ? AttributeOperation::PercentagePointAdd
+            : operation;
         if (!parseEffectNumberNode(value, action.amount, error)) return false;
         actions.push_back(std::move(action));
         return true;
@@ -1757,43 +2092,6 @@ bool parseNamedAction(
     }
     if (macro->payloadKind == MacroPayloadKind::AttributeBonus)
         return parseAttributeBonusMacro(payload, out, error);
-    if (macro->payloadKind == MacroPayloadKind::Poison)
-    {
-        PayloadView poisonPayload(payload, *macro->payload);
-        if (!poisonPayload.validate(error)) return false;
-        ApplyStatusAction action;
-        action.status = BattleStatusKind::Poison;
-        if (!requiredInt(poisonPayload, "層數", action.stacks, error)
-            || action.stacks <= 0
-            || !parseEffectNumberNode(poisonPayload["持續幀數"], action.duration.emplace(), error)
-            || !parseEffectNumberNode(poisonPayload["強度"], action.potency, error))
-        {
-            if (error.empty()) error = "施毒層數必須是正整數";
-            return false;
-        }
-        action.stackLimit = action.stacks;
-        action.stack = EffectStackPolicy::KeepStrongest;
-        action.aggregatePotencyWithinEvent = true;
-        if (const auto mode = poisonPayload["模式"])
-        {
-            const auto label = mode.as<std::string>();
-            if (label != "取代重設")
-            {
-                error = std::format("未知施毒模式「{}」", label);
-                return false;
-            }
-            action.stack = EffectStackPolicy::Replace;
-            action.aggregatePotencyWithinEvent = false;
-        }
-        if (const auto duration = effectiveConstantEffectNumberValue(*action.duration))
-        {
-            action.durationFrames = *duration;
-            action.duration.reset();
-        }
-        if (!poisonPayload.finish(error)) return false;
-        out.push_back(EffectAction{ std::move(action) });
-        return true;
-    }
     if (name == "回復資源" || name == "獲得資源" || name == "奪取資源")
     {
         EffectAction action;
@@ -1834,24 +2132,14 @@ bool parseNamedAction(
         out.push_back(EffectAction{ std::move(action) });
         return true;
     }
-    if (name == "忽略防禦" || name == "單次承傷上限")
+    if (name == "忽略防禦")
     {
         ModifyDamageAction action;
         if (!parseNonEmptyEffectNumber(payload, action.amount, error)) return false;
-        if (name == "忽略防禦")
-        {
-            action.perspective = DamageModifierPerspective::Outgoing;
-            action.stage = DamageModifierStage::BeforeDefense;
-            action.channel = DamageChannel::Skill;
-            action.operation = DamageModifierOperation::IgnoreDefensePercent;
-        }
-        else
-        {
-            action.perspective = DamageModifierPerspective::Incoming;
-            action.stage = DamageModifierStage::Final;
-            action.channel = DamageChannel::All;
-            action.operation = DamageModifierOperation::CapSingleHitAtMaxHpPercent;
-        }
+        action.perspective = DamageModifierPerspective::Outgoing;
+        action.stage = DamageModifierStage::BeforeDefense;
+        action.channel = DamageChannel::Skill;
+        action.operation = DamageModifierOperation::IgnoreDefensePercent;
         out.push_back(EffectAction{ std::move(action) });
         return true;
     }
@@ -2406,6 +2694,15 @@ bool parseMagicEffects(
                     diagnostics);
             }
             definition.rules.push_back(std::move(rule));
+        }
+        std::string lifecycleError;
+        if (!validateEffectRules(definition.rules, lifecycleError))
+        {
+            return reportMagicLoadError(
+                entryNode,
+                context,
+                std::format("武功 {}：{}", definition.magicId, lifecycleError),
+                diagnostics);
         }
         parsedDefinitions.push_back(std::move(definition));
     }

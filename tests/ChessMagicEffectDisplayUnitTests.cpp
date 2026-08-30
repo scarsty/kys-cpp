@@ -27,7 +27,7 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
           - 套用狀態:
               狀態: 眩暈
               持續幀數: 14
-              合併方式: 刷新
+              重複套用: 保留較長持續時間
       - 時機: 絕招施放
         目標: 自身
         動作:

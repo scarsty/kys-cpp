@@ -1,4 +1,5 @@
 #include "BattleCoreDetail.h"
+#include "../ChessBattleEffectSemantics.h"
 #include "../ChessEftIds.h"
 #include "../Find.h"
 #include "BattleAreaEffectSystem.h"
@@ -2389,10 +2390,11 @@ void appendPoisonEffectLogEvents(
     payload.sourceUnitId = metadata.binding.ownerUnitId;
     payload.targetUnitId = metadata.targetUnitId;
     payload.amount = command.potency;
-    payload.secondaryAmount = command.action.stacks;
+    const int triggerCount = lowerStatusQuantity(command.action).stacks;
+    payload.secondaryAmount = triggerCount;
     payload.statusId = BattleStatusSemanticId::PoisonPayload;
     payload.segments = battleLogText(
-        std::format("中毒負載{}%（預定{}次）", command.potency, command.action.stacks),
+        std::format("中毒負載{}%（預定{}次）", command.potency, triggerCount),
         BattleLogTextTone::Negative);
     logEvents.push_back(std::move(payload));
 

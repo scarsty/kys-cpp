@@ -4,6 +4,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -216,22 +217,24 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
     const std::vector units{ owner, enemy };
 
     EffectNumber layerCount;
-    layerCount.base = EffectNumberBase::SourceStatusStacks;
+    layerCount.base = EffectNumberBase::SourceStatusQuantity;
     layerCount.status = BattleStatusKind::PoisonExplosion;
     layerCount.percent = 100;
     layerCount.minimum = 1;
     DealDamageAction damage;
-    damage.amount.base = EffectNumberBase::SourceStatusPotency;
+    damage.amount.base = EffectNumberBase::SourceStatusEffectValue;
     damage.amount.status = BattleStatusKind::PoisonExplosion;
+    damage.amount.statusEffect = StatusEffectValueKind::PoisonExplosionDeathPureDamage;
     damage.amount.percent = 100;
     damage.kind = BattleDamageKind::Pure;
     ApplyStatusAction poison;
     poison.status = BattleStatusKind::Poison;
     poison.durationFrames = 120;
-    poison.stacks = 4;
-    poison.potency.flat = 10;
-    poison.stack = EffectStackPolicy::Replace;
-    poison.stackLimit = 4;
+    poison.quantity = SetStatusTriggerCharges{ 4 };
+    poison.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
+    poison.effects = PoisonStatusEffects{
+        .currentHpDamagePercent = EffectNumber{ .flat = 10 },
+    };
     auto rule = makeRule(
         1,
         EffectEvent::UnitDied,
@@ -288,6 +291,108 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
             .cause = EffectEnvironmentDamageOrigin{},
         });
     CHECK(BattleEffectSystem{}.dispatch(store, noLayerContext, random).commands.empty());
+}
+
+TEST_CASE("BattleEffectSystem aggregates standard poison only within one owner event",
+          "[battle][effect][status][poison][aggregation]")
+{
+    const auto owner = makeUnit(1, 0, 1000, 1000);
+    const auto enemy = makeUnit(2, 1, 1000, 1000);
+    const std::vector units{ owner, enemy };
+
+    ApplyStatusAction poison;
+    poison.status = BattleStatusKind::Poison;
+    poison.durationFrames = 90;
+    poison.quantity = SetStatusTriggerCharges{ 3 };
+    poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+    poison.effects = PoisonStatusEffects{
+        .currentHpDamagePercent = EffectNumber{ .flat = 7 },
+        .sameEventMerge = PoisonSameEventMerge::SumDamagePercent,
+    };
+    auto rule = makeRule(
+        1,
+        EffectEvent::HitBeforeDamage,
+        hitTargetSelector(),
+        { effectAction(poison) });
+    rule.repetitionCount = EffectNumber{ .flat = 2 };
+
+    BattleEffectRuleStore store;
+    store.append(magicBinding(21), rule);
+    BattleRuntimeRandom random(1);
+    const auto provenance = attackProvenance(21);
+    const auto context = makeContext(
+        EffectEvent::HitBeforeDamage,
+        magicBinding(21),
+        owner,
+        units,
+        HitEventData{
+            .provenance = provenance,
+            .targetUnitId = enemy.id,
+            .originalTargetUnitId = enemy.id,
+            .contactPosition = enemy.position,
+            .acceptedHit = true,
+        });
+
+    const auto dispatched = BattleEffectSystem{}.dispatch(store, context, random);
+
+    REQUIRE(dispatched.commands.size() == 1);
+    const auto& aggregated = std::get<ApplyStatusEffectCommand>(
+        dispatched.commands.front().value);
+    CHECK(aggregated.potency == 14);
+    CHECK(aggregated.action.durationFrames == 90);
+    CHECK(std::get<SetStatusTriggerCharges>(aggregated.action.quantity).count == 3);
+    CHECK(std::get<PoisonStatusEffects>(aggregated.action.effects).sameEventMerge
+        == PoisonSameEventMerge::None);
+}
+
+TEST_CASE("BattleEffectSystem saturates same-event poison aggregation",
+          "[battle][effect][status][poison][aggregation][boundary]")
+{
+    const auto owner = makeUnit(1, 0, 1000, 1000);
+    const auto enemy = makeUnit(2, 1, 1000, 1000);
+    const std::vector units{ owner, enemy };
+
+    ApplyStatusAction poison;
+    poison.status = BattleStatusKind::Poison;
+    poison.durationFrames = 90;
+    poison.quantity = SetStatusTriggerCharges{ 3 };
+    poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+    poison.effects = PoisonStatusEffects{
+        .currentHpDamagePercent = EffectNumber{
+            .flat = std::numeric_limits<int>::max(),
+        },
+        .sameEventMerge = PoisonSameEventMerge::SumDamagePercent,
+    };
+    auto rule = makeRule(
+        1,
+        EffectEvent::HitBeforeDamage,
+        hitTargetSelector(),
+        { effectAction(poison) });
+    rule.repetitionCount = EffectNumber{ .flat = 2 };
+
+    BattleEffectRuleStore store;
+    store.append(magicBinding(21), rule);
+    BattleRuntimeRandom random(1);
+    const auto provenance = attackProvenance(21);
+    const auto context = makeContext(
+        EffectEvent::HitBeforeDamage,
+        magicBinding(21),
+        owner,
+        units,
+        HitEventData{
+            .provenance = provenance,
+            .targetUnitId = enemy.id,
+            .originalTargetUnitId = enemy.id,
+            .contactPosition = enemy.position,
+            .acceptedHit = true,
+        });
+
+    const auto dispatched = BattleEffectSystem{}.dispatch(store, context, random);
+
+    REQUIRE(dispatched.commands.size() == 1);
+    const auto& aggregated = std::get<ApplyStatusEffectCommand>(
+        dispatched.commands.front().value);
+    CHECK(aggregated.potency == std::numeric_limits<int>::max());
 }
 
 TEST_CASE("BattleEffectSystem evaluates formulas and deterministic selectors", "[battle][effect]")
@@ -1623,7 +1728,9 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
     ApplyStatusAction finalStun;
     finalStun.status = BattleStatusKind::Stun;
     finalStun.durationFrames = 30;
-    finalStun.stack = EffectStackPolicy::Refresh;
+    finalStun.quantity = NoStatusQuantity{};
+    finalStun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+    finalStun.effects = NoStatusEffects{};
     consume.whenDepleted = finalStun;
     auto observer = makeRule(
         1,
@@ -1666,7 +1773,9 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
         { stateAction(progress) });
     ApplyStatusAction stun;
     stun.status = BattleStatusKind::Stun;
-    stun.stack = EffectStackPolicy::Refresh;
+    stun.quantity = NoStatusQuantity{};
+    stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+    stun.effects = NoStatusEffects{};
     EffectNumber duration;
     duration.base = EffectNumberBase::StoredStateValue;
     duration.stateSlot = EffectStateSlot::PermanentCastProgress;
@@ -1774,9 +1883,12 @@ TEST_CASE("BattleEffectSystem emits the four vertical slice command shapes", "[b
         ApplyStatusAction status;
         status.status = BattleStatusKind::WitheredBone;
         status.durationFrames = 120;
-        status.potency.flat = 25;
-        status.secondaryPotency.flat = 75;
-        status.stack = EffectStackPolicy::Refresh;
+        status.quantity = NoStatusQuantity{};
+        status.reapplication = StatusReapplicationPolicy::RefreshDuration;
+        status.effects = WitheredBoneStatusEffects{
+            .damageTakenIncreasePercent = EffectNumber{ .flat = 25 },
+            .healingReductionPercent = EffectNumber{ .flat = 75 },
+        };
         const auto rule = makeRule(1, EffectEvent::MainProjectileBeforeDamage,
                                    hitTargetSelector(), { effectAction(status) });
         BattleEffectRuleStore store;

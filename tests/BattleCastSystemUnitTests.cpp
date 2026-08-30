@@ -371,7 +371,7 @@ TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battl
         .ruleId = KysChess::EffectRuleId{ 1 },
         .targetUnitId = 0,
         .attribute = KysChess::BattleAttribute::CooldownReduction,
-        .operation = KysChess::AttributeOperation::PercentAdd,
+        .operation = KysChess::AttributeOperation::PercentagePointAdd,
         .amount = 20,
     });
 

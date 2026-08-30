@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessBattleEffectTypes.h"
+#include "ChessBattleEffectSemantics.h"
 #include "ChessEffectAuthoringDescriptors.h"
 #include "yaml-cpp/yaml.h"
 
@@ -138,9 +139,6 @@ static constexpr std::array effectNumberBaseLabels{
     authorLabel("目標目前護盾", EffectNumberBase::TargetCurrentShield),
     authorLabel("目標目前冷卻", EffectNumberBase::TargetCurrentCooldown),
     authorLabel("實際生命傷害", EffectNumberBase::FinalHpDamage),
-    authorLabel("累計狀態值", EffectNumberBase::AccumulatedStateValue),
-    authorLabel("來源狀態強度", EffectNumberBase::SourceStatusPotency),
-    authorLabel("來源狀態層數", EffectNumberBase::SourceStatusStacks),
     authorLabel("狀態槽值", EffectNumberBase::StoredStateValue),
 };
 static constexpr AuthorEnumDescriptor effectNumberBaseEnum{
@@ -219,13 +217,6 @@ static constexpr AuthorEnumDescriptor stackPolicyEnum{
     "EffectStackPolicy", stackPolicyLabels,
 };
 
-static constexpr std::array poisonModeLabels{
-    AuthorEnumLabel{ "取代重設", 0 },
-};
-static constexpr AuthorEnumDescriptor poisonModeEnum{
-    "PoisonAuthoringMode", poisonModeLabels,
-};
-
 static constexpr std::array statusKindLabels{
     authorLabel("中毒", BattleStatusKind::Poison),
     authorLabel("流血", BattleStatusKind::Bleed),
@@ -236,9 +227,9 @@ static constexpr std::array statusKindLabels{
     authorLabel("七星", BattleStatusKind::SevenStarMark),
     authorLabel("化勁", BattleStatusKind::NeutralizeForce),
     authorLabel("刺目", BattleStatusKind::Blinded),
-    authorLabel("下一次攻擊落空", BattleStatusKind::NextAttackMiss),
+    authorLabel("下一次受到攻擊必定落空", BattleStatusKind::NextAttackMiss),
     authorLabel("傷害抵擋", BattleStatusKind::DamageBlockLayer),
-    authorLabel("單次承傷上限", BattleStatusKind::SingleHitCapLayer),
+    authorLabel("下次承傷上限", BattleStatusKind::SingleHitCapLayer),
     authorLabel("戰意", BattleStatusKind::BattleSpirit),
     authorLabel("真氣", BattleStatusKind::TrueQi),
     authorLabel("毒爆", BattleStatusKind::PoisonExplosion),
@@ -247,6 +238,42 @@ static constexpr std::array statusKindLabels{
 };
 static constexpr AuthorEnumDescriptor statusKindEnum{
     "BattleStatusKind", statusKindLabels,
+};
+
+static constexpr std::array statusEffectValueLabels{
+    authorLabel("目前生命傷害百分比", StatusEffectValueKind::PoisonCurrentHpDamagePercent),
+    authorLabel("最大生命傷害百分比", StatusEffectValueKind::BleedMaxHpDamagePercent),
+    authorLabel("速度降低百分比", StatusEffectValueKind::ColdPoisonSpeedReductionPercent),
+    authorLabel("受到傷害增加百分比", StatusEffectValueKind::WitheredBoneDamageTakenIncreasePercent),
+    authorLabel("受到治療減少百分比", StatusEffectValueKind::WitheredBoneHealingReductionPercent),
+    authorLabel("原攻擊目標獲得護盾", StatusEffectValueKind::NeutralizeForceOriginalTargetShield),
+    authorLabel("傷害上限", StatusEffectValueKind::SingleHitDamageCap),
+    authorLabel("招式傷害增加百分比", StatusEffectValueKind::BattleSpiritSkillDamageIncreasePercent),
+    authorLabel("傷害減免百分比", StatusEffectValueKind::BattleSpiritDamageReductionPercent),
+    authorLabel("命中附加純粹傷害", StatusEffectValueKind::TrueQiPureDamagePerHit),
+    authorLabel("死亡爆炸純粹傷害", StatusEffectValueKind::PoisonExplosionDeathPureDamage),
+};
+static constexpr AuthorEnumDescriptor statusEffectValueEnum{
+    "StatusEffectValueKind", statusEffectValueLabels,
+};
+
+static constexpr std::array statusReapplicationPolicyLabels{
+    authorLabel("延長持續時間", StatusReapplicationPolicy::ExtendDuration),
+    authorLabel("保留較長持續時間", StatusReapplicationPolicy::KeepLongerDuration),
+    authorLabel("取代持續時間", StatusReapplicationPolicy::ReplaceDuration),
+    authorLabel("刷新持續時間", StatusReapplicationPolicy::RefreshDuration),
+    authorLabel("保留較高傷害", StatusReapplicationPolicy::KeepHigherDamage),
+    authorLabel("取代並重設", StatusReapplicationPolicy::ReplaceAndReset),
+};
+static constexpr AuthorEnumDescriptor statusReapplicationPolicyEnum{
+    "StatusReapplicationPolicy", statusReapplicationPolicyLabels,
+};
+
+static constexpr std::array poisonSameEventMergeLabels{
+    authorLabel("合計傷害百分比", PoisonSameEventMerge::SumDamagePercent),
+};
+static constexpr AuthorEnumDescriptor poisonSameEventMergeEnum{
+    "PoisonSameEventMerge", poisonSameEventMergeLabels,
 };
 
 static constexpr std::array damageChannelLabels{
@@ -454,6 +481,7 @@ static constexpr AuthorEnumDescriptor areaOverlapPolicyEnum{
 static constexpr std::array attributeOperationLabels{
     authorLabel("固定加算", AttributeOperation::FlatAdd),
     authorLabel("百分比加算", AttributeOperation::PercentAdd),
+    authorLabel("百分點加算", AttributeOperation::PercentagePointAdd),
     authorLabel("覆寫", AttributeOperation::Override),
     authorLabel("乘算", AttributeOperation::Multiply),
     authorLabel("至少為", AttributeOperation::AtLeast),
@@ -484,7 +512,7 @@ static constexpr std::array damageModifierOperationLabels{
     authorLabel("百分比加算", DamageModifierOperation::PercentAdd),
     authorLabel("乘算", DamageModifierOperation::Multiply),
     authorLabel("忽略防禦百分比", DamageModifierOperation::IgnoreDefensePercent),
-    authorLabel("單次承傷上限", DamageModifierOperation::CapSingleHitAtMaxHpPercent),
+    authorLabel("每次承傷不超過最大生命百分比", DamageModifierOperation::CapSingleHitAtMaxHpPercent),
     authorLabel("低於最大生命百分比時處決", DamageModifierOperation::ExecuteBelowMaxHpPercent),
 };
 static constexpr AuthorEnumDescriptor damageModifierOperationEnum{
@@ -648,7 +676,6 @@ static constexpr std::array authorEnumDescriptors{
     &tieBreakEnum,
     &requiredTargetEnum,
     &stackPolicyEnum,
-    &poisonModeEnum,
     &statusKindEnum,
     &damageChannelEnum,
     &stateSlotEnum,
@@ -986,6 +1013,22 @@ bool parseDamageKindLabel(
 bool parseStatusKind(std::string_view label, BattleStatusKind& out, std::string& error);
 bool parseEffectStateSlot(const YAML::Node& node, EffectStateSlot& out, std::string& error);
 
+static constexpr std::array statusEffectReferenceFields{
+    PayloadFieldDescriptor{
+        "狀態", true, PayloadNodeShape::String, "毒爆", {},
+        PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "名稱", true, PayloadNodeShape::String, "死亡爆炸純粹傷害", {},
+        PayloadSchemaReference::None, &statusEffectValueEnum,
+    },
+};
+static constexpr PayloadDescriptor statusEffectReferencePayload{
+    "來源狀態效果值", statusEffectReferenceFields,
+    R"(狀態: 毒爆
+名稱: 死亡爆炸純粹傷害)",
+};
+
 static constexpr std::array effectNumberFields{
     PayloadFieldDescriptor{
         "基準", false, PayloadNodeShape::String, "來源攻擊", {},
@@ -996,8 +1039,14 @@ static constexpr std::array effectNumberFields{
         PayloadSchemaReference::None, &effectNumberBaseEnum,
     },
     PayloadFieldDescriptor{
-        "狀態", false, PayloadNodeShape::String, "中毒", {},
+        "來源狀態數量", false, PayloadNodeShape::String, "毒爆", {},
         PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "來源狀態效果值", false, PayloadNodeShape::Map,
+        R"(狀態: 毒爆
+名稱: 死亡爆炸純粹傷害)", {},
+        PayloadSchemaReference::Payload, nullptr, &statusEffectReferencePayload,
     },
     PayloadFieldDescriptor{
         "狀態槽", false, PayloadNodeShape::String, "最大招式生命傷害", {},
@@ -1098,6 +1147,18 @@ bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::strin
             }
             out.rounding = *parsed;
         }
+        if (payload["最小"])
+        {
+            int value{};
+            if (!requiredInt(payload, "最小", value, error)) return false;
+            out.minimum = value;
+        }
+        if (payload["最大"])
+        {
+            int value{};
+            if (!requiredInt(payload, "最大", value, error)) return false;
+            out.maximum = value;
+        }
         return payload.finish(error);
     }
     out = {};
@@ -1123,12 +1184,51 @@ bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::strin
         if (!readBase(multiplier, parsedMultiplier)) return false;
         out.multiplierBase = parsedMultiplier;
     }
-    if (const auto status = payload["狀態"])
+    const bool hasSourceStatusQuantity = static_cast<bool>(payload["來源狀態數量"]);
+    const bool hasSourceStatusEffect = static_cast<bool>(payload["來源狀態效果值"]);
+    if (hasSourceStatusQuantity && hasSourceStatusEffect)
+    {
+        error = "效果數值不可同時參照狀態數量與狀態效果值";
+        return false;
+    }
+    if ((hasSourceStatusQuantity || hasSourceStatusEffect) && payload["基準"])
+    {
+        error = "來源狀態參照不可再指定「基準」";
+        return false;
+    }
+    if (hasSourceStatusQuantity)
     {
         BattleStatusKind parsedStatus{};
-        const auto label = status.as<std::string>();
+        const auto label = payload["來源狀態數量"].as<std::string>();
         if (!parseStatusKind(label, parsedStatus, error)) return false;
+        out.base = EffectNumberBase::SourceStatusQuantity;
         out.status = parsedStatus;
+    }
+    if (hasSourceStatusEffect)
+    {
+        PayloadView reference(payload["來源狀態效果值"], statusEffectReferencePayload);
+        if (!reference.validate(error)) return false;
+        BattleStatusKind parsedStatus{};
+        const auto statusLabel = reference["狀態"].as<std::string>();
+        if (!parseStatusKind(statusLabel, parsedStatus, error)) return false;
+        const auto effectLabel = reference["名稱"].as<std::string>();
+        const auto parsedEffect = parseLabel<StatusEffectValueKind>(
+            effectLabel, statusEffectValueEnum);
+        if (!parsedEffect)
+        {
+            error = std::format("未知狀態效果值「{}」", effectLabel);
+            return false;
+        }
+        if (!statusEffectValueBelongsToStatus(*parsedEffect, parsedStatus))
+        {
+            error = std::format(
+                "狀態「{}」沒有名為「{}」的效果值", statusLabel, effectLabel);
+            return false;
+        }
+        if (!reference.finish(error)) return false;
+        out.base = EffectNumberBase::SourceStatusEffectValue;
+        out.status = parsedStatus;
+        out.statusEffect = *parsedEffect;
     }
     if (payload["狀態槽"])
     {
@@ -1138,6 +1238,11 @@ bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::strin
     }
     if (!optionalInt(payload, "固定", out.flat, error)
         || !optionalInt(payload, "百分比", out.percent, error)) return false;
+    if ((out.base != EffectNumberBase::Constant || out.multiplierBase)
+        && !payload["百分比"])
+    {
+        out.percent = 100;
+    }
     if (const auto rounding = payload["取整"])
     {
         const auto label = rounding.as<std::string>();
@@ -1614,7 +1719,6 @@ static constexpr std::array attributeModifierFields{
         PayloadSchemaReference::None, &stackPolicyEnum,
     },
     PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "3" },
-    PayloadFieldDescriptor{ "每層", false, PayloadNodeShape::Boolean, "true" },
     PayloadFieldDescriptor{
         "疊加範圍", false, PayloadNodeShape::String, "事件來源", {},
         PayloadSchemaReference::None, &stackScopeEnum,
@@ -1694,47 +1798,179 @@ static constexpr std::array healTransactionModifierFields{
 - 命中)", {}, PayloadSchemaReference::None, &healKindEnum,
     },
 };
+static constexpr std::array statusEffectValueFields{
+    PayloadFieldDescriptor{ "禁止受到治療", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "阻止本次施放", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "使本次受到攻擊落空", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "抵擋非處決正傷害", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "目前生命傷害百分比", false, PayloadNodeShape::Number, "7", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "最大生命傷害百分比", false, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "速度降低百分比", false, PayloadNodeShape::Number, "25", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "受到傷害增加百分比", false, PayloadNodeShape::Number, "25", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "受到治療減少百分比", false, PayloadNodeShape::Number, "75", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "原攻擊目標獲得護盾", false, PayloadNodeShape::Number, "每星級: 100", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "傷害上限", false, PayloadNodeShape::Number,
+        R"(目標最大生命百分比: 15
+取整: 向零
+最小: 1)", {}, PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "招式傷害增加百分比", false, PayloadNodeShape::Number, "5", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "傷害減免百分比", false, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "命中附加純粹傷害", false, PayloadNodeShape::Number, "9", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "死亡爆炸純粹傷害", false, PayloadNodeShape::Number, "每星級: 60", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+};
+static constexpr PayloadDescriptor statusEffectValuePayload{
+    "狀態效果值", statusEffectValueFields, "命中附加純粹傷害: 9", {},
+    PayloadNodeShape::Any, {}, {}, 1,
+};
+
+static constexpr std::array statusEffectsFields{
+    PayloadFieldDescriptor{
+        "持續生效", false, PayloadNodeShape::Map,
+        "速度降低百分比: 25", {}, PayloadSchemaReference::Payload,
+        nullptr, &statusEffectValuePayload,
+    },
+    PayloadFieldDescriptor{
+        "每層生效", false, PayloadNodeShape::Map,
+        "招式傷害增加百分比: 5", {}, PayloadSchemaReference::Payload,
+        nullptr, &statusEffectValuePayload,
+    },
+    PayloadFieldDescriptor{
+        "每次觸發", false, PayloadNodeShape::Map,
+        "目前生命傷害百分比: 7", {}, PayloadSchemaReference::Payload,
+        nullptr, &statusEffectValuePayload,
+    },
+    PayloadFieldDescriptor{
+        "每層提供數值", false, PayloadNodeShape::Map,
+        "死亡爆炸純粹傷害: 60", {}, PayloadSchemaReference::Payload,
+        nullptr, &statusEffectValuePayload,
+    },
+};
+static constexpr PayloadDescriptor statusEffectsPayload{
+    "狀態效果", statusEffectsFields, "每層生效:\n  招式傷害增加百分比: 5", {},
+    PayloadNodeShape::Any, {}, {}, 1,
+};
+
+static constexpr std::string_view battleSpiritStatusProbe = R"(狀態: 戰意
+增加層數: 1
+層數上限: 10
+效果:
+  每層生效:
+    招式傷害增加百分比: 5
+    傷害減免百分比: 1)";
+static constexpr std::string_view sevenStarStatusProbe = R"(狀態: 七星
+設定印記層數: 7
+持續幀數: 150)";
+static constexpr std::string_view blindedStatusProbe = R"(狀態: 刺目
+可觸發次數: 1
+效果:
+  每次觸發:
+    阻止本次施放: true)";
+static constexpr std::string_view addedDamageBlockStatusProbe = R"(狀態: 傷害抵擋
+增加可抵擋次數: 1
+可抵擋次數上限: 3
+效果:
+  每次觸發:
+    抵擋非處決正傷害: true)";
+static constexpr std::string_view setDamageBlockStatusProbe = R"(狀態: 傷害抵擋
+設定可抵擋次數: 3
+效果:
+  每次觸發:
+    抵擋非處決正傷害: true)";
+
 static constexpr std::array applyStatusFields{
     PayloadFieldDescriptor{
-        "狀態", true, PayloadNodeShape::String, "中毒", {},
+        "狀態", true, PayloadNodeShape::String, "眩暈", {},
         PayloadSchemaReference::None, &statusKindEnum,
     },
     PayloadFieldDescriptor{
         "持續幀數", false, PayloadNodeShape::Number, "30", {},
         PayloadSchemaReference::EffectNumber,
     },
+    PayloadFieldDescriptor{ "增加層數", false, PayloadNodeShape::Integer, "1", battleSpiritStatusProbe },
+    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "10", battleSpiritStatusProbe },
+    PayloadFieldDescriptor{ "設定印記層數", false, PayloadNodeShape::Integer, "7", sevenStarStatusProbe },
+    PayloadFieldDescriptor{ "可觸發次數", false, PayloadNodeShape::Integer, "1", blindedStatusProbe },
+    PayloadFieldDescriptor{ "增加可抵擋次數", false, PayloadNodeShape::Integer, "1", addedDamageBlockStatusProbe },
+    PayloadFieldDescriptor{ "可抵擋次數上限", false, PayloadNodeShape::Integer, "3", addedDamageBlockStatusProbe },
+    PayloadFieldDescriptor{ "設定可抵擋次數", false, PayloadNodeShape::Integer, "3", setDamageBlockStatusProbe },
     PayloadFieldDescriptor{
-        "套用次數", false, PayloadNodeShape::Number, "2", {},
+        "重複套用", false, PayloadNodeShape::String, "保留較長持續時間", {},
+        PayloadSchemaReference::None, &statusReapplicationPolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "效果", false, PayloadNodeShape::Map,
+        "每層生效:\n  招式傷害增加百分比: 5\n  傷害減免百分比: 1",
+        battleSpiritStatusProbe,
+        PayloadSchemaReference::Payload, nullptr, &statusEffectsPayload,
+    },
+};
+static constexpr std::array poisonApplicationFields{
+    PayloadFieldDescriptor{
+        "持續幀數", true, PayloadNodeShape::Number, "90", {},
         PayloadSchemaReference::EffectNumber,
     },
-    PayloadFieldDescriptor{ "層數", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "可觸發次數", true, PayloadNodeShape::Integer, "3" },
     PayloadFieldDescriptor{
-        "強度", false, PayloadNodeShape::Number, "10", {},
-        PayloadSchemaReference::EffectNumber,
+        "重複套用", true, PayloadNodeShape::String, "保留較高傷害", {},
+        PayloadSchemaReference::None, &statusReapplicationPolicyEnum,
     },
     PayloadFieldDescriptor{
-        "次要強度", false, PayloadNodeShape::Number, "5", {},
-        PayloadSchemaReference::EffectNumber,
+        "同事件合併", false, PayloadNodeShape::String, "合計傷害百分比", {},
+        PayloadSchemaReference::None, &poisonSameEventMergeEnum,
     },
     PayloadFieldDescriptor{
-        "合併方式", false, PayloadNodeShape::String, "增加層數", {},
-        PayloadSchemaReference::None, &stackPolicyEnum,
+        "效果", true, PayloadNodeShape::Map,
+        "每次觸發:\n  目前生命傷害百分比: 7", {},
+        PayloadSchemaReference::Payload, nullptr, &statusEffectsPayload,
     },
-    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "5" },
 };
 static constexpr std::array consumeStatusFields{
     PayloadFieldDescriptor{
         "狀態", true, PayloadNodeShape::String, "中毒", {},
         PayloadSchemaReference::None, &statusKindEnum,
     },
-    PayloadFieldDescriptor{ "層數", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{ "消耗數量", false, PayloadNodeShape::Integer, "1" },
     PayloadFieldDescriptor{
         "狀態來源", false, PayloadNodeShape::String, "效果擁有者", {},
         PayloadSchemaReference::None, &statusSourceMatchEnum,
     },
     PayloadFieldDescriptor{
-        "最後一層", false, PayloadNodeShape::ActionNode, R"(套用狀態:
-  狀態: 眩暈)", {}, PayloadSchemaReference::ActionNode,
+        "最後一次", false, PayloadNodeShape::ActionNode, R"(套用狀態:
+  狀態: 眩暈
+  持續幀數: 30
+  重複套用: 保留較長持續時間)", {}, PayloadSchemaReference::ActionNode,
     },
 };
 static constexpr std::array removeStatusFields{
@@ -2101,7 +2337,18 @@ static constexpr PayloadDescriptor healTransactionModifierPayload{
   - 直接)",
 };
 static constexpr PayloadDescriptor applyStatusPayload{
-    "套用狀態", applyStatusFields, "狀態: 中毒",
+    "套用狀態", applyStatusFields, R"(狀態: 眩暈
+持續幀數: 30
+重複套用: 延長持續時間)",
+};
+static constexpr PayloadDescriptor poisonApplicationPayload{
+    "施加中毒", poisonApplicationFields, R"(可觸發次數: 3
+持續幀數: 90
+重複套用: 保留較高傷害
+同事件合併: 合計傷害百分比
+效果:
+  每次觸發:
+    目前生命傷害百分比: 7)",
 };
 static constexpr PayloadDescriptor consumeStatusPayload{
     "消耗狀態", consumeStatusFields, "狀態: 中毒",
@@ -2154,6 +2401,7 @@ static constexpr std::array actionDescriptors{
         &healTransactionModifierPayload,
     },
     ActionDescriptor{ "套用狀態", 4, ActionPayloadKind::ApplyStatus, &applyStatusPayload },
+    ActionDescriptor{ "施加中毒", 4, ActionPayloadKind::ApplyStatus, &poisonApplicationPayload },
     ActionDescriptor{ "消耗狀態", 5, ActionPayloadKind::ConsumeStatus, &consumeStatusPayload },
     ActionDescriptor{ "移除狀態", 6, ActionPayloadKind::RemoveStatus, &removeStatusPayload },
     ActionDescriptor{ "造成傷害", 7, ActionPayloadKind::Damage, &dealDamagePayload },
@@ -2236,25 +2484,9 @@ static constexpr std::array attributeBonusFields{
         PayloadSchemaReference::None, &stackPolicyEnum,
     },
     PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "3" },
-    PayloadFieldDescriptor{ "每層", false, PayloadNodeShape::Boolean, "true" },
     PayloadFieldDescriptor{
         "疊加範圍", false, PayloadNodeShape::String, "事件來源", {},
         PayloadSchemaReference::None, &stackScopeEnum,
-    },
-};
-static constexpr std::array poisonMacroFields{
-    PayloadFieldDescriptor{
-        "模式", false, PayloadNodeShape::String, "取代重設", {},
-        PayloadSchemaReference::None, &poisonModeEnum,
-    },
-    PayloadFieldDescriptor{
-        "持續幀數", true, PayloadNodeShape::Number, "90", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{ "層數", true, PayloadNodeShape::Integer, "3" },
-    PayloadFieldDescriptor{
-        "強度", true, PayloadNodeShape::Number, "7", {},
-        PayloadSchemaReference::EffectNumber,
     },
 };
 static constexpr std::array resourceMacroFields{
@@ -2303,11 +2535,6 @@ static constexpr PayloadDescriptor attributeBonusPayload{
     PayloadDynamicKeyClass::BattleAttribute, PayloadNodeShape::Integer, "攻擊", "1", 1,
     "百分比",
 };
-static constexpr PayloadDescriptor poisonMacroPayload{
-    "施毒", poisonMacroFields, R"(持續幀數: 90
-層數: 3
-強度: 7)",
-};
 static constexpr PayloadDescriptor resourceMacroPayload{
     "資源巨集", resourceMacroFields, R"(資源: 內力
 數值: 1)",
@@ -2321,7 +2548,6 @@ static constexpr PayloadDescriptor forceMoveMacroPayload{
 
 static constexpr std::array macroDescriptors{
     MacroDescriptor{ "屬性加成", MacroPayloadKind::AttributeBonus, &attributeBonusPayload, 0 },
-    MacroDescriptor{ "施毒", MacroPayloadKind::Poison, &poisonMacroPayload, 4 },
     MacroDescriptor{ "回復資源", MacroPayloadKind::Resource, &resourceMacroPayload, 2 },
     MacroDescriptor{ "獲得資源", MacroPayloadKind::Resource, &resourceMacroPayload, 2 },
     MacroDescriptor{ "奪取資源", MacroPayloadKind::Resource, &resourceMacroPayload, 2 },
@@ -2329,7 +2555,6 @@ static constexpr std::array macroDescriptors{
     MacroDescriptor{ "回復生命", MacroPayloadKind::Heal, &healMacroPayload, 2 },
     MacroDescriptor{ "獲得護盾", MacroPayloadKind::Number, &effectNumberPayload, 2 },
     MacroDescriptor{ "忽略防禦", MacroPayloadKind::Number, &effectNumberPayload, 1 },
-    MacroDescriptor{ "單次承傷上限", MacroPayloadKind::Number, &effectNumberPayload, 1 },
     MacroDescriptor{ "擊退", MacroPayloadKind::ForceMove, &forceMoveMacroPayload, 9 },
     MacroDescriptor{ "拉近", MacroPayloadKind::ForceMove, &forceMoveMacroPayload, 9 },
 };
@@ -2430,6 +2655,7 @@ static constexpr std::array payloadProbeDescriptors{
     PayloadProbeDescriptor{ &resourceChangePayload, PayloadProbeKind::Action, "資源變更" },
     PayloadProbeDescriptor{ &healTransactionModifierPayload, PayloadProbeKind::Action, "治療交易修正" },
     PayloadProbeDescriptor{ &applyStatusPayload, PayloadProbeKind::Action, "套用狀態" },
+    PayloadProbeDescriptor{ &poisonApplicationPayload, PayloadProbeKind::Action, "施加中毒" },
     PayloadProbeDescriptor{ &consumeStatusPayload, PayloadProbeKind::Action, "消耗狀態" },
     PayloadProbeDescriptor{ &removeStatusPayload, PayloadProbeKind::Action, "移除狀態" },
     PayloadProbeDescriptor{ &dealDamagePayload, PayloadProbeKind::Action, "造成傷害" },
@@ -2458,7 +2684,6 @@ static constexpr std::array payloadProbeDescriptors{
     PayloadProbeDescriptor{ &autoUltimatePayload, PayloadProbeKind::AutoUltimate },
     PayloadProbeDescriptor{ &attributePercentagePayload, PayloadProbeKind::AttributePercentage },
     PayloadProbeDescriptor{ &attributeBonusPayload, PayloadProbeKind::Macro, "屬性加成" },
-    PayloadProbeDescriptor{ &poisonMacroPayload, PayloadProbeKind::Macro, "施毒" },
     PayloadProbeDescriptor{ &resourceMacroPayload, PayloadProbeKind::Macro, "回復資源" },
     PayloadProbeDescriptor{ &healMacroPayload, PayloadProbeKind::Macro, "回復生命" },
     PayloadProbeDescriptor{ &forceMoveMacroPayload, PayloadProbeKind::Macro, "擊退" },

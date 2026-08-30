@@ -221,7 +221,6 @@ struct ActionDescriptor
 enum class MacroPayloadKind
 {
     AttributeBonus,
-    Poison,
     Resource,
     Number,
     Heal,

@@ -75,7 +75,7 @@ class ChessEffectSchemasTests(unittest.TestCase):
             document = {"絕招": [{"武功": 1, "名稱": "測試", "效果": [rule]}]}
             return list(validator.iter_errors(document))
 
-        self.assertFalse(errors({"時機": "開場", "套用狀態": {"狀態": "中毒"}}))
+        self.assertTrue(errors({"時機": "開場", "套用狀態": {"狀態": "中毒"}}))
         self.assertTrue(errors({"時機": "開場", "套用狀態": {"狀態": "未知狀態"}}))
         self.assertTrue(
             errors(
@@ -241,7 +241,7 @@ class ChessEffectSchemasTests(unittest.TestCase):
             )
         )
 
-    def test_poison_macro_is_closed_and_generic_status_has_no_poison_switch(self) -> None:
+    def test_poison_action_is_closed_and_old_forms_are_rejected(self) -> None:
         validator = jsonschema.Draft202012Validator(self.schema("magic_effects"))
 
         def errors(rule: dict) -> list[jsonschema.ValidationError]:
@@ -252,7 +252,15 @@ class ChessEffectSchemasTests(unittest.TestCase):
             errors(
                 {
                     "時機": "命中",
-                    "施毒": {"持續幀數": 90, "層數": 3, "強度": 7},
+                    "施加中毒": {
+                        "可觸發次數": 3,
+                        "持續幀數": 90,
+                        "重複套用": "保留較高傷害",
+                        "同事件合併": "合計傷害百分比",
+                        "效果": {
+                            "每次觸發": {"目前生命傷害百分比": 7}
+                        },
+                    },
                 }
             )
         )
@@ -260,11 +268,13 @@ class ChessEffectSchemasTests(unittest.TestCase):
             errors(
                 {
                     "時機": "絕招施放",
-                    "施毒": {
-                        "模式": "取代重設",
+                    "施加中毒": {
+                        "可觸發次數": 5,
                         "持續幀數": 150,
-                        "層數": 5,
-                        "強度": 10,
+                        "重複套用": "取代並重設",
+                        "效果": {
+                            "每次觸發": {"目前生命傷害百分比": 10}
+                        },
                     },
                 }
             )
@@ -273,26 +283,216 @@ class ChessEffectSchemasTests(unittest.TestCase):
             errors(
                 {
                     "時機": "命中",
-                    "施毒": {
-                        "模式": "任意合併",
-                        "持續幀數": 90,
-                        "層數": 3,
-                        "強度": 7,
-                    },
+                    "施毒": {"持續幀數": 90, "層數": 3, "強度": 7},
                 }
             )
         )
+
+        keep_higher = {
+            "可觸發次數": 3,
+            "持續幀數": 90,
+            "重複套用": "保留較高傷害",
+            "效果": {"每次觸發": {"目前生命傷害百分比": 7}},
+        }
+        self.assertTrue(errors({"時機": "命中", "施加中毒": keep_higher}))
+        replace_and_merge = {
+            "可觸發次數": 3,
+            "持續幀數": 90,
+            "重複套用": "取代並重設",
+            "同事件合併": "合計傷害百分比",
+            "效果": {"每次觸發": {"目前生命傷害百分比": 7}},
+        }
         self.assertTrue(
+            errors({"時機": "命中", "施加中毒": replace_and_merge})
+        )
+        removed_same_event_potency = {
+            "可觸發次數": 3,
+            "持續幀數": 90,
+            "重複套用": "保留較高傷害",
+            "同事件合併": "合計傷害百分比",
+            "同事件合計強度": True,
+            "效果": {"每次觸發": {"目前生命傷害百分比": 7}},
+        }
+        self.assertTrue(
+            errors({"時機": "命中", "施加中毒": removed_same_event_potency})
+        )
+        wrong_poison_scope = {
+            "可觸發次數": 3,
+            "持續幀數": 90,
+            "重複套用": "取代並重設",
+            "效果": {"持續生效": {"目前生命傷害百分比": 7}},
+        }
+        self.assertTrue(
+            errors({"時機": "命中", "施加中毒": wrong_poison_scope})
+        )
+
+    def test_status_application_schema_is_closed_per_status(self) -> None:
+        validator = jsonschema.Draft202012Validator(self.schema("magic_effects"))
+
+        def errors(status: dict) -> list[jsonschema.ValidationError]:
+            document = {
+                "絕招": [
+                    {
+                        "武功": 1,
+                        "名稱": "測試",
+                        "效果": [{"時機": "命中", "套用狀態": status}],
+                    }
+                ]
+            }
+            return list(validator.iter_errors(document))
+
+        self.assertFalse(
             errors(
                 {
-                    "時機": "命中",
-                    "套用狀態": {
-                        "狀態": "中毒",
-                        "同事件合計強度": True,
+                    "狀態": "眩暈",
+                    "持續幀數": 30,
+                    "重複套用": "保留較長持續時間",
+                }
+            )
+        )
+        self.assertFalse(
+            errors(
+                {
+                    "狀態": "戰意",
+                    "增加層數": 1,
+                    "層數上限": 10,
+                    "效果": {
+                        "每層生效": {
+                            "招式傷害增加百分比": 5,
+                            "傷害減免百分比": 1,
+                        }
                     },
                 }
             )
         )
+
+        invalid_statuses = (
+            {"狀態": "中毒"},
+            {"狀態": "下一次攻擊必定暴擊", "可觸發次數": 1},
+            {"狀態": "眩暈"},
+            {
+                "狀態": "眩暈",
+                "持續幀數": 30,
+                "重複套用": "保留較長持續時間",
+                "增加層數": 1,
+                "層數上限": 10,
+                "效果": {
+                    "每層生效": {
+                        "招式傷害增加百分比": 5,
+                        "傷害減免百分比": 1,
+                    }
+                },
+            },
+            {
+                "狀態": "戰意",
+                "增加層數": 1,
+                "層數上限": 10,
+                "持續幀數": 30,
+                "效果": {
+                    "每層生效": {
+                        "招式傷害增加百分比": 5,
+                        "傷害減免百分比": 1,
+                    }
+                },
+            },
+            {
+                "狀態": "戰意",
+                "增加層數": 1,
+                "層數上限": 10,
+                "重複套用": "刷新持續時間",
+                "效果": {
+                    "每層生效": {
+                        "招式傷害增加百分比": 5,
+                        "傷害減免百分比": 1,
+                    }
+                },
+            },
+            {
+                "狀態": "戰意",
+                "增加層數": 1,
+                "層數上限": 10,
+                "效果": {
+                    "持續生效": {
+                        "招式傷害增加百分比": 5,
+                        "傷害減免百分比": 1,
+                    }
+                },
+            },
+            {
+                "狀態": "戰意",
+                "增加層數": 1,
+                "層數上限": 10,
+                "效果": {
+                    "每層生效": {
+                        "速度降低百分比": 5,
+                    }
+                },
+            },
+            {
+                "狀態": "七星",
+                "增加層數": 7,
+                "層數上限": 7,
+                "持續幀數": 150,
+            },
+            {
+                "狀態": "傷害抵擋",
+                "增加可抵擋次數": 1,
+                "效果": {"每次觸發": {"抵擋非處決正傷害": True}},
+            },
+            {
+                "狀態": "傷害抵擋",
+                "設定可抵擋次數": 1,
+                "增加可抵擋次數": 1,
+                "可抵擋次數上限": 3,
+                "效果": {"每次觸發": {"抵擋非處決正傷害": True}},
+            },
+            {
+                "狀態": "傷害抵擋",
+                "設定可抵擋次數": 1,
+                "效果": {"每次觸發": {"抵擋非處決正傷害": False}},
+            },
+        )
+        for status in invalid_statuses:
+            with self.subTest(status=status):
+                self.assertTrue(errors(status))
+
+    def test_status_numeric_reference_schema_matches_the_status_catalog(self) -> None:
+        validator = jsonschema.Draft202012Validator(self.schema("magic_effects"))
+
+        def errors(rule: dict) -> list[jsonschema.ValidationError]:
+            document = {"絕招": [{"武功": 1, "名稱": "測試", "效果": [rule]}]}
+            return list(validator.iter_errors(document))
+
+        def quantity_rule(status: str) -> dict:
+            return {
+                "時機": "單位死亡",
+                "重複次數": {"來源狀態數量": status, "最小": 1},
+                "造成傷害": {
+                    "數值": 1,
+                    "傷害種類": "純粹",
+                    "範圍": "單體",
+                },
+            }
+
+        self.assertFalse(errors(quantity_rule("毒爆")))
+        self.assertTrue(errors(quantity_rule("眩暈")))
+        self.assertTrue(errors(quantity_rule("下一次攻擊必定暴擊")))
+
+        def value_rule(status: str, name: str) -> dict:
+            return {
+                "時機": "單位死亡",
+                "造成傷害": {
+                    "數值": {
+                        "來源狀態效果值": {"狀態": status, "名稱": name}
+                    },
+                    "傷害種類": "純粹",
+                    "範圍": "單體",
+                },
+            }
+
+        self.assertFalse(errors(value_rule("毒爆", "死亡爆炸純粹傷害")))
+        self.assertTrue(errors(value_rule("眩暈", "死亡爆炸純粹傷害")))
+        self.assertTrue(errors(value_rule("真氣", "死亡爆炸純粹傷害")))
 
     def test_structural_keys_use_traditional_chinese_without_aliases(self) -> None:
         combos = yaml.safe_load(

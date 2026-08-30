@@ -372,7 +372,6 @@ BattleAttributeModifierInstance makeAttributeModifier(
         .stack = command.action.stack,
         .stackLimit = command.action.stackLimit,
         .stackCount = 1,
-        .perStack = command.action.perStack,
         .eventSourceUnitId = command.action.stackScope == EffectStackScope::EventSource
             ? metadata.eventSourceUnitId
             : -1,
@@ -407,7 +406,6 @@ BattleAttributeEffectResult applyAttribute(
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
             current.stackLimit = command.action.stackLimit;
-            current.perStack = command.action.perStack;
             current.negative = attributeModifierIsNegative(
                 command.action.operation,
                 command.amount);
@@ -434,7 +432,6 @@ BattleAttributeEffectResult applyAttribute(
             current.amount = command.amount;
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
-            current.perStack = command.action.perStack;
             current.negative = attributeModifierIsNegative(
                 command.action.operation,
                 command.amount);
@@ -908,7 +905,7 @@ BattleStatusConsumeEffectResult consumeStatus(
     auto& record = state.units.require(metadata.targetUnitId);
     BattleStatusConsumeRequest request;
     request.kind = command.action.status;
-    request.stacks = command.action.stacks;
+    request.stacks = command.action.quantity;
     if (command.action.source == StatusSourceMatch::EffectOwner)
     {
         request.sourceUnitId = metadata.binding.ownerUnitId;
@@ -1438,20 +1435,18 @@ int BattleEffectCommandSystem::queryAttribute(
         {
             continue;
         }
-        const std::int64_t stackMultiplier = modifier.perStack
-            ? modifier.stackCount
-            : 1;
         const std::int64_t amount = static_cast<std::int64_t>(modifier.amount)
-            * stackMultiplier;
+            * modifier.stackCount;
         switch (modifier.operation)
         {
         case AttributeOperation::FlatAdd:
             value += amount;
             break;
         case AttributeOperation::PercentAdd:
-            value += battleAttributeUsesPercentagePoints(query.attribute)
-                ? amount
-                : baseValue * amount / 100;
+            value += baseValue * amount / 100;
+            break;
+        case AttributeOperation::PercentagePointAdd:
+            value += amount;
             break;
         case AttributeOperation::Override:
             value = amount;
@@ -1500,11 +1495,17 @@ BattleStatusApplyResult BattleEffectCommandSystem::applyStatusCommand(
     request.sourceUnitId = metadata.binding.ownerUnitId;
     request.durationFrames = command.evaluatedDurationFrames.value_or(
         command.action.durationFrames);
-    request.stacks = command.action.stacks;
+    const auto quantity = lowerStatusQuantity(command.action);
+    request.stacks = quantity.stacks;
     request.potency = command.potency;
     request.secondaryPotency = command.secondaryPotency;
-    request.stack = command.action.stack;
-    request.stackLimit = command.action.stackLimit;
+    request.origin = BattleStatusEffectOrigin{
+        metadata.binding,
+        metadata.ruleId,
+        metadata.ruleOrder,
+    };
+    request.stack = lowerStatusReapplication(command.action);
+    request.stackLimit = quantity.stackLimit;
     request.targetHasShield = targetHasShield;
     request.controlLowHpImmunityPct = context.controlLowHpImmunityPct;
     request.bypassStatusShield = context.bypassStatusShield;

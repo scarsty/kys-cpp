@@ -1,5 +1,6 @@
 #include "ChessEffectSchemaRenderer.h"
 
+#include "ChessBattleEffectSemantics.h"
 #include "ChessEffectAuthoringDescriptors.h"
 
 #include <glaze/json.hpp>
@@ -378,6 +379,41 @@ std::expected<JsonValue, std::string> schemaForField(
         "enum field「{}」使用不支援的 shape", field.name));
 }
 
+JsonValue sourceStatusQuantitySchema()
+{
+    std::vector<std::string_view> labels;
+    for (const auto& catalog : statusCatalogEntries())
+    {
+        if (catalog.quantity != StatusQuantityModel::None
+            && catalog.quantity != StatusQuantityModel::Internal)
+        {
+            labels.push_back(battleStatusLabel(catalog.status));
+        }
+    }
+    return enumSchema(labels);
+}
+
+JsonValue sourceStatusEffectReferenceSchema()
+{
+    JsonValue::Array variants;
+    for (const auto& effect : statusEffectValueCatalogEntries())
+    {
+        variants.push_back(objectSchema(
+            {
+                { "狀態", object({
+                    { "type", "string" },
+                    { "const", battleStatusLabel(effect.status) },
+                }) },
+                { "名稱", object({
+                    { "type", "string" },
+                    { "const", effect.label },
+                }) },
+            },
+            { "狀態", "名稱" }));
+    }
+    return object({{ "oneOf", JsonValue(std::move(variants)) }});
+}
+
 std::expected<JsonValue, std::string> descriptorObject(
     const PayloadDescriptor& descriptor,
     EffectEvent event)
@@ -394,7 +430,16 @@ std::expected<JsonValue, std::string> descriptorObject(
             if (field.name == "目標目前護盾百分比"
                 && !effectEventHas(event, EffectEventCapability::CurrentShield)) continue;
         }
-        auto schema = schemaForField(field, event);
+        auto schema = [&]() -> std::expected<JsonValue, std::string>
+        {
+            if (&descriptor == &effectNumberDescriptor()
+                && field.name == "來源狀態數量")
+                return sourceStatusQuantitySchema();
+            if (&descriptor == &effectNumberDescriptor()
+                && field.name == "來源狀態效果值")
+                return sourceStatusEffectReferenceSchema();
+            return schemaForField(field, event);
+        }();
         if (!schema) return std::unexpected(std::format(
             "payload「{}」欄位「{}」: {}",
             descriptor.name,
@@ -439,6 +484,322 @@ std::expected<JsonValue, std::string> descriptorObject(
     return schema;
 }
 
+const PayloadFieldDescriptor* descriptorField(
+    const PayloadDescriptor& descriptor,
+    std::string_view name)
+{
+    const auto found = std::ranges::find(descriptor.fields, name,
+        &PayloadFieldDescriptor::name);
+    return found == descriptor.fields.end() ? nullptr : &*found;
+}
+
+JsonValue positiveIntegerSchema()
+{
+    return object({
+        { "type", "integer" },
+        { "minimum", 1 },
+    });
+}
+
+JsonValue constantStringSchema(std::string_view value)
+{
+    return object({
+        { "type", "string" },
+        { "const", value },
+    });
+}
+
+JsonValue requiredTrueSchema()
+{
+    return object({
+        { "type", "boolean" },
+        { "const", true },
+    });
+}
+
+std::expected<JsonValue, std::string> statusReapplicationSchema(
+    const PayloadDescriptor& descriptor,
+    BattleStatusKind status)
+{
+    const auto* field = descriptorField(descriptor, "重複套用");
+    if (!field || !field->enumLabels)
+        return std::unexpected("套用狀態 descriptor 缺少重複套用 enum");
+    std::vector<AuthorEnumLabel> labels;
+    for (const auto& label : field->enumLabels->labels)
+    {
+        const auto policy = static_cast<StatusReapplicationPolicy>(label.value);
+        if (statusReapplicationPolicyAllowed(status, policy))
+            labels.push_back(label);
+    }
+    return enumSchema(std::span<const AuthorEnumLabel>(labels));
+}
+
+struct StatusEffectSchemaField
+{
+    std::string_view name;
+    bool requiredTrue{};
+};
+
+std::span<const StatusEffectSchemaField> statusEffectSchemaFields(
+    BattleStatusKind status)
+{
+    static constexpr std::array bleed{
+        StatusEffectSchemaField{ "最大生命傷害百分比" },
+    };
+    static constexpr std::array coldPoison{
+        StatusEffectSchemaField{ "禁止受到治療", true },
+        StatusEffectSchemaField{ "速度降低百分比" },
+    };
+    static constexpr std::array witheredBone{
+        StatusEffectSchemaField{ "受到傷害增加百分比" },
+        StatusEffectSchemaField{ "受到治療減少百分比" },
+    };
+    static constexpr std::array neutralizeForce{
+        StatusEffectSchemaField{ "阻止本次施放", true },
+        StatusEffectSchemaField{ "原攻擊目標獲得護盾" },
+    };
+    static constexpr std::array blinded{
+        StatusEffectSchemaField{ "阻止本次施放", true },
+    };
+    static constexpr std::array nextAttackMiss{
+        StatusEffectSchemaField{ "使本次受到攻擊落空", true },
+    };
+    static constexpr std::array damageBlock{
+        StatusEffectSchemaField{ "抵擋非處決正傷害", true },
+    };
+    static constexpr std::array singleHitCap{
+        StatusEffectSchemaField{ "傷害上限" },
+    };
+    static constexpr std::array battleSpirit{
+        StatusEffectSchemaField{ "招式傷害增加百分比" },
+        StatusEffectSchemaField{ "傷害減免百分比" },
+    };
+    static constexpr std::array trueQi{
+        StatusEffectSchemaField{ "命中附加純粹傷害" },
+    };
+    static constexpr std::array poisonExplosion{
+        StatusEffectSchemaField{ "死亡爆炸純粹傷害" },
+    };
+    switch (status)
+    {
+    case BattleStatusKind::Bleed: return bleed;
+    case BattleStatusKind::ColdPoison: return coldPoison;
+    case BattleStatusKind::WitheredBone: return witheredBone;
+    case BattleStatusKind::NeutralizeForce: return neutralizeForce;
+    case BattleStatusKind::Blinded: return blinded;
+    case BattleStatusKind::NextAttackMiss: return nextAttackMiss;
+    case BattleStatusKind::DamageBlockLayer: return damageBlock;
+    case BattleStatusKind::SingleHitCapLayer: return singleHitCap;
+    case BattleStatusKind::BattleSpirit: return battleSpirit;
+    case BattleStatusKind::TrueQi: return trueQi;
+    case BattleStatusKind::PoisonExplosion: return poisonExplosion;
+    case BattleStatusKind::Poison:
+    case BattleStatusKind::Stun:
+    case BattleStatusKind::MpBlocked:
+    case BattleStatusKind::SevenStarMark:
+    case BattleStatusKind::Shadowless:
+    case BattleStatusKind::NextAttackCritical:
+        return {};
+    }
+    return {};
+}
+
+std::string_view statusEffectScopeLabel(StatusEffectScope scope)
+{
+    switch (scope)
+    {
+    case StatusEffectScope::Persistent: return "持續生效";
+    case StatusEffectScope::PerLayer: return "每層生效";
+    case StatusEffectScope::PerTrigger: return "每次觸發";
+    case StatusEffectScope::PerLayerValue: return "每層提供數值";
+    case StatusEffectScope::None:
+    case StatusEffectScope::RuntimeOwned:
+        return {};
+    }
+    return {};
+}
+
+JsonValue closedStatusEffectsSchema(
+    BattleStatusKind status,
+    StatusEffectScope scope,
+    EffectEvent event)
+{
+    JsonValue::Object effectProperties;
+    std::vector<std::string_view> effectRequired;
+    for (const auto& field : statusEffectSchemaFields(status))
+    {
+        effectProperties.emplace_back(
+            std::string(field.name),
+            field.requiredTrue ? requiredTrueSchema() : effectNumberReference(event));
+        effectRequired.push_back(field.name);
+    }
+    auto values = objectSchema(
+        std::move(effectProperties),
+        std::move(effectRequired));
+    const auto scopeLabel = statusEffectScopeLabel(scope);
+    return objectSchema(
+        {{ std::string(scopeLabel), std::move(values) }},
+        { scopeLabel });
+}
+
+enum class DamageBlockSchemaQuantity
+{
+    None,
+    Add,
+    Set,
+};
+
+std::expected<JsonValue, std::string> statusApplicationBranch(
+    const PayloadDescriptor& descriptor,
+    const StatusCatalogEntry& catalog,
+    EffectEvent event,
+    DamageBlockSchemaQuantity damageBlockQuantity = DamageBlockSchemaQuantity::None)
+{
+    JsonValue::Object properties;
+    std::vector<std::string_view> required{ "狀態" };
+    properties.emplace_back(
+        "狀態",
+        constantStringSchema(battleStatusLabel(catalog.status)));
+
+    if (catalog.duration == StatusDurationModel::RequiredPositive)
+    {
+        const auto* duration = descriptorField(descriptor, "持續幀數");
+        if (!duration) return std::unexpected("套用狀態 descriptor 缺少持續幀數");
+        auto schema = schemaForField(*duration, event);
+        if (!schema) return std::unexpected(schema.error());
+        properties.emplace_back("持續幀數", std::move(*schema));
+        required.push_back("持續幀數");
+    }
+
+    const auto addPositiveInteger = [&](std::string_view name)
+    {
+        properties.emplace_back(std::string(name), positiveIntegerSchema());
+        required.push_back(name);
+    };
+    switch (catalog.quantity)
+    {
+    case StatusQuantityModel::None: break;
+    case StatusQuantityModel::Layers:
+        addPositiveInteger("增加層數");
+        addPositiveInteger("層數上限");
+        break;
+    case StatusQuantityModel::TriggerCharges:
+        addPositiveInteger("可觸發次數");
+        break;
+    case StatusQuantityModel::Marks:
+        addPositiveInteger("設定印記層數");
+        break;
+    case StatusQuantityModel::DamageBlockCharges:
+        if (damageBlockQuantity == DamageBlockSchemaQuantity::Add)
+        {
+            addPositiveInteger("增加可抵擋次數");
+            addPositiveInteger("可抵擋次數上限");
+        }
+        else if (damageBlockQuantity == DamageBlockSchemaQuantity::Set)
+        {
+            addPositiveInteger("設定可抵擋次數");
+        }
+        else return std::unexpected("傷害抵擋 schema 缺少數量分支");
+        break;
+    case StatusQuantityModel::Internal:
+        return std::unexpected("執行期狀態不可產生作者 schema");
+    }
+
+    if (statusReapplicationPolicyRequired(catalog.status))
+    {
+        auto schema = statusReapplicationSchema(descriptor, catalog.status);
+        if (!schema) return std::unexpected(schema.error());
+        properties.emplace_back("重複套用", std::move(*schema));
+        required.push_back("重複套用");
+    }
+
+    if (catalog.effectScope != StatusEffectScope::None)
+    {
+        if (catalog.effectScope == StatusEffectScope::RuntimeOwned)
+            return std::unexpected("執行期狀態不可產生效果 schema");
+        properties.emplace_back(
+            "效果",
+            closedStatusEffectsSchema(catalog.status, catalog.effectScope, event));
+        required.push_back("效果");
+    }
+    return objectSchema(std::move(properties), std::move(required));
+}
+
+std::expected<JsonValue, std::string> closedStatusApplicationSchema(
+    const PayloadDescriptor& descriptor,
+    EffectEvent event)
+{
+    JsonValue::Array variants;
+    for (const auto& catalog : statusCatalogEntries())
+    {
+        if (!catalog.authorable || catalog.status == BattleStatusKind::Poison) continue;
+        if (catalog.quantity == StatusQuantityModel::DamageBlockCharges)
+        {
+            auto add = statusApplicationBranch(
+                descriptor, catalog, event, DamageBlockSchemaQuantity::Add);
+            auto set = statusApplicationBranch(
+                descriptor, catalog, event, DamageBlockSchemaQuantity::Set);
+            if (!add) return std::unexpected(add.error());
+            if (!set) return std::unexpected(set.error());
+            variants.push_back(std::move(*add));
+            variants.push_back(std::move(*set));
+        }
+        else
+        {
+            auto branch = statusApplicationBranch(descriptor, catalog, event);
+            if (!branch) return std::unexpected(branch.error());
+            variants.push_back(std::move(*branch));
+        }
+    }
+    return object({{ "oneOf", JsonValue(std::move(variants)) }});
+}
+
+JsonValue closedPoisonEffectSchema(EffectEvent event)
+{
+    auto values = objectSchema(
+        {{ "目前生命傷害百分比", effectNumberReference(event) }},
+        { "目前生命傷害百分比" });
+    return objectSchema(
+        {{ "每次觸發", std::move(values) }},
+        { "每次觸發" });
+}
+
+std::expected<JsonValue, std::string> closedPoisonApplicationSchema(
+    const PayloadDescriptor& descriptor,
+    EffectEvent event)
+{
+    const auto* duration = descriptorField(descriptor, "持續幀數");
+    if (!duration) return std::unexpected("施加中毒 descriptor 缺少持續幀數");
+    auto durationSchema = schemaForField(*duration, event);
+    if (!durationSchema) return std::unexpected(durationSchema.error());
+
+    const auto branch = [&](bool aggregates, JsonValue durationValue)
+    {
+        JsonValue::Object properties{
+            { "持續幀數", std::move(durationValue) },
+            { "可觸發次數", positiveIntegerSchema() },
+            { "重複套用", constantStringSchema(
+                aggregates ? "保留較高傷害" : "取代並重設") },
+            { "效果", closedPoisonEffectSchema(event) },
+        };
+        std::vector<std::string_view> required{
+            "持續幀數", "可觸發次數", "重複套用", "效果",
+        };
+        if (aggregates)
+        {
+            properties.emplace_back(
+                "同事件合併",
+                constantStringSchema("合計傷害百分比"));
+            required.push_back("同事件合併");
+        }
+        return objectSchema(std::move(properties), std::move(required));
+    };
+    return object({{ "oneOf", array({
+        branch(true, *durationSchema),
+        branch(false, std::move(*durationSchema)),
+    }) }});
+}
+
 struct NamedSchema
 {
     std::string_view name;
@@ -452,7 +813,15 @@ std::expected<std::vector<NamedSchema>, std::string> actionPayloads(EffectEvent 
     for (const auto& descriptor : actionDescriptors())
     {
         if (!descriptor.eventAllowed(event)) continue;
-        auto schema = descriptorObject(*descriptor.payload, event);
+        std::expected<JsonValue, std::string> schema = [&]()
+            -> std::expected<JsonValue, std::string>
+        {
+            if (descriptor.name == "套用狀態")
+                return closedStatusApplicationSchema(*descriptor.payload, event);
+            if (descriptor.name == "施加中毒")
+                return closedPoisonApplicationSchema(*descriptor.payload, event);
+            return descriptorObject(*descriptor.payload, event);
+        }();
         if (!schema) return std::unexpected(schema.error());
         if (descriptor.payloadKind == ActionPayloadKind::Conditional)
         {

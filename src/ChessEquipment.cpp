@@ -1,5 +1,6 @@
 #include "ChessEquipment.h"
 #include "ChessBattleEffectParser.h"
+#include "ChessBattleEffectValidation.h"
 #include "yaml-cpp/yaml.h"
 #include <algorithm>
 #include <format>
@@ -117,6 +118,16 @@ bool appendSynergyDef(
             def.rules.push_back(std::move(rule));
         }
     }
+    std::string lifecycleError;
+    if (!validateEffectRules(def.rules, lifecycleError))
+    {
+        emitChessDiagnostic(
+            diagnostics,
+            ChessDiagnosticSeverity::Error,
+            "裝備配置",
+            std::format("裝備羈絆裝備{}：{}", def.equipmentId, lifecycleError));
+        return false;
+    }
 
     if (!appendEquipmentManagementRules(
             entry,
@@ -208,6 +219,16 @@ bool loadChessEquipment(
                 }
                 def.rules.push_back(std::move(rule));
             }
+        }
+        std::string lifecycleError;
+        if (!validateEffectRules(def.rules, lifecycleError))
+        {
+            emitChessDiagnostic(
+                diagnostics,
+                ChessDiagnosticSeverity::Error,
+                "裝備配置",
+                std::format("裝備{}：{}", def.itemId, lifecycleError));
+            return false;
         }
 
         if (!appendEquipmentManagementRules(

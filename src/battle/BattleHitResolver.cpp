@@ -501,7 +501,11 @@ BattleHitFinalDamageResult applyFinalDamageModifiers(
         return result;
     }
 
-    const int maximumDamage = std::max(1, maxHp * capPct / 100);
+    const auto scaledMaximumDamage = static_cast<std::int64_t>(maxHp) * capPct / 100;
+    const int maximumDamage = static_cast<int>(std::clamp<std::int64_t>(
+        scaledMaximumDamage,
+        1,
+        std::numeric_limits<int>::max()));
     if (result.damage > BattleFixed::fromInteger(maximumDamage))
     {
         result.damage = BattleFixed::fromInteger(maximumDamage);

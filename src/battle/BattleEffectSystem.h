@@ -15,6 +15,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -62,7 +63,6 @@ struct EffectUnitSnapshot
     bool hasState(BattleStatusKind state) const;
     bool hasStateFromSource(BattleStatusKind state, int sourceUnitId) const;
     int stackCount(BattleStatusKind stack) const;
-    int statusPotency(BattleStatusKind state) const;
     bool usesMagic(int magicId) const;
 };
 
@@ -123,7 +123,6 @@ private:
 
 struct EffectFormulaInputs
 {
-    std::optional<int> accumulatedStateValue;
     std::optional<std::int64_t> storedStateValue;
 };
 
@@ -350,6 +349,43 @@ struct ApplyStatusEffectCommand
     int secondaryPotency{};
     std::optional<int> evaluatedDurationFrames;
 };
+
+template <typename Evaluator>
+std::pair<int, int> evaluateStatusRuntimeValues(
+    const ApplyStatusAction& action,
+    Evaluator&& evaluate)
+{
+    return std::visit([&](const auto& effects) -> std::pair<int, int>
+    {
+        using T = std::decay_t<decltype(effects)>;
+        if constexpr (std::is_same_v<T, PoisonStatusEffects>)
+            return { evaluate(effects.currentHpDamagePercent), 0 };
+        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
+            return { evaluate(effects.maxHpDamagePercent), 0 };
+        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
+            return { evaluate(effects.speedReductionPercent), 0 };
+        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
+            return {
+                evaluate(effects.damageTakenIncreasePercent),
+                evaluate(effects.healingReductionPercent),
+            };
+        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
+            return { evaluate(effects.originalTargetShield), 0 };
+        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
+            return { evaluate(effects.damageCap), 0 };
+        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
+            return {
+                evaluate(effects.skillDamageIncreasePercent),
+                evaluate(effects.damageReductionPercent),
+            };
+        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
+            return { evaluate(effects.pureDamagePerHit), 0 };
+        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
+            return { evaluate(effects.deathPureDamage), 0 };
+        else
+            return { 0, 0 };
+    }, action.effects);
+}
 
 struct ConsumeStatusEffectCommand
 {

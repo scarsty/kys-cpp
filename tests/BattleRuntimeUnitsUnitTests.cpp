@@ -166,7 +166,7 @@ TEST_CASE("BattleRuntimeUnitRecord_TypedMpRecoveryBonusStaysSeparateFromMpBlock"
         state,
         0,
         BattleAttribute::MpRecoveryBonus,
-        AttributeOperation::PercentAdd,
+        AttributeOperation::PercentagePointAdd,
         40);
 
     CHECK(runtimeUnit.mpBlocked());

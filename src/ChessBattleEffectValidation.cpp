@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <format>
+#include <limits>
 #include <ranges>
 #include <set>
 #include <type_traits>
@@ -221,14 +223,38 @@ bool validateEffectNumberAtEvent(const EffectNumber& number, EffectEvent event, 
     {
         return number.base == base || number.multiplierBase == base;
     };
-    const bool usesStatus = usesBase(EffectNumberBase::SourceStatusPotency)
-        || usesBase(EffectNumberBase::SourceStatusStacks);
+    const bool usesStatusEffect = usesBase(EffectNumberBase::SourceStatusEffectValue);
+    const bool usesStatusQuantity = usesBase(EffectNumberBase::SourceStatusQuantity);
+    const bool usesStatus = usesStatusEffect || usesStatusQuantity;
     if (usesStatus != number.status.has_value())
     {
         error = usesStatus
             ? "來源狀態數值基準需要指定狀態"
             : "只有來源狀態數值基準可指定狀態";
         return false;
+    }
+    if (usesStatusEffect != number.statusEffect.has_value())
+    {
+        error = usesStatusEffect
+            ? "來源狀態效果值基準需要指定效果名稱"
+            : "只有來源狀態效果值基準可指定效果名稱";
+        return false;
+    }
+    if (number.statusEffect
+        && !statusEffectValueBelongsToStatus(*number.statusEffect, *number.status))
+    {
+        error = "來源狀態效果值名稱不屬於指定狀態";
+        return false;
+    }
+    if (usesStatusQuantity)
+    {
+        const auto quantity = statusCatalogEntry(*number.status).quantity;
+        if (quantity == StatusQuantityModel::None
+            || quantity == StatusQuantityModel::Internal)
+        {
+            error = "來源狀態數量只能參照目錄中公開數量語意的狀態";
+            return false;
+        }
     }
     const bool usesStoredState = usesBase(EffectNumberBase::StoredStateValue);
     if (usesStoredState != number.stateSlot.has_value())
@@ -294,13 +320,264 @@ bool effectNumberCannotBeNegative(const EffectNumber& number)
 
 bool effectNumberMustBePositive(const EffectNumber& number)
 {
+    if (const auto constant = effectiveConstantEffectNumberValue(number))
+        return *constant > 0;
     if (!effectNumberCannotBeNegative(number)
         || (number.maximum && *number.maximum <= 0))
     {
         return false;
     }
-    return number.flat > 0
-        || (number.minimum && *number.minimum > 0);
+    if (number.flat > 0 || (number.minimum && *number.minimum > 0)) return true;
+    if (number.multiplierBase || number.percent <= 0) return false;
+    if (number.base != EffectNumberBase::SourceStar) return false;
+    return number.rounding == EffectRounding::Ceil || number.percent >= 100;
+}
+
+std::optional<std::int64_t> effectNumberGuaranteedMaximum(
+    const EffectNumber& number)
+{
+    if (const auto constant = effectiveConstantEffectNumberValue(number))
+        return *constant;
+    if (number.maximum) return *number.maximum;
+    if (number.multiplierBase) return std::nullopt;
+    std::int64_t bound{};
+    if (number.percent == 0)
+    {
+        bound = number.flat;
+    }
+    else
+    {
+        if (number.base != EffectNumberBase::SourceStar || number.percent < 0)
+            return std::nullopt;
+        const auto scaled = (static_cast<std::int64_t>(3) * number.percent + 99) / 100;
+        bound = scaled + number.flat;
+    }
+    if (number.minimum) bound = std::max(bound, static_cast<std::int64_t>(*number.minimum));
+    return bound;
+}
+
+bool effectNumberCannotExceed(
+    const EffectNumber& number,
+    int maximum)
+{
+    const auto bound = effectNumberGuaranteedMaximum(number);
+    return bound && *bound <= maximum;
+}
+
+bool effectNumberProductFitsInt(const EffectNumber& number, int multiplier)
+{
+    const auto bound = effectNumberGuaranteedMaximum(number);
+    return bound
+        && *bound >= 0
+        && *bound <= std::numeric_limits<int>::max() / multiplier;
+}
+
+bool validateStatusApplication(
+    const ApplyStatusAction& action,
+    EffectEvent event,
+    std::string& error)
+{
+    const auto reject = [&](std::string message)
+    {
+        error = std::move(message);
+        return false;
+    };
+    const auto& catalog = statusCatalogEntry(action.status);
+    if (!catalog.authorable) return reject("執行期狀態不可由效果直接套用");
+
+    if (catalog.duration == StatusDurationModel::RequiredPositive)
+    {
+        if ((action.durationFrames > 0) == action.duration.has_value())
+            return reject("需要持續時間的狀態必須擇一指定固定或公式持續幀數");
+        if (action.duration)
+        {
+            if (!validateEffectNumberAtEvent(*action.duration, event, error)) return false;
+            if (!effectNumberMustBePositive(*action.duration))
+                return reject("狀態持續幀數公式必須保證為正數");
+        }
+    }
+    else if (action.durationFrames != 0 || action.duration)
+    {
+        return reject("此狀態不可指定持續幀數");
+    }
+
+    const auto positive = [&](int value, std::string_view field)
+    {
+        if (value > 0) return true;
+        error = std::format("「{}」必須為正數", field);
+        return false;
+    };
+    switch (catalog.quantity)
+    {
+    case StatusQuantityModel::None:
+        if (!std::holds_alternative<NoStatusQuantity>(action.quantity))
+            return reject("此狀態不可指定數量");
+        break;
+    case StatusQuantityModel::Layers:
+    {
+        const auto* quantity = std::get_if<AddStatusLayers>(&action.quantity);
+        if (!quantity) return reject("此狀態必須使用增加層數");
+        if (!positive(quantity->count, "增加層數")
+            || !positive(quantity->limit, "層數上限")) return false;
+        break;
+    }
+    case StatusQuantityModel::TriggerCharges:
+    {
+        const auto* quantity = std::get_if<SetStatusTriggerCharges>(&action.quantity);
+        if (!quantity) return reject("此狀態必須使用可觸發次數");
+        if (!positive(quantity->count, "可觸發次數")) return false;
+        break;
+    }
+    case StatusQuantityModel::Marks:
+    {
+        const auto* quantity = std::get_if<SetStatusMarks>(&action.quantity);
+        if (!quantity) return reject("此狀態必須使用設定印記層數");
+        if (!positive(quantity->count, "設定印記層數")) return false;
+        break;
+    }
+    case StatusQuantityModel::DamageBlockCharges:
+        if (const auto* quantity = std::get_if<AddDamageBlockCharges>(&action.quantity))
+        {
+            if (!positive(quantity->count, "增加可抵擋次數")
+                || !positive(quantity->limit, "可抵擋次數上限")) return false;
+        }
+        else if (const auto* quantity = std::get_if<SetDamageBlockCharges>(&action.quantity))
+        {
+            if (!positive(quantity->count, "設定可抵擋次數")) return false;
+        }
+        else return reject("傷害抵擋必須使用抵擋次數數量動詞");
+        break;
+    case StatusQuantityModel::Internal:
+        return reject("執行期狀態不可指定數量");
+    }
+
+    if (!statusReapplicationPolicyAllowed(action.status, action.reapplication))
+        return reject("狀態使用了不允許的重複套用方式");
+
+    const bool payloadMatches = [&]
+    {
+        switch (action.status)
+        {
+        case BattleStatusKind::Poison: return std::holds_alternative<PoisonStatusEffects>(action.effects);
+        case BattleStatusKind::Bleed: return std::holds_alternative<BleedStatusEffects>(action.effects);
+        case BattleStatusKind::ColdPoison: return std::holds_alternative<ColdPoisonStatusEffects>(action.effects);
+        case BattleStatusKind::WitheredBone: return std::holds_alternative<WitheredBoneStatusEffects>(action.effects);
+        case BattleStatusKind::NeutralizeForce: return std::holds_alternative<NeutralizeForceStatusEffects>(action.effects);
+        case BattleStatusKind::Blinded: return std::holds_alternative<BlindedStatusEffects>(action.effects);
+        case BattleStatusKind::NextAttackMiss: return std::holds_alternative<NextIncomingAttackMissStatusEffects>(action.effects);
+        case BattleStatusKind::DamageBlockLayer: return std::holds_alternative<DamageBlockStatusEffects>(action.effects);
+        case BattleStatusKind::SingleHitCapLayer: return std::holds_alternative<SingleHitCapStatusEffects>(action.effects);
+        case BattleStatusKind::BattleSpirit: return std::holds_alternative<BattleSpiritStatusEffects>(action.effects);
+        case BattleStatusKind::TrueQi: return std::holds_alternative<TrueQiStatusEffects>(action.effects);
+        case BattleStatusKind::PoisonExplosion: return std::holds_alternative<PoisonExplosionStatusEffects>(action.effects);
+        case BattleStatusKind::Stun:
+        case BattleStatusKind::MpBlocked:
+        case BattleStatusKind::SevenStarMark:
+        case BattleStatusKind::Shadowless:
+            return std::holds_alternative<NoStatusEffects>(action.effects);
+        case BattleStatusKind::NextAttackCritical: return false;
+        }
+        return false;
+    }();
+    if (!payloadMatches) return reject("狀態效果 payload 與狀態目錄不相符");
+
+    bool numbersValid = true;
+    forEachStatusEffectNumber(action.effects, [&](const EffectNumber& number)
+    {
+        if (numbersValid) numbersValid = validateEffectNumberAtEvent(number, event, error);
+    });
+    if (!numbersValid) return false;
+
+    const auto requirePositiveNumber = [&](const EffectNumber& number, std::string_view field)
+    {
+        if (effectNumberMustBePositive(number)) return true;
+        error = std::format("狀態效果「{}」必須保證為正數", field);
+        return false;
+    };
+    const auto requireNonnegativeNumber = [&](const EffectNumber& number, std::string_view field)
+    {
+        if (effectNumberCannotBeNegative(number)) return true;
+        error = std::format("狀態效果「{}」不可為負數", field);
+        return false;
+    };
+    const auto requireLayerProduct = [&](const EffectNumber& number, std::string_view field)
+    {
+        const auto* layers = std::get_if<AddStatusLayers>(&action.quantity);
+        assert(layers);
+        if (effectNumberProductFitsInt(number, layers->limit)) return true;
+        error = std::format(
+            "狀態效果「{}」必須以公式最大值保證乘上層數上限後不超出整數範圍",
+            field);
+        return false;
+    };
+
+    const bool valuesValid = std::visit([&](const auto& effects)
+    {
+        using T = std::decay_t<decltype(effects)>;
+        if constexpr (std::is_same_v<T, PoisonStatusEffects>)
+            return requirePositiveNumber(effects.currentHpDamagePercent, "目前生命傷害百分比");
+        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
+            return requirePositiveNumber(effects.maxHpDamagePercent, "最大生命傷害百分比")
+                && requireLayerProduct(effects.maxHpDamagePercent, "最大生命傷害百分比");
+        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
+            return requireNonnegativeNumber(effects.speedReductionPercent, "速度降低百分比");
+        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
+            return requireNonnegativeNumber(
+                    effects.damageTakenIncreasePercent, "受到傷害增加百分比")
+                && requireNonnegativeNumber(
+                    effects.healingReductionPercent, "受到治療減少百分比")
+                && effectNumberCannotExceed(effects.healingReductionPercent, 100);
+        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
+            return requirePositiveNumber(effects.originalTargetShield, "原攻擊目標獲得護盾");
+        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
+            return requirePositiveNumber(effects.damageCap, "傷害上限");
+        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
+            return requireNonnegativeNumber(
+                    effects.skillDamageIncreasePercent, "招式傷害增加百分比")
+                && requireNonnegativeNumber(effects.damageReductionPercent, "傷害減免百分比")
+                && requireLayerProduct(
+                    effects.skillDamageIncreasePercent, "招式傷害增加百分比")
+                && requireLayerProduct(effects.damageReductionPercent, "傷害減免百分比");
+        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
+            return requirePositiveNumber(effects.pureDamagePerHit, "命中附加純粹傷害")
+                && requireLayerProduct(effects.pureDamagePerHit, "命中附加純粹傷害");
+        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
+            return requirePositiveNumber(effects.deathPureDamage, "死亡爆炸純粹傷害")
+                && requireLayerProduct(effects.deathPureDamage, "死亡爆炸純粹傷害");
+        else
+            return true;
+    }, action.effects);
+    if (!valuesValid)
+    {
+        if (error.empty()) error = "受到治療減少百分比必須保證介於 0 與 100";
+        return false;
+    }
+
+    if (const auto* effects = std::get_if<ColdPoisonStatusEffects>(&action.effects);
+        effects && !effects->blocksHealing)
+        return reject("寒毒必須明確禁止受到治療");
+    if (const auto* effects = std::get_if<NeutralizeForceStatusEffects>(&action.effects);
+        effects && !effects->preventsCast)
+        return reject("化勁必須明確阻止本次施放");
+    if (const auto* effects = std::get_if<BlindedStatusEffects>(&action.effects);
+        effects && !effects->preventsCast)
+        return reject("刺目必須明確阻止本次施放");
+    if (const auto* effects = std::get_if<NextIncomingAttackMissStatusEffects>(&action.effects);
+        effects && !effects->makesIncomingAttackMiss)
+        return reject("下一次受到攻擊必定落空必須明確使攻擊落空");
+    if (const auto* effects = std::get_if<DamageBlockStatusEffects>(&action.effects);
+        effects && !effects->blocksPositiveNonExecuteDamage)
+        return reject("傷害抵擋必須明確抵擋非處決正傷害");
+    if (const auto* effects = std::get_if<PoisonStatusEffects>(&action.effects))
+    {
+        if (action.reapplication == StatusReapplicationPolicy::KeepHigherDamage
+            && effects->sameEventMerge != PoisonSameEventMerge::SumDamagePercent)
+            return reject("保留較高傷害的中毒必須合計同事件傷害百分比");
+        if (action.reapplication == StatusReapplicationPolicy::ReplaceAndReset
+            && effects->sameEventMerge != PoisonSameEventMerge::None)
+            return reject("取代並重設的中毒不可合併同事件傷害");
+    }
+    return true;
 }
 
 template<class Value>
@@ -334,8 +611,12 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
                 if (typed.stackLimit && *typed.stackLimit <= 0) return reject("屬性修正層數上限必須為正數");
                 if (typed.stackLimit && typed.stack != EffectStackPolicy::AddStack)
                     return reject("只有增加層數的屬性修正可指定層數上限");
-                if (typed.perStack && typed.stack != EffectStackPolicy::AddStack)
-                    return reject("只有增加層數的屬性修正可指定每層計算");
+                if (typed.operation == AttributeOperation::PercentAdd
+                    && battleAttributeUsesPercentagePoints(typed.attribute))
+                    return reject("百分點屬性必須使用百分點加算");
+                if (typed.operation == AttributeOperation::PercentagePointAdd
+                    && !battleAttributeUsesPercentagePoints(typed.attribute))
+                    return reject("基準值屬性不可使用百分點加算");
             }
             else if constexpr (std::is_same_v<T, ModifyDamageAction>)
             {
@@ -353,8 +634,12 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
                     return reject("忽略防禦百分比只支援造成方的防禦前階段");
                 if (typed.operation == DamageModifierOperation::CapSingleHitAtMaxHpPercent
                     && (typed.perspective != DamageModifierPerspective::Incoming
-                        || typed.stage != DamageModifierStage::Final))
-                    return reject("單次承傷上限只支援承受方的最終階段");
+                        || typed.stage != DamageModifierStage::Final
+                        || typed.channel != DamageChannel::All))
+                    return reject("單次承傷上限只支援承受方、最終階段與全部傷害");
+                if (typed.operation == DamageModifierOperation::CapSingleHitAtMaxHpPercent
+                    && !effectNumberMustBePositive(typed.amount))
+                    return reject("每次承傷最大生命百分比必須保證為正數");
                 if (typed.operation == DamageModifierOperation::ExecuteBelowMaxHpPercent
                     && (typed.perspective != DamageModifierPerspective::Outgoing
                         || typed.stage != DamageModifierStage::Final))
@@ -398,41 +683,13 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
             }
             else if constexpr (std::is_same_v<T, ApplyStatusAction>)
             {
-                if (!validateEffectNumberAtEvent(typed.potency, event, error)
-                    || !validateEffectNumberAtEvent(typed.secondaryPotency, event, error)) return false;
-                if (typed.applicationCount)
-                {
-                    if (!validateEffectNumberAtEvent(*typed.applicationCount, event, error)) return false;
-                    if (!effectNumberMustBePositive(*typed.applicationCount))
-                        return reject("狀態套用次數必須保證為正數");
-                }
-                if (typed.duration
-                    && (!validateEffectNumberAtEvent(*typed.duration, event, error)
-                        || !effectNumberCannotBeNegative(*typed.duration))) return false;
-                if (typed.durationFrames < 0)
-                    return reject("狀態持續幀數不可為負數");
-                if (typed.stacks <= 0) return reject("狀態層數必須為正數");
-                if (typed.stack == EffectStackPolicy::AddStack && !typed.stackLimit)
-                    return reject("增加層數的狀態需要層數上限");
-                if (typed.stackLimit && *typed.stackLimit <= 0) return reject("狀態層數上限必須為正數");
-                if (typed.aggregatePotencyWithinEvent
-                    && (typed.status != BattleStatusKind::Poison
-                        || typed.stack != EffectStackPolicy::KeepStrongest
-                        || typed.secondaryPotency.base != EffectNumberBase::Constant
-                        || typed.secondaryPotency.flat != 0
-                        || !typed.stackLimit
-                        || *typed.stackLimit != typed.stacks))
-                {
-                    return reject("同事件合計強度只支援保留最強的中毒，且必須明確指定相同的正層數與層數上限，不可指定次要強度");
-                }
+                return validateStatusApplication(typed, event, error);
             }
             else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
             {
-                if (typed.stacks <= 0) return reject("消耗狀態層數必須為正數");
+                if (typed.quantity <= 0) return reject("消耗狀態數量必須為正數");
                 if (typed.whenDepleted)
                 {
-                    if (typed.whenDepleted->applicationCount)
-                        return reject("消耗最後一層套用的狀態不可指定套用次數");
                     EffectAction nested{ EffectActionValue{ *typed.whenDepleted } };
                     if (!validateActionPayload(nested, event, error)) return false;
                 }
@@ -862,9 +1119,8 @@ bool validateBattleInitializedNumber(const EffectNumber& number, std::string& er
         case EffectNumberBase::TargetCurrentShield:
         case EffectNumberBase::TargetCurrentCooldown:
         case EffectNumberBase::FinalHpDamage:
-        case EffectNumberBase::AccumulatedStateValue:
-        case EffectNumberBase::SourceStatusPotency:
-        case EffectNumberBase::SourceStatusStacks:
+        case EffectNumberBase::SourceStatusEffectValue:
+        case EffectNumberBase::SourceStatusQuantity:
         case EffectNumberBase::StoredStateValue:
             return false;
         }
@@ -968,7 +1224,6 @@ bool validateBattleInitializedAction(
                 && (typed.durationFrames != 0
                     || typed.stack != EffectStackPolicy::Independent
                     || typed.stackLimit
-                    || typed.perStack
                     || typed.stackScope != EffectStackScope::Shared))
                 return reject("初始化核心屬性必須是永久、共用且獨立的修正");
             return true;
@@ -990,14 +1245,16 @@ bool validateBattleInitializedAction(
         }
         else if constexpr (std::is_same_v<T, ApplyStatusAction>)
         {
-            if (!validateBattleInitializedNumber(typed.potency, error)
-                || !validateBattleInitializedNumber(typed.secondaryPotency, error))
-                return false;
+            bool valid = true;
+            forEachStatusEffectNumber(typed.effects, [&](const EffectNumber& number)
+            {
+                if (valid) valid = validateBattleInitializedNumber(number, error);
+            });
+            if (!valid) return false;
             if (typed.duration
                 && !validateBattleInitializedNumber(*typed.duration, error))
                 return false;
-            return !typed.applicationCount
-                || validateBattleInitializedNumber(*typed.applicationCount, error);
+            return true;
         }
         else if constexpr (std::is_same_v<T, StateMachineAction>)
         {
@@ -1069,12 +1326,254 @@ bool validateBattleInitializedRule(const EffectRule& rule, std::string& error)
     return true;
 }
 
+template <typename Visitor>
+void visitEffectActionTree(const EffectAction& action, Visitor&& visitor)
+{
+    visitor(action);
+    const auto* conditional = std::get_if<std::shared_ptr<ConditionalEffectAction>>(
+        &action.value);
+    if (!conditional) return;
+    assert(*conditional);
+    for (const auto& nested : (*conditional)->whenTrue)
+        visitEffectActionTree(nested, visitor);
+    for (const auto& nested : (*conditional)->whenFalse)
+        visitEffectActionTree(nested, visitor);
+}
+
+template <typename>
+inline constexpr bool unsupportedEffectNumberCarrier = false;
+
+template <typename Visitor>
+void visitApplyStatusEffectNumbers(
+    const ApplyStatusAction& action,
+    Visitor& visitor)
+{
+    if (action.duration) visitor(*action.duration);
+    forEachStatusEffectNumber(action.effects, visitor);
+}
+
+template <typename Visitor>
+void visitEffectActionNumbers(const EffectAction& action, Visitor& visitor)
+{
+    std::visit([&](const auto& typed)
+    {
+        using T = std::decay_t<decltype(typed)>;
+        if constexpr (std::is_same_v<T, ModifyAttributeAction>
+            || std::is_same_v<T, ModifyDamageAction>
+            || std::is_same_v<T, ChangeResourceAction>)
+        {
+            visitor(typed.amount);
+        }
+        else if constexpr (std::is_same_v<T, ApplyStatusAction>)
+        {
+            visitApplyStatusEffectNumbers(typed, visitor);
+        }
+        else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
+        {
+            if (typed.whenDepleted)
+                visitApplyStatusEffectNumbers(*typed.whenDepleted, visitor);
+        }
+        else if constexpr (std::is_same_v<T, DealDamageAction>)
+        {
+            visitor(typed.amount);
+            if (typed.transactionCount) visitor(*typed.transactionCount);
+        }
+        else if constexpr (std::is_same_v<T, ModifyAttackAction>)
+        {
+            if (typed.damageOverride) visitor(*typed.damageOverride);
+        }
+        else if constexpr (std::is_same_v<T, CreateAreaAction>)
+        {
+            for (const auto& modifier : typed.modifiers) visitor(modifier.amount);
+        }
+        else if constexpr (std::is_same_v<T, ModifyCastAction>)
+        {
+            if (typed.mpCost) visitor(*typed.mpCost);
+        }
+        else if constexpr (std::is_same_v<T, StateMachineAction>)
+        {
+            std::visit([&](const auto& stateAction)
+            {
+                using S = std::decay_t<decltype(stateAction)>;
+                if constexpr (std::is_same_v<S, BorrowEffectRulesAction>)
+                {
+                    visitor(stateAction.sourceCount);
+                }
+                else if constexpr (std::is_same_v<S, ChangeStateValueAction>
+                    || std::is_same_v<S, TransferStateValueAction>
+                    || std::is_same_v<S, RecordMaximumDamageAction>
+                    || std::is_same_v<S, ConsumeRecordedMaximumAction>
+                    || std::is_same_v<S, StartDamageAbsorptionAction>
+                    || std::is_same_v<S, SettleDamageAbsorptionAction>
+                    || std::is_same_v<S, CopyAttackDefinitionAction>
+                    || std::is_same_v<S, SettleRemainingStatusDamageAction>
+                    || std::is_same_v<S, GenerateClonesAction>
+                    || std::is_same_v<S, PreventDeathAction>
+                    || std::is_same_v<S, ConfigureRescueRepositionAction>)
+                {
+                }
+                else
+                {
+                    static_assert(unsupportedEffectNumberCarrier<S>,
+                        "新的狀態機動作必須明確宣告 EffectNumber 走訪方式");
+                }
+            }, typed);
+        }
+        else if constexpr (std::is_same_v<T, std::shared_ptr<ConditionalEffectAction>>)
+        {
+            assert(typed);
+            for (const auto& nested : typed->whenTrue)
+                visitEffectActionNumbers(nested, visitor);
+            for (const auto& nested : typed->whenFalse)
+                visitEffectActionNumbers(nested, visitor);
+        }
+        else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>
+            || std::is_same_v<T, RemoveStatusAction>
+            || std::is_same_v<T, ForceMoveAction>)
+        {
+        }
+        else
+        {
+            static_assert(unsupportedEffectNumberCarrier<T>,
+                "新的效果動作必須明確宣告 EffectNumber 走訪方式");
+        }
+    }, action.value);
+}
+
+bool effectNumberUsesStatusQuantity(
+    const EffectNumber& number,
+    BattleStatusKind status)
+{
+    return number.status == status
+        && (number.base == EffectNumberBase::SourceStatusQuantity
+            || number.multiplierBase == EffectNumberBase::SourceStatusQuantity);
+}
+
+bool effectNumberUsesStatusEffect(
+    const EffectNumber& number,
+    BattleStatusKind status,
+    StatusEffectValueKind effect)
+{
+    return number.status == status
+        && number.statusEffect == effect
+        && (number.base == EffectNumberBase::SourceStatusEffectValue
+            || number.multiplierBase == EffectNumberBase::SourceStatusEffectValue);
+}
+
+bool validateExplicitStatusLifecycles(
+    std::span<const EffectRule> rules,
+    std::string& error)
+{
+    int sevenStarProducers{};
+    int sevenStarConsumers{};
+    int poisonExplosionProducers{};
+    int poisonExplosionConsumers{};
+
+    for (const auto& rule : rules)
+    {
+        bool hasPoisonExplosionQuantityReference{};
+        bool hasPoisonExplosionValueReference{};
+        const auto inspectNumber = [&](const EffectNumber& number)
+        {
+            hasPoisonExplosionQuantityReference = hasPoisonExplosionQuantityReference
+                || effectNumberUsesStatusQuantity(
+                    number, BattleStatusKind::PoisonExplosion);
+            hasPoisonExplosionValueReference = hasPoisonExplosionValueReference
+                || effectNumberUsesStatusEffect(
+                    number,
+                    BattleStatusKind::PoisonExplosion,
+                    StatusEffectValueKind::PoisonExplosionDeathPureDamage);
+        };
+        if (rule.repetitionCount) inspectNumber(*rule.repetitionCount);
+        for (const auto& action : rule.actions)
+        {
+            visitEffectActionTree(action, [&](const EffectAction& visited)
+            {
+                if (const auto* apply = std::get_if<ApplyStatusAction>(&visited.value))
+                {
+                    sevenStarProducers += apply->status == BattleStatusKind::SevenStarMark;
+                    poisonExplosionProducers += apply->status
+                        == BattleStatusKind::PoisonExplosion;
+                }
+                if (const auto* consume = std::get_if<ConsumeStatusAction>(&visited.value))
+                {
+                    if (consume->status == BattleStatusKind::SevenStarMark)
+                        ++sevenStarConsumers;
+                    if (consume->whenDepleted)
+                    {
+                        sevenStarProducers += consume->whenDepleted->status
+                            == BattleStatusKind::SevenStarMark;
+                        poisonExplosionProducers += consume->whenDepleted->status
+                            == BattleStatusKind::PoisonExplosion;
+                    }
+                }
+            });
+            visitEffectActionNumbers(action, inspectNumber);
+        }
+
+        if (hasPoisonExplosionQuantityReference || hasPoisonExplosionValueReference)
+            ++poisonExplosionConsumers;
+    }
+
+    const auto validateLifecycle = [&](std::string_view status,
+                                       int producers,
+                                       int consumers,
+                                       int compatibleProducers,
+                                       int compatibleConsumers)
+    {
+        if (producers == 0 && consumers == 0) return true;
+        if (producers != 1 || compatibleProducers != 1)
+        {
+            error = std::format(
+                "狀態「{}」的顯式生命週期必須有且只有一個相容 producer；目前為 {} 個",
+                status,
+                producers);
+            return false;
+        }
+        if (consumers != 1 || compatibleConsumers != 1)
+        {
+            error = std::format(
+                "狀態「{}」的顯式生命週期必須有且只有一個相容 consumer；目前為 {} 個",
+                status,
+                consumers);
+            return false;
+        }
+        return true;
+    };
+
+    const int compatibleSevenStarProducers = static_cast<int>(std::ranges::count_if(
+        rules, matchesSevenStarLifecycleProducer));
+    const int compatibleSevenStarConsumers = static_cast<int>(std::ranges::count_if(
+        rules, matchesSevenStarLifecycleConsumer));
+    const int compatiblePoisonExplosionProducers = static_cast<int>(
+        std::ranges::count_if(rules, matchesPoisonExplosionLifecycleProducer));
+    const int compatiblePoisonExplosionConsumers = static_cast<int>(
+        std::ranges::count_if(rules, matchesPoisonExplosionLifecycleConsumer));
+    return validateLifecycle(
+            "七星",
+            sevenStarProducers,
+            sevenStarConsumers,
+            compatibleSevenStarProducers,
+            compatibleSevenStarConsumers)
+        && validateLifecycle(
+            "毒爆",
+            poisonExplosionProducers,
+            poisonExplosionConsumers,
+            compatiblePoisonExplosionProducers,
+            compatiblePoisonExplosionConsumers);
+}
+
 
 }  // namespace
 
 bool validateEffectRule(const EffectRule& rule, std::string& error)
 {
     error.clear();
+    if (isIntrinsicEffectRuleId(rule.id))
+    {
+        error = "作者規則 ID 不可使用保留的內建狀態識別空間";
+        return false;
+    }
     if (rule.castMatch == EffectCastMatch::OwnerAnyCast
         && rule.observation != EffectObservationScope::Owner)
     {
@@ -1244,6 +1743,15 @@ bool validateEffectRule(const EffectRule& rule, std::string& error)
         return false;
     }
     return true;
+}
+
+bool validateEffectRules(std::span<const EffectRule> rules, std::string& error)
+{
+    for (const auto& rule : rules)
+    {
+        if (!validateEffectRule(rule, error)) return false;
+    }
+    return validateExplicitStatusLifecycles(rules, error);
 }
 
 }  // namespace KysChess

@@ -349,8 +349,10 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
 
     ApplyStatusAction damageBlock;
     damageBlock.status = BattleStatusKind::DamageBlockLayer;
-    damageBlock.stacks = 3;
-    damageBlock.stack = EffectStackPolicy::Replace;
+    damageBlock.quantity = SetDamageBlockCharges{ 3 };
+    damageBlock.effects = DamageBlockStatusEffects{
+        .blocksPositiveNonExecuteDamage = true,
+    };
 
     ChangeResourceAction shield;
     shield.resource = BattleResource::Shield;

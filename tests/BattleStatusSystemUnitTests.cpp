@@ -4,6 +4,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <limits>
+
 using namespace KysChess;
 using namespace KysChess::Battle;
 using namespace KysChess::Battle::Test;
@@ -29,6 +31,32 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
     auto runtime = makeBattleStatusRuntimeUnit(source);
 
     CHECK(runtime.effects == source.effects);
+}
+
+TEST_CASE("BattleStatusSystem saturates extreme poison tick damage",
+          "[battle][status][poison][boundary]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 1;
+    record.core.alive = true;
+    record.core.vitals.hp = std::numeric_limits<int>::max();
+    record.core.vitals.maxHp = std::numeric_limits<int>::max();
+    record.status.effects.statuses.push_back({
+        .kind = BattleStatusKind::Poison,
+        .sourceUnitId = 2,
+        .remainingFrames = 30,
+        .stacks = 1,
+        .potency = std::numeric_limits<int>::max(),
+    });
+
+    const auto result = BattleStatusSystem({
+        .frame = 30,
+        .poisonDamageIntervalFrames = 30,
+    }).tick(record);
+
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events.front().type == BattleStatusEventType::PoisonDamage);
+    CHECK(result.events.front().value == std::numeric_limits<int>::max());
 }
 
 TEST_CASE("BattleFrameRunner_NextAttackMissIsConsumedFromTheDefender", "[battle][core][status][suppression]")

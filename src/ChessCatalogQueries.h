@@ -200,13 +200,21 @@ ChessCalculatedStats chessStatDelta(
 ChessAbilityMetadata chessAbilityMetadata(
     const ChessGameContent& content,
     const ChessMagicDefinition& magic,
-    std::vector<ChessAbilityStarPower> powerByStar);
+    std::vector<ChessAbilityStarPower> powerByStar,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
 std::vector<ChessAbilityMetadata> chessAbilitiesForRoleStar(
     const ChessGameContent& content,
     const ChessRoleDefinition& role,
-    int star);
-ChessRoleMetadata chessRoleMetadata(const ChessGameContent& content, int roleId);
-ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, int itemId);
+    int star,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
+ChessRoleMetadata chessRoleMetadata(
+    const ChessGameContent& content,
+    int roleId,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
+ChessEquipmentMetadata chessEquipmentMetadata(
+    const ChessGameContent& content,
+    int itemId,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
 ChessComboMetadata chessComboMetadata(
     const ChessGameContent& content,
     const ComboDef& definition,
@@ -214,12 +222,14 @@ ChessComboMetadata chessComboMetadata(
     int effectiveCount,
     int activeThresholdIndex,
     int nextThresholdIndex,
-    const std::vector<ResolvedChessComboContribution>& contributions);
+    const std::vector<ResolvedChessComboContribution>& contributions,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
 ChessChallengeMetadata chessChallengeMetadata(
     const ChessGameContent& content,
     const BalanceConfig::ChallengeDef& challenge);
 const char* chessEffectCatalogSourceLabel(ChessEffectCatalogSource source);
 std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
-    const ChessGameContent& content);
+    const ChessGameContent& content,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
 
 }  // namespace KysChess

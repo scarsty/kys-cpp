@@ -435,7 +435,53 @@ TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "
         ApplyStatusAction action;
         action.status = test.status;
         action.durationFrames = 60;
-        action.stack = EffectStackPolicy::Replace;
+        switch (test.status)
+        {
+        case BattleStatusKind::Poison:
+            action.quantity = SetStatusTriggerCharges{ 3 };
+            action.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
+            action.effects = PoisonStatusEffects{
+                .currentHpDamagePercent = EffectNumber{ .flat = 10 },
+            };
+            break;
+        case BattleStatusKind::Bleed:
+            action.durationFrames = 0;
+            action.quantity = AddStatusLayers{ 1, 3 };
+            action.effects = BleedStatusEffects{
+                .maxHpDamagePercent = EffectNumber{ .flat = 1 },
+            };
+            break;
+        case BattleStatusKind::Stun:
+            action.quantity = NoStatusQuantity{};
+            action.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+            action.effects = NoStatusEffects{};
+            break;
+        case BattleStatusKind::WitheredBone:
+            action.quantity = NoStatusQuantity{};
+            action.reapplication = StatusReapplicationPolicy::RefreshDuration;
+            action.effects = WitheredBoneStatusEffects{
+                .damageTakenIncreasePercent = EffectNumber{ .flat = 10 },
+                .healingReductionPercent = EffectNumber{ .flat = 10 },
+            };
+            break;
+        case BattleStatusKind::DamageBlockLayer:
+            action.durationFrames = 0;
+            action.quantity = SetDamageBlockCharges{ 1 };
+            action.effects = DamageBlockStatusEffects{
+                .blocksPositiveNonExecuteDamage = true,
+            };
+            break;
+        case BattleStatusKind::BattleSpirit:
+            action.durationFrames = 0;
+            action.quantity = AddStatusLayers{ 1, 5 };
+            action.effects = BattleSpiritStatusEffects{
+                .skillDamageIncreasePercent = EffectNumber{ .flat = 10 },
+                .damageReductionPercent = EffectNumber{ .flat = 1 },
+            };
+            break;
+        default:
+            FAIL("unexpected status cue case");
+        }
         queueEffectCommandBatch(state, {
             EffectCommand{
                 metadata,
@@ -518,9 +564,11 @@ TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][
         auto metadata = cueEffectMetadata(state);
         ApplyStatusAction action;
         action.status = BattleStatusKind::BattleSpirit;
-        action.durationFrames = 90;
-        action.stack = EffectStackPolicy::AddStack;
-        action.stackLimit = 5;
+        action.quantity = AddStatusLayers{ 1, 5 };
+        action.effects = BattleSpiritStatusEffects{
+            .skillDamageIncreasePercent = EffectNumber{ .flat = 10 },
+            .damageReductionPercent = EffectNumber{ .flat = 1 },
+        };
         const EffectCommand command{
             metadata,
             ApplyStatusEffectCommand{ action, 10, 0 },
@@ -1295,7 +1343,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
     state.units.require(0).status.effects.setFrames(BattleStatusKind::MpBlocked, 2);
     KysChess::ModifyAttributeAction recoveryBonus;
     recoveryBonus.attribute = KysChess::BattleAttribute::MpRecoveryBonus;
-    recoveryBonus.operation = KysChess::AttributeOperation::PercentAdd;
+    recoveryBonus.operation = KysChess::AttributeOperation::PercentagePointAdd;
     recoveryBonus.stack = KysChess::EffectStackPolicy::Independent;
     BattleEffectCommandSystem::applyPersistentAttributeModifier(
         state.effectCommands,
@@ -1398,10 +1446,12 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[b
     metadata.commandOrdinal = 3;
     KysChess::ApplyStatusAction applyAction;
     applyAction.status = KysChess::BattleStatusKind::Poison;
-    applyAction.stacks = 5;
     applyAction.durationFrames = 150;
-    applyAction.stack = KysChess::EffectStackPolicy::Replace;
-    applyAction.stackLimit = 5;
+    applyAction.quantity = KysChess::SetStatusTriggerCharges{ 5 };
+    applyAction.reapplication = KysChess::StatusReapplicationPolicy::ReplaceAndReset;
+    applyAction.effects = KysChess::PoisonStatusEffects{
+        .currentHpDamagePercent = KysChess::EffectNumber{ .flat = 10 },
+    };
     const EffectCommand applyCommand{
         metadata,
         ApplyStatusEffectCommand{ applyAction, 10, 0 },
@@ -1574,9 +1624,13 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
 
     KysChess::ApplyStatusAction action;
     action.status = KysChess::BattleStatusKind::Poison;
-    action.stacks = 3;
     action.durationFrames = 90;
-    action.stack = KysChess::EffectStackPolicy::KeepStrongest;
+    action.quantity = KysChess::SetStatusTriggerCharges{ 3 };
+    action.reapplication = KysChess::StatusReapplicationPolicy::KeepHigherDamage;
+    action.effects = KysChess::PoisonStatusEffects{
+        .currentHpDamagePercent = KysChess::EffectNumber{ .flat = 7 },
+        .sameEventMerge = KysChess::PoisonSameEventMerge::SumDamagePercent,
+    };
     const EffectCommand command{
         metadata,
         ApplyStatusEffectCommand{ action, 7, 0 },
@@ -1706,7 +1760,6 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
     attack.durationFrames = 1;
     attack.stack = KysChess::EffectStackPolicy::AddStack;
     attack.stackLimit = 10;
-    attack.perStack = true;
     rule.actions.push_back({ attack });
 
     auto defence = attack;
@@ -1837,7 +1890,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     bleeding.alive = true;
     bleeding.hp = 80;
     bleeding.maxHp = 100;
-    appendStatus(bleeding.effects, BattleStatusKind::Bleed, 0, 6, 0, 0, 1);
+    appendStatus(bleeding.effects, BattleStatusKind::Bleed, 0, 6, 1, 0, 1);
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
@@ -1895,7 +1948,7 @@ TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[b
         }
         else
         {
-            appendStatus(status.effects, BattleStatusKind::Bleed, 0, 8, 0, 0, 1);
+            appendStatus(status.effects, BattleStatusKind::Bleed, 0, 8, 1, 0, 1);
         }
         seedRuntimeUnits(state, {
             teamRuntimeUnit(0, 0, 100),

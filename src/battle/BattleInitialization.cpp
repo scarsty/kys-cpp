@@ -844,14 +844,14 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
             event.payload = InitializationEventData{};
 
             auto initializedStatus = *status;
-            initializedStatus.potency = BattleEffectSystem::evaluateNumber(
-                status->action.potency,
-                event,
-                *target);
-            initializedStatus.secondaryPotency = BattleEffectSystem::evaluateNumber(
-                status->action.secondaryPotency,
-                event,
-                *target);
+            const auto [potency, secondaryPotency] = evaluateStatusRuntimeValues(
+                status->action,
+                [&](const EffectNumber& number)
+                {
+                    return BattleEffectSystem::evaluateNumber(number, event, *target);
+                });
+            initializedStatus.potency = potency;
+            initializedStatus.secondaryPotency = secondaryPotency;
             initializedStatus.evaluatedDurationFrames = status->action.duration
                 ? std::optional<int>{ BattleEffectSystem::evaluateNumber(
                     *status->action.duration,

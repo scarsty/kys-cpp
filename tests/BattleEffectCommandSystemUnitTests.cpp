@@ -253,7 +253,9 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         ApplyStatusAction action;
         action.status = BattleStatusKind::Stun;
         action.durationFrames = 25;
-        action.stack = EffectStackPolicy::Refresh;
+        action.quantity = NoStatusQuantity{};
+        action.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+        action.effects = NoStatusEffects{};
         const EffectCommand command{
             metadata(92, 2),
             ApplyStatusEffectCommand{ action, 0, 0 },
@@ -286,8 +288,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         ApplyStatusAction action;
         action.status = BattleStatusKind::NextAttackMiss;
         action.durationFrames = 120;
-        action.stack = EffectStackPolicy::Replace;
-        action.stackLimit = 1;
+        action.quantity = SetStatusTriggerCharges{ 1 };
+        action.effects = NextIncomingAttackMissStatusEffects{
+            .makesIncomingAttackMiss = true,
+        };
         const EffectCommand command{
             metadata(69, 2),
             ApplyStatusEffectCommand{ action, 0, 0 },
@@ -309,16 +313,18 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         CHECK(snapshot.has(BattleStatusKind::NextAttackMiss));
     }
 
-    SECTION("中毒命令提交明確排程層數並套用層數上限")
+    SECTION("中毒命令提交取代並保留較高傷害")
     {
         auto state = makeState();
         auto& target = state.units.require(2);
         ApplyStatusAction replace;
         replace.status = BattleStatusKind::Poison;
         replace.durationFrames = 120;
-        replace.stacks = 5;
-        replace.stack = EffectStackPolicy::Replace;
-        replace.stackLimit = 4;
+        replace.quantity = SetStatusTriggerCharges{ 4 };
+        replace.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
+        replace.effects = PoisonStatusEffects{
+            .currentHpDamagePercent = EffectNumber{ .flat = 10 },
+        };
         const EffectCommand replaceCommand{
             metadata(21, 2),
             ApplyStatusEffectCommand{ replace, 10, 0 },
@@ -340,9 +346,11 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
 
         ApplyStatusAction add = replace;
         add.durationFrames = 150;
-        add.stacks = 3;
-        add.stack = EffectStackPolicy::AddStack;
-        add.stackLimit = 5;
+        add.quantity = SetStatusTriggerCharges{ 5 };
+        add.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+        add.effects = PoisonStatusEffects{
+            .currentHpDamagePercent = EffectNumber{ .flat = 12 },
+        };
         const EffectCommand addCommand{
             metadata(21, 2, 1),
             ApplyStatusEffectCommand{ add, 12, 0 },
@@ -356,7 +364,7 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         const auto& stackResult = std::get<BattleStatusApplyEffectResult>(
             stacked.entries[0].value).status;
         REQUIRE(stackResult.applied);
-        CHECK(stackResult.outcome == BattleStatusApplyOutcome::StackChanged);
+        CHECK(stackResult.outcome == BattleStatusApplyOutcome::Replaced);
         REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
         CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 5);
         CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 150);
@@ -376,10 +384,11 @@ TEST_CASE("BattleEffectCommandSystem observes every repeated poison application 
     ApplyStatusAction poison;
     poison.status = BattleStatusKind::Poison;
     poison.durationFrames = 120;
-    poison.stacks = 4;
-    poison.potency.flat = 10;
-    poison.stack = EffectStackPolicy::Replace;
-    poison.stackLimit = 4;
+    poison.quantity = SetStatusTriggerCharges{ 4 };
+    poison.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
+    poison.effects = PoisonStatusEffects{
+        .currentHpDamagePercent = EffectNumber{ .flat = 10 },
+    };
     const std::array commands{
         EffectCommand{ metadata(95, 2, 0), ApplyStatusEffectCommand{ poison, 10, 0 } },
         EffectCommand{ metadata(95, 2, 1), ApplyStatusEffectCommand{ poison, 10, 0 } },
@@ -404,6 +413,78 @@ TEST_CASE("BattleEffectCommandSystem observes every repeated poison application 
     REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
     CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 4);
     CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 60);
+}
+
+TEST_CASE("BattleEffectCommandSystem preserves all stun reapplication policies",
+          "[battle][effect][command][status][stun][reapplication]")
+{
+    auto state = makeState();
+    BattleEffectCommandSystem system;
+    std::uint64_t ordinal{};
+    const auto apply = [&](StatusReapplicationPolicy policy, int duration)
+    {
+        ApplyStatusAction action;
+        action.status = BattleStatusKind::Stun;
+        action.durationFrames = duration;
+        action.quantity = NoStatusQuantity{};
+        action.reapplication = policy;
+        action.effects = NoStatusEffects{};
+        const EffectCommand command{
+            metadata(92, 2, ordinal++),
+            ApplyStatusEffectCommand{ action, 0, 0 },
+        };
+        const auto reduced = system.reduce(
+            state,
+            command,
+            {
+                .frame = 20,
+                .controlLowHpImmunityPct = 0,
+            });
+        REQUIRE(reduced.entries.size() == 1);
+        return std::get<BattleStatusApplyEffectResult>(
+            reduced.entries.front().value).status;
+    };
+    const auto activeStun = [&]() -> const BattleTypedStatusInstance&
+    {
+        const auto* stun = state.units.require(2).status.effects.find(
+            BattleStatusKind::Stun);
+        REQUIRE(stun);
+        return *stun;
+    };
+
+    const auto initial = apply(
+        StatusReapplicationPolicy::KeepLongerDuration, 10);
+    CHECK(initial.applied);
+    CHECK(initial.outcome == BattleStatusApplyOutcome::Applied);
+    CHECK(activeStun().remainingFrames == 10);
+    CHECK(activeStun().maximumFrames == 10);
+
+    const auto extended = apply(
+        StatusReapplicationPolicy::ExtendDuration, 4);
+    CHECK(extended.applied);
+    CHECK(extended.value == 4);
+    CHECK(activeStun().remainingFrames == 14);
+    CHECK(activeStun().maximumFrames == 14);
+
+    const auto keptExisting = apply(
+        StatusReapplicationPolicy::KeepLongerDuration, 8);
+    CHECK_FALSE(keptExisting.applied);
+    CHECK(keptExisting.value == 0);
+    CHECK(activeStun().remainingFrames == 14);
+
+    const auto keptIncoming = apply(
+        StatusReapplicationPolicy::KeepLongerDuration, 20);
+    CHECK(keptIncoming.applied);
+    CHECK(keptIncoming.value == 6);
+    CHECK(activeStun().remainingFrames == 20);
+    CHECK(activeStun().maximumFrames == 20);
+
+    const auto replaced = apply(
+        StatusReapplicationPolicy::ReplaceDuration, 6);
+    CHECK_FALSE(replaced.applied);
+    CHECK(replaced.value == -14);
+    CHECK(activeStun().remainingFrames == 6);
+    CHECK(activeStun().maximumFrames == 20);
 }
 
 BattleRuntimeState makeState()
@@ -557,9 +638,12 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
         ApplyStatusAction action;
         action.status = BattleStatusKind::WitheredBone;
         action.durationFrames = 120;
-        action.potency.flat = 25;
-        action.secondaryPotency.flat = 75;
-        action.stack = EffectStackPolicy::Refresh;
+        action.quantity = NoStatusQuantity{};
+        action.reapplication = StatusReapplicationPolicy::RefreshDuration;
+        action.effects = WitheredBoneStatusEffects{
+            .damageTakenIncreasePercent = EffectNumber{ .flat = 25 },
+            .healingReductionPercent = EffectNumber{ .flat = 75 },
+        };
         const EffectCommand command{
             metadata(11, 3),
             ApplyStatusEffectCommand{ action, 25, 75 },
@@ -624,10 +708,9 @@ TEST_CASE("BattleEffectCommandSystem preserves order and queries stacked attribu
     auto state = makeState();
     ModifyAttributeAction action;
     action.attribute = BattleAttribute::CriticalChance;
-    action.operation = AttributeOperation::PercentAdd;
+    action.operation = AttributeOperation::PercentagePointAdd;
     action.stack = EffectStackPolicy::AddStack;
     action.stackLimit = 5;
-    action.perStack = true;
 
     const std::vector<EffectCommand> commands{
         { metadata(44, 1, 8), ModifyAttributeEffectCommand{ action, 7 } },
@@ -764,7 +847,7 @@ TEST_CASE("BattleEffectCommandSystem preserves resource transfer and drain seman
         state.movement.frame = 10;
         ModifyAttributeAction recoveryBonus;
         recoveryBonus.attribute = BattleAttribute::MpRecoveryBonus;
-        recoveryBonus.operation = AttributeOperation::PercentAdd;
+        recoveryBonus.operation = AttributeOperation::PercentagePointAdd;
         recoveryBonus.durationFrames = 100;
         BattleEffectCommandSystem().reduce(
             state,
@@ -805,7 +888,7 @@ TEST_CASE("BattleEffectCommandSystem preserves resource transfer and drain seman
         state.movement.frame = 10;
         ModifyAttributeAction recoveryBonus;
         recoveryBonus.attribute = BattleAttribute::MpRecoveryBonus;
-        recoveryBonus.operation = AttributeOperation::PercentAdd;
+        recoveryBonus.operation = AttributeOperation::PercentagePointAdd;
         recoveryBonus.durationFrames = 100;
         BattleEffectCommandSystem().reduce(
             state,
@@ -956,10 +1039,9 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
     initialized.eventSourceUnitId = 1;
     ModifyAttributeAction action;
     action.attribute = BattleAttribute::CriticalChance;
-    action.operation = AttributeOperation::PercentAdd;
+    action.operation = AttributeOperation::PercentagePointAdd;
     action.stack = EffectStackPolicy::AddStack;
     action.stackLimit = 5;
-    action.perStack = true;
     action.stackScope = EffectStackScope::EventSource;
     const ModifyAttributeEffectCommand command{ action, 7 };
     BattleEffectCommandSystem::recordAntiComboInitialization(
@@ -1097,9 +1179,11 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     ApplyStatusAction statusAction;
     statusAction.status = BattleStatusKind::BattleSpirit;
     statusAction.durationFrames = 180;
-    statusAction.stacks = 2;
-    statusAction.stack = EffectStackPolicy::AddStack;
-    statusAction.stackLimit = 5;
+    statusAction.quantity = AddStatusLayers{ 2, 5 };
+    statusAction.effects = BattleSpiritStatusEffects{
+        .skillDamageIncreasePercent = EffectNumber{ .flat = 17 },
+        .damageReductionPercent = EffectNumber{ .flat = 9 },
+    };
     const ApplyStatusEffectCommand statusCommand{ statusAction, 17, 9 };
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
@@ -1113,7 +1197,10 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     externalMetadata.actionOrder = 0;
     ApplyStatusAction externalStatusAction;
     externalStatusAction.status = BattleStatusKind::TrueQi;
-    externalStatusAction.stack = EffectStackPolicy::Replace;
+    externalStatusAction.quantity = AddStatusLayers{ 1, 1 };
+    externalStatusAction.effects = TrueQiStatusEffects{
+        .pureDamagePerHit = EffectNumber{ .flat = 5 },
+    };
     const ApplyStatusEffectCommand externalStatusCommand{ externalStatusAction, 5, 0 };
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
@@ -1377,12 +1464,14 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
 
     ConsumeStatusAction consume;
     consume.status = BattleStatusKind::SevenStarMark;
-    consume.stacks = 1;
+    consume.quantity = 1;
     consume.source = StatusSourceMatch::EffectOwner;
     ApplyStatusAction stun;
     stun.status = BattleStatusKind::Stun;
     stun.durationFrames = 30;
-    stun.stack = EffectStackPolicy::Refresh;
+    stun.quantity = NoStatusQuantity{};
+    stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+    stun.effects = NoStatusEffects{};
     consume.whenDepleted = stun;
     const EffectCommand consumeCommand{
         metadata(39, 3),

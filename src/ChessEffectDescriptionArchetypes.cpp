@@ -22,30 +22,24 @@ struct ArchetypeProjectionDescriptor
 constexpr std::array archetypeProjectionDescriptors{
     ArchetypeProjectionDescriptor{
         DescriptionArchetype::Generic,
-        { DescriptionPlayerFact::StatusPotency,
-          DescriptionPlayerFact::StatusSecondaryPotency },
-        2,
-        { DescriptionPlayerFact::StatusPotency,
-          DescriptionPlayerFact::StatusSecondaryPotency },
-        2,
+        { DescriptionPlayerFact::Action },
+        1,
+        { DescriptionPlayerFact::Action },
+        1,
     },
     ArchetypeProjectionDescriptor{
         DescriptionArchetype::StatusLifecycle,
-        { DescriptionPlayerFact::StatusPotency,
-          DescriptionPlayerFact::StatusSecondaryPotency },
-        2,
-        { DescriptionPlayerFact::StatusPotency,
-          DescriptionPlayerFact::StatusSecondaryPotency },
-        2,
+        { DescriptionPlayerFact::Action },
+        1,
+        { DescriptionPlayerFact::Action },
+        1,
     },
     ArchetypeProjectionDescriptor{
         DescriptionArchetype::StackExplosion,
-        { DescriptionPlayerFact::StatusPotency,
-          DescriptionPlayerFact::StatusSecondaryPotency },
-        2,
-        { DescriptionPlayerFact::StatusPotency,
-          DescriptionPlayerFact::StatusSecondaryPotency },
-        2,
+        { DescriptionPlayerFact::Action },
+        1,
+        { DescriptionPlayerFact::Action },
+        1,
     },
     ArchetypeProjectionDescriptor{ DescriptionArchetype::ConditionalAttack },
     ArchetypeProjectionDescriptor{
@@ -155,7 +149,7 @@ const ApplyStatusAction* applyStatusAction(const EffectDescriptionBlock& block)
     {
         for (const auto& action : group.actions)
         {
-            const auto* leaf = std::get_if<EffectAction>(&action.value);
+            const auto* leaf = descriptionEffectAction(action);
             if (!leaf) continue;
             if (const auto* status = std::get_if<ApplyStatusAction>(&leaf->value))
                 return status;
@@ -170,7 +164,7 @@ const ConsumeStatusAction* consumeStatusAction(const EffectDescriptionBlock& blo
     {
         for (const auto& action : group.actions)
         {
-            const auto* leaf = std::get_if<EffectAction>(&action.value);
+            const auto* leaf = descriptionEffectAction(action);
             if (!leaf) continue;
             if (const auto* status = std::get_if<ConsumeStatusAction>(&leaf->value))
                 return status;
@@ -220,7 +214,7 @@ std::vector<const EffectAction*> descriptionActions(
     {
         for (const auto& action : group.actions)
         {
-            const auto* leaf = std::get_if<EffectAction>(&action.value);
+            const auto* leaf = descriptionEffectAction(action);
             if (!leaf) return {};
             result.push_back(leaf);
         }
@@ -401,11 +395,9 @@ bool matchesConditionalAttackArchetype(const EffectDescriptionBlock& block)
         || branch.whenFalse.front().actions.size() != 1)
         return false;
     const auto* whenTrue = std::get_if<ModifyAttackAction>(
-        &std::get<EffectAction>(
-            branch.whenTrue.front().actions.front().value).value);
+        &descriptionEffectAction(branch.whenTrue.front().actions.front())->value);
     const auto* whenFalse = std::get_if<ModifyAttackAction>(
-        &std::get<EffectAction>(
-            branch.whenFalse.front().actions.front().value).value);
+        &descriptionEffectAction(branch.whenFalse.front().actions.front())->value);
     if (!whenTrue || !whenFalse) return false;
     auto allySource = selectorOfKind(EffectSelectorKind::Allies);
     allySource.count = 1;
@@ -609,262 +601,73 @@ void classifyPhraseAbsorptions(EffectDescriptionBlock& block)
     }
 }
 
-bool isPlainConstantNumber(const EffectNumber& number)
+std::optional<EffectRule> lifecycleRule(const EffectDescriptionBlock& block)
 {
-    return number.base == EffectNumberBase::Constant
-        && !number.multiplierBase
-        && !number.status
-        && !number.stateSlot
-        && number.percent == 0
-        && number.rounding == EffectRounding::TowardZero
-        && !number.minimum
-        && !number.maximum;
+    if (block.trigger.size() != 1 || block.targets.size() != 1)
+        return std::nullopt;
+    const auto conditions = descriptionConditions(block);
+    const auto actions = descriptionActions(block);
+    if (actions.empty()) return std::nullopt;
+
+    const auto& trigger = descriptionTrigger(block);
+    const auto& target = descriptionTarget(block);
+    const auto& qualifiers = ruleQualifiers(block);
+    EffectRule rule;
+    rule.id = block.sourceRuleId;
+    rule.event = trigger.event;
+    rule.observation = trigger.observation;
+    rule.castMatch = trigger.castMatch;
+    rule.selector = target.selector;
+    for (const auto* condition : conditions) rule.conditions.push_back(*condition);
+    rule.chancePct = qualifiers.chancePct;
+    rule.maxActivations = qualifiers.maxActivations;
+    rule.sharedCooldownFrames = qualifiers.sharedCooldownFrames;
+    rule.intervalFrames = qualifiers.intervalFrames;
+    rule.everyNthEvent = qualifiers.everyNthEvent;
+    rule.activationLimit = qualifiers.activationLimit;
+    rule.repetitionCount = qualifiers.repetitionCount;
+    for (const auto* action : actions) rule.actions.push_back(*action);
+    return rule;
 }
 
 bool matchesStatusLifecycleProducer(
     const EffectDescriptionBlock& block,
     BattleStatusKind status)
 {
-    const auto& trigger = descriptionTrigger(block);
-    const auto conditions = descriptionConditions(block);
-    const auto actions = descriptionActions(block);
-    if (trigger.event != EffectEvent::MainProjectileBeforeDamage
-        || trigger.observation != EffectObservationScope::Owner
-        || trigger.castMatch != EffectCastMatch::BoundMagic
-        || descriptionTarget(block).selector != selectorOfKind(EffectSelectorKind::HitTarget)
-        || !conditions.empty()
-        || !hasDefaultRuleQualifiers(ruleQualifiers(block))
-        || actions.size() != 1)
-        return false;
-
-    const auto* applied = std::get_if<ApplyStatusAction>(
-        &actions.front()->value);
-    return applied
-        && applied->status == status
-        && applied->durationFrames > 0
-        && !applied->duration
-        && !applied->applicationCount
-        && applied->stacks > 0
-        && applied->stack == EffectStackPolicy::Replace
-        && applied->stackLimit == applied->stacks
-        && !applied->aggregatePotencyWithinEvent;
+    const auto rule = lifecycleRule(block);
+    return status == BattleStatusKind::SevenStarMark
+        && rule
+        && matchesSevenStarLifecycleProducer(*rule);
 }
 
 bool matchesStatusLifecycleConsumer(
     const EffectDescriptionBlock& block,
     BattleStatusKind status)
 {
-    const auto& trigger = descriptionTrigger(block);
-    const auto conditions = descriptionConditions(block);
-    const auto actions = descriptionActions(block);
-    if (trigger.event != EffectEvent::HitBeforeDamage
-        || trigger.observation != EffectObservationScope::OwnerTeamEventSource
-        || trigger.castMatch != EffectCastMatch::BoundMagic
-        || descriptionTarget(block).selector != selectorOfKind(EffectSelectorKind::HitTarget)
-        || !hasDefaultRuleQualifiers(ruleQualifiers(block))
-        || conditions.size() != 1
-        || actions.size() != 2)
-        return false;
-
-    const auto* required = std::get_if<TargetHasStateFromEffectOwnerCondition>(
-        conditions.front());
-    const auto* damage = std::get_if<ModifyDamageAction>(
-        &actions.front()->value);
-    const auto* consumed = std::get_if<ConsumeStatusAction>(
-        &actions.back()->value);
-    if (!required || required->state != status
-        || !damage
-        || damage->perspective != DamageModifierPerspective::Outgoing
-        || damage->stage != DamageModifierStage::BeforeDefense
-        || damage->channel != DamageChannel::Skill
-        || damage->operation != DamageModifierOperation::IgnoreDefensePercent
-        || !isPlainConstantNumber(damage->amount)
-        || damage->durationFrames != 0
-        || damage->stack != EffectStackPolicy::Independent
-        || damage->stackLimit
-        || damage->stackScope != EffectStackScope::Shared
-        || !consumed
-        || consumed->status != status
-        || consumed->stacks <= 0
-        || consumed->source != StatusSourceMatch::EffectOwner
-        || !consumed->whenDepleted)
-        return false;
-
-    const auto& depleted = *consumed->whenDepleted;
-    return depleted.durationFrames > 0
-        && !depleted.duration
-        && !depleted.applicationCount
-        && depleted.stacks == 1
-        && hasDefaultEffectNumber(depleted.potency)
-        && hasDefaultEffectNumber(depleted.secondaryPotency)
-        && depleted.stack == EffectStackPolicy::Refresh
-        && !depleted.stackLimit
-        && !depleted.aggregatePotencyWithinEvent;
+    const auto rule = lifecycleRule(block);
+    return status == BattleStatusKind::SevenStarMark
+        && rule
+        && matchesSevenStarLifecycleConsumer(*rule);
 }
 
 bool matchesStackExplosionProducer(
     const EffectDescriptionBlock& block,
     BattleStatusKind status)
 {
-    const auto& trigger = descriptionTrigger(block);
-    const auto conditions = descriptionConditions(block);
-    const auto actions = descriptionActions(block);
-    if (trigger.event != EffectEvent::AttackCommitted
-        || trigger.observation != EffectObservationScope::Owner
-        || trigger.castMatch != EffectCastMatch::BoundMagic
-        || descriptionTarget(block).selector != selectorOfKind(EffectSelectorKind::Self)
-        || !conditions.empty()
-        || !hasDefaultRuleQualifiers(ruleQualifiers(block))
-        || actions.size() != 1)
-        return false;
-
-    const auto* applied = std::get_if<ApplyStatusAction>(
-        &actions.front()->value);
-    return applied
-        && applied->status == status
-        && applied->durationFrames == 0
-        && !applied->duration
-        && !applied->applicationCount
-        && applied->stacks > 0
-        && applied->stack == EffectStackPolicy::AddStack
-        && applied->stackLimit
-        && *applied->stackLimit >= applied->stacks
-        && !applied->aggregatePotencyWithinEvent;
-}
-
-bool matchesStatusStackFormula(
-    const EffectNumber& number,
-    EffectNumberBase base,
-    BattleStatusKind status)
-{
-    return number.base == base
-        && !number.multiplierBase
-        && number.status == status
-        && !number.stateSlot
-        && number.flat == 0
-        && number.percent == 100
-        && number.rounding == EffectRounding::TowardZero
-        && number.minimum == 1
-        && !number.maximum;
-}
-
-bool matchesStatusPotencyFormula(
-    const EffectNumber& number,
-    BattleStatusKind status)
-{
-    return number.base == EffectNumberBase::SourceStatusPotency
-        && !number.multiplierBase
-        && number.status == status
-        && !number.stateSlot
-        && number.flat == 0
-        && number.percent == 100
-        && number.rounding == EffectRounding::TowardZero
-        && !number.minimum
-        && !number.maximum;
+    const auto rule = lifecycleRule(block);
+    return status == BattleStatusKind::PoisonExplosion
+        && rule
+        && matchesPoisonExplosionLifecycleProducer(*rule);
 }
 
 bool matchesStackExplosionConsumer(
     const EffectDescriptionBlock& block,
     BattleStatusKind status)
 {
-    const auto& trigger = descriptionTrigger(block);
-    const auto& qualifiers = ruleQualifiers(block);
-    const auto conditions = descriptionConditions(block);
-    const auto actions = descriptionActions(block);
-    if (trigger.event != EffectEvent::UnitDied
-        || trigger.observation != EffectObservationScope::Owner
-        || trigger.castMatch != EffectCastMatch::BoundMagic
-        || conditions.size() != 1
-        || qualifiers.chancePct != 100
-        || qualifiers.maxActivations != 0
-        || qualifiers.sharedCooldownFrames != 0
-        || qualifiers.intervalFrames != 0
-        || qualifiers.everyNthEvent != 0
-        || qualifiers.activationLimit
-        || !qualifiers.repetitionCount
-        || actions.size() != 2)
-        return false;
-
-    const auto& selector = descriptionTarget(block).selector;
-    auto expectedTarget = selectorOfKind(EffectSelectorKind::UnitsInRadius);
-    expectedTarget.radiusTiles = selector.radiusTiles;
-    expectedTarget.team = EffectTeamFilter::Enemy;
-    if (selector.radiusTiles <= 0
-        || selector != expectedTarget)
-        return false;
-
-    const auto* required = std::get_if<SourceHasStateCondition>(
-        conditions.front());
-    const auto* damage = std::get_if<DealDamageAction>(
-        &actions.front()->value);
-    const auto* applied = std::get_if<ApplyStatusAction>(
-        &actions.back()->value);
-    if (!required || required->state != status
-        || !matchesStatusStackFormula(
-            *qualifiers.repetitionCount,
-            EffectNumberBase::SourceStatusStacks,
-            status)
-        || !damage
-        || !matchesStatusPotencyFormula(damage->amount, status)
-        || damage->transactionCount
-        || damage->kind != BattleDamageKind::Pure
-        || !damage->appliesDamageModifiers
-        || !damage->triggersHurtInvincibility
-        || damage->area.kind != DamageAreaKind::SingleTarget
-        || damage->area.radiusTiles != 0
-        || damage->area.squareSideTiles != 0
-        || damage->perCast.perTargetLimit != 0
-        || damage->areaProjectiles
-        || !applied
-        || applied->durationFrames <= 0
-        || applied->duration
-        || applied->applicationCount
-        || applied->stacks <= 0
-        || !isPlainConstantNumber(applied->potency)
-        || !hasDefaultEffectNumber(applied->secondaryPotency)
-        || applied->stack != EffectStackPolicy::Replace
-        || applied->stackLimit != applied->stacks
-        || applied->aggregatePotencyWithinEvent)
-        return false;
-    return true;
-}
-
-bool statusLifecycleValuesCorrespond(
-    const EffectDescriptionBlock& producer,
-    const EffectDescriptionBlock& consumer)
-{
-    const auto* applied = applyStatusAction(producer);
-    const auto actions = descriptionActions(consumer);
-    const auto damage = std::ranges::find_if(actions, [](const EffectAction* action)
-    {
-        return std::holds_alternative<ModifyDamageAction>(action->value);
-    });
-    const auto* consumed = consumeStatusAction(consumer);
-    if (!applied || damage == actions.end() || !consumed || !consumed->whenDepleted)
-        return false;
-    const auto potency = effectiveConstantEffectNumberValue(applied->potency);
-    const auto secondaryPotency = effectiveConstantEffectNumberValue(
-        applied->secondaryPotency);
-    const auto ignored = effectiveConstantEffectNumberValue(
-        std::get<ModifyDamageAction>((*damage)->value).amount);
-    return potency && secondaryPotency && ignored
-        && *potency == *ignored
-        && *secondaryPotency == consumed->whenDepleted->durationFrames;
-}
-
-bool stackExplosionValuesCorrespond(
-    const EffectDescriptionBlock& producer,
-    const EffectDescriptionBlock& consumer)
-{
-    const auto* source = applyStatusAction(producer);
-    const auto actions = descriptionActions(consumer);
-    const auto applied = std::ranges::find_if(actions, [](const EffectAction* action)
-    {
-        return std::holds_alternative<ApplyStatusAction>(action->value);
-    });
-    return source && applied != actions.end()
-        && source->secondaryPotency
-            == std::get<ApplyStatusAction>((*applied)->value).potency;
+    const auto rule = lifecycleRule(block);
+    return status == BattleStatusKind::PoisonExplosion
+        && rule
+        && matchesPoisonExplosionLifecycleConsumer(*rule);
 }
 
 void markLifecycleArchetype(
@@ -895,8 +698,7 @@ void linkStatusLifecycles(EffectDescriptionDocument& document)
                 if (matchesStatusLifecycleProducer(
                         *producer, consumed->status)
                     && matchesStatusLifecycleConsumer(
-                        *consumer, consumed->status)
-                    && statusLifecycleValuesCorrespond(*producer, *consumer))
+                        *consumer, consumed->status))
                     compatibleProducers.push_back(producer);
             }
             if (compatibleProducers.size() == 1)
@@ -920,8 +722,7 @@ void linkStatusLifecycles(EffectDescriptionDocument& document)
             {
                 if (producer == consumer) continue;
                 if (matchesStackExplosionProducer(*producer, status)
-                    && matchesStackExplosionConsumer(*consumer, status)
-                    && stackExplosionValuesCorrespond(*producer, *consumer))
+                    && matchesStackExplosionConsumer(*consumer, status))
                     compatibleProducers.push_back(producer);
             }
             if (compatibleProducers.size() == 1)

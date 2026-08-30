@@ -1,4 +1,5 @@
 #include "BattleCoreDetail.h"
+#include "../ChessBattleEffectSemantics.h"
 #include "../ChessEftIds.h"
 #include "BattleAreaEffectSystem.h"
 #include "BattleEffectAttackCastSystem.h"
@@ -789,7 +790,7 @@ void reduceEffectCommand(
             frame,
             entry.metadata,
             apply->action.status,
-            apply->action.stacks,
+            lowerStatusQuantity(apply->action).stacks,
             status->status);
     }
     else if (const auto* consume = std::get_if<BattleStatusConsumeEffectResult>(&entry.value))
@@ -802,7 +803,7 @@ void reduceEffectCommand(
                 frame,
                 entry.metadata,
                 commandConsume->whenDepleted->action.status,
-                commandConsume->whenDepleted->action.stacks,
+                lowerStatusQuantity(commandConsume->whenDepleted->action).stacks,
                 *consume->depletedStatus);
         }
     }
@@ -913,7 +914,7 @@ void appendEnemyTopDebuffReportEvents(
         {
             assert(total.sourceTeam == modifier.binding.sourceTeam);
         }
-        const int contribution = modifier.amount * (modifier.perStack ? modifier.stackCount : 1);
+        const int contribution = modifier.amount * modifier.stackCount;
         if (modifier.attribute == BattleAttribute::Attack)
         {
             total.attack += contribution;

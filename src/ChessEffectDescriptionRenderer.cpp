@@ -8,6 +8,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 namespace KysChess
@@ -285,6 +286,157 @@ std::string descriptionBranchCondition(
     return result;
 }
 
+void renderDetailedStatusApplication(
+    RenderedEffectDescriptionBlock& rendered,
+    const ApplyStatusAction& status,
+    int indent,
+    EffectDescriptionSemanticBreak breakBefore)
+{
+    const auto statusName = battleStatusLabel(status.status);
+    std::visit([&](const auto& quantity)
+    {
+        using Q = std::decay_t<decltype(quantity)>;
+        std::string action;
+        if constexpr (std::is_same_v<Q, NoStatusQuantity>)
+            action = std::format("動作：施加{}", statusName);
+        else if constexpr (std::is_same_v<Q, AddStatusLayers>)
+            action = std::format("動作：增加{}{}層", statusName, quantity.count);
+        else if constexpr (std::is_same_v<Q, SetStatusMarks>)
+            action = std::format("動作：將{}印記設為{}枚", statusName, quantity.count);
+        else if constexpr (std::is_same_v<Q, AddDamageBlockCharges>)
+            action = std::format("動作：增加{}{}次抵擋", statusName, quantity.count);
+        else if constexpr (std::is_same_v<Q, SetDamageBlockCharges>)
+            action = std::format("動作：將{}設為{}次抵擋", statusName, quantity.count);
+        else if constexpr (std::is_same_v<Q, SetStatusTriggerCharges>)
+            action = std::format("動作：設定{}可觸發{}次", statusName, quantity.count);
+        appendRenderedRow(
+            rendered,
+            EffectDescriptionRowKind::ListItem,
+            std::move(action),
+            indent,
+            breakBefore);
+
+        if constexpr (std::is_same_v<Q, AddStatusLayers>)
+            appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
+                std::format("層數上限：{}層", quantity.limit), indent);
+        else if constexpr (std::is_same_v<Q, AddDamageBlockCharges>)
+            appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
+                std::format("可抵擋次數上限：{}次", quantity.limit), indent);
+    }, status.quantity);
+
+    if (status.duration)
+        appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
+            "持續時間：" + descriptionNumberLabel(
+                *status.duration, EffectDescriptionStyle::Detailed) + "幀",
+            indent);
+    else if (status.durationFrames > 0)
+        appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
+            std::format("持續時間：{}幀", status.durationFrames), indent);
+
+    const auto reapplication = [&]() -> std::string
+    {
+        switch (status.reapplication)
+        {
+        case StatusReapplicationPolicy::Implicit:
+            if (std::holds_alternative<SetStatusMarks>(status.quantity))
+                return "重新設定印記數量並重計持續時間";
+            if (std::holds_alternative<SetStatusTriggerCharges>(status.quantity))
+                return "重新設定可觸發次數";
+            if (std::holds_alternative<SetDamageBlockCharges>(status.quantity))
+                return "重新設定可抵擋次數";
+            return {};
+        case StatusReapplicationPolicy::ExtendDuration: return "延長持續時間";
+        case StatusReapplicationPolicy::KeepLongerDuration: return "保留較長持續時間";
+        case StatusReapplicationPolicy::ReplaceDuration: return "取代持續時間";
+        case StatusReapplicationPolicy::RefreshDuration: return "刷新持續時間與效果值";
+        case StatusReapplicationPolicy::KeepHigherDamage: return "保留較高傷害";
+        case StatusReapplicationPolicy::ReplaceAndReset: return "取代並重設觸發次數";
+        }
+        std::unreachable();
+    }();
+    if (!reapplication.empty())
+        appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
+            "重複套用：" + reapplication, indent);
+
+    const auto number = [](const EffectNumber& value)
+    {
+        return descriptionNumberLabel(value, EffectDescriptionStyle::Detailed);
+    };
+    const auto effectRow = [&](std::string text)
+    {
+        appendRenderedRow(
+            rendered,
+            EffectDescriptionRowKind::Field,
+            std::move(text),
+            indent);
+    };
+    std::visit([&](const auto& effects)
+    {
+        using E = std::decay_t<decltype(effects)>;
+        if constexpr (std::is_same_v<E, PoisonStatusEffects>)
+        {
+            effectRow(std::format("每次觸發：造成目前生命{}%中毒傷害",
+                number(effects.currentHpDamagePercent)));
+            if (effects.sameEventMerge == PoisonSameEventMerge::SumDamagePercent)
+            {
+                effectRow(
+                    "同事件合併：同一效果擁有者在同一事件對同一目標施加時，先合計傷害百分比再比較較高傷害");
+            }
+        }
+        else if constexpr (std::is_same_v<E, BleedStatusEffects>)
+            effectRow(std::format("每層生效：每10幀造成最大生命{}%流血傷害",
+                number(effects.maxHpDamagePercent)));
+        else if constexpr (std::is_same_v<E, ColdPoisonStatusEffects>)
+        {
+            if (effects.blocksHealing) effectRow("持續生效：禁止受到治療");
+            effectRow(std::format("持續生效：速度降低{}%",
+                number(effects.speedReductionPercent)));
+        }
+        else if constexpr (std::is_same_v<E, WitheredBoneStatusEffects>)
+        {
+            effectRow(std::format("持續生效：受到傷害增加{}%",
+                number(effects.damageTakenIncreasePercent)));
+            effectRow(std::format("持續生效：受到治療減少{}%",
+                number(effects.healingReductionPercent)));
+        }
+        else if constexpr (std::is_same_v<E, NeutralizeForceStatusEffects>)
+        {
+            if (effects.preventsCast) effectRow("每次觸發：阻止本次施放");
+            effectRow("每次觸發：原攻擊目標獲得"
+                + number(effects.originalTargetShield) + "護盾");
+        }
+        else if constexpr (std::is_same_v<E, BlindedStatusEffects>)
+        {
+            if (effects.preventsCast) effectRow("每次觸發：阻止本次施放");
+        }
+        else if constexpr (std::is_same_v<E, NextIncomingAttackMissStatusEffects>)
+        {
+            if (effects.makesIncomingAttackMiss)
+                effectRow("每次觸發：使本次受到攻擊落空");
+        }
+        else if constexpr (std::is_same_v<E, DamageBlockStatusEffects>)
+        {
+            if (effects.blocksPositiveNonExecuteDamage)
+                effectRow("每次觸發：抵擋非處決正傷害");
+        }
+        else if constexpr (std::is_same_v<E, SingleHitCapStatusEffects>)
+            effectRow("每次觸發：承傷不超過" + number(effects.damageCap));
+        else if constexpr (std::is_same_v<E, BattleSpiritStatusEffects>)
+        {
+            effectRow(std::format("每層生效：招式傷害增加{}%",
+                number(effects.skillDamageIncreasePercent)));
+            effectRow(std::format("每層生效：傷害減免{}%",
+                number(effects.damageReductionPercent)));
+        }
+        else if constexpr (std::is_same_v<E, TrueQiStatusEffects>)
+            effectRow("每層生效：命中附加" + number(effects.pureDamagePerHit)
+                + "純粹傷害");
+        else if constexpr (std::is_same_v<E, PoisonExplosionStatusEffects>)
+            effectRow("每層提供數值：死亡爆炸純粹傷害"
+                + number(effects.deathPureDamage));
+    }, status.effects);
+}
+
 void renderDetailedActionGroups(
     RenderedEffectDescriptionBlock& rendered,
     std::span<const DescriptionActionGroup> groups,
@@ -308,8 +460,26 @@ void renderDetailedActionGroups(
             const auto actionBreak = group.sequential && index > 0
                 ? EffectDescriptionSemanticBreak::Sequence
                 : EffectDescriptionSemanticBreak::ActionGroup;
-            if (const auto* leaf = std::get_if<EffectAction>(&action.value))
+            if (const auto* status = descriptionStatusApplication(action))
             {
+                renderDetailedStatusApplication(
+                    rendered,
+                    *status,
+                    indent,
+                    actionBreak);
+                continue;
+            }
+            if (const auto* leaf = descriptionEffectAction(action))
+            {
+                if (const auto* status = std::get_if<ApplyStatusAction>(&leaf->value))
+                {
+                    renderDetailedStatusApplication(
+                        rendered,
+                        *status,
+                        indent,
+                        actionBreak);
+                    continue;
+                }
                 appendRenderedRow(
                     rendered,
                     EffectDescriptionRowKind::ListItem,
@@ -370,7 +540,7 @@ void renderPlayerActionGroups(
             && projectedActions.size() > 1
             && std::ranges::all_of(projectedActions, [](const DescriptionAction* action)
             {
-                return std::holds_alternative<EffectAction>(action->value);
+                return descriptionEffectAction(*action) != nullptr;
             }))
         {
             std::string combined;
@@ -378,7 +548,7 @@ void renderPlayerActionGroups(
             for (const auto* action : projectedActions)
             {
                 auto rows = renderPlayerActionDescriptionRows(
-                    std::get<EffectAction>(action->value),
+                    *descriptionEffectAction(*action),
                     style,
                     event,
                     true);
@@ -416,7 +586,7 @@ void renderPlayerActionGroups(
             const auto actionBreak = group.sequential && index > 0
                 ? EffectDescriptionSemanticBreak::Sequence
                 : EffectDescriptionSemanticBreak::ActionGroup;
-            if (const auto* leaf = std::get_if<EffectAction>(&action.value))
+            if (const auto* leaf = descriptionEffectAction(action))
             {
                 auto rows = renderPlayerActionDescriptionRows(
                     *leaf,
@@ -564,11 +734,9 @@ void renderDetailedBlock(
         const auto& branch = *std::get<std::shared_ptr<DescriptionBranch>>(
             block.actions.front().actions.front().value);
         const auto& whenTrue = std::get<ModifyAttackAction>(
-            std::get<EffectAction>(
-                branch.whenTrue.front().actions.front().value).value);
+            descriptionEffectAction(branch.whenTrue.front().actions.front())->value);
         const auto& whenFalse = std::get<ModifyAttackAction>(
-            std::get<EffectAction>(
-                branch.whenFalse.front().actions.front().value).value);
+            descriptionEffectAction(branch.whenFalse.front().actions.front())->value);
         appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
             "若另一名使用此武功的友軍存活：");
         appendRenderedRow(rendered, EffectDescriptionRowKind::ListItem,
@@ -739,22 +907,22 @@ bool renderStatusLifecycleBlock(
     if (const auto* applied = applyStatusAction(block))
     {
         const auto label = battleStatusLabel(applied->status);
+        const auto* marks = std::get_if<SetStatusMarks>(&applied->quantity);
+        if (!marks) return false;
         if (style == EffectDescriptionStyle::Full)
         {
             auto text = fullTriggerPrefix(block, kind, context)
-                + std::format("對{}施加{}{}層",
-                    selectorRoleLabel(selector, trigger.event, false, kind),
-                    label,
-                    applied->stacks);
-            if (applied->stackLimit) text += std::format("，最多{}層", *applied->stackLimit);
+                + std::format("將該敵人的{}印記設為{}枚", label, marks->count);
             if (applied->durationFrames > 0) text += std::format("，持續{}幀", applied->durationFrames);
+            text += "；再次施加會重設印記與持續時間";
             appendSemanticRow(rendered, style, std::move(text));
         }
         else
         {
             auto text = compactTriggerPrefix(block, kind, context)
-                + std::format("施加{}{}層", label, applied->stacks);
-            if (applied->durationFrames > 0) text += std::format("（{}幀）", applied->durationFrames);
+                + std::format("{}印記設為{}枚", label, marks->count);
+            if (applied->durationFrames > 0)
+                text += std::format("（{}幀；再施加時重設）", applied->durationFrames);
             appendSemanticRow(rendered, style, std::move(text));
         }
         return true;
@@ -779,14 +947,14 @@ bool renderStatusLifecycleBlock(
     if (style == EffectDescriptionStyle::Full)
     {
         appendSemanticRow(rendered, style,
-            std::format("任一友軍命中由效果持有者施加{}的敵人時，該次招式忽略{}%防禦並消耗{}層",
+            std::format("任一友軍命中由效果持有者施加{}印記的敵人時，該次招式忽略{}%防禦並消耗{}枚印記",
                 status,
                 *ignored,
-                consumed->stacks),
+                consumed->quantity),
             0,
             EffectDescriptionSemanticBreak::Block);
         appendSemanticRow(rendered, style,
-            std::format("最後一層消耗時，使該敵人{}{}幀",
+            std::format("印記耗盡時，使該敵人{}{}幀",
                 depleted,
                 consumed->whenDepleted->durationFrames),
             1,
@@ -795,14 +963,14 @@ bool renderStatusLifecycleBlock(
     else
     {
         appendSemanticRow(rendered, style,
-            std::format("友軍命中{}目標：破防{}%，消耗{}層",
+            std::format("友軍命中{}目標：破防{}%、耗{}枚",
                 status,
                 *ignored,
-                consumed->stacks),
+                consumed->quantity),
             0,
             EffectDescriptionSemanticBreak::Block);
         appendSemanticRow(rendered, style,
-            std::format("最後一層消耗時{}{}幀",
+            std::format("耗盡時{}{}幀",
                 depleted,
                 consumed->whenDepleted->durationFrames),
             1,
@@ -824,23 +992,27 @@ bool renderStackExplosionBlock(
         const auto* applied = applyStatusAction(block);
         if (!applied) return false;
         const auto status = battleStatusLabel(applied->status);
+        const auto* layers = std::get_if<AddStatusLayers>(&applied->quantity);
+        const auto* effects = std::get_if<PoisonExplosionStatusEffects>(&applied->effects);
+        if (!layers || !effects) return false;
         if (style == EffectDescriptionStyle::Full)
         {
             auto text = fullTriggerPrefix(block, kind, context)
-                + std::format("獲得{}{}層", status, applied->stacks);
-            text += std::format("，強度為{}",
-                descriptionNumberLabel(applied->potency, style));
-            if (applied->stackLimit) text += std::format("，最多{}層", *applied->stackLimit);
+                + std::format("獲得{}層{}，最多{}層；每層提供{}死亡爆炸純粹傷害",
+                    layers->count,
+                    status,
+                    layers->limit,
+                    descriptionNumberLabel(effects->deathPureDamage, style));
             appendSemanticRow(rendered, style, std::move(text));
         }
         else
         {
             auto text = compactTriggerPrefix(block, kind, context)
-                + std::format("獲得{}{}層", status, applied->stacks);
-            text += std::format("（強度為{}",
-                descriptionNumberLabel(applied->potency, style));
-            if (applied->stackLimit) text += std::format("，最多{}層", *applied->stackLimit);
-            text += "）";
+                + std::format("{}+{}層（每層爆炸傷害{}，最多{}層）",
+                    status,
+                    layers->count,
+                    descriptionNumberLabel(effects->deathPureDamage, style),
+                    layers->limit);
             appendSemanticRow(rendered, style, std::move(text));
         }
         return true;
@@ -856,6 +1028,9 @@ bool renderStackExplosionBlock(
     }
     if (!damage || !applied) return false;
     const auto appliedStatus = battleStatusLabel(applied->status);
+    const auto* poisonQuantity = std::get_if<SetStatusTriggerCharges>(&applied->quantity);
+    const auto* poisonEffects = std::get_if<PoisonStatusEffects>(&applied->effects);
+    if (!poisonQuantity || !poisonEffects) return false;
     if (style == EffectDescriptionStyle::Full)
     {
         appendSemanticRow(rendered, style,
@@ -863,21 +1038,20 @@ bool renderStackExplosionBlock(
                 + std::format("逐層引爆{}",
                     sourceStatus));
         appendSemanticRow(rendered, style,
-            std::format("每層對{}造成{}強度的100%{}傷害",
+            std::format("每層對{}造成該層「死亡爆炸純粹傷害」數值的{}傷害",
                     selectorRoleLabel(
                         descriptionTarget(block),
                         descriptionTrigger(block).event,
                         false,
                         kind),
-                    sourceStatus,
                     damageKindLabel(damage->kind)),
             1,
             EffectDescriptionSemanticBreak::Sequence);
         appendSemanticRow(rendered, style,
-            std::format("並施加{}{}層（強度為{}，持續{}幀）",
+            std::format("並施加可觸發{}次的{}（每次造成目前生命{}%傷害，持續{}幀）",
+                    poisonQuantity->count,
                     appliedStatus,
-                    applied->stacks,
-                    descriptionNumberLabel(applied->potency, style),
+                    descriptionNumberLabel(poisonEffects->currentHpDamagePercent, style),
                     applied->durationFrames),
             1,
             EffectDescriptionSemanticBreak::ActionGroup);
@@ -888,16 +1062,15 @@ bool renderStackExplosionBlock(
             compactTriggerPrefix(block, kind, context)
                 + "逐層引爆");
         appendSemanticRow(rendered, style,
-            std::format("每層依{}強度傷害{}並施加{}{}層（強度為{}，{}幀）",
-                    sourceStatus,
+            std::format("每層爆炸傷害{}並施加{}（{}次、每次目前生命{}%、{}幀）",
                     selectorRoleLabel(
                         descriptionTarget(block),
                         descriptionTrigger(block).event,
                         true,
                         kind),
                     appliedStatus,
-                    applied->stacks,
-                    descriptionNumberLabel(applied->potency, style),
+                    poisonQuantity->count,
+                    descriptionNumberLabel(poisonEffects->currentHpDamagePercent, style),
                     applied->durationFrames),
             1,
             EffectDescriptionSemanticBreak::Sequence);
@@ -1079,11 +1252,10 @@ void renderGenericPlayerBlock(
         }
     }
     const bool singleLeaf = projectedActionCount == 1
-        && std::holds_alternative<EffectAction>(singleProjectedAction->value);
+        && descriptionEffectAction(*singleProjectedAction);
     if (singleLeaf)
     {
-        const auto& action = std::get<EffectAction>(
-            singleProjectedAction->value);
+        const auto& action = *descriptionEffectAction(*singleProjectedAction);
         auto actionRows = renderPlayerActionDescriptionRows(
             action,
             style,

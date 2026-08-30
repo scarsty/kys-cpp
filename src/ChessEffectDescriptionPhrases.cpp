@@ -32,12 +32,6 @@ struct DescriptionStackLimitQualifier
     auto operator<=>(const DescriptionStackLimitQualifier&) const = default;
 };
 
-struct DescriptionPerStackQualifier
-{
-    bool enabled{};
-    auto operator<=>(const DescriptionPerStackQualifier&) const = default;
-};
-
 struct DescriptionStackScopeQualifier
 {
     EffectStackScope scope{};
@@ -85,7 +79,6 @@ using DescriptionQualifier = std::variant<
     DescriptionDurationFramesQualifier,
     DescriptionStackPolicyQualifier,
     DescriptionStackLimitQualifier,
-    DescriptionPerStackQualifier,
     DescriptionStackScopeQualifier,
     DescriptionMaxActivationsQualifier,
     DescriptionSharedCooldownQualifier,
@@ -280,14 +273,21 @@ std::string numberLabel(const EffectNumber& number)
     case EffectNumberBase::TargetCurrentShield: base = std::format("目標目前護盾的{}%", number.percent); break;
     case EffectNumberBase::TargetCurrentCooldown: base = std::format("目標目前冷卻的{}%", number.percent); break;
     case EffectNumberBase::FinalHpDamage: base = std::format("實際生命傷害的{}%", number.percent); break;
-    case EffectNumberBase::AccumulatedStateValue: base = std::format("累計值的{}%", number.percent); break;
-    case EffectNumberBase::SourceStatusPotency:
-        assert(number.status);
-        base = std::format("{}強度的{}%", battleStatusLabel(*number.status), number.percent);
+    case EffectNumberBase::SourceStatusEffectValue:
+        assert(number.status && number.statusEffect);
+        base = number.percent == 100
+            ? std::format("{}的{}", battleStatusLabel(*number.status),
+                statusEffectValueLabel(*number.statusEffect))
+            : std::format("{}的{}的{}%", battleStatusLabel(*number.status),
+                statusEffectValueLabel(*number.statusEffect), number.percent);
         break;
-    case EffectNumberBase::SourceStatusStacks:
+    case EffectNumberBase::SourceStatusQuantity:
         assert(number.status);
-        base = std::format("{}層數的{}%", battleStatusLabel(*number.status), number.percent);
+        base = number.percent == 100
+            ? std::format("{}{}數量", battleStatusLabel(*number.status),
+                statusCatalogEntry(*number.status).quantityNoun)
+            : std::format("{}{}數量的{}%", battleStatusLabel(*number.status),
+                statusCatalogEntry(*number.status).quantityNoun, number.percent);
         break;
     case EffectNumberBase::StoredStateValue: base = std::format("狀態槽值的{}%", number.percent); break;
     }
@@ -307,14 +307,15 @@ std::string numberLabel(const EffectNumber& number)
         case EffectNumberBase::TargetCurrentShield: base += "×目標目前護盾"; break;
         case EffectNumberBase::TargetCurrentCooldown: base += "×目標目前冷卻"; break;
         case EffectNumberBase::FinalHpDamage: base += "×實際生命傷害"; break;
-        case EffectNumberBase::AccumulatedStateValue: base += "×累計狀態值"; break;
-        case EffectNumberBase::SourceStatusPotency:
-            assert(number.status);
-            base += std::format("×{}強度", battleStatusLabel(*number.status));
+        case EffectNumberBase::SourceStatusEffectValue:
+            assert(number.status && number.statusEffect);
+            base += std::format("×{}的{}", battleStatusLabel(*number.status),
+                statusEffectValueLabel(*number.statusEffect));
             break;
-        case EffectNumberBase::SourceStatusStacks:
+        case EffectNumberBase::SourceStatusQuantity:
             assert(number.status);
-            base += std::format("×{}層數", battleStatusLabel(*number.status));
+            base += std::format("×{}{}數量", battleStatusLabel(*number.status),
+                statusCatalogEntry(*number.status).quantityNoun);
             break;
         case EffectNumberBase::StoredStateValue: base += "×狀態槽值"; break;
         }
@@ -663,7 +664,6 @@ void appendTimedStackQualifiers(
     EffectStackPolicy stack,
     const std::optional<int>& stackLimit,
     EffectStackScope stackScope,
-    bool perStack,
     EffectDescriptionStyle style,
     bool status,
     std::span<const DescriptionQualifier> suppressed)
@@ -695,12 +695,6 @@ void appendTimedStackQualifiers(
         if (!combinedCompactStackCap
             && !descriptionQualifierIsSuppressed(suppressed, limit))
             result += std::format("，最多{}層", *stackLimit);
-    }
-    if (perStack)
-    {
-        const DescriptionQualifier qualifier = DescriptionPerStackQualifier{ true };
-        if (!descriptionQualifierIsSuppressed(suppressed, qualifier))
-            result += compact ? "，按層計算" : "，數值按每層計算";
     }
     if (stackScope == EffectStackScope::EventSource)
     {
@@ -784,6 +778,11 @@ std::string renderDescriptionActionArgument(
                     else
                         result = std::format("{}增加{}", attribute, amount);
                     break;
+                case AttributeOperation::PercentagePointAdd:
+                    result = useConstantPhrase
+                        ? std::format("{}{:+}%", attribute, *constantAmount)
+                        : std::format("{}增加{}%", attribute, amount);
+                    break;
                 case AttributeOperation::Override:
                     result = std::format("{}改為{}{}", attribute, amount, attributeUnit);
                     break;
@@ -802,7 +801,6 @@ std::string renderDescriptionActionArgument(
                     typed.stack,
                     typed.stackLimit,
                     typed.stackScope,
-                    typed.perStack,
                     style,
                     false,
                     suppressed);
@@ -876,7 +874,9 @@ std::string renderDescriptionActionArgument(
                     if (typed.operation == DamageModifierOperation::IgnoreDefensePercent)
                         result = std::format("{}忽略{}防禦", damageContext, percentAmount());
                     else if (typed.operation == DamageModifierOperation::CapSingleHitAtMaxHpPercent)
-                        result = std::format("{}下一次單次承傷不超過{}最大生命", damageContext, percentAmount());
+                        result = compact
+                            ? std::format("每次承傷≤最大生命{}", percentAmount())
+                            : std::format("每次承傷不超過最大生命的{}", percentAmount());
                     else if (typed.operation == DamageModifierOperation::ExecuteBelowMaxHpPercent)
                         result = std::format("{}普通傷害後生命低於{}最大生命時處決", damageContext, percentAmount());
                     else
@@ -919,7 +919,6 @@ std::string renderDescriptionActionArgument(
                     typed.stack,
                     typed.stackLimit,
                     typed.stackScope,
-                    false,
                     style,
                     false,
                     suppressed);
@@ -981,31 +980,169 @@ std::string renderDescriptionActionArgument(
             }
             else if constexpr (std::is_same_v<T, ApplyStatusAction>)
             {
-                auto result = std::format("施加{}", battleStatusLabel(typed.status));
-                if (typed.stacks != 1) result += std::format("{}層", typed.stacks);
-                if (typed.applicationCount)
-                    result += std::format("{}獨立{}次", qualifierSeparator, descriptionNumberLabel(*typed.applicationCount, style));
-                if (typed.potency.base != EffectNumberBase::Constant || typed.potency.flat != 0)
-                    result += std::format("{}強度為{}", qualifierSeparator, descriptionNumberLabel(typed.potency, style));
-                if (typed.secondaryPotency.base != EffectNumberBase::Constant || typed.secondaryPotency.flat != 0)
-                    result += std::format("{}次要強度為{}", qualifierSeparator, descriptionNumberLabel(typed.secondaryPotency, style));
-                if (typed.duration) result += std::format("{}{}幀", qualifierSeparator, descriptionNumberLabel(*typed.duration, style));
-                appendTimedStackQualifiers(
-                    result,
-                    typed.duration ? 0 : typed.durationFrames,
-                    typed.stack,
-                    typed.stackLimit,
-                    EffectStackScope::Shared,
-                    false,
-                    style,
-                    true,
-                    suppressed);
-                if (typed.aggregatePotencyWithinEvent) result += std::format("{}同事件合計強度", qualifierSeparator);
+                const auto status = battleStatusLabel(typed.status);
+                std::string result;
+                std::visit([&](const auto& quantity)
+                {
+                    using Q = std::decay_t<decltype(quantity)>;
+                    if constexpr (std::is_same_v<Q, NoStatusQuantity>)
+                        result = std::format("施加{}", status);
+                    else if constexpr (std::is_same_v<Q, AddStatusLayers>)
+                        result = compact
+                            ? std::format("{}+{}層", status, quantity.count)
+                            : std::format("獲得{}層{}", quantity.count, status);
+                    else if constexpr (std::is_same_v<Q, SetStatusMarks>)
+                        result = std::format("將{}印記設為{}枚", status, quantity.count);
+                    else if constexpr (std::is_same_v<Q, AddDamageBlockCharges>)
+                        result = compact
+                            ? std::format("{}+{}次", status, quantity.count)
+                            : std::format("增加{}次{}", quantity.count, status);
+                    else if constexpr (std::is_same_v<Q, SetDamageBlockCharges>)
+                        result = std::format("將{}設為{}次抵擋", status, quantity.count);
+                    else if constexpr (std::is_same_v<Q, SetStatusTriggerCharges>)
+                        result = compact
+                            ? std::format("{}（{}次）", status, quantity.count)
+                            : std::format("施加可觸發{}次的{}", quantity.count, status);
+                }, typed.quantity);
+
+                const auto durationSuppressed = typed.durationFrames > 0
+                    && descriptionQualifierIsSuppressed(
+                        suppressed,
+                        DescriptionDurationFramesQualifier{ typed.durationFrames });
+                if (typed.duration)
+                    result += std::format("{}持續{}幀", qualifierSeparator,
+                        descriptionNumberLabel(*typed.duration, style));
+                else if (typed.durationFrames > 0 && !durationSuppressed)
+                    result += compact
+                        ? std::format("，{}幀", typed.durationFrames)
+                        : std::format("，持續{}幀", typed.durationFrames);
+
+                std::string effectText;
+                bool poisonSumsSameEventDamage{};
+                std::visit([&](const auto& effects)
+                {
+                    using E = std::decay_t<decltype(effects)>;
+                    if constexpr (std::is_same_v<E, PoisonStatusEffects>)
+                    {
+                        effectText = std::format("每30幀造成目前生命{}%中毒傷害",
+                            descriptionNumberLabel(effects.currentHpDamagePercent, style));
+                        poisonSumsSameEventDamage = effects.sameEventMerge
+                            == PoisonSameEventMerge::SumDamagePercent;
+                    }
+                    else if constexpr (std::is_same_v<E, BleedStatusEffects>)
+                        effectText = std::format("每層每10幀造成最大生命{}%流血傷害",
+                            descriptionNumberLabel(effects.maxHpDamagePercent, style));
+                    else if constexpr (std::is_same_v<E, ColdPoisonStatusEffects>)
+                        effectText = std::format("狀態期間{}速度降低{}%",
+                            effects.blocksHealing ? "無法受到治療、" : "",
+                            descriptionNumberLabel(effects.speedReductionPercent, style));
+                    else if constexpr (std::is_same_v<E, WitheredBoneStatusEffects>)
+                        effectText = std::format("狀態期間受到傷害增加{}%、受到治療減少{}%",
+                            descriptionNumberLabel(effects.damageTakenIncreasePercent, style),
+                            descriptionNumberLabel(effects.healingReductionPercent, style));
+                    else if constexpr (std::is_same_v<E, NeutralizeForceStatusEffects>)
+                        effectText = std::format("觸發時{}使原攻擊目標獲得{}護盾",
+                            effects.preventsCast ? "阻止本次施放，並" : "",
+                            descriptionNumberLabel(effects.originalTargetShield, style));
+                    else if constexpr (std::is_same_v<E, BlindedStatusEffects>)
+                        effectText = effects.preventsCast ? "觸發時阻止本次施放" : "";
+                    else if constexpr (std::is_same_v<E, NextIncomingAttackMissStatusEffects>)
+                        effectText = effects.makesIncomingAttackMiss
+                            ? "觸發時使本次受到攻擊落空" : "";
+                    else if constexpr (std::is_same_v<E, DamageBlockStatusEffects>)
+                        effectText = effects.blocksPositiveNonExecuteDamage
+                            ? "每次抵擋一次非處決正傷害" : "";
+                    else if constexpr (std::is_same_v<E, SingleHitCapStatusEffects>)
+                        effectText = std::format("每次觸發時承傷不超過{}",
+                            descriptionNumberLabel(effects.damageCap, style));
+                    else if constexpr (std::is_same_v<E, BattleSpiritStatusEffects>)
+                        effectText = compact
+                            ? std::format("每層增傷{}%、減傷{}%",
+                                descriptionNumberLabel(effects.skillDamageIncreasePercent, style),
+                                descriptionNumberLabel(effects.damageReductionPercent, style))
+                            : std::format("每層使招式傷害提高{}%、受到傷害降低{}%",
+                                descriptionNumberLabel(effects.skillDamageIncreasePercent, style),
+                                descriptionNumberLabel(effects.damageReductionPercent, style));
+                    else if constexpr (std::is_same_v<E, TrueQiStatusEffects>)
+                        effectText = std::format("每層使命中附加{}純粹傷害",
+                            descriptionNumberLabel(effects.pureDamagePerHit, style));
+                    else if constexpr (std::is_same_v<E, PoisonExplosionStatusEffects>)
+                        effectText = std::format("每層提供{}死亡爆炸純粹傷害",
+                            descriptionNumberLabel(effects.deathPureDamage, style));
+                }, typed.effects);
+
+                const auto layerLimit = std::visit([](const auto& quantity) -> std::optional<int>
+                {
+                    using Q = std::decay_t<decltype(quantity)>;
+                    if constexpr (std::is_same_v<Q, AddStatusLayers>
+                        || std::is_same_v<Q, AddDamageBlockCharges>)
+                        return quantity.limit;
+                    return std::nullopt;
+                }, typed.quantity);
+                const bool damageBlockLimit = std::holds_alternative<AddDamageBlockCharges>(
+                    typed.quantity);
+                if (compact && (!effectText.empty() || layerLimit))
+                {
+                    result += "（";
+                    if (!effectText.empty()) result += effectText;
+                    if (layerLimit)
+                    {
+                        if (!effectText.empty()) result += "，";
+                        result += damageBlockLimit
+                            ? std::format("最多{}次抵擋", *layerLimit)
+                            : std::format("最多{}層", *layerLimit);
+                    }
+                    result += "）";
+                }
+                else
+                {
+                    if (layerLimit)
+                    {
+                        result += damageBlockLimit
+                            ? std::format("，最多{}次抵擋", *layerLimit)
+                            : std::format("，最多{}層", *layerLimit);
+                    }
+                    if (!effectText.empty()) result += std::format("；{}", effectText);
+                }
+
+                const auto appendReapplication = [&](std::string_view text)
+                {
+                    result += compact
+                        ? std::format("；再施加時{}", text)
+                        : std::format("；再次施加會{}", text);
+                };
+                switch (typed.reapplication)
+                {
+                case StatusReapplicationPolicy::Implicit:
+                    if (std::holds_alternative<SetStatusMarks>(typed.quantity))
+                        appendReapplication("重設印記與持續時間");
+                    break;
+                case StatusReapplicationPolicy::ExtendDuration: appendReapplication("延長持續時間"); break;
+                case StatusReapplicationPolicy::KeepLongerDuration:
+                    if (compact)
+                        result += "（再施加取較長）";
+                    else
+                        appendReapplication("保留較長持續時間");
+                    break;
+                case StatusReapplicationPolicy::ReplaceDuration: appendReapplication("重設持續時間"); break;
+                case StatusReapplicationPolicy::RefreshDuration: appendReapplication("刷新持續時間"); break;
+                case StatusReapplicationPolicy::KeepHigherDamage: appendReapplication("保留較高傷害"); break;
+                case StatusReapplicationPolicy::ReplaceAndReset: appendReapplication("取代並重設觸發次數"); break;
+                }
+                if (poisonSumsSameEventDamage)
+                {
+                    result += compact
+                        ? "；同源同事件先合計毒傷%"
+                        : "；同一效果擁有者在同一事件對同一目標施加時，先合計傷害百分比再比較較高傷害";
+                }
                 return result;
             }
             else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
             {
-                auto result = std::format("消耗{}{}層", battleStatusLabel(typed.status), typed.stacks);
+                auto result = std::format("消耗{}{}{}",
+                    typed.quantity,
+                    statusCatalogEntry(typed.status).quantityNoun,
+                    battleStatusLabel(typed.status));
                 if (typed.source == StatusSourceMatch::EffectOwner) result += std::format("{}僅此來源", qualifierSeparator);
                 assert(!typed.whenDepleted
                     && "depleted status branches must be rendered through DescriptionConditional");
@@ -1607,8 +1744,7 @@ std::vector<DescriptionQualifier> actionDescriptionQualifiers(
         int durationFrames,
         EffectStackPolicy stack,
         const std::optional<int>& stackLimit,
-        EffectStackScope stackScope,
-        bool perStack)
+        EffectStackScope stackScope)
     {
         if (durationFrames > 0)
             qualifiers.emplace_back(DescriptionDurationFramesQualifier{ durationFrames });
@@ -1616,8 +1752,6 @@ std::vector<DescriptionQualifier> actionDescriptionQualifiers(
             qualifiers.emplace_back(DescriptionStackPolicyQualifier{ stack });
         if (stackLimit)
             qualifiers.emplace_back(DescriptionStackLimitQualifier{ *stackLimit });
-        if (perStack)
-            qualifiers.emplace_back(DescriptionPerStackQualifier{ true });
         if (stackScope == EffectStackScope::EventSource)
             qualifiers.emplace_back(DescriptionStackScopeQualifier{ stackScope });
     };
@@ -1628,8 +1762,7 @@ std::vector<DescriptionQualifier> actionDescriptionQualifiers(
             modifier->durationFrames,
             modifier->stack,
             modifier->stackLimit,
-            modifier->stackScope,
-            modifier->perStack);
+            modifier->stackScope);
     }
     else if (const auto* modifier = std::get_if<ModifyDamageAction>(&action))
     {
@@ -1637,17 +1770,13 @@ std::vector<DescriptionQualifier> actionDescriptionQualifiers(
             modifier->durationFrames,
             modifier->stack,
             modifier->stackLimit,
-            modifier->stackScope,
-            false);
+            modifier->stackScope);
     }
     else if (const auto* status = std::get_if<ApplyStatusAction>(&action))
     {
-        appendTimed(
-            status->duration ? 0 : status->durationFrames,
-            status->stack,
-            status->stackLimit,
-            EffectStackScope::Shared,
-            false);
+        if (!status->duration && status->durationFrames > 0)
+            qualifiers.emplace_back(
+                DescriptionDurationFramesQualifier{ status->durationFrames });
     }
     return qualifiers;
 }
@@ -1666,7 +1795,6 @@ std::vector<DescriptionQualifier> sharedActionDescriptionQualifiers(
         || (first->stack != EffectStackPolicy::Independent
             && first->stack != EffectStackPolicy::Refresh)
         || first->stackLimit
-        || first->perStack
         || first->stackScope != EffectStackScope::Shared)
     {
         return {};
@@ -1684,7 +1812,6 @@ std::vector<DescriptionQualifier> sharedActionDescriptionQualifiers(
             || modifier->durationFrames != first->durationFrames
             || modifier->stack != first->stack
             || modifier->stackLimit
-            || modifier->perStack
             || modifier->stackScope != EffectStackScope::Shared)
         {
             return {};
@@ -1909,8 +2036,6 @@ std::string renderSharedActionQualifiers(
                 }
                 else if constexpr (std::is_same_v<T, DescriptionStackLimitQualifier>)
                     result += std::format("，最多{}層", typed.count);
-                else if constexpr (std::is_same_v<T, DescriptionPerStackQualifier>)
-                    result += "，數值按每層計算";
                 else if constexpr (std::is_same_v<T, DescriptionStackScopeQualifier>)
                     result += "，各事件來源分別疊加";
             },
@@ -1983,7 +2108,7 @@ std::string renderEffectAction(
             context,
             coalesce);
         return std::format(
-            "{}{}若{}最後一層已消耗，{}",
+            "{}{}若{}耗盡，{}",
             baseText,
             sequenceSeparator,
             battleStatusLabel(consume->status),
@@ -2119,6 +2244,57 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
     bool coalesce)
 {
     assert(style != EffectDescriptionStyle::Detailed);
+    if (const auto* status = std::get_if<ApplyStatusAction>(&action.value))
+    {
+        if (status->status == BattleStatusKind::SingleHitCapLayer)
+        {
+            const auto* quantity = std::get_if<SetStatusTriggerCharges>(
+                &status->quantity);
+            const auto* effects = std::get_if<SingleHitCapStatusEffects>(
+                &status->effects);
+            if (quantity && effects)
+            {
+                const auto cap = descriptionNumberLabel(effects->damageCap, style);
+                return {{quantity->count == 1
+                    ? std::format("下次承傷不超過{}", cap)
+                    : std::format("接下來{}次承傷皆不超過{}", quantity->count, cap)}};
+            }
+        }
+        if (status->status == BattleStatusKind::BattleSpirit)
+        {
+            const auto* layers = std::get_if<AddStatusLayers>(&status->quantity);
+            const auto* effects = std::get_if<BattleSpiritStatusEffects>(
+                &status->effects);
+            const auto increase = effects
+                ? effectiveConstantEffectNumberValue(
+                    effects->skillDamageIncreasePercent)
+                : std::nullopt;
+            const auto reduction = effects
+                ? effectiveConstantEffectNumberValue(
+                    effects->damageReductionPercent)
+                : std::nullopt;
+            if (layers && increase && reduction)
+            {
+                const long long maximumIncrease = static_cast<long long>(
+                    layers->limit) * *increase;
+                const long long maximumReduction = static_cast<long long>(
+                    layers->limit) * *reduction;
+                return {
+                    {renderActionDescription(action, style, event, coalesce)},
+                    {style == EffectDescriptionStyle::Compact
+                        ? std::format("滿層增傷{}%、減傷{}%",
+                            maximumIncrease,
+                            maximumReduction)
+                        : std::format("{}層時，招式傷害共提高{}%、受到傷害共降低{}%",
+                            layers->limit,
+                            maximumIncrease,
+                            maximumReduction),
+                        style == EffectDescriptionStyle::Compact ? 1 : 0,
+                        EffectDescriptionSemanticBreak::Qualifier},
+                };
+            }
+        }
+    }
     const auto* attack = std::get_if<ModifyAttackAction>(&action.value);
     if (!attack)
     {

@@ -40,6 +40,10 @@ BattleEffectEventHeaderInput nextEffectEventHeader(
     BattleRuntimeState& state,
     int ownerUnitId,
     EffectFormulaInputs formulaInputs = {});
+void insertTrueQiHitDamage(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    BattleEffectDispatchResult& dispatched);
 BattleCastProvenance plannedEffectCastProvenance(
     int sourceUnitId,
     int magicId,
