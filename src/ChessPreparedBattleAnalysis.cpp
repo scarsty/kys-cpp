@@ -18,7 +18,7 @@ std::vector<ChessComboMetadata> activeTeamSynergies(
     const ChessGameContent& content,
     const std::vector<Battle::BattleSetupRosterUnit>& roster,
     const Battle::BattleRuntimeSetupSeed& setup,
-    EffectDescriptionStyle descriptionStyle)
+    std::optional<EffectDescriptionStyle> descriptionStyle)
 {
     std::vector<ChessComboMetadata> result;
     for (const auto& resolved : Battle::resolveBattleSetupCombos(roster, setup))
@@ -32,15 +32,38 @@ std::vector<ChessComboMetadata> activeTeamSynergies(
             resolved.id,
             &ComboDef::id);
         assert(definition != content.combos().end());
-        result.push_back(chessComboMetadata(
-            content,
-            *definition,
-            resolved.physicalMemberCount,
-            resolved.effectiveMemberCount,
-            resolved.activeThresholdIndex,
-            resolved.nextThresholdIndex,
-            resolved.contributions,
-            descriptionStyle));
+        if (descriptionStyle)
+        {
+            result.push_back(chessComboMetadata(
+                content,
+                *definition,
+                resolved.physicalMemberCount,
+                resolved.effectiveMemberCount,
+                resolved.activeThresholdIndex,
+                resolved.nextThresholdIndex,
+                resolved.contributions,
+                *descriptionStyle));
+            continue;
+        }
+
+        ChessComboMetadata metadata;
+        metadata.comboId = definition->id;
+        metadata.name = definition->name;
+        metadata.physicalCount = resolved.physicalMemberCount;
+        metadata.effectiveCount = resolved.effectiveMemberCount;
+        metadata.activeThresholdIndex = resolved.activeThresholdIndex;
+        metadata.nextThresholdIndex = resolved.nextThresholdIndex;
+        metadata.active = true;
+        for (int index = 0; index < static_cast<int>(definition->thresholds.size()); ++index)
+        {
+            const auto& threshold = definition->thresholds[index];
+            metadata.thresholds.push_back({
+                .requiredCount = threshold.count,
+                .name = threshold.name,
+                .active = index <= resolved.activeThresholdIndex,
+            });
+        }
+        result.push_back(std::move(metadata));
     }
     return result;
 }
@@ -117,7 +140,7 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
     int maximumFrames,
-    EffectDescriptionStyle descriptionStyle)
+    std::optional<EffectDescriptionStyle> descriptionStyle)
 {
     auto result = projectPreparedChessBattle(prepared, content);
     result.baselineStatsNote = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
@@ -129,11 +152,14 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
         const auto* role = content.role(source.roleId);
         assert(role);
         unit.baselineStats = chessPreparedUnitBaselineStats(content, source);
-        unit.abilities = chessAbilitiesForRoleStar(
-            content,
-            *role,
-            source.star,
-            descriptionStyle);
+        if (descriptionStyle)
+        {
+            unit.abilities = chessAbilitiesForRoleStar(
+                content,
+                *role,
+                source.star,
+                *descriptionStyle);
+        }
     }
 
     if (prepared.chosenMapId < 0 && !prepared.mapCandidates.empty())

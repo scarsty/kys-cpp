@@ -1172,18 +1172,22 @@ void insertTrueQiHitDamage(
     const BattleAttackEvent& event,
     BattleEffectDispatchResult& dispatched)
 {
+    const auto& statuses = state.units.require(event.sourceUnitId).status.effects.statuses;
     const auto* trueQi = state.units.require(event.sourceUnitId)
         .status.effects.find(BattleStatusKind::TrueQi);
     if (!trueQi || trueQi->stacks <= 0 || trueQi->potency <= 0) return;
+    assert(std::ranges::count(
+        statuses, BattleStatusKind::TrueQi, &BattleTypedStatusInstance::kind) == 1);
     assert(trueQi->origin);
-    assert(!isIntrinsicEffectRuleId(trueQi->origin->ruleId));
-    assert(trueQi->origin->ruleOrder < std::numeric_limits<std::uint32_t>::max());
+    const auto& origin = trueQi->origin.value();
+    assert(!isIntrinsicEffectRuleId(origin.ruleId));
+    assert(origin.ruleOrder < std::numeric_limits<std::uint32_t>::max());
 
     const EffectRuleId intrinsicRuleId = intrinsicStatusEffectRuleId(
-        trueQi->origin->ruleId);
+        origin.ruleId);
     assert(std::ranges::none_of(state.effectRules.rules(), [&](const auto& bound)
     {
-        return bound.binding == trueQi->origin->binding
+        return bound.binding == origin.binding
             && bound.rule.id == intrinsicRuleId;
     }));
 
@@ -1197,10 +1201,10 @@ void insertTrueQiHitDamage(
     action.kind = BattleDamageKind::Pure;
     EffectCommand intrinsic{
         .metadata = {
-            .binding = trueQi->origin->binding,
+            .binding = origin.binding,
             .ruleId = intrinsicRuleId,
             .event = EffectEvent::HitBeforeDamage,
-            .ruleOrder = trueQi->origin->ruleOrder + 1,
+            .ruleOrder = origin.ruleOrder + 1,
             .actionOrder = 0,
             .targetOrder = 0,
             .targetUnitId = event.unitId,
@@ -1213,11 +1217,11 @@ void insertTrueQiHitDamage(
     };
     const auto laterCommand = std::ranges::find_if(dispatched.commands, [&](const auto& candidate)
     {
-        const auto candidateSource = static_cast<int>(candidate.metadata.binding.kind);
-        const auto intrinsicSource = static_cast<int>(intrinsic.metadata.binding.kind);
-        return candidateSource > intrinsicSource
-            || (candidateSource == intrinsicSource
-                && candidate.metadata.ruleOrder >= intrinsic.metadata.ruleOrder);
+        return !effectSourceRuleOrderLess(
+            candidate.metadata.binding.kind,
+            candidate.metadata.ruleOrder,
+            intrinsic.metadata.binding.kind,
+            intrinsic.metadata.ruleOrder);
     });
     dispatched.commands.insert(laterCommand, std::move(intrinsic));
     for (std::uint64_t ordinal = 0; ordinal < dispatched.commands.size(); ++ordinal)
@@ -1225,7 +1229,7 @@ void insertTrueQiHitDamage(
         dispatched.commands[ordinal].metadata.commandOrdinal = ordinal;
     }
     dispatched.activations.push_back({
-        trueQi->origin->binding,
+        origin.binding,
         intrinsicRuleId,
         { event.unitId },
     });

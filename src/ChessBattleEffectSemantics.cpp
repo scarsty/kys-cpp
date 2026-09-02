@@ -13,132 +13,84 @@ namespace
 constexpr std::array statusCatalog{
     StatusCatalogEntry{ BattleStatusKind::Poison, StatusQuantityModel::TriggerCharges,
         StatusEffectScope::PerTrigger, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::PoisonDamage, "次觸發" },
+        StatusReapplicationModel::PoisonDamage },
     StatusCatalogEntry{ BattleStatusKind::Bleed, StatusQuantityModel::Layers,
         StatusEffectScope::PerLayer, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "層" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::Stun, StatusQuantityModel::None,
         StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::StunDuration, "" },
+        StatusReapplicationModel::StunDuration },
     StatusCatalogEntry{ BattleStatusKind::MpBlocked, StatusQuantityModel::None,
         StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::KeepLongerDuration, "" },
+        StatusReapplicationModel::KeepLongerDuration },
     StatusCatalogEntry{ BattleStatusKind::ColdPoison, StatusQuantityModel::None,
         StatusEffectScope::Persistent, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::RefreshDuration, "" },
+        StatusReapplicationModel::RefreshDuration },
     StatusCatalogEntry{ BattleStatusKind::WitheredBone, StatusQuantityModel::None,
         StatusEffectScope::Persistent, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::RefreshDuration, "" },
+        StatusReapplicationModel::RefreshDuration },
     StatusCatalogEntry{ BattleStatusKind::SevenStarMark, StatusQuantityModel::Marks,
         StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::Implicit, "枚印記" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::NeutralizeForce, StatusQuantityModel::TriggerCharges,
         StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "次觸發" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::Blinded, StatusQuantityModel::TriggerCharges,
         StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "次觸發" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::NextAttackMiss, StatusQuantityModel::TriggerCharges,
         StatusEffectScope::PerTrigger, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::Implicit, "次觸發" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::DamageBlockLayer, StatusQuantityModel::DamageBlockCharges,
         StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "次抵擋" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::SingleHitCapLayer, StatusQuantityModel::TriggerCharges,
         StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "次觸發" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::BattleSpirit, StatusQuantityModel::Layers,
         StatusEffectScope::PerLayer, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "層" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::TrueQi, StatusQuantityModel::Layers,
         StatusEffectScope::PerLayer, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "層" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::PoisonExplosion, StatusQuantityModel::Layers,
         StatusEffectScope::PerLayerValue, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit, "層" },
+        StatusReapplicationModel::Implicit },
     StatusCatalogEntry{ BattleStatusKind::Shadowless, StatusQuantityModel::None,
         StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::RefreshDuration, "" },
+        StatusReapplicationModel::RefreshDuration },
     StatusCatalogEntry{ BattleStatusKind::NextAttackCritical, StatusQuantityModel::Internal,
         StatusEffectScope::RuntimeOwned, StatusDurationModel::RuntimeOwned,
-        StatusReapplicationModel::Implicit, "次觸發", false },
+        StatusReapplicationModel::Implicit, false },
 };
 
-constexpr std::array statusEffectValueCatalog{
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::PoisonCurrentHpDamagePercent,
-        BattleStatusKind::Poison,
-        "目前生命傷害百分比",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::BleedMaxHpDamagePercent,
-        BattleStatusKind::Bleed,
-        "最大生命傷害百分比",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::ColdPoisonSpeedReductionPercent,
-        BattleStatusKind::ColdPoison,
-        "速度降低百分比",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::WitheredBoneDamageTakenIncreasePercent,
-        BattleStatusKind::WitheredBone,
-        "受到傷害增加百分比",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::WitheredBoneHealingReductionPercent,
-        BattleStatusKind::WitheredBone,
-        "受到治療減少百分比",
-        StatusRuntimeValueSlot::SecondaryPotency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::NeutralizeForceOriginalTargetShield,
-        BattleStatusKind::NeutralizeForce,
-        "原攻擊目標獲得護盾",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::SingleHitDamageCap,
-        BattleStatusKind::SingleHitCapLayer,
-        "傷害上限",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::BattleSpiritSkillDamageIncreasePercent,
-        BattleStatusKind::BattleSpirit,
-        "招式傷害增加百分比",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::BattleSpiritDamageReductionPercent,
-        BattleStatusKind::BattleSpirit,
-        "傷害減免百分比",
-        StatusRuntimeValueSlot::SecondaryPotency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::TrueQiPureDamagePerHit,
-        BattleStatusKind::TrueQi,
-        "命中附加純粹傷害",
-        StatusRuntimeValueSlot::Potency,
-    },
-    StatusEffectValueCatalogEntry{
-        StatusEffectValueKind::PoisonExplosionDeathPureDamage,
-        BattleStatusKind::PoisonExplosion,
-        "死亡爆炸純粹傷害",
-        StatusRuntimeValueSlot::Potency,
-    },
-};
-static_assert(statusEffectValueCatalog.size()
-    == static_cast<std::size_t>(StatusEffectValueKind::Count));
 static_assert([]
 {
-    for (std::size_t index = 0; index < statusEffectValueCatalog.size(); ++index)
+    for (const auto& status : statusCatalog)
     {
-        if (static_cast<std::size_t>(statusEffectValueCatalog[index].value) != index)
+        const auto quantityOperations = statusQuantityOperations(status.quantity);
+        const bool expectsQuantityOperations = status.quantity != StatusQuantityModel::None
+            && status.quantity != StatusQuantityModel::Internal;
+        if (quantityOperations.empty() == expectsQuantityOperations) return false;
+        for (const auto operation : quantityOperations)
+        {
+            if (statusQuantityOperationCatalogEntry(operation).model != status.quantity)
+                return false;
+        }
+        const bool hasFields = std::ranges::any_of(
+            statusEffectFieldCatalog,
+            [&](const auto& field) { return field.status == status.status; });
+        const bool expectsFields = status.effectScope != StatusEffectScope::None
+            && status.effectScope != StatusEffectScope::RuntimeOwned;
+        if (hasFields != expectsFields) return false;
+    }
+    for (const auto& field : statusEffectFieldCatalog)
+    {
+        const auto status = std::ranges::find(
+            statusCatalog, field.status, &StatusCatalogEntry::status);
+        if (status == statusCatalog.end()
+            || status->effectScope == StatusEffectScope::None
+            || status->effectScope == StatusEffectScope::RuntimeOwned)
             return false;
     }
     return true;
@@ -239,11 +191,6 @@ const StatusCatalogEntry& statusCatalogEntry(BattleStatusKind status)
 std::span<const StatusCatalogEntry> statusCatalogEntries()
 {
     return statusCatalog;
-}
-
-std::span<const StatusEffectValueCatalogEntry> statusEffectValueCatalogEntries()
-{
-    return statusEffectValueCatalog;
 }
 
 bool statusReapplicationPolicyAllowed(
@@ -440,9 +387,11 @@ bool matchesPoisonExplosionLifecycleConsumer(const EffectRule& rule)
 
 std::string_view statusEffectValueLabel(StatusEffectValueKind value)
 {
-    const auto found = std::ranges::find(
-        statusEffectValueCatalog, value, &StatusEffectValueCatalogEntry::value);
-    assert(found != statusEffectValueCatalog.end());
+    const auto found = std::ranges::find_if(statusEffectFieldCatalog, [&](const auto& field)
+    {
+        return field.value == value;
+    });
+    assert(found != statusEffectFieldCatalog.end());
     return found->label;
 }
 
@@ -450,18 +399,40 @@ bool statusEffectValueBelongsToStatus(
     StatusEffectValueKind value,
     BattleStatusKind status)
 {
-    const auto found = std::ranges::find(
-        statusEffectValueCatalog, value, &StatusEffectValueCatalogEntry::value);
-    assert(found != statusEffectValueCatalog.end());
+    const auto found = std::ranges::find_if(statusEffectFieldCatalog, [&](const auto& field)
+    {
+        return field.value == value;
+    });
+    assert(found != statusEffectFieldCatalog.end());
     return found->status == status;
 }
 
 StatusRuntimeValueSlot statusEffectRuntimeValueSlot(StatusEffectValueKind value)
 {
-    const auto found = std::ranges::find(
-        statusEffectValueCatalog, value, &StatusEffectValueCatalogEntry::value);
-    assert(found != statusEffectValueCatalog.end());
-    return found->runtimeSlot;
+    const auto found = std::ranges::find_if(statusEffectFieldCatalog, [&](const auto& field)
+    {
+        return field.value == value;
+    });
+    assert(found != statusEffectFieldCatalog.end());
+    assert(found->runtimeSlot);
+    return *found->runtimeSlot;
+}
+
+std::optional<BattleStatusKind> statusEffectPayloadStatus(
+    const StatusEffectPayload& payload)
+{
+    std::optional<BattleStatusKind> result;
+    const auto record = [&](StatusEffectFieldId id)
+    {
+        const auto status = statusEffectFieldCatalogEntry(id).status;
+        assert(!result || *result == status);
+        result = status;
+    };
+    forEachStatusEffectField(
+        payload,
+        [&](StatusEffectFieldId id, const EffectNumber&) { record(id); },
+        [&](StatusEffectFieldId id, bool) { record(id); });
+    return result;
 }
 
 LoweredStatusQuantity lowerStatusQuantity(const ApplyStatusAction& action)

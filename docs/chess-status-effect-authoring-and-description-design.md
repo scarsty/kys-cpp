@@ -446,7 +446,7 @@ There is no globally valid generic policy enum on the authoring surface.
 | `保留較長持續時間` | Current refresh/keep-strongest/add-stack behavior; remaining duration becomes the maximum. |
 | `取代持續時間` | Current replace behavior. |
 
-Existing stuns with omitted policy migrate to `延長持續時間`. Existing `刷新` stuns migrate to `保留較長持續時間`; the current behavior does not reset a longer timer to a shorter one.
+Legacy stuns that omitted the policy are migrated explicitly to `延長持續時間`; omission is not accepted by the canonical parser or generated schema. Existing `刷新` stuns migrate to `保留較長持續時間`; the current behavior does not reset a longer timer to a shorter one.
 
 #### MP block
 
@@ -567,6 +567,10 @@ The runtime cap calculation multiplies maximum HP by the authored percentage usi
 | 下一次攻擊必定暴擊 | Internal only | Runtime-owned | Runtime-owned | Typed status consumption |
 
 Every catalog row expands into a closed parser/validator descriptor. The table is not merely documentation.
+
+The implementation has one authoritative payload-field catalog. Each entry owns the status, authored label, field type (`EffectNumber` or required literal `true`), optional named-reference enum, runtime value slot, numeric invariant, and schema probe value. The parser's unavoidable typed-member assignments refer to catalog field IDs rather than repeating labels; authoring metadata, generated schemas, named status-value references, runtime validation, and command evaluation derive from the same entries. A single exhaustive typed payload visitor maps C++ members to those IDs, and adding an unclassified payload variant is a compile-time error.
+
+Quantity authoring has the same arrangement: one quantity-field catalog owns every authored label, and quantity-operation descriptors group those fields into add-layers, set-trigger-count, set-marks, add-block-count, and set-block-count operations. Parser lookup, authoring metadata, closed schema branches, and typed validation diagnostics consume those descriptors; their switches only construct the corresponding C++ variant and do not repeat authored labels. Status scope labels and allowed reapplication policies likewise come from the shared status catalog rather than renderer-local lists.
 
 ### Closed effect payload fields
 
@@ -887,7 +891,9 @@ The lifecycle archetype remains useful as a presentation composition, not as a m
 
 ### Catalog-driven phrases
 
-The renderer uses catalog nouns and effect phrases:
+The renderer derives quantity counters, object suffixes, and aggregate measures from the status quantity model. This keeps `1層戰意`, `1枚七星印記`, `七星印記數量`, and `傷害抵擋次數` consistent without forcing operation-specific Chinese grammar into raw catalog labels. Verbs and word order such as `將…設為…枚` and `施加可觸發…次的…` remain renderer-owned sentence forms.
+
+The renderer uses those catalog terms together with effect phrases:
 
 - 戰意: `層`, `每層使招式傷害提高…`.
 - 七星: `枚印記`, `印記耗盡時…`.
@@ -901,6 +907,8 @@ When a per-layer value and cap are both simple constants, Full may show a derive
 ### Render at the presentation boundary
 
 Catalog/query metadata should retain either the style-neutral document or enough canonical rules to render it later. `CatalogDetail::Compact` must select `EffectDescriptionStyle::Compact` for its contained effects; `Full` selects Full. Detailed remains an explicit diagnostic/audit choice rather than an accidental player mode.
+
+Presentation projections must not render metadata they do not return. Identity-only equipment DTOs read identity fields directly; detailed equipment and reward options accept the boundary's Compact/Full style and reuse one rendered metadata object. Compact prepared-battle and GUI battle-preview analysis omit unit ability and combo-effect descriptions while retaining the names, counts, thresholds, initialized stats, and asset IDs those views consume.
 
 ### Target descriptions: 降龍十八掌
 
@@ -1107,7 +1115,15 @@ Diagnostics should identify the status and the closed correction. Examples:
 狀態「毒爆」沒有名為「強度」的效果值；可引用「死亡爆炸純粹傷害」。
 ```
 
-Unknown fields must fail. The parser must not ignore a field merely because it is irrelevant to a selected status.
+```text
+狀態「真氣」的效果缺少「命中附加純粹傷害」
+```
+
+```text
+狀態「七星」的顯式生命週期必須有且只有一個相容 producer；總數為 1 個，其中相容 0 個
+```
+
+Unknown fields must fail. The parser must not ignore a field merely because it is irrelevant to a selected status. Missing, malformed, and wrong-status payload fields retain both the affected status name and the canonical field label in their diagnostics. Explicit lifecycle errors distinguish the total number of producers/consumers from the number that match the required shape.
 
 ## Testing strategy
 
@@ -1117,8 +1133,8 @@ Unknown fields must fail. The parser must not ignore a field merely because it i
 - Wrong quantity noun for every quantity family.
 - Missing required cap.
 - Forbidden cap or quantity on a no-quantity status.
-- Wrong effect scope and wrong named field.
-- Missing required effect payload.
+- Wrong effect scope and wrong named field, including a field that is valid for another status.
+- Missing and malformed required effect payloads report the affected status and canonical field.
 - Forbidden/required reapplication policy combinations.
 - Poison policy/aggregation matrix.
 - Named status quantity/value reference success and failure.
@@ -1144,8 +1160,11 @@ Unknown fields must fail. The parser must not ignore a field merely because it i
 - Charge consumption edge cases.
 - `INT_MAX` boundary cases for poison aggregation, poison/bleed/general layer addition, and additive stun duration.
 - 玄冥神掌 settles remaining poison damage, removes the old poison, and applies replacement poison in that order.
-- True-Qi ordering and multi-hit behavior.
+- True-Qi ordering and multi-hit behavior, including every source category around a Magic-owned intrinsic command.
+- Runtime rule order tokens remain stable across repeated borrowed-rule add/remove cycles; rebuilding event indices never renumbers a live True-Qi producer after its origin snapshot is recorded. Normal dispatch and intrinsic insertion use the same explicit source/rule-order comparator. True-Qi applications are catalog-lowered as one origin-bearing additive instance, and an end-to-end shipped-九陽 test crosses dispatch, command reduction, stored origin, and later hit damage before the hit path asserts that invariant.
 - Death, execute, invincibility, and kill-order edge cases affected by status contributions.
+
+One presentation-visible correction is intentional: when `保留較高傷害` poison receives a strictly stronger replacement, status application reports `Replaced` rather than `Refreshed`. Combat values and merge behavior are unchanged, but the normal status-applied semantic cue now plays for that actual replacement; equal or weaker poison remains silent as `KeptStronger`.
 
 ### Descriptions
 
@@ -1157,6 +1176,7 @@ Unknown fields must fail. The parser must not ignore a field merely because it i
 - Specialized lifecycle composition remains source-correct.
 - Catalog `compact` actually renders Compact effect descriptions.
 - Coverage has no unmatched semantic status fields for shipped content.
+- Status payload coverage walks the same exhaustive field visitor as validation and runtime value evaluation; the fallback-shape corpus count/hash is an additional generic-shape regression pin, not the structural status-field guarantee.
 
 Primary suites include:
 
@@ -1209,7 +1229,7 @@ The migration is complete only when:
 - Full, Compact, and Detailed descriptions are produced from semantic status facts;
 - catalog compact/full selection reaches the effect renderer;
 - every migrated semantic field has description coverage;
-- poison and all other characterized runtime behavior remains unchanged;
+- poison and all other characterized combat behavior remains unchanged, except for the documented stronger-poison replacement cue correction;
 - all generated schemas and shipped content validation pass;
 - all unit tests pass; and
 - the required debug build is attempted successfully, subject only to the documented running-game final-link exception.

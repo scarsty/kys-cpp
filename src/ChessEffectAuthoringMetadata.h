@@ -240,19 +240,19 @@ static constexpr AuthorEnumDescriptor statusKindEnum{
     "BattleStatusKind", statusKindLabels,
 };
 
-static constexpr std::array statusEffectValueLabels{
-    authorLabel("目前生命傷害百分比", StatusEffectValueKind::PoisonCurrentHpDamagePercent),
-    authorLabel("最大生命傷害百分比", StatusEffectValueKind::BleedMaxHpDamagePercent),
-    authorLabel("速度降低百分比", StatusEffectValueKind::ColdPoisonSpeedReductionPercent),
-    authorLabel("受到傷害增加百分比", StatusEffectValueKind::WitheredBoneDamageTakenIncreasePercent),
-    authorLabel("受到治療減少百分比", StatusEffectValueKind::WitheredBoneHealingReductionPercent),
-    authorLabel("原攻擊目標獲得護盾", StatusEffectValueKind::NeutralizeForceOriginalTargetShield),
-    authorLabel("傷害上限", StatusEffectValueKind::SingleHitDamageCap),
-    authorLabel("招式傷害增加百分比", StatusEffectValueKind::BattleSpiritSkillDamageIncreasePercent),
-    authorLabel("傷害減免百分比", StatusEffectValueKind::BattleSpiritDamageReductionPercent),
-    authorLabel("命中附加純粹傷害", StatusEffectValueKind::TrueQiPureDamagePerHit),
-    authorLabel("死亡爆炸純粹傷害", StatusEffectValueKind::PoisonExplosionDeathPureDamage),
-};
+consteval auto makeStatusEffectValueLabels()
+{
+    std::array<AuthorEnumLabel,
+        static_cast<std::size_t>(StatusEffectValueKind::Count)> result{};
+    for (const auto& field : statusEffectFieldCatalog)
+    {
+        if (field.value)
+            result[static_cast<std::size_t>(*field.value)] = authorLabel(
+                field.label, *field.value);
+    }
+    return result;
+}
+static constexpr auto statusEffectValueLabels = makeStatusEffectValueLabels();
 static constexpr AuthorEnumDescriptor statusEffectValueEnum{
     "StatusEffectValueKind", statusEffectValueLabels,
 };
@@ -1798,58 +1798,28 @@ static constexpr std::array healTransactionModifierFields{
 - 命中)", {}, PayloadSchemaReference::None, &healKindEnum,
     },
 };
-static constexpr std::array statusEffectValueFields{
-    PayloadFieldDescriptor{ "禁止受到治療", false, PayloadNodeShape::Boolean, "true" },
-    PayloadFieldDescriptor{ "阻止本次施放", false, PayloadNodeShape::Boolean, "true" },
-    PayloadFieldDescriptor{ "使本次受到攻擊落空", false, PayloadNodeShape::Boolean, "true" },
-    PayloadFieldDescriptor{ "抵擋非處決正傷害", false, PayloadNodeShape::Boolean, "true" },
-    PayloadFieldDescriptor{
-        "目前生命傷害百分比", false, PayloadNodeShape::Number, "7", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "最大生命傷害百分比", false, PayloadNodeShape::Number, "1", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "速度降低百分比", false, PayloadNodeShape::Number, "25", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "受到傷害增加百分比", false, PayloadNodeShape::Number, "25", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "受到治療減少百分比", false, PayloadNodeShape::Number, "75", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "原攻擊目標獲得護盾", false, PayloadNodeShape::Number, "每星級: 100", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "傷害上限", false, PayloadNodeShape::Number,
-        R"(目標最大生命百分比: 15
-取整: 向零
-最小: 1)", {}, PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "招式傷害增加百分比", false, PayloadNodeShape::Number, "5", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "傷害減免百分比", false, PayloadNodeShape::Number, "1", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "命中附加純粹傷害", false, PayloadNodeShape::Number, "9", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{
-        "死亡爆炸純粹傷害", false, PayloadNodeShape::Number, "每星級: 60", {},
-        PayloadSchemaReference::EffectNumber,
-    },
-};
+consteval auto makeStatusEffectValueFields()
+{
+    std::array<PayloadFieldDescriptor, statusEffectFieldCatalog.size()> result{};
+    for (std::size_t index = 0; index < statusEffectFieldCatalog.size(); ++index)
+    {
+        const auto& field = statusEffectFieldCatalog[index];
+        result[index] = PayloadFieldDescriptor{
+            field.label,
+            false,
+            field.type == StatusEffectFieldType::RequiredTrue
+                ? PayloadNodeShape::Boolean
+                : PayloadNodeShape::Number,
+            field.probeValue,
+            {},
+            field.type == StatusEffectFieldType::Number
+                ? PayloadSchemaReference::EffectNumber
+                : PayloadSchemaReference::None,
+        };
+    }
+    return result;
+}
+static constexpr auto statusEffectValueFields = makeStatusEffectValueFields();
 static constexpr PayloadDescriptor statusEffectValuePayload{
     "狀態效果值", statusEffectValueFields, "命中附加純粹傷害: 9", {},
     PayloadNodeShape::Any, {}, {}, 1,
@@ -1857,22 +1827,22 @@ static constexpr PayloadDescriptor statusEffectValuePayload{
 
 static constexpr std::array statusEffectsFields{
     PayloadFieldDescriptor{
-        "持續生效", false, PayloadNodeShape::Map,
+        statusEffectScopeLabel(StatusEffectScope::Persistent), false, PayloadNodeShape::Map,
         "速度降低百分比: 25", {}, PayloadSchemaReference::Payload,
         nullptr, &statusEffectValuePayload,
     },
     PayloadFieldDescriptor{
-        "每層生效", false, PayloadNodeShape::Map,
+        statusEffectScopeLabel(StatusEffectScope::PerLayer), false, PayloadNodeShape::Map,
         "招式傷害增加百分比: 5", {}, PayloadSchemaReference::Payload,
         nullptr, &statusEffectValuePayload,
     },
     PayloadFieldDescriptor{
-        "每次觸發", false, PayloadNodeShape::Map,
+        statusEffectScopeLabel(StatusEffectScope::PerTrigger), false, PayloadNodeShape::Map,
         "目前生命傷害百分比: 7", {}, PayloadSchemaReference::Payload,
         nullptr, &statusEffectValuePayload,
     },
     PayloadFieldDescriptor{
-        "每層提供數值", false, PayloadNodeShape::Map,
+        statusEffectScopeLabel(StatusEffectScope::PerLayerValue), false, PayloadNodeShape::Map,
         "死亡爆炸純粹傷害: 60", {}, PayloadSchemaReference::Payload,
         nullptr, &statusEffectValuePayload,
     },
@@ -1909,39 +1879,74 @@ static constexpr std::string_view setDamageBlockStatusProbe = R"(狀態: 傷害�
   每次觸發:
     抵擋非處決正傷害: true)";
 
-static constexpr std::array applyStatusFields{
-    PayloadFieldDescriptor{
+consteval std::string_view statusQuantityContextProbe(StatusQuantityFieldId id)
+{
+    switch (id)
+    {
+    case StatusQuantityFieldId::AddedLayers:
+    case StatusQuantityFieldId::LayerLimit:
+        return battleSpiritStatusProbe;
+    case StatusQuantityFieldId::TriggerCharges:
+        return blindedStatusProbe;
+    case StatusQuantityFieldId::SetMarks:
+        return sevenStarStatusProbe;
+    case StatusQuantityFieldId::AddedDamageBlocks:
+    case StatusQuantityFieldId::DamageBlockLimit:
+        return addedDamageBlockStatusProbe;
+    case StatusQuantityFieldId::SetDamageBlocks:
+        return setDamageBlockStatusProbe;
+    case StatusQuantityFieldId::Count:
+        break;
+    }
+    return {};
+}
+
+consteval auto makeApplyStatusFields()
+{
+    std::array<PayloadFieldDescriptor, statusQuantityFieldCatalog.size() + 4> result{};
+    std::size_t index{};
+    result[index++] = PayloadFieldDescriptor{
         "狀態", true, PayloadNodeShape::String, "眩暈", {},
         PayloadSchemaReference::None, &statusKindEnum,
-    },
-    PayloadFieldDescriptor{
+    };
+    result[index++] = PayloadFieldDescriptor{
         "持續幀數", false, PayloadNodeShape::Number, "30", {},
         PayloadSchemaReference::EffectNumber,
-    },
-    PayloadFieldDescriptor{ "增加層數", false, PayloadNodeShape::Integer, "1", battleSpiritStatusProbe },
-    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "10", battleSpiritStatusProbe },
-    PayloadFieldDescriptor{ "設定印記層數", false, PayloadNodeShape::Integer, "7", sevenStarStatusProbe },
-    PayloadFieldDescriptor{ "可觸發次數", false, PayloadNodeShape::Integer, "1", blindedStatusProbe },
-    PayloadFieldDescriptor{ "增加可抵擋次數", false, PayloadNodeShape::Integer, "1", addedDamageBlockStatusProbe },
-    PayloadFieldDescriptor{ "可抵擋次數上限", false, PayloadNodeShape::Integer, "3", addedDamageBlockStatusProbe },
-    PayloadFieldDescriptor{ "設定可抵擋次數", false, PayloadNodeShape::Integer, "3", setDamageBlockStatusProbe },
-    PayloadFieldDescriptor{
+    };
+    for (const auto& field : statusQuantityFieldCatalog)
+    {
+        result[index++] = PayloadFieldDescriptor{
+            field.label,
+            false,
+            PayloadNodeShape::Integer,
+            field.probeValue,
+            statusQuantityContextProbe(field.id),
+        };
+    }
+    result[index++] = PayloadFieldDescriptor{
         "重複套用", false, PayloadNodeShape::String, "保留較長持續時間", {},
         PayloadSchemaReference::None, &statusReapplicationPolicyEnum,
-    },
-    PayloadFieldDescriptor{
+    };
+    result[index++] = PayloadFieldDescriptor{
         "效果", false, PayloadNodeShape::Map,
         "每層生效:\n  招式傷害增加百分比: 5\n  傷害減免百分比: 1",
         battleSpiritStatusProbe,
         PayloadSchemaReference::Payload, nullptr, &statusEffectsPayload,
-    },
-};
+    };
+    return result;
+}
+static constexpr auto applyStatusFields = makeApplyStatusFields();
 static constexpr std::array poisonApplicationFields{
     PayloadFieldDescriptor{
         "持續幀數", true, PayloadNodeShape::Number, "90", {},
         PayloadSchemaReference::EffectNumber,
     },
-    PayloadFieldDescriptor{ "可觸發次數", true, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{
+        statusQuantityFieldLabel(StatusQuantityFieldId::TriggerCharges),
+        true,
+        PayloadNodeShape::Integer,
+        "3",
+    },
     PayloadFieldDescriptor{
         "重複套用", true, PayloadNodeShape::String, "保留較高傷害", {},
         PayloadSchemaReference::None, &statusReapplicationPolicyEnum,

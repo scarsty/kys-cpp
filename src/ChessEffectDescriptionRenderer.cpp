@@ -370,12 +370,18 @@ void renderDetailedStatusApplication(
             std::move(text),
             indent);
     };
+    const std::string effectScopePrefix = std::string(statusEffectScopeLabel(
+        statusCatalogEntry(status.status).effectScope)) + "：";
+    const auto scopedEffectRow = [&](std::string text)
+    {
+        effectRow(effectScopePrefix + std::move(text));
+    };
     std::visit([&](const auto& effects)
     {
         using E = std::decay_t<decltype(effects)>;
         if constexpr (std::is_same_v<E, PoisonStatusEffects>)
         {
-            effectRow(std::format("每次觸發：造成目前生命{}%中毒傷害",
+            scopedEffectRow(std::format("造成目前生命{}%中毒傷害",
                 number(effects.currentHpDamagePercent)));
             if (effects.sameEventMerge == PoisonSameEventMerge::SumDamagePercent)
             {
@@ -384,55 +390,55 @@ void renderDetailedStatusApplication(
             }
         }
         else if constexpr (std::is_same_v<E, BleedStatusEffects>)
-            effectRow(std::format("每層生效：每10幀造成最大生命{}%流血傷害",
+            scopedEffectRow(std::format("每10幀造成最大生命{}%流血傷害",
                 number(effects.maxHpDamagePercent)));
         else if constexpr (std::is_same_v<E, ColdPoisonStatusEffects>)
         {
-            if (effects.blocksHealing) effectRow("持續生效：禁止受到治療");
-            effectRow(std::format("持續生效：速度降低{}%",
+            if (effects.blocksHealing) scopedEffectRow("禁止受到治療");
+            scopedEffectRow(std::format("速度降低{}%",
                 number(effects.speedReductionPercent)));
         }
         else if constexpr (std::is_same_v<E, WitheredBoneStatusEffects>)
         {
-            effectRow(std::format("持續生效：受到傷害增加{}%",
+            scopedEffectRow(std::format("受到傷害增加{}%",
                 number(effects.damageTakenIncreasePercent)));
-            effectRow(std::format("持續生效：受到治療減少{}%",
+            scopedEffectRow(std::format("受到治療減少{}%",
                 number(effects.healingReductionPercent)));
         }
         else if constexpr (std::is_same_v<E, NeutralizeForceStatusEffects>)
         {
-            if (effects.preventsCast) effectRow("每次觸發：阻止本次施放");
-            effectRow("每次觸發：原攻擊目標獲得"
+            if (effects.preventsCast) scopedEffectRow("阻止本次施放");
+            scopedEffectRow("原攻擊目標獲得"
                 + number(effects.originalTargetShield) + "護盾");
         }
         else if constexpr (std::is_same_v<E, BlindedStatusEffects>)
         {
-            if (effects.preventsCast) effectRow("每次觸發：阻止本次施放");
+            if (effects.preventsCast) scopedEffectRow("阻止本次施放");
         }
         else if constexpr (std::is_same_v<E, NextIncomingAttackMissStatusEffects>)
         {
             if (effects.makesIncomingAttackMiss)
-                effectRow("每次觸發：使本次受到攻擊落空");
+                scopedEffectRow("使本次受到攻擊落空");
         }
         else if constexpr (std::is_same_v<E, DamageBlockStatusEffects>)
         {
             if (effects.blocksPositiveNonExecuteDamage)
-                effectRow("每次觸發：抵擋非處決正傷害");
+                scopedEffectRow("抵擋非處決正傷害");
         }
         else if constexpr (std::is_same_v<E, SingleHitCapStatusEffects>)
-            effectRow("每次觸發：承傷不超過" + number(effects.damageCap));
+            scopedEffectRow("承傷不超過" + number(effects.damageCap));
         else if constexpr (std::is_same_v<E, BattleSpiritStatusEffects>)
         {
-            effectRow(std::format("每層生效：招式傷害增加{}%",
+            scopedEffectRow(std::format("招式傷害增加{}%",
                 number(effects.skillDamageIncreasePercent)));
-            effectRow(std::format("每層生效：傷害減免{}%",
+            scopedEffectRow(std::format("傷害減免{}%",
                 number(effects.damageReductionPercent)));
         }
         else if constexpr (std::is_same_v<E, TrueQiStatusEffects>)
-            effectRow("每層生效：命中附加" + number(effects.pureDamagePerHit)
+            scopedEffectRow("命中附加" + number(effects.pureDamagePerHit)
                 + "純粹傷害");
         else if constexpr (std::is_same_v<E, PoisonExplosionStatusEffects>)
-            effectRow("每層提供數值：死亡爆炸純粹傷害"
+            scopedEffectRow("死亡爆炸純粹傷害"
                 + number(effects.deathPureDamage));
     }, status.effects);
 }

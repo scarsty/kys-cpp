@@ -542,18 +542,8 @@ bool parseStatusEffectPayload(
 
     PayloadView effects(effectsNode, statusEffectsPayload);
     if (!effects.validate(error)) return false;
-    std::string_view expectedScope;
-    switch (catalog.effectScope)
-    {
-    case StatusEffectScope::Persistent: expectedScope = "持續生效"; break;
-    case StatusEffectScope::PerLayer: expectedScope = "每層生效"; break;
-    case StatusEffectScope::PerTrigger: expectedScope = "每次觸發"; break;
-    case StatusEffectScope::PerLayerValue: expectedScope = "每層提供數值"; break;
-    case StatusEffectScope::None:
-    case StatusEffectScope::RuntimeOwned:
-        assert(false);
-        break;
-    }
+    const auto expectedScope = statusEffectScopeLabel(catalog.effectScope);
+    assert(!expectedScope.empty());
     const auto valuesNode = effects[expectedScope];
     if (!valuesNode)
     {
@@ -564,57 +554,124 @@ bool parseStatusEffectPayload(
     }
     PayloadView values(valuesNode, statusEffectValuePayload);
     if (!values.validate(error)) return false;
+    for (const auto& entry : valuesNode)
+    {
+        const auto label = entry.first.as<std::string>();
+        const auto suppliedForStatus = std::ranges::find_if(
+            statusEffectFieldCatalog,
+            [&](const auto& field)
+            {
+                return field.label == label && field.status == action.status;
+            });
+        if (suppliedForStatus != statusEffectFieldCatalog.end()) continue;
+        std::vector<BattleStatusKind> owners;
+        for (const auto& field : statusEffectFieldCatalog)
+        {
+            if (field.label == label && !std::ranges::contains(owners, field.status))
+                owners.push_back(field.status);
+        }
+        assert(!owners.empty());
+        std::string ownerLabels;
+        for (std::size_t index = 0; index < owners.size(); ++index)
+        {
+            if (index > 0) ownerLabels += "、";
+            ownerLabels += std::format("「{}」", battleStatusLabel(owners[index]));
+        }
+        error = std::format(
+            "狀態「{}」的效果不允許欄位「{}」；此欄位屬於狀態{}",
+            battleStatusLabel(action.status),
+            label,
+            ownerLabels);
+        return false;
+    }
+    const auto field = [&](StatusEffectFieldId id)
+    {
+        return values[statusEffectFieldLabel(id)];
+    };
+    const auto parseNumber = [&](StatusEffectFieldId id, EffectNumber& out)
+    {
+        const auto label = statusEffectFieldLabel(id);
+        const auto numberNode = field(id);
+        if (!numberNode)
+        {
+            error = std::format(
+                "狀態「{}」的效果缺少「{}」",
+                battleStatusLabel(action.status),
+                label);
+            return false;
+        }
+        std::string numberError;
+        if (parseEffectNumberNode(numberNode, out, numberError)) return true;
+        error = std::format(
+            "狀態「{}」的效果「{}」不是有效數值：{}",
+            battleStatusLabel(action.status),
+            label,
+            numberError);
+        return false;
+    };
 
     switch (action.status)
     {
     case BattleStatusKind::Poison:
     {
         PoisonStatusEffects parsed;
-        if (!parseEffectNumberNode(
-                values["目前生命傷害百分比"], parsed.currentHpDamagePercent, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::PoisonCurrentHpDamagePercent,
+                parsed.currentHpDamagePercent)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::Bleed:
     {
         BleedStatusEffects parsed;
-        if (!parseEffectNumberNode(
-                values["最大生命傷害百分比"], parsed.maxHpDamagePercent, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::BleedMaxHpDamagePercent,
+                parsed.maxHpDamagePercent)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::ColdPoison:
     {
         ColdPoisonStatusEffects parsed;
-        if (!requiredTrue(values, "禁止受到治療", parsed.blocksHealing, error)
-            || !parseEffectNumberNode(
-                values["速度降低百分比"], parsed.speedReductionPercent, error)) return false;
+        if (!requiredTrue(values,
+                statusEffectFieldLabel(StatusEffectFieldId::ColdPoisonBlocksHealing),
+                parsed.blocksHealing, error)
+            || !parseNumber(
+                StatusEffectFieldId::ColdPoisonSpeedReductionPercent,
+                parsed.speedReductionPercent)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::WitheredBone:
     {
         WitheredBoneStatusEffects parsed;
-        if (!parseEffectNumberNode(
-                values["受到傷害增加百分比"], parsed.damageTakenIncreasePercent, error)
-            || !parseEffectNumberNode(
-                values["受到治療減少百分比"], parsed.healingReductionPercent, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::WitheredBoneDamageTakenIncreasePercent,
+                parsed.damageTakenIncreasePercent)
+            || !parseNumber(
+                StatusEffectFieldId::WitheredBoneHealingReductionPercent,
+                parsed.healingReductionPercent)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::NeutralizeForce:
     {
         NeutralizeForceStatusEffects parsed;
-        if (!requiredTrue(values, "阻止本次施放", parsed.preventsCast, error)
-            || !parseEffectNumberNode(
-                values["原攻擊目標獲得護盾"], parsed.originalTargetShield, error)) return false;
+        if (!requiredTrue(values,
+                statusEffectFieldLabel(StatusEffectFieldId::NeutralizeForcePreventsCast),
+                parsed.preventsCast, error)
+            || !parseNumber(
+                StatusEffectFieldId::NeutralizeForceOriginalTargetShield,
+                parsed.originalTargetShield)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::Blinded:
     {
         BlindedStatusEffects parsed;
-        if (!requiredTrue(values, "阻止本次施放", parsed.preventsCast, error)) return false;
+        if (!requiredTrue(values,
+                statusEffectFieldLabel(StatusEffectFieldId::BlindedPreventsCast),
+                parsed.preventsCast, error)) return false;
         action.effects = parsed;
         break;
     }
@@ -622,7 +679,9 @@ bool parseStatusEffectPayload(
     {
         NextIncomingAttackMissStatusEffects parsed;
         if (!requiredTrue(
-                values, "使本次受到攻擊落空", parsed.makesIncomingAttackMiss, error)) return false;
+                values,
+                statusEffectFieldLabel(StatusEffectFieldId::NextIncomingAttackMiss),
+                parsed.makesIncomingAttackMiss, error)) return false;
         action.effects = parsed;
         break;
     }
@@ -630,40 +689,49 @@ bool parseStatusEffectPayload(
     {
         DamageBlockStatusEffects parsed;
         if (!requiredTrue(
-                values, "抵擋非處決正傷害", parsed.blocksPositiveNonExecuteDamage, error)) return false;
+                values,
+                statusEffectFieldLabel(
+                    StatusEffectFieldId::DamageBlockPositiveNonExecuteDamage),
+                parsed.blocksPositiveNonExecuteDamage, error)) return false;
         action.effects = parsed;
         break;
     }
     case BattleStatusKind::SingleHitCapLayer:
     {
         SingleHitCapStatusEffects parsed;
-        if (!parseEffectNumberNode(values["傷害上限"], parsed.damageCap, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::SingleHitDamageCap,
+                parsed.damageCap)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::BattleSpirit:
     {
         BattleSpiritStatusEffects parsed;
-        if (!parseEffectNumberNode(
-                values["招式傷害增加百分比"], parsed.skillDamageIncreasePercent, error)
-            || !parseEffectNumberNode(
-                values["傷害減免百分比"], parsed.damageReductionPercent, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::BattleSpiritSkillDamageIncreasePercent,
+                parsed.skillDamageIncreasePercent)
+            || !parseNumber(
+                StatusEffectFieldId::BattleSpiritDamageReductionPercent,
+                parsed.damageReductionPercent)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::TrueQi:
     {
         TrueQiStatusEffects parsed;
-        if (!parseEffectNumberNode(
-                values["命中附加純粹傷害"], parsed.pureDamagePerHit, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::TrueQiPureDamagePerHit,
+                parsed.pureDamagePerHit)) return false;
         action.effects = std::move(parsed);
         break;
     }
     case BattleStatusKind::PoisonExplosion:
     {
         PoisonExplosionStatusEffects parsed;
-        if (!parseEffectNumberNode(
-                values["死亡爆炸純粹傷害"], parsed.deathPureDamage, error)) return false;
+        if (!parseNumber(
+                StatusEffectFieldId::PoisonExplosionDeathPureDamage,
+                parsed.deathPureDamage)) return false;
         action.effects = std::move(parsed);
         break;
     }
@@ -685,6 +753,21 @@ bool parseStatusQuantity(
     std::string& error)
 {
     const auto& catalog = statusCatalogEntry(action.status);
+    const auto requireQuantityField = [&](StatusQuantityFieldId field)
+    {
+        const auto label = statusQuantityFieldLabel(field);
+        if (node[label]) return true;
+        error = std::format(
+            "狀態「{}」必須使用「{}」",
+            battleStatusLabel(action.status),
+            label);
+        return false;
+    };
+    const auto parseOperationField = [&](StatusQuantityFieldId field, int& out)
+    {
+        const auto label = statusQuantityFieldLabel(field);
+        return requireQuantityField(field) && requiredInt(node, label, out, error);
+    };
     switch (catalog.quantity)
     {
     case StatusQuantityModel::None:
@@ -692,46 +775,67 @@ bool parseStatusQuantity(
         return true;
     case StatusQuantityModel::Layers:
     {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::AddLayers);
+        assert(fields.size() == 2);
         AddStatusLayers quantity;
-        if (!requiredInt(node, "增加層數", quantity.count, error)
-            || !requiredInt(node, "層數上限", quantity.limit, error)) return false;
+        if (!parseOperationField(fields[0], quantity.count)
+            || !parseOperationField(fields[1], quantity.limit)) return false;
         action.quantity = quantity;
         return true;
     }
     case StatusQuantityModel::TriggerCharges:
     {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::SetTriggerCharges);
+        assert(fields.size() == 1);
         SetStatusTriggerCharges quantity;
-        if (!requiredInt(node, "可觸發次數", quantity.count, error)) return false;
+        if (!parseOperationField(fields.front(), quantity.count)) return false;
         action.quantity = quantity;
         return true;
     }
     case StatusQuantityModel::Marks:
     {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::SetMarks);
+        assert(fields.size() == 1);
         SetStatusMarks quantity;
-        if (!requiredInt(node, "設定印記層數", quantity.count, error)) return false;
+        if (!parseOperationField(fields.front(), quantity.count)) return false;
         action.quantity = quantity;
         return true;
     }
     case StatusQuantityModel::DamageBlockCharges:
     {
-        const bool adds = static_cast<bool>(node["增加可抵擋次數"]);
-        const bool sets = static_cast<bool>(node["設定可抵擋次數"]);
+        const auto addFields = statusQuantityOperationFields(
+            StatusQuantityOperationId::AddDamageBlocks);
+        const auto setFields = statusQuantityOperationFields(
+            StatusQuantityOperationId::SetDamageBlocks);
+        assert(addFields.size() == 2);
+        assert(setFields.size() == 1);
+        const auto addLabel = statusQuantityFieldLabel(addFields.front());
+        const auto setLabel = statusQuantityFieldLabel(setFields.front());
+        const bool adds = static_cast<bool>(node[addLabel]);
+        const bool sets = static_cast<bool>(node[setLabel]);
         if (adds == sets)
         {
-            error = "傷害抵擋必須擇一使用「增加可抵擋次數」或「設定可抵擋次數」";
+            error = std::format(
+                "狀態「{}」必須擇一使用「{}」或「{}」",
+                battleStatusLabel(action.status),
+                addLabel,
+                setLabel);
             return false;
         }
         if (adds)
         {
             AddDamageBlockCharges quantity;
-            if (!requiredInt(node, "增加可抵擋次數", quantity.count, error)
-                || !requiredInt(node, "可抵擋次數上限", quantity.limit, error)) return false;
+            if (!parseOperationField(addFields[0], quantity.count)
+                || !parseOperationField(addFields[1], quantity.limit)) return false;
             action.quantity = quantity;
         }
         else
         {
             SetDamageBlockCharges quantity;
-            if (!requiredInt(node, "設定可抵擋次數", quantity.count, error)) return false;
+            if (!parseOperationField(setFields.front(), quantity.count)) return false;
             action.quantity = quantity;
         }
         return true;
@@ -795,16 +899,16 @@ bool parseSemanticStatusApplication(
     if (!parseStatusQuantity(node, action, error)
         || !parseStatusReapplication(node["重複套用"], action.reapplication, error)) return false;
 
-    if (!statusReapplicationPolicyAllowed(action.status, action.reapplication))
-    {
-        error = std::format(
-            "狀態「{}」不允許此重複套用方式", battleStatusLabel(action.status));
-        return false;
-    }
     if (statusReapplicationPolicyRequired(action.status)
         && action.reapplication == StatusReapplicationPolicy::Implicit)
     {
         error = std::format("狀態「{}」需要「重複套用」", battleStatusLabel(action.status));
+        return false;
+    }
+    if (!statusReapplicationPolicyAllowed(action.status, action.reapplication))
+    {
+        error = std::format(
+            "狀態「{}」不允許此重複套用方式", battleStatusLabel(action.status));
         return false;
     }
 

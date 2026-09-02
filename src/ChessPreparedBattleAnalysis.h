@@ -76,6 +76,6 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
     int maximumFrames,
-    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
+    std::optional<EffectDescriptionStyle> descriptionStyle = EffectDescriptionStyle::Full);
 
 }  // namespace KysChess

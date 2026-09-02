@@ -1,3 +1,4 @@
+#include "ChessBattleEffectSemantics.h"
 #include "ChessEffectDescriptionInternal.h"
 
 #include <cassert>
@@ -523,68 +524,27 @@ void appendApplyStatusCoverage(
             variantIndex, number, std::format("{}.effects.{}", path, field),
             DescriptionPlayerFact::Action);
     };
-    std::visit([&](const auto& effects)
+    if (std::holds_alternative<NoStatusEffects>(action.effects))
+        append("effects.none", false, "present");
+    forEachStatusEffectField(
+        action.effects,
+        [&](StatusEffectFieldId id, const EffectNumber& number)
+        {
+            appendEffectNumber(number, statusEffectFieldCatalogEntry(id).coveragePath);
+        },
+        [&](StatusEffectFieldId id, bool value)
+        {
+            append(std::format("effects.{}",
+                statusEffectFieldCatalogEntry(id).coveragePath),
+                false,
+                value ? "true" : "false");
+        });
+    if (const auto* poison = std::get_if<PoisonStatusEffects>(&action.effects))
     {
-        using T = std::decay_t<decltype(effects)>;
-        if constexpr (std::is_same_v<T, NoStatusEffects>)
-            append("effects.none", false, "present");
-        else if constexpr (std::is_same_v<T, PoisonStatusEffects>)
-        {
-            appendEffectNumber(effects.currentHpDamagePercent,
-                "perTrigger.currentHpDamagePercent");
-            append("effects.sameEventMerge",
-                effects.sameEventMerge == PoisonSameEventMerge::None,
-                std::to_string(static_cast<int>(effects.sameEventMerge)));
-        }
-        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
-            appendEffectNumber(effects.maxHpDamagePercent,
-                "perLayer.maxHpDamagePercent");
-        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
-        {
-            append("effects.persistent.blocksHealing", false,
-                effects.blocksHealing ? "true" : "false");
-            appendEffectNumber(effects.speedReductionPercent,
-                "persistent.speedReductionPercent");
-        }
-        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
-        {
-            appendEffectNumber(effects.damageTakenIncreasePercent,
-                "persistent.damageTakenIncreasePercent");
-            appendEffectNumber(effects.healingReductionPercent,
-                "persistent.healingReductionPercent");
-        }
-        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
-        {
-            append("effects.perTrigger.preventsCast", false,
-                effects.preventsCast ? "true" : "false");
-            appendEffectNumber(effects.originalTargetShield,
-                "perTrigger.originalTargetShield");
-        }
-        else if constexpr (std::is_same_v<T, BlindedStatusEffects>)
-            append("effects.perTrigger.preventsCast", false,
-                effects.preventsCast ? "true" : "false");
-        else if constexpr (std::is_same_v<T, NextIncomingAttackMissStatusEffects>)
-            append("effects.perTrigger.makesIncomingAttackMiss", false,
-                effects.makesIncomingAttackMiss ? "true" : "false");
-        else if constexpr (std::is_same_v<T, DamageBlockStatusEffects>)
-            append("effects.perTrigger.blocksPositiveNonExecuteDamage", false,
-                effects.blocksPositiveNonExecuteDamage ? "true" : "false");
-        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
-            appendEffectNumber(effects.damageCap, "perTrigger.damageCap");
-        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
-        {
-            appendEffectNumber(effects.skillDamageIncreasePercent,
-                "perLayer.skillDamageIncreasePercent");
-            appendEffectNumber(effects.damageReductionPercent,
-                "perLayer.damageReductionPercent");
-        }
-        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
-            appendEffectNumber(effects.pureDamagePerHit,
-                "perLayer.pureDamagePerHit");
-        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
-            appendEffectNumber(effects.deathPureDamage,
-                "perLayerValue.deathPureDamage");
-    }, action.effects);
+        append("effects.sameEventMerge",
+            poison->sameEventMerge == PoisonSameEventMerge::None,
+            std::to_string(static_cast<int>(poison->sameEventMerge)));
+    }
 }
 
 void appendAttackPatternCoverage(

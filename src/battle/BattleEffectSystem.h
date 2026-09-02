@@ -1,11 +1,12 @@
 #pragma once
 
-#include "../ChessBattleEffectTypes.h"
+#include "../ChessBattleEffectSemantics.h"
 #include "../Point.h"
 #include "BattleCastLifecycle.h"
 #include "BattleHealSystem.h"
 
 #include <array>
+#include <cassert>
 #include <compare>
 #include <cstdint>
 #include <functional>
@@ -24,6 +25,13 @@ namespace KysChess::Battle
 {
 
 class BattleRuntimeRandom;
+
+int effectSourcePrecedence(EffectSourceKind kind);
+bool effectSourceRuleOrderLess(
+    EffectSourceKind lhsSource,
+    std::uint32_t lhsOrder,
+    EffectSourceKind rhsSource,
+    std::uint32_t rhsOrder);
 
 struct EffectStatusSnapshot
 {
@@ -355,36 +363,30 @@ std::pair<int, int> evaluateStatusRuntimeValues(
     const ApplyStatusAction& action,
     Evaluator&& evaluate)
 {
-    return std::visit([&](const auto& effects) -> std::pair<int, int>
-    {
-        using T = std::decay_t<decltype(effects)>;
-        if constexpr (std::is_same_v<T, PoisonStatusEffects>)
-            return { evaluate(effects.currentHpDamagePercent), 0 };
-        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
-            return { evaluate(effects.maxHpDamagePercent), 0 };
-        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
-            return { evaluate(effects.speedReductionPercent), 0 };
-        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
-            return {
-                evaluate(effects.damageTakenIncreasePercent),
-                evaluate(effects.healingReductionPercent),
-            };
-        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
-            return { evaluate(effects.originalTargetShield), 0 };
-        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
-            return { evaluate(effects.damageCap), 0 };
-        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
-            return {
-                evaluate(effects.skillDamageIncreasePercent),
-                evaluate(effects.damageReductionPercent),
-            };
-        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
-            return { evaluate(effects.pureDamagePerHit), 0 };
-        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
-            return { evaluate(effects.deathPureDamage), 0 };
-        else
-            return { 0, 0 };
-    }, action.effects);
+    std::pair<int, int> result{};
+    bool hasPotency{};
+    bool hasSecondaryPotency{};
+    forEachStatusEffectField(
+        action.effects,
+        [&](StatusEffectFieldId id, const EffectNumber& number)
+        {
+            const auto& field = statusEffectFieldCatalogEntry(id);
+            assert(field.runtimeSlot);
+            if (*field.runtimeSlot == StatusRuntimeValueSlot::Potency)
+            {
+                assert(!hasPotency);
+                result.first = evaluate(number);
+                hasPotency = true;
+            }
+            else
+            {
+                assert(!hasSecondaryPotency);
+                result.second = evaluate(number);
+                hasSecondaryPotency = true;
+            }
+        },
+        [](StatusEffectFieldId, bool) {});
+    return result;
 }
 
 struct ConsumeStatusEffectCommand
@@ -587,7 +589,9 @@ private:
     std::map<EffectStateKey, std::int64_t> stateValues_;
     std::map<int, bool> blinkAttackWeakestTargetByOwner_;
     std::uint64_t nextRuntimeInstanceId_ = 1;
+    std::uint32_t nextRuleOrder_{};
 
+    std::uint32_t allocateRuleOrder();
     void rebuildEventIndices();
 
     friend class BattleEffectSystem;

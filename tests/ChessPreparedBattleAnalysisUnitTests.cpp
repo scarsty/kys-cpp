@@ -102,6 +102,30 @@ TEST_CASE("prepared battle analysis uses final formation and initialized runtime
     }
 }
 
+TEST_CASE("prepared battle analysis can omit unconsumed effect descriptions",
+          "[chess][prepared-analysis][projection][description]")
+{
+    const auto content = configuredMapChoiceContent();
+    const auto analysis = analyzePreparedChessBattle(
+        analysisBattle(),
+        *content,
+        kChessBattleFrameLimit,
+        std::nullopt);
+
+    REQUIRE(analysis.combatInitialized);
+    REQUIRE_FALSE(analysis.allySynergies.empty());
+    CHECK(std::ranges::all_of(analysis.units, [](const auto& unit) {
+        return unit.abilities.empty();
+    }));
+    for (const auto& synergy : analysis.allySynergies)
+    {
+        REQUIRE_FALSE(synergy.thresholds.empty());
+        CHECK(std::ranges::all_of(synergy.thresholds, [](const auto& threshold) {
+            return threshold.effects.sections.empty();
+        }));
+    }
+}
+
 TEST_CASE("prepared battle analysis before map choice exposes identity without inventing setup",
           "[chess][prepared-analysis]")
 {

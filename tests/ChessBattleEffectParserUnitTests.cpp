@@ -983,6 +983,93 @@ TEST_CASE("ChessBattleEffects_JiuyangAuthorsTrueQiAsStatusOwnedHitDamage",
     }));
 }
 
+TEST_CASE("ChessBattleEffects_StatusDiagnosticsNameTheMissingCanonicalField",
+          "[battle][effects][schema][status][diagnostic]")
+{
+    const auto diagnosticFor = [](std::string_view yaml)
+    {
+        EffectRule rule;
+        ChessDiagnosticCollector diagnostics;
+        CHECK_FALSE(parseEffectRule(
+            YAML::Load(std::string(yaml)),
+            rule,
+            EffectRuleId{ 7200 },
+            "狀態診斷測試",
+            diagnostics.sink()));
+        REQUIRE(diagnostics.diagnostics().size() == 1);
+        return diagnostics.diagnostics().front().message;
+    };
+
+    CHECK(diagnosticFor(R"(
+時機: 命中
+套用狀態:
+  狀態: 眩暈
+  持續幀數: 30
+)").find("狀態「眩暈」需要「重複套用」") != std::string::npos);
+
+    CHECK(diagnosticFor(R"(
+時機: 主彈命中
+套用狀態:
+  狀態: 七星
+  增加層數: 7
+  層數上限: 7
+  持續幀數: 150
+)").find("狀態「七星」必須使用「設定印記層數」") != std::string::npos);
+
+    const auto missingTrueQiValue = diagnosticFor(R"(
+時機: 攻擊提交
+套用狀態:
+  狀態: 真氣
+  增加層數: 1
+  層數上限: 10
+  效果:
+    每層生效: {}
+)");
+    CHECK(missingTrueQiValue.ends_with(
+        "狀態「真氣」的效果缺少「命中附加純粹傷害」"));
+
+    const auto wrongStatusValue = diagnosticFor(R"(
+時機: 攻擊提交
+套用狀態:
+  狀態: 真氣
+  增加層數: 1
+  層數上限: 10
+  效果:
+    每層生效:
+      速度降低百分比: 9
+)");
+    CHECK(wrongStatusValue.ends_with(
+        "狀態「真氣」的效果不允許欄位「速度降低百分比」；此欄位屬於狀態「寒毒」"));
+
+    const auto sharedWrongStatusValue = diagnosticFor(R"(
+時機: 攻擊提交
+套用狀態:
+  狀態: 真氣
+  增加層數: 1
+  層數上限: 10
+  效果:
+    每層生效:
+      阻止本次施放: true
+)");
+    CHECK(sharedWrongStatusValue.ends_with(
+        "狀態「真氣」的效果不允許欄位「阻止本次施放」；"
+        "此欄位屬於狀態「化勁」、「刺目」"));
+
+    const auto malformedTrueQiValue = diagnosticFor(R"(
+時機: 攻擊提交
+套用狀態:
+  狀態: 真氣
+  增加層數: 1
+  層數上限: 10
+  效果:
+    每層生效:
+      命中附加純粹傷害: 不是整數
+)");
+    CHECK(malformedTrueQiValue.find(
+        "狀態「真氣」的效果「命中附加純粹傷害」不是有效數值：數值不是有效整數")
+        != std::string::npos);
+}
+
 TEST_CASE("ChessBattleEffects_XiaoyaoDeclaresActionPreservingStaggerRelease", "[battle][effects][magic][schema][control]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;

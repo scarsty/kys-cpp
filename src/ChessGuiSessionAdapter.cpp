@@ -320,7 +320,8 @@ BattlePreviewPresentation makeBattlePreviewPresentation(
     const auto analysis = analyzePreparedChessBattle(
         prepared,
         session.content(),
-        session.state().options.battleFrameLimit);
+        session.state().options.battleFrameLimit,
+        std::nullopt);
     assert(analysis.combatInitialized);
 
     BattlePreviewPresentation result;

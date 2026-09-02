@@ -553,6 +553,11 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     {
         assert(request.stackLimit);
     }
+    if (request.kind == BattleStatusKind::TrueQi)
+    {
+        assert(request.stack == EffectStackPolicy::AddStack);
+        assert(request.origin);
+    }
 
     BattleStatusApplyResult result;
     result.target = std::move(target);

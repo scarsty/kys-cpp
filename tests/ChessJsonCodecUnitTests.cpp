@@ -20,6 +20,50 @@ ChessAction shopLockAction()
 
 }  // namespace
 
+TEST_CASE("JSON codec equipment projection selects description style without rendering identity data",
+          "[chess][json-codec][projection][equipment]")
+{
+    const auto content = actualContent();
+    REQUIRE(content);
+
+    bool foundStyleDifference{};
+    for (const auto& definition : content->equipment())
+    {
+        const auto compact = writeJson(equipmentInfoDto(
+            *content,
+            definition.itemId,
+            EquipmentProjection::Detailed,
+            EffectDescriptionStyle::Compact));
+        const auto full = writeJson(equipmentInfoDto(
+            *content,
+            definition.itemId,
+            EquipmentProjection::Detailed,
+            EffectDescriptionStyle::Full));
+        if (compact != full)
+        {
+            foundStyleDifference = true;
+            break;
+        }
+    }
+    CHECK(foundStyleDifference);
+
+    const int itemId = content->equipment().front().itemId;
+    const auto compactIdentity = writeJson(equipmentInfoDto(
+        *content,
+        itemId,
+        EquipmentProjection::Identity,
+        EffectDescriptionStyle::Compact));
+    const auto fullIdentity = writeJson(equipmentInfoDto(
+        *content,
+        itemId,
+        EquipmentProjection::Identity,
+        EffectDescriptionStyle::Full));
+    CHECK(compactIdentity == fullIdentity);
+    CHECK_FALSE(compactIdentity.contains("base_stat_effects"));
+    CHECK_FALSE(compactIdentity.contains("special_effects"));
+    CHECK_FALSE(compactIdentity.contains("character_bonuses"));
+}
+
 TEST_CASE("JSON codec keeps summary compact and full action projections distinct",
           "[chess][json-codec][projection]")
 {

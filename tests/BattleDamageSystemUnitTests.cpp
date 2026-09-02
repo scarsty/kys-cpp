@@ -619,6 +619,17 @@ TEST_CASE("BattleStatusSystem saturates additive status arithmetic",
         request.potency = 1;
         request.stack = KysChess::EffectStackPolicy::AddStack;
         request.stackLimit = std::numeric_limits<int>::max();
+        if (kind == KysChess::BattleStatusKind::TrueQi)
+        {
+            request.origin = BattleStatusEffectOrigin{
+                .binding = {
+                    .kind = KysChess::EffectSourceKind::Magic,
+                    .sourceId = 106,
+                    .ownerUnitId = 1,
+                },
+                .ruleId = KysChess::EffectRuleId{ 106 },
+            };
+        }
 
         const auto first = system.apply(statusUnit(2), request);
         REQUIRE(first.target.effects.find(kind));

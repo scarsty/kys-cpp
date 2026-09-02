@@ -382,23 +382,30 @@ bool validateStatusApplication(
         error = std::move(message);
         return false;
     };
+    const auto rejectStatus = [&](std::string_view message)
+    {
+        return reject(std::format(
+            "狀態「{}」{}",
+            battleStatusLabel(action.status),
+            message));
+    };
     const auto& catalog = statusCatalogEntry(action.status);
     if (!catalog.authorable) return reject("執行期狀態不可由效果直接套用");
 
     if (catalog.duration == StatusDurationModel::RequiredPositive)
     {
         if ((action.durationFrames > 0) == action.duration.has_value())
-            return reject("需要持續時間的狀態必須擇一指定固定或公式持續幀數");
+            return rejectStatus("必須擇一指定固定或公式「持續幀數」");
         if (action.duration)
         {
             if (!validateEffectNumberAtEvent(*action.duration, event, error)) return false;
             if (!effectNumberMustBePositive(*action.duration))
-                return reject("狀態持續幀數公式必須保證為正數");
+                return rejectStatus("的持續幀數公式必須保證為正數");
         }
     }
     else if (action.durationFrames != 0 || action.duration)
     {
-        return reject("此狀態不可指定持續幀數");
+        return rejectStatus("不可指定「持續幀數」");
     }
 
     const auto positive = [&](int value, std::string_view field)
@@ -407,86 +414,92 @@ bool validateStatusApplication(
         error = std::format("「{}」必須為正數", field);
         return false;
     };
+    const auto positiveQuantityField = [&](int value, StatusQuantityFieldId field)
+    {
+        return positive(value, statusQuantityFieldLabel(field));
+    };
     switch (catalog.quantity)
     {
     case StatusQuantityModel::None:
         if (!std::holds_alternative<NoStatusQuantity>(action.quantity))
-            return reject("此狀態不可指定數量");
+            return rejectStatus("不可指定數量");
         break;
     case StatusQuantityModel::Layers:
     {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::AddLayers);
+        assert(fields.size() == 2);
         const auto* quantity = std::get_if<AddStatusLayers>(&action.quantity);
-        if (!quantity) return reject("此狀態必須使用增加層數");
-        if (!positive(quantity->count, "增加層數")
-            || !positive(quantity->limit, "層數上限")) return false;
+        if (!quantity)
+        {
+            return rejectStatus(std::format(
+                "必須使用「{}」與「{}」",
+                statusQuantityFieldLabel(fields[0]),
+                statusQuantityFieldLabel(fields[1])));
+        }
+        if (!positiveQuantityField(quantity->count, fields[0])
+            || !positiveQuantityField(quantity->limit, fields[1])) return false;
         break;
     }
     case StatusQuantityModel::TriggerCharges:
     {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::SetTriggerCharges);
+        assert(fields.size() == 1);
         const auto* quantity = std::get_if<SetStatusTriggerCharges>(&action.quantity);
-        if (!quantity) return reject("此狀態必須使用可觸發次數");
-        if (!positive(quantity->count, "可觸發次數")) return false;
+        if (!quantity)
+            return rejectStatus(std::format(
+                "必須使用「{}」", statusQuantityFieldLabel(fields.front())));
+        if (!positiveQuantityField(quantity->count, fields.front())) return false;
         break;
     }
     case StatusQuantityModel::Marks:
     {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::SetMarks);
+        assert(fields.size() == 1);
         const auto* quantity = std::get_if<SetStatusMarks>(&action.quantity);
-        if (!quantity) return reject("此狀態必須使用設定印記層數");
-        if (!positive(quantity->count, "設定印記層數")) return false;
+        if (!quantity)
+            return rejectStatus(std::format(
+                "必須使用「{}」", statusQuantityFieldLabel(fields.front())));
+        if (!positiveQuantityField(quantity->count, fields.front())) return false;
         break;
     }
     case StatusQuantityModel::DamageBlockCharges:
+    {
+        const auto addFields = statusQuantityOperationFields(
+            StatusQuantityOperationId::AddDamageBlocks);
+        const auto setFields = statusQuantityOperationFields(
+            StatusQuantityOperationId::SetDamageBlocks);
+        assert(addFields.size() == 2);
+        assert(setFields.size() == 1);
         if (const auto* quantity = std::get_if<AddDamageBlockCharges>(&action.quantity))
         {
-            if (!positive(quantity->count, "增加可抵擋次數")
-                || !positive(quantity->limit, "可抵擋次數上限")) return false;
+            if (!positiveQuantityField(quantity->count, addFields[0])
+                || !positiveQuantityField(quantity->limit, addFields[1])) return false;
         }
         else if (const auto* quantity = std::get_if<SetDamageBlockCharges>(&action.quantity))
         {
-            if (!positive(quantity->count, "設定可抵擋次數")) return false;
+            if (!positiveQuantityField(quantity->count, setFields.front())) return false;
         }
-        else return reject("傷害抵擋必須使用抵擋次數數量動詞");
+        else return rejectStatus("必須使用抵擋次數數量動詞");
         break;
+    }
     case StatusQuantityModel::Internal:
-        return reject("執行期狀態不可指定數量");
+        return rejectStatus("是執行期狀態，不可指定數量");
     }
 
+    if (statusReapplicationPolicyRequired(action.status)
+        && action.reapplication == StatusReapplicationPolicy::Implicit)
+        return rejectStatus("需要「重複套用」");
     if (!statusReapplicationPolicyAllowed(action.status, action.reapplication))
-        return reject("狀態使用了不允許的重複套用方式");
+        return rejectStatus("使用了不允許的「重複套用」方式");
 
-    const bool payloadMatches = [&]
-    {
-        switch (action.status)
-        {
-        case BattleStatusKind::Poison: return std::holds_alternative<PoisonStatusEffects>(action.effects);
-        case BattleStatusKind::Bleed: return std::holds_alternative<BleedStatusEffects>(action.effects);
-        case BattleStatusKind::ColdPoison: return std::holds_alternative<ColdPoisonStatusEffects>(action.effects);
-        case BattleStatusKind::WitheredBone: return std::holds_alternative<WitheredBoneStatusEffects>(action.effects);
-        case BattleStatusKind::NeutralizeForce: return std::holds_alternative<NeutralizeForceStatusEffects>(action.effects);
-        case BattleStatusKind::Blinded: return std::holds_alternative<BlindedStatusEffects>(action.effects);
-        case BattleStatusKind::NextAttackMiss: return std::holds_alternative<NextIncomingAttackMissStatusEffects>(action.effects);
-        case BattleStatusKind::DamageBlockLayer: return std::holds_alternative<DamageBlockStatusEffects>(action.effects);
-        case BattleStatusKind::SingleHitCapLayer: return std::holds_alternative<SingleHitCapStatusEffects>(action.effects);
-        case BattleStatusKind::BattleSpirit: return std::holds_alternative<BattleSpiritStatusEffects>(action.effects);
-        case BattleStatusKind::TrueQi: return std::holds_alternative<TrueQiStatusEffects>(action.effects);
-        case BattleStatusKind::PoisonExplosion: return std::holds_alternative<PoisonExplosionStatusEffects>(action.effects);
-        case BattleStatusKind::Stun:
-        case BattleStatusKind::MpBlocked:
-        case BattleStatusKind::SevenStarMark:
-        case BattleStatusKind::Shadowless:
-            return std::holds_alternative<NoStatusEffects>(action.effects);
-        case BattleStatusKind::NextAttackCritical: return false;
-        }
-        return false;
-    }();
-    if (!payloadMatches) return reject("狀態效果 payload 與狀態目錄不相符");
-
-    bool numbersValid = true;
-    forEachStatusEffectNumber(action.effects, [&](const EffectNumber& number)
-    {
-        if (numbersValid) numbersValid = validateEffectNumberAtEvent(number, event, error);
-    });
-    if (!numbersValid) return false;
+    const auto payloadStatus = statusEffectPayloadStatus(action.effects);
+    const bool payloadMatches = payloadStatus
+        ? *payloadStatus == action.status
+        : catalog.effectScope == StatusEffectScope::None;
+    if (!payloadMatches) return rejectStatus("的效果 payload 與狀態目錄不相符");
 
     const auto requirePositiveNumber = [&](const EffectNumber& number, std::string_view field)
     {
@@ -511,63 +524,61 @@ bool validateStatusApplication(
         return false;
     };
 
-    const bool valuesValid = std::visit([&](const auto& effects)
-    {
-        using T = std::decay_t<decltype(effects)>;
-        if constexpr (std::is_same_v<T, PoisonStatusEffects>)
-            return requirePositiveNumber(effects.currentHpDamagePercent, "目前生命傷害百分比");
-        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
-            return requirePositiveNumber(effects.maxHpDamagePercent, "最大生命傷害百分比")
-                && requireLayerProduct(effects.maxHpDamagePercent, "最大生命傷害百分比");
-        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
-            return requireNonnegativeNumber(effects.speedReductionPercent, "速度降低百分比");
-        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
-            return requireNonnegativeNumber(
-                    effects.damageTakenIncreasePercent, "受到傷害增加百分比")
-                && requireNonnegativeNumber(
-                    effects.healingReductionPercent, "受到治療減少百分比")
-                && effectNumberCannotExceed(effects.healingReductionPercent, 100);
-        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
-            return requirePositiveNumber(effects.originalTargetShield, "原攻擊目標獲得護盾");
-        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
-            return requirePositiveNumber(effects.damageCap, "傷害上限");
-        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
-            return requireNonnegativeNumber(
-                    effects.skillDamageIncreasePercent, "招式傷害增加百分比")
-                && requireNonnegativeNumber(effects.damageReductionPercent, "傷害減免百分比")
-                && requireLayerProduct(
-                    effects.skillDamageIncreasePercent, "招式傷害增加百分比")
-                && requireLayerProduct(effects.damageReductionPercent, "傷害減免百分比");
-        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
-            return requirePositiveNumber(effects.pureDamagePerHit, "命中附加純粹傷害")
-                && requireLayerProduct(effects.pureDamagePerHit, "命中附加純粹傷害");
-        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
-            return requirePositiveNumber(effects.deathPureDamage, "死亡爆炸純粹傷害")
-                && requireLayerProduct(effects.deathPureDamage, "死亡爆炸純粹傷害");
-        else
-            return true;
-    }, action.effects);
-    if (!valuesValid)
-    {
-        if (error.empty()) error = "受到治療減少百分比必須保證介於 0 與 100";
-        return false;
-    }
+    bool valuesValid = true;
+    forEachStatusEffectField(
+        action.effects,
+        [&](StatusEffectFieldId id, const EffectNumber& number)
+        {
+            if (!valuesValid) return;
+            const auto& field = statusEffectFieldCatalogEntry(id);
+            if (!validateEffectNumberAtEvent(number, event, error))
+            {
+                valuesValid = false;
+                return;
+            }
+            switch (field.numberConstraint)
+            {
+            case StatusEffectNumberConstraint::Positive:
+                valuesValid = requirePositiveNumber(number, field.label);
+                break;
+            case StatusEffectNumberConstraint::Nonnegative:
+                valuesValid = requireNonnegativeNumber(number, field.label);
+                break;
+            case StatusEffectNumberConstraint::NonnegativeAtMost100:
+                valuesValid = requireNonnegativeNumber(number, field.label);
+                if (valuesValid && !effectNumberCannotExceed(number, 100))
+                {
+                    error = std::format(
+                        "狀態效果「{}」必須保證介於 0 與 100",
+                        field.label);
+                    valuesValid = false;
+                }
+                break;
+            case StatusEffectNumberConstraint::PositiveLayerProduct:
+                valuesValid = requirePositiveNumber(number, field.label)
+                    && requireLayerProduct(number, field.label);
+                break;
+            case StatusEffectNumberConstraint::NonnegativeLayerProduct:
+                valuesValid = requireNonnegativeNumber(number, field.label)
+                    && requireLayerProduct(number, field.label);
+                break;
+            case StatusEffectNumberConstraint::None:
+                assert(false);
+                break;
+            }
+        },
+        [&](StatusEffectFieldId id, bool enabled)
+        {
+            if (!valuesValid || enabled) return;
+            const auto& field = statusEffectFieldCatalogEntry(id);
+            error = std::format(
+                "狀態「{}」必須明確設定「{}: true」",
+                battleStatusLabel(action.status),
+                field.label);
+            valuesValid = false;
+        });
+    if (!valuesValid) return false;
 
-    if (const auto* effects = std::get_if<ColdPoisonStatusEffects>(&action.effects);
-        effects && !effects->blocksHealing)
-        return reject("寒毒必須明確禁止受到治療");
-    if (const auto* effects = std::get_if<NeutralizeForceStatusEffects>(&action.effects);
-        effects && !effects->preventsCast)
-        return reject("化勁必須明確阻止本次施放");
-    if (const auto* effects = std::get_if<BlindedStatusEffects>(&action.effects);
-        effects && !effects->preventsCast)
-        return reject("刺目必須明確阻止本次施放");
-    if (const auto* effects = std::get_if<NextIncomingAttackMissStatusEffects>(&action.effects);
-        effects && !effects->makesIncomingAttackMiss)
-        return reject("下一次受到攻擊必定落空必須明確使攻擊落空");
-    if (const auto* effects = std::get_if<DamageBlockStatusEffects>(&action.effects);
-        effects && !effects->blocksPositiveNonExecuteDamage)
-        return reject("傷害抵擋必須明確抵擋非處決正傷害");
     if (const auto* effects = std::get_if<PoisonStatusEffects>(&action.effects))
     {
         if (action.reapplication == StatusReapplicationPolicy::KeepHigherDamage
@@ -1525,17 +1536,21 @@ bool validateExplicitStatusLifecycles(
         if (producers != 1 || compatibleProducers != 1)
         {
             error = std::format(
-                "狀態「{}」的顯式生命週期必須有且只有一個相容 producer；目前為 {} 個",
+                "狀態「{}」的顯式生命週期必須有且只有一個相容 producer；"
+                "總數為 {} 個，其中相容 {} 個",
                 status,
-                producers);
+                producers,
+                compatibleProducers);
             return false;
         }
         if (consumers != 1 || compatibleConsumers != 1)
         {
             error = std::format(
-                "狀態「{}」的顯式生命週期必須有且只有一個相容 consumer；目前為 {} 個",
+                "狀態「{}」的顯式生命週期必須有且只有一個相容 consumer；"
+                "總數為 {} 個，其中相容 {} 個",
                 status,
-                consumers);
+                consumers,
+                compatibleConsumers);
             return false;
         }
         return true;

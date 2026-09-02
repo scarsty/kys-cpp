@@ -16,6 +16,33 @@
 
 namespace KysChess::Battle
 {
+int effectSourcePrecedence(EffectSourceKind kind)
+{
+    switch (kind)
+    {
+    case EffectSourceKind::Combo: return 0;
+    case EffectSourceKind::Equipment: return 1;
+    case EffectSourceKind::EquipmentSynergy: return 2;
+    case EffectSourceKind::Neigong: return 3;
+    case EffectSourceKind::Magic: return 4;
+    }
+    assert(false);
+    return 0;
+}
+
+bool effectSourceRuleOrderLess(
+    EffectSourceKind lhsSource,
+    std::uint32_t lhsOrder,
+    EffectSourceKind rhsSource,
+    std::uint32_t rhsOrder)
+{
+    const int lhsPrecedence = effectSourcePrecedence(lhsSource);
+    const int rhsPrecedence = effectSourcePrecedence(rhsSource);
+    return lhsPrecedence != rhsPrecedence
+        ? lhsPrecedence < rhsPrecedence
+        : lhsOrder < rhsOrder;
+}
+
 namespace
 {
 
@@ -39,20 +66,6 @@ EffectRuleRuntimeKey runtimeKey(const EffectSourceBinding& binding, EffectRuleId
     };
 }
 
-int effectSourcePrecedence(EffectSourceKind kind)
-{
-    switch (kind)
-    {
-    case EffectSourceKind::Combo: return 0;
-    case EffectSourceKind::Equipment: return 1;
-    case EffectSourceKind::EquipmentSynergy: return 2;
-    case EffectSourceKind::Neigong: return 3;
-    case EffectSourceKind::Magic: return 4;
-    }
-    assert(false);
-    return 0;
-}
-
 std::vector<const BoundEffectRule*> orderedBoundRules(
     std::span<const BoundEffectRule> rules,
     std::span<const std::size_t> indices)
@@ -69,11 +82,11 @@ std::vector<const BoundEffectRule*> orderedBoundRules(
     }
     std::ranges::stable_sort(ordered, [](const auto* lhs, const auto* rhs)
     {
-        const int lhsSource = effectSourcePrecedence(lhs->binding.kind);
-        const int rhsSource = effectSourcePrecedence(rhs->binding.kind);
-        return lhsSource != rhsSource
-            ? lhsSource < rhsSource
-            : lhs->order < rhs->order;
+        return effectSourceRuleOrderLess(
+            lhs->binding.kind,
+            lhs->order,
+            rhs->binding.kind,
+            rhs->order);
     });
     return ordered;
 }
@@ -1767,6 +1780,13 @@ void BattleEffectRuleStore::clear()
     stateValues_.clear();
     blinkAttackWeakestTargetByOwner_.clear();
     nextRuntimeInstanceId_ = 1;
+    nextRuleOrder_ = 0;
+}
+
+std::uint32_t BattleEffectRuleStore::allocateRuleOrder()
+{
+    assert(nextRuleOrder_ < std::numeric_limits<std::uint32_t>::max());
+    return nextRuleOrder_++;
 }
 
 std::size_t BattleEffectRuleStore::append(EffectSourceBinding binding, const EffectRule& rule)
@@ -1788,7 +1808,7 @@ std::size_t BattleEffectRuleStore::append(EffectSourceBinding binding, const Eff
     }
 
     const auto index = rules_.size();
-    rules_.push_back({ binding, rule, static_cast<std::uint32_t>(index) });
+    rules_.push_back({ binding, rule, allocateRuleOrder() });
     ruleIndicesByEvent_[static_cast<std::size_t>(rule.event)].push_back(index);
     runtimeByRule_.emplace(key, EffectRuleRuntimeState{
         .intervalFramesRemaining = rule.intervalFrames,
@@ -1922,7 +1942,7 @@ std::vector<std::size_t> BattleEffectRuleStore::bindBorrowedUltimateRules(
             rules_.push_back({
                 .binding = binding,
                 .rule = source.rule,
-                .order = static_cast<std::uint32_t>(index),
+                .order = allocateRuleOrder(),
                 .castScope = castId,
                 .scopedPropagation = propagation,
             });
@@ -1992,8 +2012,7 @@ void BattleEffectRuleStore::rebuildEventIndices()
     }
     for (std::size_t index = 0; index < rules_.size(); ++index)
     {
-        auto& bound = rules_[index];
-        bound.order = static_cast<std::uint32_t>(index);
+        const auto& bound = rules_[index];
         ruleIndicesByEvent_[static_cast<std::size_t>(bound.rule.event)].push_back(index);
     }
 }

@@ -77,7 +77,8 @@ std::optional<RoleDto> inspectRoleDto(
 EquipmentInfoDto equipmentInfoDto(
     const ChessGameContent& content,
     int itemId,
-    EquipmentProjection projection = EquipmentProjection::Detailed);
+    EquipmentProjection projection = EquipmentProjection::Detailed,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
 ComboDto comboDto(const ChessComboMetadata& metadata, bool full = true);
 ComboDto comboDto(
     const ChessGameContent& content,

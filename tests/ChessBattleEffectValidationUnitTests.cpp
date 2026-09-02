@@ -846,6 +846,25 @@ TEST_CASE("ChessBattleEffects_AuthoredRulesCannotUseIntrinsicStatusRuleIds",
         "保留內建狀態 ID 驗證"));
 }
 
+TEST_CASE("ChessBattleEffects_TypedStatusDiagnosticsNameTheStatusAndQuantity",
+          "[battle][effects][status][diagnostic]")
+{
+    ApplyStatusAction sevenStar;
+    sevenStar.status = BattleStatusKind::SevenStarMark;
+    sevenStar.durationFrames = 150;
+    sevenStar.quantity = AddStatusLayers{ 7, 7 };
+
+    EffectRule rule;
+    rule.id = EffectRuleId{ 7300 };
+    rule.event = EffectEvent::MainProjectileBeforeDamage;
+    rule.selector.kind = EffectSelectorKind::HitTarget;
+    rule.actions = { EffectAction{ sevenStar } };
+
+    std::string error;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    CHECK(error == "狀態「七星」必須使用「設定印記層數」");
+}
+
 TEST_CASE("ChessBattleEffects_ExplicitStatusLifecyclesAreUniqueAndFullyLinked",
           "[battle][effects][status][lifecycle]")
 {
@@ -908,7 +927,11 @@ TEST_CASE("ChessBattleEffects_ExplicitStatusLifecyclesAreUniqueAndFullyLinked",
         duplicateSevenStar, BattleStatusKind::SevenStarMark);
     duplicateSevenStarProducer.id = EffectRuleId{ 70001 };
     duplicateSevenStar.push_back(std::move(duplicateSevenStarProducer));
-    CHECK_FALSE(validates(duplicateSevenStar));
+    std::string duplicateError;
+    CHECK_FALSE(validateEffectRules(duplicateSevenStar, duplicateError));
+    CHECK(duplicateError
+        == "狀態「七星」的顯式生命週期必須有且只有一個相容 producer；"
+           "總數為 2 個，其中相容 2 個");
 
     auto missingSevenStar = sevenStarDefinition.rules;
     const auto& sevenStarProducer = producerFor(
@@ -939,7 +962,11 @@ TEST_CASE("ChessBattleEffects_ExplicitStatusLifecyclesAreUniqueAndFullyLinked",
     REQUIRE(sevenStarConsumer != wrongSevenStarSource.end());
     auto& consume = std::get<ConsumeStatusAction>(sevenStarConsumer->actions[1].value);
     consume.source = StatusSourceMatch::Any;
-    CHECK_FALSE(validates(wrongSevenStarSource));
+    std::string incompatibleConsumerError;
+    CHECK_FALSE(validateEffectRules(wrongSevenStarSource, incompatibleConsumerError));
+    CHECK(incompatibleConsumerError
+        == "狀態「七星」的顯式生命週期必須有且只有一個相容 consumer；"
+           "總數為 1 個，其中相容 0 個");
 
     auto missingSevenStarOwnership = sevenStarDefinition.rules;
     const auto sevenStarOwnershipConsumer = std::ranges::find_if(
@@ -960,7 +987,12 @@ TEST_CASE("ChessBattleEffects_ExplicitStatusLifecyclesAreUniqueAndFullyLinked",
         wrongSevenStarProducerTarget, BattleStatusKind::SevenStarMark);
     targetChangedSevenStar.selector = {};
     targetChangedSevenStar.selector.kind = EffectSelectorKind::Self;
-    CHECK_FALSE(validates(wrongSevenStarProducerTarget));
+    std::string incompatibleProducerError;
+    CHECK_FALSE(validateEffectRules(
+        wrongSevenStarProducerTarget, incompatibleProducerError));
+    CHECK(incompatibleProducerError
+        == "狀態「七星」的顯式生命週期必須有且只有一個相容 producer；"
+           "總數為 1 個，其中相容 0 個");
 
     auto wrongSevenStarProducerEvent = sevenStarDefinition.rules;
     producerFor(wrongSevenStarProducerEvent, BattleStatusKind::SevenStarMark).event

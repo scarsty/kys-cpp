@@ -283,11 +283,13 @@ std::string numberLabel(const EffectNumber& number)
         break;
     case EffectNumberBase::SourceStatusQuantity:
         assert(number.status);
+        assert(!statusQuantityMeasure(statusCatalogEntry(*number.status).quantity).empty());
         base = number.percent == 100
-            ? std::format("{}{}數量", battleStatusLabel(*number.status),
-                statusCatalogEntry(*number.status).quantityNoun)
-            : std::format("{}{}數量的{}%", battleStatusLabel(*number.status),
-                statusCatalogEntry(*number.status).quantityNoun, number.percent);
+            ? std::format("{}{}", battleStatusLabel(*number.status),
+                statusQuantityMeasure(statusCatalogEntry(*number.status).quantity))
+            : std::format("{}{}的{}%", battleStatusLabel(*number.status),
+                statusQuantityMeasure(statusCatalogEntry(*number.status).quantity),
+                number.percent);
         break;
     case EffectNumberBase::StoredStateValue: base = std::format("狀態槽值的{}%", number.percent); break;
     }
@@ -314,8 +316,9 @@ std::string numberLabel(const EffectNumber& number)
             break;
         case EffectNumberBase::SourceStatusQuantity:
             assert(number.status);
-            base += std::format("×{}{}數量", battleStatusLabel(*number.status),
-                statusCatalogEntry(*number.status).quantityNoun);
+            assert(!statusQuantityMeasure(statusCatalogEntry(*number.status).quantity).empty());
+            base += std::format("×{}{}", battleStatusLabel(*number.status),
+                statusQuantityMeasure(statusCatalogEntry(*number.status).quantity));
             break;
         case EffectNumberBase::StoredStateValue: base += "×狀態槽值"; break;
         }
@@ -981,6 +984,8 @@ std::string renderDescriptionActionArgument(
             else if constexpr (std::is_same_v<T, ApplyStatusAction>)
             {
                 const auto status = battleStatusLabel(typed.status);
+                const auto quantityModel = statusCatalogEntry(typed.status).quantity;
+                const auto quantityCounter = statusQuantityCounter(quantityModel);
                 std::string result;
                 std::visit([&](const auto& quantity)
                 {
@@ -989,20 +994,25 @@ std::string renderDescriptionActionArgument(
                         result = std::format("施加{}", status);
                     else if constexpr (std::is_same_v<Q, AddStatusLayers>)
                         result = compact
-                            ? std::format("{}+{}層", status, quantity.count)
-                            : std::format("獲得{}層{}", quantity.count, status);
+                            ? std::format("{}+{}{}", status, quantity.count, quantityCounter)
+                            : std::format("獲得{}{}{}", quantity.count, quantityCounter, status);
                     else if constexpr (std::is_same_v<Q, SetStatusMarks>)
-                        result = std::format("將{}印記設為{}枚", status, quantity.count);
+                        result = std::format("將{}{}設為{}{}", status,
+                            statusQuantityObjectSuffix(quantityModel),
+                            quantity.count, quantityCounter);
                     else if constexpr (std::is_same_v<Q, AddDamageBlockCharges>)
                         result = compact
-                            ? std::format("{}+{}次", status, quantity.count)
-                            : std::format("增加{}次{}", quantity.count, status);
+                            ? std::format("{}+{}{}", status, quantity.count, quantityCounter)
+                            : std::format("增加{}{}{}", quantity.count, quantityCounter, status);
                     else if constexpr (std::is_same_v<Q, SetDamageBlockCharges>)
-                        result = std::format("將{}設為{}次抵擋", status, quantity.count);
+                        result = std::format("將{}設為{}{}{}", status,
+                            quantity.count, quantityCounter,
+                            statusQuantityObjectSuffix(quantityModel));
                     else if constexpr (std::is_same_v<Q, SetStatusTriggerCharges>)
                         result = compact
-                            ? std::format("{}（{}次）", status, quantity.count)
-                            : std::format("施加可觸發{}次的{}", quantity.count, status);
+                            ? std::format("{}（{}{}）", status, quantity.count, quantityCounter)
+                            : std::format("施加可觸發{}{}的{}",
+                                quantity.count, quantityCounter, status);
                 }, typed.quantity);
 
                 const auto durationSuppressed = typed.durationFrames > 0
@@ -1139,10 +1149,14 @@ std::string renderDescriptionActionArgument(
             }
             else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
             {
-                auto result = std::format("消耗{}{}{}",
+                const auto quantityModel = statusCatalogEntry(typed.status).quantity;
+                const auto quantityCounter = statusQuantityCounter(quantityModel);
+                assert(!quantityCounter.empty());
+                auto result = std::format("消耗{}{}{}{}",
                     typed.quantity,
-                    statusCatalogEntry(typed.status).quantityNoun,
-                    battleStatusLabel(typed.status));
+                    quantityCounter,
+                    battleStatusLabel(typed.status),
+                    statusQuantityObjectSuffix(quantityModel));
                 if (typed.source == StatusSourceMatch::EffectOwner) result += std::format("{}僅此來源", qualifierSeparator);
                 assert(!typed.whenDepleted
                     && "depleted status branches must be rendered through DescriptionConditional");

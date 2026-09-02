@@ -396,8 +396,9 @@ JsonValue sourceStatusQuantitySchema()
 JsonValue sourceStatusEffectReferenceSchema()
 {
     JsonValue::Array variants;
-    for (const auto& effect : statusEffectValueCatalogEntries())
+    for (const auto& effect : statusEffectFieldCatalogEntries())
     {
+        if (!effect.value) continue;
         variants.push_back(objectSchema(
             {
                 { "狀態", object({
@@ -534,91 +535,6 @@ std::expected<JsonValue, std::string> statusReapplicationSchema(
     return enumSchema(std::span<const AuthorEnumLabel>(labels));
 }
 
-struct StatusEffectSchemaField
-{
-    std::string_view name;
-    bool requiredTrue{};
-};
-
-std::span<const StatusEffectSchemaField> statusEffectSchemaFields(
-    BattleStatusKind status)
-{
-    static constexpr std::array bleed{
-        StatusEffectSchemaField{ "最大生命傷害百分比" },
-    };
-    static constexpr std::array coldPoison{
-        StatusEffectSchemaField{ "禁止受到治療", true },
-        StatusEffectSchemaField{ "速度降低百分比" },
-    };
-    static constexpr std::array witheredBone{
-        StatusEffectSchemaField{ "受到傷害增加百分比" },
-        StatusEffectSchemaField{ "受到治療減少百分比" },
-    };
-    static constexpr std::array neutralizeForce{
-        StatusEffectSchemaField{ "阻止本次施放", true },
-        StatusEffectSchemaField{ "原攻擊目標獲得護盾" },
-    };
-    static constexpr std::array blinded{
-        StatusEffectSchemaField{ "阻止本次施放", true },
-    };
-    static constexpr std::array nextAttackMiss{
-        StatusEffectSchemaField{ "使本次受到攻擊落空", true },
-    };
-    static constexpr std::array damageBlock{
-        StatusEffectSchemaField{ "抵擋非處決正傷害", true },
-    };
-    static constexpr std::array singleHitCap{
-        StatusEffectSchemaField{ "傷害上限" },
-    };
-    static constexpr std::array battleSpirit{
-        StatusEffectSchemaField{ "招式傷害增加百分比" },
-        StatusEffectSchemaField{ "傷害減免百分比" },
-    };
-    static constexpr std::array trueQi{
-        StatusEffectSchemaField{ "命中附加純粹傷害" },
-    };
-    static constexpr std::array poisonExplosion{
-        StatusEffectSchemaField{ "死亡爆炸純粹傷害" },
-    };
-    switch (status)
-    {
-    case BattleStatusKind::Bleed: return bleed;
-    case BattleStatusKind::ColdPoison: return coldPoison;
-    case BattleStatusKind::WitheredBone: return witheredBone;
-    case BattleStatusKind::NeutralizeForce: return neutralizeForce;
-    case BattleStatusKind::Blinded: return blinded;
-    case BattleStatusKind::NextAttackMiss: return nextAttackMiss;
-    case BattleStatusKind::DamageBlockLayer: return damageBlock;
-    case BattleStatusKind::SingleHitCapLayer: return singleHitCap;
-    case BattleStatusKind::BattleSpirit: return battleSpirit;
-    case BattleStatusKind::TrueQi: return trueQi;
-    case BattleStatusKind::PoisonExplosion: return poisonExplosion;
-    case BattleStatusKind::Poison:
-    case BattleStatusKind::Stun:
-    case BattleStatusKind::MpBlocked:
-    case BattleStatusKind::SevenStarMark:
-    case BattleStatusKind::Shadowless:
-    case BattleStatusKind::NextAttackCritical:
-        return {};
-    }
-    return {};
-}
-
-std::string_view statusEffectScopeLabel(StatusEffectScope scope)
-{
-    switch (scope)
-    {
-    case StatusEffectScope::Persistent: return "持續生效";
-    case StatusEffectScope::PerLayer: return "每層生效";
-    case StatusEffectScope::PerTrigger: return "每次觸發";
-    case StatusEffectScope::PerLayerValue: return "每層提供數值";
-    case StatusEffectScope::None:
-    case StatusEffectScope::RuntimeOwned:
-        return {};
-    }
-    return {};
-}
-
 JsonValue closedStatusEffectsSchema(
     BattleStatusKind status,
     StatusEffectScope scope,
@@ -626,12 +542,15 @@ JsonValue closedStatusEffectsSchema(
 {
     JsonValue::Object effectProperties;
     std::vector<std::string_view> effectRequired;
-    for (const auto& field : statusEffectSchemaFields(status))
+    for (const auto& field : statusEffectFieldCatalogEntries())
     {
+        if (field.status != status) continue;
         effectProperties.emplace_back(
-            std::string(field.name),
-            field.requiredTrue ? requiredTrueSchema() : effectNumberReference(event));
-        effectRequired.push_back(field.name);
+            std::string(field.label),
+            field.type == StatusEffectFieldType::RequiredTrue
+                ? requiredTrueSchema()
+                : effectNumberReference(event));
+        effectRequired.push_back(field.label);
     }
     auto values = objectSchema(
         std::move(effectProperties),
@@ -642,18 +561,11 @@ JsonValue closedStatusEffectsSchema(
         { scopeLabel });
 }
 
-enum class DamageBlockSchemaQuantity
-{
-    None,
-    Add,
-    Set,
-};
-
 std::expected<JsonValue, std::string> statusApplicationBranch(
     const PayloadDescriptor& descriptor,
     const StatusCatalogEntry& catalog,
     EffectEvent event,
-    DamageBlockSchemaQuantity damageBlockQuantity = DamageBlockSchemaQuantity::None)
+    std::optional<StatusQuantityOperationId> selectedQuantityOperation = std::nullopt)
 {
     JsonValue::Object properties;
     std::vector<std::string_view> required{ "狀態" };
@@ -676,33 +588,21 @@ std::expected<JsonValue, std::string> statusApplicationBranch(
         properties.emplace_back(std::string(name), positiveIntegerSchema());
         required.push_back(name);
     };
-    switch (catalog.quantity)
+    const auto allowedQuantityOperations = statusQuantityOperations(catalog.quantity);
+    if (catalog.quantity == StatusQuantityModel::Internal)
     {
-    case StatusQuantityModel::None: break;
-    case StatusQuantityModel::Layers:
-        addPositiveInteger("增加層數");
-        addPositiveInteger("層數上限");
-        break;
-    case StatusQuantityModel::TriggerCharges:
-        addPositiveInteger("可觸發次數");
-        break;
-    case StatusQuantityModel::Marks:
-        addPositiveInteger("設定印記層數");
-        break;
-    case StatusQuantityModel::DamageBlockCharges:
-        if (damageBlockQuantity == DamageBlockSchemaQuantity::Add)
-        {
-            addPositiveInteger("增加可抵擋次數");
-            addPositiveInteger("可抵擋次數上限");
-        }
-        else if (damageBlockQuantity == DamageBlockSchemaQuantity::Set)
-        {
-            addPositiveInteger("設定可抵擋次數");
-        }
-        else return std::unexpected("傷害抵擋 schema 缺少數量分支");
-        break;
-    case StatusQuantityModel::Internal:
         return std::unexpected("執行期狀態不可產生作者 schema");
+    }
+    if (!selectedQuantityOperation && allowedQuantityOperations.size() == 1)
+        selectedQuantityOperation = allowedQuantityOperations.front();
+    if (allowedQuantityOperations.size() > 1 && !selectedQuantityOperation)
+        return std::unexpected("狀態 schema 缺少數量操作分支");
+    if (selectedQuantityOperation)
+    {
+        if (!std::ranges::contains(allowedQuantityOperations, *selectedQuantityOperation))
+            return std::unexpected("狀態 schema 使用了不相容的數量操作分支");
+        for (const auto field : statusQuantityOperationFields(*selectedQuantityOperation))
+            addPositiveInteger(statusQuantityFieldLabel(field));
     }
 
     if (statusReapplicationPolicyRequired(catalog.status))
@@ -733,16 +633,16 @@ std::expected<JsonValue, std::string> closedStatusApplicationSchema(
     for (const auto& catalog : statusCatalogEntries())
     {
         if (!catalog.authorable || catalog.status == BattleStatusKind::Poison) continue;
-        if (catalog.quantity == StatusQuantityModel::DamageBlockCharges)
+        const auto quantityOperations = statusQuantityOperations(catalog.quantity);
+        if (quantityOperations.size() > 1)
         {
-            auto add = statusApplicationBranch(
-                descriptor, catalog, event, DamageBlockSchemaQuantity::Add);
-            auto set = statusApplicationBranch(
-                descriptor, catalog, event, DamageBlockSchemaQuantity::Set);
-            if (!add) return std::unexpected(add.error());
-            if (!set) return std::unexpected(set.error());
-            variants.push_back(std::move(*add));
-            variants.push_back(std::move(*set));
+            for (const auto operation : quantityOperations)
+            {
+                auto branch = statusApplicationBranch(
+                    descriptor, catalog, event, operation);
+                if (!branch) return std::unexpected(branch.error());
+                variants.push_back(std::move(*branch));
+            }
         }
         else
         {
@@ -756,12 +656,8 @@ std::expected<JsonValue, std::string> closedStatusApplicationSchema(
 
 JsonValue closedPoisonEffectSchema(EffectEvent event)
 {
-    auto values = objectSchema(
-        {{ "目前生命傷害百分比", effectNumberReference(event) }},
-        { "目前生命傷害百分比" });
-    return objectSchema(
-        {{ "每次觸發", std::move(values) }},
-        { "每次觸發" });
+    const auto& poison = statusCatalogEntry(BattleStatusKind::Poison);
+    return closedStatusEffectsSchema(poison.status, poison.effectScope, event);
 }
 
 std::expected<JsonValue, std::string> closedPoisonApplicationSchema(
@@ -772,18 +668,27 @@ std::expected<JsonValue, std::string> closedPoisonApplicationSchema(
     if (!duration) return std::unexpected("施加中毒 descriptor 缺少持續幀數");
     auto durationSchema = schemaForField(*duration, event);
     if (!durationSchema) return std::unexpected(durationSchema.error());
+    const auto quantityOperations = statusQuantityOperations(
+        StatusQuantityModel::TriggerCharges);
+    if (quantityOperations.size() != 1)
+        return std::unexpected("中毒 schema 需要唯一的觸發次數操作");
+    const auto quantityFields = statusQuantityOperationFields(
+        quantityOperations.front());
+    if (quantityFields.size() != 1)
+        return std::unexpected("中毒 schema 的觸發次數操作需要唯一欄位");
+    const auto quantityLabel = statusQuantityFieldLabel(quantityFields.front());
 
     const auto branch = [&](bool aggregates, JsonValue durationValue)
     {
         JsonValue::Object properties{
             { "持續幀數", std::move(durationValue) },
-            { "可觸發次數", positiveIntegerSchema() },
+            { std::string(quantityLabel), positiveIntegerSchema() },
             { "重複套用", constantStringSchema(
                 aggregates ? "保留較高傷害" : "取代並重設") },
             { "效果", closedPoisonEffectSchema(event) },
         };
         std::vector<std::string_view> required{
-            "持續幀數", "可觸發次數", "重複套用", "效果",
+            "持續幀數", quantityLabel, "重複套用", "效果",
         };
         if (aggregates)
         {

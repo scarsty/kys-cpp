@@ -318,24 +318,13 @@ std::optional<RoleDto> inspectRoleDto(
     return roleDto(session.content(), roleId, detail);
 }
 
-EquipmentInfoDto equipmentInfoDto(
-    const ChessGameContent& content,
-    int itemId,
-    EquipmentProjection projection)
+EquipmentInfoDto equipmentInfoDtoFromMetadata(const ChessEquipmentMetadata& metadata)
 {
-    const auto metadata = chessEquipmentMetadata(
-        content,
-        itemId,
-        EffectDescriptionStyle::Full);
     EquipmentInfoDto dto;
     dto.item_id = metadata.itemId;
     dto.name = metadata.name;
     dto.tier = metadata.tier;
     dto.type = chessEquipmentTypeName(metadata.equipType);
-    if (projection == EquipmentProjection::Identity)
-    {
-        return dto;
-    }
     if (!metadata.baseStatEffects.empty())
     {
         dto.base_stat_effects = metadata.baseStatEffects;
@@ -366,6 +355,33 @@ EquipmentInfoDto equipmentInfoDto(
             dto.character_bonuses->push_back(std::move(bonus));
         }
     }
+    return dto;
+}
+
+EquipmentInfoDto equipmentInfoDto(
+    const ChessGameContent& content,
+    int itemId,
+    EquipmentProjection projection,
+    EffectDescriptionStyle descriptionStyle)
+{
+    if (projection == EquipmentProjection::Detailed)
+    {
+        return equipmentInfoDtoFromMetadata(chessEquipmentMetadata(
+            content,
+            itemId,
+            descriptionStyle));
+    }
+
+    const auto definition = std::ranges::find(
+        content.equipment(), itemId, &EquipmentDef::itemId);
+    assert(definition != content.equipment().end());
+    const auto* item = content.item(itemId);
+    assert(item);
+    EquipmentInfoDto dto;
+    dto.item_id = itemId;
+    dto.name = item->name;
+    dto.tier = definition->tier;
+    dto.type = chessEquipmentTypeName(definition->equipType);
     return dto;
 }
 
@@ -544,9 +560,9 @@ PreparedBattleDto preparedBattleDto(
             battle,
             content,
             maximumFrames,
-            compact
-                ? EffectDescriptionStyle::Compact
-                : EffectDescriptionStyle::Full)
+            full
+                ? std::optional{ EffectDescriptionStyle::Full }
+                : std::nullopt)
         : projectPreparedChessBattle(battle, content);
     PreparedBattleDto prepared;
     if (observationCompact || full)
@@ -658,7 +674,8 @@ RewardOptionDto rewardOptionDto(
     const ChessGameContent& content,
     const ChessPendingReward& pending,
     const ChessRewardOption& option,
-    int starUpgradeRoleId = -1)
+    int starUpgradeRoleId = -1,
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full)
 {
     RewardOptionDto dto;
     dto.id = option.id;
@@ -666,8 +683,9 @@ RewardOptionDto rewardOptionDto(
     dto.gold_cost = option.goldCost;
     if (option.kind == ChessRewardKind::Equipment)
     {
-        const auto equipmentMetadata = chessEquipmentMetadata(content, option.value);
-        dto.equipment = equipmentInfoDto(content, option.value);
+        const auto equipmentMetadata = chessEquipmentMetadata(
+            content, option.value, descriptionStyle);
+        dto.equipment = equipmentInfoDtoFromMetadata(equipmentMetadata);
         dto.label = dto.equipment->name;
         dto.description = std::format("{}階{}", dto.equipment->tier, dto.equipment->type);
         const auto appendDescriptionLine = [&](std::string line)
@@ -719,7 +737,7 @@ RewardOptionDto rewardOptionDto(
                 EffectDescriptionContainerKind::Neigong,
                 found->rules,
             }),
-            EffectDescriptionStyle::Full,
+            descriptionStyle,
             {});
         const auto effectText = joinEffectDescriptionRows(rendered);
         if (!effectText.empty())
@@ -948,11 +966,13 @@ ObservationDto observationDto(
                 {
                     continue;
                 }
-                const auto definition = chessEquipmentMetadata(content, option.value);
+                const auto definition = std::ranges::find(
+                    content.equipment(), option.value, &EquipmentDef::itemId);
+                assert(definition != content.equipment().end());
                 ++groups[std::format(
                     "{}階{}",
-                    definition.tier,
-                    chessEquipmentTypeName(definition.equipType))];
+                    definition->tier,
+                    chessEquipmentTypeName(definition->equipType))];
             }
             for (const auto& [label, count] : groups)
             {
@@ -986,7 +1006,10 @@ ObservationDto observationDto(
                     content,
                     *observation.pendingReward,
                     option,
-                    starUpgradeRoleId));
+                    starUpgradeRoleId,
+                    full
+                        ? EffectDescriptionStyle::Full
+                        : EffectDescriptionStyle::Compact));
             }
         }
         dto.pending_reward = std::move(pending);

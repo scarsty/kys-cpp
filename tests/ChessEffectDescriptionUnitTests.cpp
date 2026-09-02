@@ -1618,6 +1618,15 @@ TEST_CASE("EffectDescriptionDocument_GenericFallbackSignatureCoversNestedTypedPa
         };
     CHECK(signature(consume) != consumeSignature);
 
+    const auto sevenStarConsume = makeRule(ConsumeStatusAction{
+        .status = BattleStatusKind::SevenStarMark,
+        .quantity = 1,
+    });
+    CHECK(descriptionText(
+        std::span<const EffectRule>{ &sevenStarConsume, 1 },
+        EffectDescriptionStyle::Full,
+        {}).contains("消耗1枚七星印記"));
+
     auto transfer = makeRule(ChangeResourceAction{
         .resource = BattleResource::Mp,
         .amount = EffectNumber{ .flat = 10 },
