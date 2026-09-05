@@ -60,7 +60,8 @@ inline StarBoostedStats computeStarBoostedStats(
     int fightsWon = 0,
     int extraFightWinGrowthHP = 0,
     int extraFightWinGrowthAtk = 0,
-    int extraFightWinGrowthDef = 0)
+    int extraFightWinGrowthDef = 0,
+    int amplifiedGrowthPercent = 0)
 {
     const int normalizedStars = normalizeBattleStar(stars);
     const int normalizedFightsWon = (std::max)(fightsWon, 0);
@@ -77,16 +78,20 @@ inline StarBoostedStats computeStarBoostedStats(
     const double speedMultiplier = 1.0 + config.speedMultiplierPerStar * starLevel;
     const int actionFlat = 15 * starLevel;
 
+    const auto scaled = [&](int base, int growth, double multiplier, int flat) {
+        const int amplified = static_cast<int>(static_cast<long long>(growth) * amplifiedGrowthPercent / 100);
+        return static_cast<int>(std::floor((base + amplified) * multiplier)) + flat + growth - amplified;
+    };
     return {
-        static_cast<int>(stats.maxHp * hpMultiplier) + config.flatHpPerStar * starLevel + winHP,
-        static_cast<int>(stats.attack * attackMultiplier) + config.flatAttackPerStar * starLevel + winATK,
-        static_cast<int>(stats.defence * defenceMultiplier) + config.flatDefencePerStar * starLevel + winDEF,
-        static_cast<int>(stats.speed * speedMultiplier) + winSPD,
-        static_cast<int>(stats.fist * martialMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.sword * martialMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.knife * martialMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.unusual * martialMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.hiddenWeapon * martialMultiplier) + actionFlat + winWeapon,
+        scaled(stats.maxHp, winHP, hpMultiplier, config.flatHpPerStar * starLevel),
+        scaled(stats.attack, winATK, attackMultiplier, config.flatAttackPerStar * starLevel),
+        scaled(stats.defence, winDEF, defenceMultiplier, config.flatDefencePerStar * starLevel),
+        scaled(stats.speed, winSPD, speedMultiplier, 0),
+        scaled(stats.fist, winWeapon, martialMultiplier, actionFlat),
+        scaled(stats.sword, winWeapon, martialMultiplier, actionFlat),
+        scaled(stats.knife, winWeapon, martialMultiplier, actionFlat),
+        scaled(stats.unusual, winWeapon, martialMultiplier, actionFlat),
+        scaled(stats.hiddenWeapon, winWeapon, martialMultiplier, actionFlat),
     };
 }
 

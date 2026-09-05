@@ -4,6 +4,7 @@
 #include "ChessGameContent.h"
 #include "ChessNeigong.h"
 #include "GameVersion.h"
+#include "yaml-cpp/yaml.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -112,6 +113,7 @@ public:
                 std::chrono::steady_clock::now().time_since_epoch().count()))
     {
         std::filesystem::create_directories(path_);
+        std::filesystem::copy_file("config/chess_talents.yaml", path_ / "chess_talents.yaml");
     }
 
     ~TemporaryConfigDirectory()
@@ -259,7 +261,7 @@ TEST_CASE("battle map catalog exposes usable formation capacities", "[chess][con
 TEST_CASE("challenge configuration rejects duplicate challenge names", "[chess][content][config]")
 {
     TemporaryConfigDirectory files;
-    const auto balance = files.write("balance.yaml", "{}\n");
+    const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 神兵, 可選: [神兵]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
     const auto challenges = files.write(
         "challenge.yaml",
         "遠征挑戰:\n"
@@ -282,7 +284,7 @@ TEST_CASE("challenge configuration rejects duplicate challenge names", "[chess][
 TEST_CASE("challenge configuration rejects duplicate reward meanings in one choice", "[chess][content][config]")
 {
     TemporaryConfigDirectory files;
-    const auto balance = files.write("balance.yaml", "{}\n");
+    const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 神兵, 可選: [神兵]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
     const auto challenges = files.write(
         "challenge.yaml",
         "遠征挑戰:\n"
@@ -309,7 +311,7 @@ TEST_CASE("challenge configuration reads Traditional Chinese star and equipment 
           "[chess][content][challenge]")
 {
     TemporaryConfigDirectory files;
-    const auto balance = files.write("balance.yaml", "{}\n");
+    const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 神兵, 可選: [神兵]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
     const auto challenges = files.write(
         "challenge.yaml",
         "遠征挑戰:\n"
@@ -409,4 +411,32 @@ TEST_CASE("diagnostics are collected without writing protocol output", "[chess][
     REQUIRE(collector.diagnostics().size() == 2);
     CHECK(collector.diagnostics()[0].source == "測試來源");
     CHECK(collector.hasErrors());
+}
+
+TEST_CASE("talent configuration rejects malformed identities ranges and legacy keys", "[chess][talent][content]")
+{
+    TemporaryConfigDirectory files;
+    auto balance = YAML::LoadFile("config/chess_balance_hard.yaml");
+    auto talents = YAML::LoadFile("config/chess_talents.yaml");
+    SECTION("unknown talent") { balance["棋手天賦"]["預設"] = "未知"; }
+    SECTION("duplicate choice") { balance["棋手天賦"]["可選"].push_back("神兵"); }
+    SECTION("empty choice") { balance["棋手天賦"]["可選"] = YAML::Node(YAML::NodeType::Sequence); }
+    SECTION("default outside choices") { balance["棋手天賦"]["可選"] = YAML::Load("[晚成]"); }
+    SECTION("missing catalog entry") { talents["棋手天賦"].remove("賭徒"); }
+    SECTION("unknown catalog field") { talents["棋手天賦"]["神兵"]["未知"] = 1; }
+    SECTION("unknown catalog root") { talents["未知"] = 1; }
+    SECTION("growth percentage") { talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = 101; }
+    SECTION("chance percentage") { talents["棋手天賦"]["賭徒"]["賭運"]["觸發機率上限"] = -1; }
+    SECTION("ban range") { talents["棋手天賦"]["賭徒"]["開局額外禁棋"]["最低費用"] = 3; }
+    SECTION("zero guarantee count") { talents["棋手天賦"]["中堅"]["刷新保證"]["每次數量"] = 0; }
+    SECTION("equipment range") { balance["玩家裝備獎勵"]["基本"][0]["最低層級"] = 4; }
+    SECTION("missing equipment minimum") { balance["玩家裝備獎勵"]["基本"][0].remove("最低層級"); }
+    SECTION("duplicate reward round") { balance["玩家裝備獎勵"]["基本"][1]["關卡"] = 3; }
+    SECTION("negative shop price") { balance["神兵商店"]["價格"] = -30; }
+    SECTION("legacy simplified key") { balance["玩家装备奖励"] = balance["玩家裝備獎勵"]; balance.remove("玩家裝備獎勵"); }
+    const auto path = files.write("chess_balance_hard.yaml", YAML::Dump(balance));
+    files.write("chess_talents.yaml", YAML::Dump(talents));
+    BalanceConfig parsed;
+    ChessDiagnosticCollector diagnostics;
+    CHECK_FALSE(loadBalanceConfig(path.string(), "config/chess_challenge.yaml", {}, diagnostics.sink(), parsed));
 }

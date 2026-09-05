@@ -123,6 +123,7 @@ struct NativeDiagnosticsDto
 
 struct NewParams
 {
+    std::optional<std::string> talent;
     std::string difficulty = "normal";
     std::string seed = "0x0000000000000001";
     std::string detail = "full";
@@ -242,6 +243,8 @@ struct PieceDto
     int star{};
     bool deployed{};
     int fights_won{};
+    int luck_stacks{};
+    int luck_chance_percent{};
     std::optional<RoleStatsDto> current_stats;
     std::optional<std::string> current_stats_note;
 };
@@ -361,6 +364,9 @@ struct BattleUnitStatsDto
     std::optional<int> cooldown_manipulation_frames;
     std::optional<int> invulnerability_triggers;
     std::optional<int> death_prevention_triggers;
+    std::optional<int> luck_successes;
+    std::optional<int> luck_failures;
+    std::optional<int> luck_ultimate_submissions;
     std::optional<RoleStatsDto> initial_combat_stats;
     std::optional<RoleStatsDto> initial_stat_delta_from_special_effects;
     std::optional<int> enemy_attack_debuff;
@@ -629,6 +635,14 @@ struct ComboDto
 };
 struct ObservationDto
 {
+    std::string talent;
+    std::string talent_name;
+    std::string talent_description;
+    bool talent_has_legendary_shop{};
+    bool legendary_shop_unlocked{};
+    std::vector<int> shop_guarantees;
+    std::optional<BalanceConfig::PlayerEquipmentReward> next_basic_equipment_reward;
+    std::optional<BalanceConfig::PlayerEquipmentReward> next_talent_equipment_reward;
     std::string detail;
     std::string phase;
     std::optional<std::string> difficulty;
@@ -732,6 +746,7 @@ struct SaveSlotDto
     int roster_count{};
     std::uint64_t replay_sequence{};
     std::string state_hash;
+    std::string talent;
 };
 
 struct SessionObservationDto

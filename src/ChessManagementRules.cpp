@@ -50,10 +50,41 @@ int matchingCount(const ChessSessionState& state, int roleId, int star)
     }));
 }
 
+struct StarMilestone { int roleId{}; int oldStar{}; int newStar{}; };
+
+void resolveStarMilestones(ChessSessionState& state, const ChessGameContent& content,
+    const std::vector<StarMilestone>& milestones, std::vector<ChessSemanticEvent>& events)
+{
+    if (state.talent != ChessTalentId::Backbone) return;
+    const auto& talent = content.balance().talent(state.talent);
+    const auto hasThreeStar = [&](int roleId) {
+        return std::ranges::any_of(state.roster, [&](const auto& entry) {
+            return entry.second.roleId == roleId && entry.second.star == 3;
+        });
+    };
+    std::erase_if(state.shopGuarantees, [&](int roleId) {
+        if (!hasThreeStar(roleId)) return false;
+        events.push_back({ChessSemanticEventType::ShopGuaranteeCancelled, roleId});
+        return true;
+    });
+    for (const auto& milestone : milestones)
+    {
+        if (content.role(milestone.roleId)->Cost != talent.targetTier
+            || milestone.oldStar >= talent.guaranteeStar || milestone.newStar < talent.guaranteeStar
+            || hasThreeStar(milestone.roleId)) continue;
+        for (int i = 0; i < talent.guaranteeCount; ++i)
+        {
+            state.shopGuarantees.push_back(milestone.roleId);
+            events.push_back({ChessSemanticEventType::ShopGuaranteeQueued, milestone.roleId});
+        }
+    }
+}
+
 void mergeAvailablePieces(
     ChessSessionState& state,
     const ChessGameContent& content,
     int roleId,
+    std::vector<StarMilestone>& milestones,
     std::vector<ChessSemanticEvent>& events)
 {
     for (int star = 1; star <= 2; ++star)
@@ -65,6 +96,7 @@ void mergeAvailablePieces(
             std::vector<int> weapons;
             std::vector<int> armor;
             int fightsWon = 0;
+            int luckStacks = 0;
             for (const auto& [id, piece] : state.roster)
             {
                 if (piece.roleId == roleId && piece.star == star)
@@ -72,6 +104,7 @@ void mergeAvailablePieces(
                     consumed.push_back(id);
                     deployed = deployed || piece.deployed;
                     fightsWon = std::max(fightsWon, piece.fightsWon);
+                    luckStacks += piece.luckStacks;
                     if (piece.weaponInstanceId >= 0) weapons.push_back(piece.weaponInstanceId);
                     if (piece.armorInstanceId >= 0) armor.push_back(piece.armorInstanceId);
                     if (consumed.size() == 3)
@@ -90,6 +123,9 @@ void mergeAvailablePieces(
             upgraded.star = star + 1;
             upgraded.deployed = deployed;
             upgraded.fightsWon = fightsWon;
+            upgraded.luckStacks = luckStacks;
+            milestones.push_back({roleId, star, star + 1});
+            if (luckStacks > 0) events.push_back({ChessSemanticEventType::LuckMerged, upgraded.instanceId, roleId, luckStacks});
             const auto equipmentOrder = [&](int lhs, int rhs) {
                 const auto* lhsDefinition = equipmentDefinition(
                     content,
@@ -229,7 +265,8 @@ void ChessManagementRules::initializeShop(
 void ChessManagementRules::refreshShop(
     ChessSessionState& state,
     const ChessGameContent& content,
-    ChessRunRandom& random)
+    ChessRunRandom& random,
+    std::vector<ChessSemanticEvent>* events)
 {
     state.rejectedRoleIds.clear();
     for (const auto& slot : state.shop)
@@ -240,6 +277,16 @@ void ChessManagementRules::refreshShop(
         }
     }
     generateShop(state, content, random);
+    const auto count = std::min(state.shopGuarantees.size(), static_cast<std::size_t>(content.balance().shopSlotCount));
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        const int roleId = state.shopGuarantees[i];
+        if (i == state.shop.size()) state.shop.push_back({});
+        state.shop[i] = {roleId, content.role(roleId)->Cost};
+        state.seenRoleIds.insert(roleId);
+        if (events) events->push_back({ChessSemanticEventType::ShopGuaranteeInjected, roleId, static_cast<int>(i)});
+    }
+    state.shopGuarantees.erase(state.shopGuarantees.begin(), state.shopGuarantees.begin() + count);
     state.shopLocked = false;
 }
 
@@ -513,7 +560,8 @@ ChessRuleErrorCode ChessManagementRules::validate(
     }
     case ChessActionType::BuyLegendaryEquipment:
     {
-        if (balance.legendaryShop.unlockFight <= 0
+        if (!balance.talent(state.talent).legendaryShop
+            || balance.legendaryShop.unlockFight <= 0
             || state.fight < balance.legendaryShop.unlockFight)
         {
             return ChessRuleErrorCode::LegendaryShopLocked;
@@ -550,6 +598,16 @@ void ChessManagementRules::apply(
         && !state.pendingRewards.empty()
         && state.pendingRewards.front().kind == ChessRewardKind::ForcedBan;
     const auto& balance = content.balance();
+    const auto completeBans = [&] {
+        const auto pending = state.pendingRewards.front();
+        ChessRewardRules::completePendingReward(state, events);
+        if (state.talent == ChessTalentId::Gambler && state.fight == 0
+            && pending.parameter < pending.choiceCount)
+        {
+            refreshShop(state, content, random, &events);
+            events.push_back({ChessSemanticEventType::OpeningTalentShopRefreshed});
+        }
+    };
     switch (action.type)
     {
     case ChessActionType::RefreshShop:
@@ -563,7 +621,24 @@ void ChessManagementRules::apply(
             state.freeShopRefreshGrantedFight = -1;
             events.push_back({ChessSemanticEventType::FreeShopRefreshConsumed});
         }
-        refreshShop(state, content, random);
+        refreshShop(state, content, random, &events);
+        const auto& talent = balance.talent(state.talent);
+        if (state.talent == ChessTalentId::Gambler && cost > 0 && state.fight + 1 <= talent.luckLastFight)
+        {
+            std::vector<int> candidates;
+            for (const auto& [id, piece] : state.roster)
+            {
+                const int tier = content.role(piece.roleId)->Cost;
+                if (tier >= talent.luckMinTier && tier <= talent.luckMaxTier) candidates.push_back(id);
+            }
+            if (!candidates.empty())
+            {
+                auto& piece = state.roster.at(candidates[random.nextInt(ChessRngStream::TalentManagement,
+                    static_cast<int>(candidates.size()))]);
+                piece.luckStacks += talent.luckPerRefresh;
+                events.push_back({ChessSemanticEventType::LuckGranted, piece.instanceId, piece.roleId, talent.luckPerRefresh});
+            }
+        }
         events.push_back({ChessSemanticEventType::ShopRefreshed, {}, {}, cost, {}});
         return;
     }
@@ -640,14 +715,14 @@ void ChessManagementRules::apply(
                 });
             if (pending.parameter == 0 || !candidateRemaining)
             {
-                ChessRewardRules::completePendingReward(state, events);
+                completeBans();
             }
         }
         return;
     case ChessActionType::SkipForcedBans:
     {
         const int forfeitedCount = state.pendingRewards.front().parameter;
-        ChessRewardRules::completePendingReward(state, events);
+        completeBans();
         events.push_back({ChessSemanticEventType::ForcedBansSkipped, {}, {}, forfeitedCount});
         return;
     }
@@ -727,15 +802,19 @@ int ChessManagementRules::grantPiece(
     const ChessGameContent& content,
     int roleId,
     std::vector<ChessSemanticEvent>& events,
-    int eventValue)
+    int eventValue,
+    int star)
 {
     assert(content.role(roleId));
     ChessSessionPiece piece;
     piece.instanceId = state.nextChessInstanceId++;
     piece.roleId = roleId;
+    piece.star = star;
     state.roster.emplace(piece.instanceId, piece);
     events.push_back({ChessSemanticEventType::ChessPurchased, piece.instanceId, roleId, eventValue});
-    mergeAvailablePieces(state, content, roleId, events);
+    std::vector<StarMilestone> milestones{{roleId, 0, star}};
+    mergeAvailablePieces(state, content, roleId, milestones, events);
+    resolveStarMilestones(state, content, milestones, events);
     maintainFormation(state);
     return piece.instanceId;
 }
@@ -776,6 +855,8 @@ void ChessManagementRules::upgradePiece(
     std::vector<ChessSemanticEvent>& events)
 {
     auto& piece = state.roster.at(chessInstanceId);
+    const int roleId = piece.roleId;
+    std::vector<StarMilestone> milestones{{roleId, piece.star, newStar}};
     piece.star = newStar;
     ChessSemanticEvent event{ChessSemanticEventType::ChessMerged, chessInstanceId, piece.roleId, newStar};
     ChessMergeEventDetail detail;
@@ -786,7 +867,8 @@ void ChessManagementRules::upgradePiece(
     if (piece.armorInstanceId >= 0) detail.transferredEquipmentInstanceIds.push_back(piece.armorInstanceId);
     event.merge = std::move(detail);
     events.push_back(std::move(event));
-    mergeAvailablePieces(state, content, piece.roleId, events);
+    mergeAvailablePieces(state, content, roleId, milestones, events);
+    resolveStarMilestones(state, content, milestones, events);
     maintainFormation(state);
 }
 

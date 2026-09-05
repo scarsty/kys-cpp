@@ -101,11 +101,15 @@ struct BattleSetupRosterUnit
     int chessInstanceId = -1;
     int fightsWon = 0;
     int sourceOrder = 0;
+    int amplifiedGrowthPercent{};
+    int openingMp{};
+    std::optional<BattleLethalRecovery> lethalRecovery;
 };
 
 struct BattleRuntimeSetupSeed
 {
     BattleStarGrowthConfig starGrowth;
+    std::uint32_t talentBattleSeed{};
     std::vector<BattleInitializationUnitSeed> units;
     std::vector<BattleSetupRosterUnit> allyRoster;
     std::vector<BattleSetupRosterUnit> enemyRoster;

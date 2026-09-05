@@ -37,7 +37,7 @@ ChessRunRandom::ChessRunRandom(std::uint64_t rootSeed)
 std::size_t ChessRunRandom::indexOf(ChessRngStream stream)
 {
     const auto tag = static_cast<std::uint64_t>(stream);
-    assert(tag >= 1 && tag <= 7);
+    assert(tag >= 1 && tag <= 8);
     return static_cast<std::size_t>(tag - 1);
 }
 

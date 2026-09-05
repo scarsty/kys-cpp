@@ -1,4 +1,6 @@
 #include "ChessBalance.h"
+#include <filesystem>
+#include <stdexcept>
 
 #include "yaml-cpp/yaml.h"
 
@@ -88,90 +90,199 @@ bool loadBalanceConfig(
     }
 
     BalanceConfig c;
+    try
+    {
+    const std::set<std::string> balanceKeys{"Boss戰鬥經驗", "Boss獎勵加成", "Boss間隔", "價格", "初始金幣", "利息上限", "利息百分比", "刷新費用", "各費價格", "名稱", "商店數量", "商店權重", "固定攻擊", "固定生命", "固定防禦", "基本", "基礎禁棋數", "天賦額外", "戰鬥獎勵基礎", "戰鬥獎勵增長", "戰鬥經驗", "描述", "攻擊倍率", "敵人", "敵人表", "敵人裝備", "數值", "星級", "星級倍率", "星級加成", "最低出戰人數", "最低層級", "最高層級", "最高等級", "最高費用", "棋子成長", "棋子費用", "武功倍率", "武器", "每勝兵器", "每勝攻擊", "每勝生命", "每勝輕功", "每勝防禦", "每級增加禁棋數", "無羈絆關卡", "獎勵", "玩家裝備獎勵", "生命倍率", "神兵商店", "禁棋數", "禁棋解鎖", "經濟", "經驗表", "總關卡數", "背包上限", "裝備ID", "裝備數量", "角色", "角色ID", "購買經驗數量", "購買經驗費用", "追加選項費用", "逆天改命費用", "通關後", "速度倍率", "進度", "遠征挑戰", "選項數量", "關卡", "防具", "防禦倍率", "雙裝備", "類型", "棋手天賦", "預設", "可選", "神兵", "晚成", "賭徒", "中堅"};
+    const auto validateKeys = [&](const auto& self, const YAML::Node& node) -> void {
+        if (node.IsMap()) for (const auto& entry : node)
+        {
+            const auto key = entry.first.as<std::string>();
+            if (!balanceKeys.contains(key)) throw std::runtime_error(std::format("未知平衡配置欄位「{}」", key));
+            self(self, entry.second);
+        }
+        else if (node.IsSequence()) for (const auto& entry : node) self(self, entry);
+    };
+    validateKeys(validateKeys, root);
+    const auto talentPath = std::filesystem::path(path).parent_path() / "chess_talents.yaml";
+    const auto catalogRoot = YAML::LoadFile(talentPath.string());
+    if (!catalogRoot.IsMap() || catalogRoot.size() != 1)
+        throw std::runtime_error("天賦配置根節點只允許棋手天賦");
+    const auto catalog = catalogRoot["棋手天賦"];
+    if (!catalog.IsMap() || catalog.size() != kChessTalentIds.size())
+        throw std::runtime_error("棋手天賦目錄必須完整包含四種天賦");
+    c.talents.clear();
+    for (const auto& entry : catalog)
+    {
+        const auto id = parseChessTalent(entry.first.as<std::string>());
+        if (!id || entry.first.as<std::string>() != chessTalentName(*id) || c.talents.contains(*id))
+            throw std::runtime_error("未知或重複棋手天賦");
+        const auto n = entry.second;
+        const auto keys = [](const YAML::Node& node, std::initializer_list<const char*> allowed) {
+            if (!node.IsMap()) throw std::runtime_error("天賦配置必須是映射表");
+            for (const auto& entry : node)
+            {
+                const auto key = entry.first.as<std::string>();
+                if (std::ranges::none_of(allowed, [&](const char* expected) { return key == expected; }))
+                    throw std::runtime_error(std::format("未知天賦配置欄位「{}」", key));
+            }
+        };
+        switch (*id)
+        {
+        case ChessTalentId::DivineArms: keys(n, {"說明", "可使用神兵商店"}); break;
+        case ChessTalentId::LateBloomer: keys(n, {"說明", "勝場成長受加成比例"}); break;
+        case ChessTalentId::Gambler:
+            keys(n, {"說明", "開局額外禁棋", "賭運"});
+            keys(n["開局額外禁棋"], {"次數", "最低費用", "最高費用"});
+            keys(n["賭運"], {"累積截止關卡", "目標最低費用", "目標最高費用", "每次增加層數", "每層觸發機率百分點", "觸發機率上限", "觸發後生命", "無敵幀數"});
+            break;
+        case ChessTalentId::Backbone:
+            keys(n, {"說明", "目標費用", "額外星級加成", "刷新保證"});
+            keys(n["額外星級加成"], {"每顆開場內力", "計算上限"});
+            keys(n["刷新保證"], {"觸發星級", "每次數量"});
+            break;
+        }
+        ChessTalentDefinition def;
+        def.description = n["說明"].as<std::string>();
+        if (def.description.empty()) throw std::runtime_error("天賦說明不得空白");
+        const auto number = [](const YAML::Node& node, const char* key, int minimum, int maximum) {
+            const int value = node[key].as<int>();
+            if (value < minimum || value > maximum)
+                throw std::runtime_error(std::format("天賦欄位「{}」必須介於 {} 至 {}", key, minimum, maximum));
+            return value;
+        };
+        switch (*id)
+        {
+        case ChessTalentId::DivineArms:
+            def.legendaryShop = n["可使用神兵商店"].as<bool>();
+            break;
+        case ChessTalentId::LateBloomer:
+            def.amplifiedGrowthPercent = number(n, "勝場成長受加成比例", 0, 100);
+            break;
+        case ChessTalentId::Gambler:
+        {
+            const auto bans = n["開局額外禁棋"];
+            def.openingBans = number(bans, "次數", 1, 100);
+            def.banMinTier = number(bans, "最低費用", 1, 5);
+            def.banMaxTier = number(bans, "最高費用", def.banMinTier, 5);
+            const auto luck = n["賭運"];
+            def.luckLastFight = number(luck, "累積截止關卡", 1, 1000);
+            def.luckMinTier = number(luck, "目標最低費用", 1, 5);
+            def.luckMaxTier = number(luck, "目標最高費用", def.luckMinTier, 5);
+            def.luckPerRefresh = number(luck, "每次增加層數", 1, 100);
+            def.luckChancePerStack = number(luck, "每層觸發機率百分點", 0, 100);
+            def.luckChanceCap = number(luck, "觸發機率上限", 0, 100);
+            def.luckSurvivalHp = number(luck, "觸發後生命", 1, 100000);
+            def.luckInvincibleFrames = number(luck, "無敵幀數", 0, 100000);
+            break;
+        }
+        case ChessTalentId::Backbone:
+            def.targetTier = number(n, "目標費用", 1, 5);
+            def.mpPerExtraStar = number(n["額外星級加成"], "每顆開場內力", 0, 10000);
+            def.extraStarCap = number(n["額外星級加成"], "計算上限", 0, 100);
+            def.guaranteeStar = number(n["刷新保證"], "觸發星級", 2, 2);
+            def.guaranteeCount = number(n["刷新保證"], "每次數量", 1, 100);
+            break;
+        }
+        c.talents.emplace(*id, std::move(def));
+    }
+    const auto selection = root["棋手天賦"];
+    const auto defaultTalent = parseChessTalent(selection["預設"].as<std::string>());
+    if (!defaultTalent) throw std::runtime_error("未知預設天賦");
+    c.defaultTalent = *defaultTalent;
+    c.availableTalents.clear();
+    if (!selection["可選"].IsSequence()) throw std::runtime_error("可選天賦必須是清單");
+    for (const auto& entry : selection["可選"])
+    {
+        const auto id = parseChessTalent(entry.as<std::string>());
+        if (!id || c.allowsTalent(*id)) throw std::runtime_error("未知或重複可選天賦");
+        c.availableTalents.push_back(*id);
+    }
+    if (!c.allowsTalent(c.defaultTalent)) throw std::runtime_error("預設天賦必須包含於可選清單");
 
-    if (auto n = root["星级加成"])
+
+    if (auto n = root["星級加成"])
     {
         if (n["生命倍率"]) c.starHPMult = n["生命倍率"].as<double>();
-        if (n["攻击倍率"]) c.starAtkMult = n["攻击倍率"].as<double>();
-        if (n["防御倍率"]) c.starDefMult = n["防御倍率"].as<double>();
+        if (n["攻擊倍率"]) c.starAtkMult = n["攻擊倍率"].as<double>();
+        if (n["防禦倍率"]) c.starDefMult = n["防禦倍率"].as<double>();
         if (n["武功倍率"]) c.starMartialMult = n["武功倍率"].as<double>();
         if (n["速度倍率"]) c.starSpdMult = n["速度倍率"].as<double>();
         if (n["固定生命"]) c.starFlatHP = n["固定生命"].as<int>();
-        if (n["固定攻击"]) c.starFlatAtk = n["固定攻击"].as<int>();
-        if (n["固定防御"]) c.starFlatDef = n["固定防御"].as<int>();
+        if (n["固定攻擊"]) c.starFlatAtk = n["固定攻擊"].as<int>();
+        if (n["固定防禦"]) c.starFlatDef = n["固定防禦"].as<int>();
     }
 
-    if (auto n = root["棋子成长"])
+    if (auto n = root["棋子成長"])
     {
-        if (n["每胜生命"]) c.fightWinGrowthHP = n["每胜生命"].as<double>();
-        if (n["每胜攻击"]) c.fightWinGrowthAtk = n["每胜攻击"].as<double>();
-        if (n["每胜防御"]) c.fightWinGrowthDef = n["每胜防御"].as<double>();
-        if (n["每胜兵器"]) c.fightWinGrowthWeapon = n["每胜兵器"].as<double>();
-        if (n["每胜轻功"]) c.fightWinGrowthSpeed = n["每胜轻功"].as<double>();
+        if (n["每勝生命"]) c.fightWinGrowthHP = n["每勝生命"].as<double>();
+        if (n["每勝攻擊"]) c.fightWinGrowthAtk = n["每勝攻擊"].as<double>();
+        if (n["每勝防禦"]) c.fightWinGrowthDef = n["每勝防禦"].as<double>();
+        if (n["每勝兵器"]) c.fightWinGrowthWeapon = n["每勝兵器"].as<double>();
+        if (n["每勝輕功"]) c.fightWinGrowthSpeed = n["每勝輕功"].as<double>();
     }
 
-    if (auto n = root["经济"])
+    if (auto n = root["經濟"])
     {
-        if (n["初始金币"]) c.initialMoney = n["初始金币"].as<int>();
-        if (n["刷新费用"]) c.refreshCost = n["刷新费用"].as<int>();
-        if (n["逆天改命费用"]) c.enemyRerollCost = n["逆天改命费用"].as<int>();
-        if (n["购买经验费用"]) c.buyExpCost = n["购买经验费用"].as<int>();
-        if (n["购买经验数量"]) c.buyExpAmount = n["购买经验数量"].as<int>();
-        if (n["战斗经验"]) c.battleExp = n["战斗经验"].as<int>();
-        if (n["Boss战斗经验"]) c.bossBattleExp = n["Boss战斗经验"].as<int>();
-        if (n["战斗奖励基础"]) c.rewardBase = n["战斗奖励基础"].as<int>();
-        if (n["战斗奖励增长"]) c.rewardGrowth = n["战斗奖励增长"].as<int>();
-        if (n["Boss奖励加成"]) c.bossRewardBonus = n["Boss奖励加成"].as<int>();
+        if (n["初始金幣"]) c.initialMoney = n["初始金幣"].as<int>();
+        if (n["刷新費用"]) c.refreshCost = n["刷新費用"].as<int>();
+        if (n["逆天改命費用"]) c.enemyRerollCost = n["逆天改命費用"].as<int>();
+        if (n["購買經驗費用"]) c.buyExpCost = n["購買經驗費用"].as<int>();
+        if (n["購買經驗數量"]) c.buyExpAmount = n["購買經驗數量"].as<int>();
+        if (n["戰鬥經驗"]) c.battleExp = n["戰鬥經驗"].as<int>();
+        if (n["Boss戰鬥經驗"]) c.bossBattleExp = n["Boss戰鬥經驗"].as<int>();
+        if (n["戰鬥獎勵基礎"]) c.rewardBase = n["戰鬥獎勵基礎"].as<int>();
+        if (n["戰鬥獎勵增長"]) c.rewardGrowth = n["戰鬥獎勵增長"].as<int>();
+        if (n["Boss獎勵加成"]) c.bossRewardBonus = n["Boss獎勵加成"].as<int>();
         if (n["利息百分比"]) c.interestPercent = n["利息百分比"].as<int>();
         if (n["利息上限"]) c.interestMax = n["利息上限"].as<int>();
     }
 
-    if (auto n = root["棋子费用"])
+    if (auto n = root["棋子費用"])
     {
-        if (n["各费价格"])
-            for (int i = 0; i < 5 && i < (int)n["各费价格"].size(); ++i)
-                c.tierPrices[i] = n["各费价格"][i].as<int>();
-        if (n["星级倍率"]) c.starCostMult = n["星级倍率"].as<int>();
+        if (n["各費價格"])
+            for (int i = 0; i < 5 && i < (int)n["各費價格"].size(); ++i)
+                c.tierPrices[i] = n["各費價格"][i].as<int>();
+        if (n["星級倍率"]) c.starCostMult = n["星級倍率"].as<int>();
     }
 
-    if (root["经验表"])
+    if (root["經驗表"])
     {
         c.expTable.clear();
-        for (const auto& v : root["经验表"])
+        for (const auto& v : root["經驗表"])
             c.expTable.push_back(v.as<int>());
     }
 
-    if (root["最高等级"]) c.maxLevel = root["最高等级"].as<int>();
+    if (root["最高等級"]) c.maxLevel = root["最高等級"].as<int>();
     if (root["背包上限"]) c.benchSize = root["背包上限"].as<int>();
-    if (root["最低出战人数"]) c.minBattleSize = root["最低出战人数"].as<int>();
-    if (root["商店数量"]) c.shopSlotCount = root["商店数量"].as<int>();
-    if (root["基础禁棋数"]) c.banBaseCount = root["基础禁棋数"].as<int>();
-    if (root["每级增加禁棋数"]) c.banCountPerLevel = root["每级增加禁棋数"].as<int>();
+    if (root["最低出戰人數"]) c.minBattleSize = root["最低出戰人數"].as<int>();
+    if (root["商店數量"]) c.shopSlotCount = root["商店數量"].as<int>();
+    if (root["基礎禁棋數"]) c.banBaseCount = root["基礎禁棋數"].as<int>();
+    if (root["每級增加禁棋數"]) c.banCountPerLevel = root["每級增加禁棋數"].as<int>();
 
-    if (root["禁棋解锁"])
+    if (root["禁棋解鎖"])
     {
         c.banUnlocks.clear();
-        for (const auto& entry : root["禁棋解锁"])
+        for (const auto& entry : root["禁棋解鎖"])
         {
             BalanceConfig::BanUnlock unlock;
-            unlock.afterFight = entry["通关后"].as<int>();
-            unlock.slots = entry["禁棋数"].as<int>();
-            unlock.maxTier = entry["最高费用"] ? entry["最高费用"].as<int>() : 5;
+            unlock.afterFight = entry["通關後"].as<int>();
+            unlock.slots = entry["禁棋數"].as<int>();
+            unlock.maxTier = entry["最高費用"] ? entry["最高費用"].as<int>() : 5;
             c.banUnlocks.push_back(unlock);
         }
     }
 
-    if (root["无羁绊关卡"])
+    if (root["無羈絆關卡"])
     {
         c.noSynergyFights.clear();
-        for (const auto& v : root["无羁绊关卡"])
+        for (const auto& v : root["無羈絆關卡"])
             c.noSynergyFights.push_back(v.as<int>());
     }
 
-    if (root["商店权重"])
+    if (root["商店權重"])
     {
         int lvl = 0;
-        for (const auto& row : root["商店权重"])
+        for (const auto& row : root["商店權重"])
         {
             if (lvl >= 10) break;
             for (int t = 0; t < 5 && t < (int)row.size(); ++t)
@@ -180,10 +291,10 @@ bool loadBalanceConfig(
         }
     }
 
-    if (root["敌人表"])
+    if (root["敵人表"])
     {
         c.enemyTable.clear();
-        for (const auto& round : root["敌人表"])
+        for (const auto& round : root["敵人表"])
         {
             std::vector<BalanceConfig::EnemySlot> slots;
             for (const auto& slot : round)
@@ -192,16 +303,19 @@ bool loadBalanceConfig(
         }
     }
 
-    if (auto n = root["进度"])
+    if (auto n = root["進度"])
     {
-        if (n["总关卡数"]) c.totalFights = n["总关卡数"].as<int>();
-        if (n["Boss间隔"]) c.bossInterval = n["Boss间隔"].as<int>();
+        if (n["總關卡數"]) c.totalFights = n["總關卡數"].as<int>();
+        if (n["Boss間隔"]) c.bossInterval = n["Boss間隔"].as<int>();
     }
 
     if (auto n = root["神兵商店"])
     {
-        if (n["通关后"]) c.legendaryShop.unlockFight = n["通关后"].as<int>();
-        if (n["价格"]) c.legendaryShop.price = n["价格"].as<int>();
+        if (n["通關後"]) c.legendaryShop.unlockFight = n["通關後"].as<int>();
+        if (n["價格"]) c.legendaryShop.price = n["價格"].as<int>();
+        if (c.legendaryShop.price <= 0 || c.legendaryShop.unlockFight < 0
+            || c.legendaryShop.unlockFight > c.totalFights)
+            throw std::runtime_error("神兵商店價格必須為正數，開放關卡不得超出總關卡數");
     }
 
     try {
@@ -292,32 +406,57 @@ bool loadBalanceConfig(
         return false;
     }
 
-    if (root["敌人装备"])
+    if (root["敵人裝備"])
     {
-        for (const auto& entry : root["敌人装备"])
+        for (const auto& entry : root["敵人裝備"])
         {
             BalanceConfig::EnemyEquipmentLevel level;
-            level.fight = entry["关卡"].as<int>();
-            level.maxTier = entry["最高层级"].as<int>();
-            level.count = entry["装备数量"].as<int>();
-            if (entry["双装备"]) level.equipBoth = entry["双装备"].as<bool>();
+            level.fight = entry["關卡"].as<int>();
+            level.maxTier = entry["最高層級"].as<int>();
+            level.count = entry["裝備數量"].as<int>();
+            if (entry["雙裝備"]) level.equipBoth = entry["雙裝備"].as<bool>();
             c.enemyEquipmentLevels.push_back(level);
         }
     }
 
-    if (root["玩家装备奖励"])
-    {
-        for (const auto& entry : root["玩家装备奖励"])
+    auto parseRewards = [&](const YAML::Node& entries, auto& output) {
+        if (!entries.IsSequence()) throw std::runtime_error("裝備獎勵必須是清單");
+        int previousFight = 0;
+        for (const auto& entry : entries)
         {
             BalanceConfig::PlayerEquipmentReward reward;
-            reward.fight = entry["关卡"].as<int>();
-            reward.maxTier = entry["最高层级"].as<int>();
-            reward.choices = entry["选项数量"].as<int>();
+            reward.fight = entry["關卡"].as<int>();
+            reward.minTier = entry["最低層級"].as<int>();
+            reward.maxTier = entry["最高層級"].as<int>();
+            reward.choices = entry["選項數量"].as<int>();
             reward.additionalOptionCost = entry["追加選項費用"].as<int>();
-            c.playerEquipmentRewards.push_back(reward);
+            if (reward.fight <= previousFight || reward.fight > c.totalFights
+                || reward.minTier < 1 || reward.maxTier > 4 || reward.minTier > reward.maxTier
+                || reward.choices <= 0 || reward.additionalOptionCost < 0)
+                throw std::runtime_error("裝備獎勵關卡、層級範圍、選項數量或費用不合法");
+            previousFight = reward.fight;
+            output.push_back(reward);
+        }
+    };
+    const auto rewards = root["玩家裝備獎勵"];
+    parseRewards(rewards["基本"], c.playerEquipmentRewards);
+    if (const auto extra = rewards["天賦額外"])
+    {
+        for (const auto& entry : extra)
+        {
+            const auto id = parseChessTalent(entry.first.as<std::string>());
+            if (!id || !c.talents.contains(*id) || c.talentEquipmentRewards.contains(*id))
+                throw std::runtime_error("天賦額外獎勵引用未知或重複天賦");
+            parseRewards(entry.second, c.talentEquipmentRewards[*id]);
         }
     }
 
+    }
+    catch (const std::exception& error)
+    {
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "平衡配置", error.what());
+        return false;
+    }
     out = std::move(c);
     emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Info, "平衡配置", "載入成功");
     return true;

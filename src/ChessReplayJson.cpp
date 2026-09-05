@@ -25,6 +25,7 @@ struct HeaderDto
     std::string difficulty;
     std::string root_seed;
     ChessReplayOptionsData options;
+    std::string talent;
 };
 
 struct DecisionDto
@@ -369,6 +370,7 @@ ChessReplayData chessReplayData(const ChessReplay& replay)
         replay.header.difficulty,
         rootSeedText(replay.header.rootSeed),
         {replay.header.options.positionSwapEnabled, replay.header.options.battleFrameLimit},
+        chessTalentId(replay.header.talent),
     };
     for (const auto& record : replay.decisions)
     {
@@ -393,9 +395,10 @@ std::optional<ChessReplay> parseChessReplayData(
 {
     ChessReplay replay;
     const auto seed = parseRootSeed(data.header.root_seed);
+    const auto talent = parseChessTalent(data.header.talent);
     if (data.header.magic != "KYS_CHESS_REPLAY"
         || data.header.game_version.empty()
-        || !seed)
+        || !seed || !talent)
     {
         error = {0, "重播標頭無效"};
         return std::nullopt;
@@ -407,10 +410,12 @@ std::optional<ChessReplay> parseChessReplayData(
     }
     replay.header.gameVersion = data.header.game_version;
     replay.header.difficulty = data.header.difficulty;
+    replay.header.talent = *talent;
     replay.header.rootSeed = *seed;
     replay.header.options = {
         data.header.options.position_swap_enabled,
         data.header.options.battle_frame_limit,
+        *talent,
     };
     for (std::size_t index = 0; index < data.decisions.size(); ++index)
     {
@@ -452,6 +457,7 @@ std::string serializeChessReplayJsonl(const ChessReplay& replay)
         data.header.difficulty,
         data.header.root_seed,
         data.header.options,
+        data.header.talent,
     }) + "\n";
     for (const auto& record : data.decisions)
     {
@@ -516,6 +522,7 @@ std::optional<ChessReplay> parseChessReplayJsonl(
                 dto->difficulty,
                 dto->root_seed,
                 dto->options,
+                dto->talent,
             };
             sawHeader = true;
         }

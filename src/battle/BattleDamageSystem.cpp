@@ -240,10 +240,11 @@ BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState&
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.lethalRecovery = unit.lethalRecovery;
     return runtime;
 }
 
-BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const BattleDamageTransactionInput& input) const
+BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const BattleDamageTransactionInput& input, BattleRuntimeRandom* recoveryRandom) const
 {
     assert(input.request.attackerUnitId == input.attacker.id);
     assert(input.request.defenderUnitId == input.defender.id);
@@ -492,13 +493,15 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             result.redirectedHpDamage = hpDamage;
             hpDamage = 0;
         }
-        auto taken = applyDamageTaken(result.defender, hpDamage, input.request.triggersDefenseEffects);
+        auto taken = applyDamageTaken(result.defender, hpDamage, input.request.triggersDefenseEffects, recoveryRandom);
         result.defender = taken.defender;
         result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.vitals.hp);
         result.hurtInvincGranted = taken.hurtInvincGranted;
         result.deathPrevented = taken.deathPrevented;
         result.invincibilityGranted = taken.invincibilityGranted;
         result.killed = taken.died;
+        result.recoveryTested = taken.recoveryTested;
+        result.recoverySucceeded = taken.recoverySucceeded;
 
         if (result.finalHpDamage > 0)
         {
@@ -921,7 +924,8 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
 BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(
     BattleDamageUnitState defender,
     int damage,
-    bool triggersDefenseEffects) const
+    bool triggersDefenseEffects,
+    BattleRuntimeRandom* recoveryRandom) const
 {
     BattleDamageTakenResult result;
     result.defender = defender;
@@ -951,6 +955,21 @@ BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(
         }
         else
         {
+            auto& recovery = result.defender.lethalRecovery;
+            if (recovery && !recovery->used)
+            {
+                assert(recoveryRandom);
+                recovery->used = true;
+                result.recoveryTested = true;
+                result.recoverySucceeded = recoveryRandom->nextInt(100) < recovery->chancePercent;
+                if (result.recoverySucceeded)
+                {
+                    result.defender.vitals.hp = std::min(recovery->survivalHp, result.defender.vitals.maxHp);
+                    result.defender.invincible += recovery->invincibleFrames;
+                    result.invincibilityGranted = recovery->invincibleFrames;
+                    return result;
+                }
+            }
             result.defender.vitals.hp = 0;
             result.defender.alive = false;
             result.died = true;

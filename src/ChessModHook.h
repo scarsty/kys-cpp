@@ -35,7 +35,7 @@ class ChessModHook
 public:
     static void initializeSaveState(::Save& save);
     static ChessSaveSceneState initialSaveSceneState();
-    static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
+    static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty, ChessTalentId talent);
     static bool canSaveCheckpoint();
     static ChessSessionCheckpoint exportCheckpoint();
     static bool isCheckpointReadable(

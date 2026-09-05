@@ -1,4 +1,4 @@
-﻿#include "SuperMenuText.h"
+#include "SuperMenuText.h"
 #include "../others/Hanz2Piny.h"
 #include "Font.h"
 #include <algorithm>
@@ -462,4 +462,12 @@ void SuperMenuText::applyCurrentPage(bool forceFirstActive)
     }
     setActiveItems(pageIndices, forceFirstActive);
     updateNavigationButtons();
+}
+
+void SuperMenuText::setSelectedItem(int index)
+{
+    assert(index >= 0 && index < static_cast<int>(items_.size()));
+    currentPage_ = index / itemsPerPage_;
+    applyCurrentPage(false);
+    selections_->forceActiveChild(index % itemsPerPage_);
 }

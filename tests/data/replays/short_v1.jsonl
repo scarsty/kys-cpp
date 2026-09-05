@@ -1,4 +1,4 @@
-{"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"dev","content_fingerprint":"6e475d307fd8a41784c9aa49afa627375d1a18f13d3a6f4e94e7b7d0872f1874","difficulty":"normal","root_seed":"0x0000000000001234","options":{"position_swap_enabled":true,"battle_frame_limit":99999}}
-{"record":"decision","action":{"type":"set_shop_locked","locked":true},"evidence_hash":"bc16a34871b850e8326d75ed10518373"}
-{"record":"decision","action":{"type":"buy_shop_slot","slot":0},"evidence_hash":"7cbe57446a7765eec02ea957d39cca6f"}
-{"record":"footer","status":"in_progress","terminal_evidence_hash":"7cbe57446a7765eec02ea957d39cca6f","final_state_hash":"21824d1f9fd388075c263da356f462399352890064a6fb7050df54812497e675","result":"in_progress","fight_reached":0}
+{"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"dev","content_fingerprint":"9c31317170caf2279e8e64b273ced377a70d8612fa85f55602da872fd1598b1d","difficulty":"normal","root_seed":"0x0000000000001234","options":{"position_swap_enabled":true,"battle_frame_limit":99999},"talent":"divine_arms"}
+{"record":"decision","action":{"type":"set_shop_locked","locked":true},"evidence_hash":"506952b832078e991ef9a5752ff3a335"}
+{"record":"decision","action":{"type":"buy_shop_slot","slot":0},"evidence_hash":"04236a68bd28c481f34512e10bd5cbfb"}
+{"record":"footer","status":"in_progress","terminal_evidence_hash":"04236a68bd28c481f34512e10bd5cbfb","final_state_hash":"47070cd8777207a441e6c33166500b0ed8310e1d47a0e9896e424dc19265a482","result":"in_progress","fight_reached":0}

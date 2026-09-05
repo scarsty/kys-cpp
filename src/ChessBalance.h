@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessDiagnostics.h"
+#include "ChessTalent.h"
 #include <array>
 #include <cstdint>
 #include <map>
@@ -27,6 +28,11 @@ struct BattlePieceDef
 
 struct BalanceConfig
 {
+    ChessTalentId defaultTalent = ChessTalentId::DivineArms;
+    std::vector<ChessTalentId> availableTalents = {ChessTalentId::DivineArms};
+    std::map<ChessTalentId, ChessTalentDefinition> talents = {
+        {ChessTalentId::DivineArms, {.legendaryShop = true}}};
+
     // Star scaling
     double starHPMult = 0.80;
     double starAtkMult = 0.80;
@@ -112,8 +118,12 @@ struct BalanceConfig
     std::vector<EnemyEquipmentLevel> enemyEquipmentLevels;
 
     // Player equipment rewards
-    struct PlayerEquipmentReward { int fight; int maxTier; int choices; int additionalOptionCost; };
+    struct PlayerEquipmentReward { int fight{}; int maxTier{}; int choices{}; int additionalOptionCost{}; int minTier = 1; };
     std::vector<PlayerEquipmentReward> playerEquipmentRewards;
+    std::map<ChessTalentId, std::vector<PlayerEquipmentReward>> talentEquipmentRewards;
+
+    const ChessTalentDefinition& talent(ChessTalentId id) const { return talents.at(id); }
+    bool allowsTalent(ChessTalentId id) const { return std::ranges::contains(availableTalents, id); }
 
     // Expedition challenges
     enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3, GetEquipment, GetSpecificEquipment };
@@ -128,6 +138,28 @@ struct BalanceConfig
     };
     std::vector<ChallengeDef> challenges;
 };
+
+inline std::string chessTalentDescription(const BalanceConfig& balance, ChessTalentId id)
+{
+    const auto& talent = balance.talent(id);
+    std::string description = talent.details(id);
+    const auto schedule = [&](const char* name, const auto& rewards) {
+        std::string text = std::format("\n{}（{}次）：", name, rewards.size());
+        for (std::size_t i = 0; i < rewards.size(); ++i)
+        {
+            if (i) text += "、";
+            text += std::format("第{}關 {}～{}階", rewards[i].fight, rewards[i].minTier, rewards[i].maxTier);
+        }
+        return text;
+    };
+    description += schedule("基本裝備", balance.playerEquipmentRewards);
+    if (const auto extra = balance.talentEquipmentRewards.find(id); extra != balance.talentEquipmentRewards.end())
+        description += schedule("天賦額外裝備", extra->second);
+    description += talent.legendaryShop
+        ? std::format("\n第{}關後神兵商店，每件{}金。", balance.legendaryShop.unlockFight, balance.legendaryShop.price)
+        : "\n此天賦無神兵商店。";
+    return description;
+}
 
 class ChessBalance
 {

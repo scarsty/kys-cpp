@@ -2151,7 +2151,7 @@ void applyDamageAndLifecycle(
         auto transactionInput = makeFrameDamageTransactionInput(state, request);
         transactionInput.redirectHpDamage = redirect.has_value();
         if (request.redirected) transactionInput.liveOutgoingDamagePctDelta = 0;
-        auto transaction = BattleDamageSystem().resolveTransaction(transactionInput);
+        auto transaction = BattleDamageSystem().resolveTransaction(transactionInput, &state.talentRandom);
         if (transaction.redirectedHpDamage > 0)
         {
             BattleDamageRequest redirected;
@@ -2184,6 +2184,17 @@ void applyDamageAndLifecycle(
         }
         applyFrameDamageTakenMpGain(transaction);
         applyDamageResultToFrameState(state, transaction, frameStartMotion);
+        if (transaction.recoveryTested)
+        {
+            appendStatusEventLog(frame.logEvents, transaction.defender.id, transaction.defender.id,
+                transaction.recoverySucceeded ? "賭運判定成功，免死並嘗試自動絕招" : "賭運判定失敗");
+            frame.logEvents.back().statusId = transaction.recoverySucceeded
+                ? BattleStatusSemanticId::LethalRecoverySucceeded : BattleStatusSemanticId::LethalRecoveryFailed;
+            frame.logEvents.back().semanticSourceKind = "talent";
+            frame.logEvents.back().semanticSourceName = "賭運";
+            if (transaction.recoverySucceeded)
+                frame.queueCommand(BattleAutoUltimateCommand{transaction.defender.id, false, true, true});
+        }
         recordResolvedDamageHeals(state, frame, intent, transaction);
         if (intent.request.baseDamage > 0 || intent.request.mpDamage > 0)
         {
@@ -2536,6 +2547,7 @@ BattleDamageUnitState makeBattleDamageUnitStateFromRuntime(
         damage.deathPrevention = runtime->deathPrevention;
         damage.deathPreventionUsed = runtime->deathPreventionUsed;
         damage.deathPreventionFrames = runtime->deathPreventionFrames;
+        damage.lethalRecovery = runtime->lethalRecovery;
     }
     return damage;
 }
@@ -2575,6 +2587,7 @@ void writeBattleDamageRuntimeUnitImpl(BattleDamageRuntimeUnit& runtime, const Ba
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.lethalRecovery = unit.lethalRecovery;
 }
 
 DamageChannel effectDamageChannel(BattleDamageKind kind)

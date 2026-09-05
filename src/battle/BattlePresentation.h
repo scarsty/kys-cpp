@@ -93,6 +93,10 @@ enum class BattleStatusSemanticId : std::int16_t
     MagicPointsDrained = 13,
     PoisonPayload = 14,
     BlockedByDualWield = 15,
+    LethalRecoverySucceeded = 16,
+    LethalRecoveryFailed = 17,
+    RecoveryUltimateCommitted = 18,
+    RecoveryUltimateSkipped = 19,
 };
 
 enum class BattleResourceSemanticId : std::int16_t

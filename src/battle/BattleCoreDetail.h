@@ -154,7 +154,8 @@ bool tryCommitAutoUltimate(
     std::vector<BattleAttackSpawnRequest>& attackSpawns,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents);
+    std::vector<BattleVisualEvent>& visualEvents,
+    bool* submitted = nullptr);
 
 void refreshRuntimeMovementProfiles(BattleRuntimeState& state);
 

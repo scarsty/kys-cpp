@@ -223,6 +223,7 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/ChessCatalogQueriesUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessContextMenuUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessGameContentUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessTalentUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessGameQueriesUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessGameSessionUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessStandaloneBattleUnitTests.cpp"
@@ -307,6 +308,15 @@ if(BUILD_TESTING)
             "${KYS_ROOT}/tests/test_chess_effect_schemas.py" -v
         WORKING_DIRECTORY "${KYS_ROOT}"
     )
+    if(TARGET kys_chess_cli)
+        add_test(
+            NAME chess_talents_consumer
+            COMMAND "${Python3_EXECUTABLE}" "${KYS_ROOT}/tests/test_chess_talents.py" -v
+            WORKING_DIRECTORY "${KYS_ROOT}"
+        )
+        set_tests_properties(chess_talents_consumer PROPERTIES
+            ENVIRONMENT "KYS_CHESS_CLI=$<TARGET_FILE:kys_chess_cli>")
+    endif()
 endif()
 
 if(KYS_EFFECT_SCHEMA_OUTPUTS)

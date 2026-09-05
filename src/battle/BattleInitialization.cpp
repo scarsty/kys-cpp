@@ -500,8 +500,21 @@ void BattleStartInitializationRun::initializeSeededUnits()
             fightsWon,
             extraFightWinGrowthHP,
             extraFightWinGrowthATK,
-            extraFightWinGrowthDEF);
+            extraFightWinGrowthDEF,
+            rosterUnit ? rosterUnit->amplifiedGrowthPercent : 0);
         starStatsByUnitId_[seed.unitId] = starBoostedStats;
+        if (rosterUnit)
+        {
+            unit.vitals.mp = std::clamp(unit.vitals.mp + rosterUnit->openingMp, 0, unit.vitals.maxMp);
+            if (rosterUnit->openingMp > 0)
+            {
+                BattleLogEvent log;
+                log.type = BattleLogEventType::Status;
+                log.sourceUnitId = log.targetUnitId = seed.unitId;
+                log.segments = battleLogText(std::format("天賦開場內力 +{}", rosterUnit->openingMp), BattleLogTextTone::Positive);
+                result_.logEvents.push_back(std::move(log));
+            }
+        }
 
         unit.vitals.maxHp = starBoostedStats.hp;
         unit.stats.attack = starBoostedStats.atk;
@@ -807,6 +820,11 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         auto& seededSpawn = spawn(unitId);
         seededSpawn.unit.vitals.hp = seededSpawn.unit.vitals.maxHp;
         refreshRuntimeUnitSpawnDerivedState(seededSpawn);
+        if (const auto* rosterUnit = tryFindBy(rosterForTeam(seededSpawn.unit.team), unitId,
+                &BattleSetupRosterUnit::unitId))
+        {
+            seededSpawn.damage.lethalRecovery = rosterUnit->lethalRecovery;
+        }
         if (const auto prevention = deathPreventionFramesByUnitId_.find(unitId);
             prevention != deathPreventionFramesByUnitId_.end())
         {

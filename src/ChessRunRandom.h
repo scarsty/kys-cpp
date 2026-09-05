@@ -17,6 +17,7 @@ enum class ChessRngStream : std::uint64_t
     MapSelection = 5,
     BattleSeed = 6,
     EnemyReroll = 7,
+    TalentManagement = 8,
 };
 
 struct ChessRngStreamState
@@ -39,7 +40,7 @@ struct ChessRunRandomState
 {
     std::uint64_t rootSeed{};
     std::uint64_t enemyPlanKey{};
-    std::array<ChessRngStreamState, 7> streams{};
+    std::array<ChessRngStreamState, 8> streams{};
 
     auto operator<=>(const ChessRunRandomState&) const = default;
 };
@@ -71,7 +72,7 @@ private:
 
     std::uint64_t rootSeed_{};
     std::uint64_t enemyPlanKey_ = 0;
-    std::array<ChessRngStreamState, 7> streams_{};
+    std::array<ChessRngStreamState, 8> streams_{};
 };
 
 }

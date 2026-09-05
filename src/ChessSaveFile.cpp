@@ -12,7 +12,7 @@ namespace
 {
 
 constexpr auto kWriteOptions = glz::opts{.prettify = true};
-constexpr auto kReadOptions = glz::opts{.error_on_unknown_keys = false};
+constexpr auto kReadOptions = glz::opts{.error_on_unknown_keys = false, .error_on_missing_keys = true};
 
 std::expected<std::string, std::string> readTextFile(
     const std::filesystem::path& path)

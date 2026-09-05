@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Button.h"
 #include "DrawableOnCall.h"
 #include "InputBox.h"
@@ -74,6 +74,7 @@ public:
     }
     std::string getInputText() const { return inputBox_ ? inputBox_->getText() : std::string(); }
 
+    void setSelectedItem(int index);
     void setDoubleTapMode(bool v) { doubleTapMode_ = v; }
     void setExitConfirmation(std::function<bool()> confirmation)
     {

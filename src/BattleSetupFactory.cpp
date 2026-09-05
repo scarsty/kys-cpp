@@ -271,6 +271,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
         BattlefieldData::CoordinateCount * BattlefieldData::CoordinateCount,
         0);
     const auto& balance = content.balance();
+    input.setup.talentBattleSeed = prepared.talentBattleSeed;
     input.setup.starGrowth = {
         balance.starHPMult,
         balance.starAtkMult,
@@ -359,6 +360,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
 
     for (const auto& unit : input.units)
     {
+        const auto& preparedUnit = *std::ranges::find(formation, unit.unitId, &PreparedChessBattleUnit::unitId);
         input.setup.units.push_back({
             unit.unitId,
             unit.realRoleId,
@@ -386,6 +388,9 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
             unit.chessInstanceId,
             unit.fightsWon,
             unit.sourceOrder,
+            preparedUnit.amplifiedGrowthPercent,
+            preparedUnit.openingMp,
+            preparedUnit.lethalRecovery,
         };
         (unit.team == 0 ? input.setup.allyRoster : input.setup.enemyRoster).push_back(roster);
         input.setup.cloneSources.push_back({

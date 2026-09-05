@@ -99,6 +99,7 @@ std::vector<ChessSaveSlotSummary> ChessSaveStore::list() const
             static_cast<int>(checkpoint.state.roster.size()),
             checkpoint.replay.decisions.size(),
             checkpoint.snapshotHash,
+            checkpoint.state.talent,
         });
     }
     return result;

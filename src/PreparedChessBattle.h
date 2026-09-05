@@ -1,6 +1,8 @@
 #pragma once
 
 #include "ChessRunRandom.h"
+#include "battle/BattleLethalRecovery.h"
+#include <optional>
 
 #include <array>
 #include <cstdint>
@@ -38,6 +40,9 @@ struct PreparedChessBattleUnit
     int x{};
     int y{};
     int formationSlot = -1;
+    int amplifiedGrowthPercent{};
+    int openingMp{};
+    std::optional<Battle::BattleLethalRecovery> lethalRecovery;
 
     auto operator<=>(const PreparedChessBattleUnit&) const = default;
 };
@@ -52,6 +57,7 @@ struct PreparedChessBattle
     int chosenMapId = -1;
     std::vector<std::pair<int, int>> formationSwaps;
     std::uint32_t battleSeed{};
+    std::uint32_t talentBattleSeed{};
     ChessRunRandomCheckpoint preparationCheckpoint;
     std::array<std::set<int>, 2> obtainedNeigongIdsByTeam;
 

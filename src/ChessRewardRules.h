@@ -32,7 +32,8 @@ public:
         const ChessGameContent& content,
         int slots,
         int maximumTier,
-        std::vector<ChessSemanticEvent>& events);
+        std::vector<ChessSemanticEvent>& events,
+        int minimumTier = 1);
     static void completePendingReward(
         ChessSessionState& state,
         std::vector<ChessSemanticEvent>& events);

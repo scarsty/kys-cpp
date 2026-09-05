@@ -73,13 +73,14 @@ void popReward(
 std::vector<ChessRewardOption> equipmentOptions(
     const ChessGameContent& content,
     ChessRunRandom& random,
+    int minimumTier,
     int maximumTier,
     int count)
 {
     std::vector<const EquipmentDef*> candidates;
     for (const auto& equipment : content.equipment())
     {
-        if (equipment.tier <= maximumTier)
+        if (equipment.tier >= minimumTier && equipment.tier <= maximumTier)
         {
             candidates.push_back(&equipment);
         }
@@ -154,6 +155,7 @@ void appendAdditionalOptions(
 ChessPendingReward makeEquipmentReward(
     const ChessGameContent& content,
     ChessRunRandom& random,
+    int minimumTier,
     int maximumTier,
     int count,
     int additionalOptionCost,
@@ -163,10 +165,10 @@ ChessPendingReward makeEquipmentReward(
     pending.id = std::move(id);
     pending.kind = ChessRewardKind::Equipment;
     pending.additionalOptionCost = additionalOptionCost;
-    pending.options = equipmentOptions(content, random, maximumTier, count);
+    pending.options = equipmentOptions(content, random, minimumTier, maximumTier, count);
     appendAdditionalOptions(
         pending,
-        equipmentOptions(content, random, maximumTier, count));
+        equipmentOptions(content, random, minimumTier, maximumTier, count));
     return pending;
 }
 
@@ -410,23 +412,30 @@ void ChessRewardRules::enqueueCampaignRewards(
             state.pendingRewards.push_back(std::move(pending));
         }
     }
-    for (const auto& reward : content.balance().playerEquipmentRewards)
+    const auto enqueueEquipment = [&](const auto& rewards, const char* source) {
+    for (const auto& reward : rewards)
     {
         if (reward.fight == completedFight)
         {
             auto pending = makeEquipmentReward(
                 content,
                 random,
+                reward.minTier,
                 reward.maxTier,
                 reward.choices,
                 reward.additionalOptionCost,
-                std::format("fight_equipment:{}", completedFight));
+                std::format("fight_equipment:{}:{}", completedFight, source));
             if (!pending.options.empty())
             {
                 state.pendingRewards.push_back(std::move(pending));
             }
         }
     }
+    };
+    enqueueEquipment(content.balance().playerEquipmentRewards, "basic");
+    if (const auto extra = content.balance().talentEquipmentRewards.find(state.talent);
+        extra != content.balance().talentEquipmentRewards.end())
+        enqueueEquipment(extra->second, chessTalentId(state.talent));
     exposeRewardBoundary(state, events);
 }
 
@@ -465,10 +474,13 @@ void ChessRewardRules::enqueueForcedBan(
     const ChessGameContent& content,
     int slots,
     int maximumTier,
-    std::vector<ChessSemanticEvent>& events)
+    std::vector<ChessSemanticEvent>& events,
+    int minimumTier)
 {
     ChessPendingReward pending;
     pending.id = std::format("forced_ban:{}", state.fight);
+    if (state.talent == ChessTalentId::Gambler && state.fight == 0)
+        events.push_back({ChessSemanticEventType::OpeningTalentBansQueued, {}, {}, slots, pending.id});
     pending.kind = ChessRewardKind::ForcedBan;
     pending.parameter = slots;
     pending.choiceCount = slots;
@@ -476,7 +488,7 @@ void ChessRewardRules::enqueueForcedBan(
     for (const int roleId : content.poolRoleIds())
     {
         const auto* role = content.role(roleId);
-        if (role && role->Cost <= maximumTier && !state.bannedRoleIds.contains(roleId))
+        if (role && role->Cost >= minimumTier && role->Cost <= maximumTier && !state.bannedRoleIds.contains(roleId))
         {
             pending.options.push_back({std::format("ban:{}", roleId), ChessRewardKind::ForcedBan, roleId});
         }

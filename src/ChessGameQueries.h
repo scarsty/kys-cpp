@@ -76,6 +76,7 @@ struct ChessShopAnalysis
 struct ChessInstanceAnalysis
 {
     ChessSessionPiece piece;
+    int luckChancePercent{};
     ChessCalculatedStats currentStats;
     int oneStarEquivalentCopies{};
     int sameStarCopies{};

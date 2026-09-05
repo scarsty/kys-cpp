@@ -17,7 +17,8 @@ public:
     static void refreshShop(
         ChessSessionState& state,
         const ChessGameContent& content,
-        ChessRunRandom& random);
+        ChessRunRandom& random,
+        std::vector<ChessSemanticEvent>* events = nullptr);
 
     static ChessRuleErrorCode validate(
         const ChessSessionState& state,
@@ -59,7 +60,8 @@ public:
         const ChessGameContent& content,
         int roleId,
         std::vector<ChessSemanticEvent>& events,
-        int eventValue = 0);
+        int eventValue = 0,
+        int star = 1);
     static int grantEquipment(
         ChessSessionState& state,
         int itemId,

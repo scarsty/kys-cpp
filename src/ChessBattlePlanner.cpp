@@ -488,7 +488,8 @@ EnemyLineupCandidate campaignEnemyLineup(
 
 void appendAllies(
     PreparedChessBattle& battle,
-    const ChessSessionState& state)
+    const ChessSessionState& state,
+    const ChessGameContent& content)
 {
     assert(ChessManagementRules::formationIsValid(state, state.formationSlots));
     int unitId = 1;
@@ -613,6 +614,8 @@ void finishPreparation(
     const ChessGameContent& content,
     ChessRunRandom& random)
 {
+    const auto talentSeed = chessBeveSha256("KYS_TALENT_BATTLE", random.rootSeed(), state.fight, battle.stableBattleId);
+    for (int i = 0; i < 4; ++i) battle.talentBattleSeed |= static_cast<std::uint32_t>(talentSeed[i]) << (8 * i);
     const int allyRequiredSlots = BattleSetupFactory::requiredFormationSlots(battle, 0);
     const int enemyRequiredSlots = BattleSetupFactory::requiredFormationSlots(battle, 1);
     battle.mapCandidates = ChessBattleMapCatalog::fittingMapIds(
@@ -640,6 +643,25 @@ void finishPreparation(
 
 }
 
+void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
+    const ChessSessionState& state, const ChessGameContent& content)
+{
+    const auto& talent = content.balance().talent(state.talent);
+    int extraStars = 0;
+    for (const auto& unit : battle.units) if (unit.team == 0) extraStars += unit.star - 1;
+    for (auto& unit : battle.units)
+    {
+        if (unit.team != 0) continue;
+        const auto& piece = state.roster.at(unit.chessInstanceId);
+        unit.amplifiedGrowthPercent = talent.amplifiedGrowthPercent;
+        if (piece.luckStacks > 0)
+            unit.lethalRecovery = Battle::BattleLethalRecovery{
+                talent.luckChance(piece.luckStacks), talent.luckSurvivalHp, talent.luckInvincibleFrames};
+        if (content.role(piece.roleId)->Cost == talent.targetTier)
+            unit.openingMp = std::min(talent.extraStarCap, extraStars - (piece.star - 1)) * talent.mpPerExtraStar;
+    }
+}
+
 PreparedChessBattle ChessBattlePlanner::prepareCampaign(
     const ChessSessionState& state,
     const ChessGameContent& content,
@@ -650,7 +672,8 @@ PreparedChessBattle ChessBattlePlanner::prepareCampaign(
     battle.obtainedNeigongIdsByTeam[0] = state.obtainedNeigongIds;
     battle.stableBattleId = std::format("campaign:{}", state.fight + 1);
     battle.preparationCheckpoint = random.checkpointPreparation();
-    appendAllies(battle, state);
+    appendAllies(battle, state, content);
+    applyPlayerTalents(battle, state, content);
     int unitId = static_cast<int>(battle.units.size()) + 1;
     const auto slots = campaignSlots(state, content);
     const auto lineup = campaignEnemyLineup(state, content, slots, random);
@@ -676,7 +699,8 @@ PreparedChessBattle ChessBattlePlanner::prepareChallenge(
     battle.obtainedNeigongIdsByTeam[0] = state.obtainedNeigongIds;
     battle.stableBattleId = challenge.name;
     battle.preparationCheckpoint = random.checkpointPreparation();
-    appendAllies(battle, state);
+    appendAllies(battle, state, content);
+    applyPlayerTalents(battle, state, content);
     int unitId = static_cast<int>(battle.units.size()) + 1;
     for (const auto& enemy : challenge.enemies)
     {

@@ -46,6 +46,7 @@ struct Arguments
     std::filesystem::path autosaveFile;
     KysChess::Difficulty difficulty = KysChess::Difficulty::Normal;
     std::uint64_t seed = 1;
+    std::optional<KysChess::ChessTalentId> talent;
     int battleSeedCount = KysChess::kDefaultChessTournamentBattleSeedCount;
     int seedSequenceIndex{};
     int leg{};
@@ -114,8 +115,8 @@ const CommandDefinition* commandDefinition(std::string_view name)
 void printUsage(std::ostream& output)
 {
     output << "用法：\n"
-              "  kys_chess_cli [play] [--difficulty easy|normal|hard] [--seed N] [--compact]\n"
-              "  kys_chess_cli new [--difficulty easy|normal|hard] [--seed N] [--compact|--json]\n"
+              "  kys_chess_cli [play] [--difficulty easy|normal|hard] [--seed N] [--talent ID] [--compact]\n"
+              "  kys_chess_cli new [--difficulty easy|normal|hard] [--seed N] [--talent ID] [--compact|--json]\n"
               "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
               "  kys_chess_cli --mcp [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
               "  kys_chess_cli validate-content [--difficulty easy|normal|hard] [--data-root 路徑] [--config-root 路徑]\n"
@@ -275,6 +276,18 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             }
             result.arguments.difficulty = *difficulty;
             result.arguments.difficultySpecified = true;
+        }
+        else if (value == "--talent")
+        {
+            const auto talentText = optionValue(value);
+            if (!talentText) return result;
+            const auto talent = KysChess::parseChessTalent(*talentText);
+            if (!talent)
+            {
+                result.error = "--talent 必須是 divine_arms、late_bloomer、gambler 或 backbone";
+                return result;
+            }
+            result.arguments.talent = talent;
         }
         else if (value == "--seed")
         {
@@ -1222,7 +1235,8 @@ int main(int argc, char** argv)
     auto initialOutput = controller.newSession(
         arguments.difficulty,
         arguments.seed,
-        arguments.mode);
+        arguments.mode,
+        arguments.talent);
     std::cout << initialOutput;
     if (!initialOutput.empty() && !initialOutput.ends_with('\n'))
     {

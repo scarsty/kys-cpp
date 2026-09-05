@@ -4,7 +4,18 @@
 
 本文件記錄已討論的棋手天賦玩法、首輪平衡值及後續實作邊界。玩法身份與觸發語意視為已決定；所有數值必須由配置控制，首輪數值仍可在實測後調整。
 
-本文件只描述未來實作，不代表目前遊戲已經具備棋手天賦。
+四種天賦已實作，包含選擇流程、經營與戰鬥規則、標頭顯示、存檔、重播及 CLI／MCP。本文以下保留設計規範與驗收清單，供後續平衡及回歸驗證使用。
+
+### 實作入口與資源
+
+- `config/chess_talents.yaml`：四種天賦的唯一數值目錄；各難度配置提供預設、可選清單及裝備獎勵。
+- `schemas/chess_talents.schema.json`、`schemas/chess_balance.schema.json`：配置結構；跨欄位範圍與獎勵關卡順序由 `ChessBalance` 載入器進一步驗證。
+- CLI：`kys_chess_cli new --difficulty hard --talent gambler --seed 1`；互動指令為 `new hard 1 gambler`。
+- JSONL 的 `new` 與 MCP 的 `new_game` 接受 `talent`：`divine_arms`、`late_bloomer`、`gambler`、`backbone`。省略時採用難度配置預設值；不合法的難度／天賦組合會拒絕。
+- 觀察包含 `talent`、`talent_name`、`talent_description`、`talent_has_legendary_shop`、`legendary_shop_unlocked`、`shop_guarantees` 及下一次基本／天賦裝備獎勵。棋子實例包含 `luck_stacks` 與 `luck_chance_percent`；戰報記錄賭運成功、失敗及實際絕招提交。
+- 賭運經營抽取使用獨立 `TalentManagement` 隨機流；每場戰鬥從局種子、已完成關卡及穩定戰鬥識別衍生獨立判定種子。天賦戰鬥隨機狀態與使用狀態納入戰鬥摘要。
+- 圖片放在既有遊戲資源根目錄下的 `resource/chess-talents/`。本機為 `work/game-dev/resource/chess-talents/`，與其他美術資源一樣不納入 Git。`divine-arms.png`、`gambler.png` 使用獨立修正版；`talent-atlas.png` 只使用右上晚成、右下中堅。
+- 舊存檔及重播必須重新建立；不提供缺少天賦欄位或舊配置結構的相容路徑。
 
 ## 目標
 
@@ -388,7 +399,7 @@ F = 每顆星級固定值 × (星級 - 1)
 
 ### 繁體中文鍵同步遷移
 
-目前三份 `config/chess_balance_*.yaml`仍使用大量簡體中文結構鍵，例如 `玩家装备奖励`、`最高层级`及`选项数量`。天賦實作已經需要改變這些區塊的形狀，因此同一個實作變更必須把三份權威難度配置、`ChessBalance`載入器、測試 fixture、schema 及相關文件同步遷移為繁體中文鍵。
+實作前，三份 `config/chess_balance_*.yaml`使用大量簡體中文結構鍵，例如 `玩家装备奖励`、`最高层级`及`选项数量`。天賦實作已經需要改變這些區塊的形狀，因此同一個實作變更必須把三份權威難度配置、`ChessBalance`載入器、測試 fixture、schema 及相關文件同步遷移為繁體中文鍵。
 
 這次遷移不只在新區塊混入繁體別名；正式目標是讓權威 `chess_balance_easy.yaml`、`chess_balance_normal.yaml`及`chess_balance_hard.yaml`的結構鍵統一使用繁體中文。舊簡體鍵在遷移完成後直接拒絕，不保留 parser alias 或雙拼寫相容期。這與 effect authoring 計畫的配置語言整理原則一致。
 

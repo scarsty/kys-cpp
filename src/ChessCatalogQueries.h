@@ -182,12 +182,14 @@ ChessCalculatedStats chessRoleStats(
     const ChessRoleDefinition& role,
     const BalanceConfig& balance,
     int star,
-    int fightsWon);
+    int fightsWon,
+    int amplifiedGrowthPercent = 0);
 void applyChessItemBaseStats(ChessCalculatedStats& stats, const ChessItemDefinition* item);
 ChessCalculatedStats chessPieceStats(
     const ChessGameContent& content,
     const ChessSessionPiece& piece,
-    const std::vector<ChessEquipmentInstance>& equipmentInventory);
+    const std::vector<ChessEquipmentInstance>& equipmentInventory,
+    int amplifiedGrowthPercent = 0);
 ChessCalculatedStats chessPreparedUnitBaselineStats(
     const ChessGameContent& content,
     const PreparedChessBattleUnit& unit);

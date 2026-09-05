@@ -79,13 +79,13 @@ ChessGameSession& ChessApplicationSessionHost::session()
     return *session_;
 }
 
-void ChessApplicationSessionHost::reset(Difficulty difficulty)
+void ChessApplicationSessionHost::reset(Difficulty difficulty, std::optional<ChessTalentId> talent)
 {
     const auto rootSeed = static_cast<std::uint64_t>(
         std::chrono::high_resolution_clock::now().time_since_epoch().count());
     auto replacement = std::make_unique<ChessGameSession>(
         contentFor(difficulty),
-        rootSeed);
+        rootSeed, ChessSessionOptions{.talent = talent});
     commitRestore(std::move(replacement));
 }
 
@@ -141,9 +141,9 @@ ChessGameSession& applicationChessSession()
     return ChessApplicationSessionHost::instance().session();
 }
 
-void resetApplicationChessSession(Difficulty difficulty)
+void resetApplicationChessSession(Difficulty difficulty, std::optional<ChessTalentId> talent)
 {
-    ChessApplicationSessionHost::instance().reset(difficulty);
+    ChessApplicationSessionHost::instance().reset(difficulty, talent);
 }
 
 }

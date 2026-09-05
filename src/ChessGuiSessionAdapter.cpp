@@ -1157,7 +1157,8 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
         *role,
         session.content().balance(),
         star,
-        fightsWon);
+        fightsWon,
+        session.content().balance().talent(session.state().talent).amplifiedGrowthPercent);
 
     int avatarWidth = 128;
     auto* headTexture = TextureManager::getInstance()->getTexture("head", role->HeadID);
@@ -1202,6 +1203,10 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
     layout.statsColumn.line(statsY + layout.lineHeight * 3 + kStatsDetailOffsetY, "防禦", std::format("{:5}", stats.defence), selectStatColor(stats.defence, Role::getMaxValue()->Defence));
     layout.statsColumn.line(statsY + layout.lineHeight * 4 + kStatsDetailOffsetY, "輕功", std::format("{:5}", stats.speed), selectStatColor(stats.speed, Role::getMaxValue()->Speed));
 
+    if (piece && piece->luckStacks > 0)
+        font->draw(std::format("賭運 {} 層 · {}%", piece->luckStacks,
+            session.content().balance().talent(session.state().talent).luckChance(piece->luckStacks)),
+            18, layout.avatar.x, layout.avatar.y + layout.avatar.h + 2, {255, 192, 136, 255});
     const int skillY = layout.avatar.y + layout.avatar.h + kSkillTopGap;
     layout.skillCol1.line(skillY + layout.lineHeight * 0, "拳掌", std::format("{:5}", stats.fist), selectStatColor(stats.fist, Role::getMaxValue()->Fist));
     layout.skillCol2.line(skillY + layout.lineHeight * 0, "御劍", std::format("{:5}", stats.sword), selectStatColor(stats.sword, Role::getMaxValue()->Sword));
@@ -3403,7 +3408,7 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
 void ChessGuiSessionAdapter::showEquipmentMenu()
 {
     const auto& shop = session_.content().balance().legendaryShop;
-    const bool legendaryUnlocked = shop.unlockFight > 0 && session_.state().fight >= shop.unlockFight;
+    const bool legendaryUnlocked = session_.content().balance().talent(session_.state().talent).legendaryShop && shop.unlockFight > 0 && session_.state().fight >= shop.unlockFight;
     if (!legendaryUnlocked)
     {
         showEquipmentInventory();
@@ -4303,7 +4308,7 @@ void ChessGuiSessionAdapter::viewEffects()
 void ChessGuiSessionAdapter::showGameGuide()
 {
     const auto frame = ChessScreenLayout::fullContentRegion();
-    const auto sections = buildChessGameGuideSections(session_.content());
+    const auto sections = buildChessGameGuideSections(session_.content(), session_.state().talent);
     auto panel = makePanel(frame, [sections](int, const PanelFrame& panelFrame) {
         auto* font = Font::getInstance();
         constexpr int titleFontSize = 22;
@@ -4943,7 +4948,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
             return ChessGuiFlowResult::Aborted;
         }
         const auto& legendaryShop = session_.content().balance().legendaryShop;
-        if (legendaryShop.unlockFight > 0 && session_.state().fight == legendaryShop.unlockFight)
+        if (session_.content().balance().talent(session_.state().talent).legendaryShop && legendaryShop.unlockFight > 0 && session_.state().fight == legendaryShop.unlockFight)
         {
             auto unlockTalk = std::make_shared<Talk>(
                 std::format(

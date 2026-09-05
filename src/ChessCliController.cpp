@@ -166,7 +166,8 @@ std::string ChessCliController::submitRequest(std::string method, std::string pa
 std::string ChessCliController::newSession(
     Difficulty difficulty,
     std::uint64_t seed,
-    ChessCliOutputMode mode)
+    ChessCliOutputMode mode,
+    std::optional<ChessTalentId> talent)
 {
     const auto difficultyText = difficulty == Difficulty::Easy
         ? "easy"
@@ -174,9 +175,9 @@ std::string ChessCliController::newSession(
     const auto response = submitRequest(
         "new",
         std::format(
-            "{{\"difficulty\":\"{}\",\"seed\":\"0x{:016x}\"}}",
+            "{{\"difficulty\":\"{}\",\"seed\":\"0x{:016x}\"{}}}",
             difficultyText,
-            seed));
+            seed, talent ? std::format(",\"talent\":\"{}\"", chessTalentId(*talent)) : ""));
     if (mode == ChessCliOutputMode::Json)
     {
         return response;
@@ -195,7 +196,7 @@ std::string ChessCliController::helpText()
         "工作階段指令：\n"
         "  observe                         顯示目前遊戲狀態\n"
         "  legal                           顯示目前可用的遊戲操作\n"
-        "  new <easy|normal|hard> <種子>   建立新遊戲；種子可用十進位或 0x 十六進位\n"
+        "  new <easy|normal|hard> <種子> [天賦ID]   建立新遊戲；種子可用十進位或 0x 十六進位\n"
         "  save <欄位>                     儲存目前遊戲\n"
         "  load <欄位>                     載入遊戲\n"
         "  replay                          在終端輸出重播 JSONL\n"
@@ -399,11 +400,19 @@ std::string ChessCliController::executeInteractive(
         stream >> difficultyText >> seedText;
         const auto difficulty = parseChessCliDifficulty(difficultyText);
         const auto seed = parseChessCliSeed(seedText);
+        std::string talentText;
+        std::optional<ChessTalentId> talent;
+        if (!atEnd(stream))
+        {
+            stream >> talentText;
+            talent = parseChessTalent(talentText);
+            if (!talent) return "天賦無效\n";
+        }
         if (!difficulty || !seed || !atEnd(stream))
         {
-            return "用法：new <easy|normal|hard> <種子>\n";
+            return "用法：new <easy|normal|hard> <種子> [天賦ID]\n";
         }
-        return newSession(*difficulty, *seed, mode);
+        return newSession(*difficulty, *seed, mode, talent);
     }
 
     const auto* commandInfo = chessCliActionCommand(verb);

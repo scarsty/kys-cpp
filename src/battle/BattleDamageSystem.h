@@ -1,6 +1,8 @@
 #pragma once
 
 #include "BattleFixed.h"
+#include "BattleLethalRecovery.h"
+#include "BattleRuntimeRandom.h"
 #include "BattleHealSystem.h"
 #include "BattleOperation.h"
 #include "BattleStatusSystem.h"
@@ -34,6 +36,7 @@ struct BattleDamageUnitState
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
+    std::optional<BattleLethalRecovery> lethalRecovery;
 
     bool mpBlocked = false;
     int mpRecoveryBonusPct = 0;
@@ -46,6 +49,7 @@ struct BattleDamageRuntimeUnit
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
+    std::optional<BattleLethalRecovery> lethalRecovery;
 
     bool operator==(const BattleDamageRuntimeUnit&) const = default;
 };
@@ -187,6 +191,8 @@ struct BattleDamageTakenResult
     bool hurtInvincGranted = false;
     bool deathPrevented = false;
     bool died = false;
+    bool recoveryTested = false;
+    bool recoverySucceeded = false;
     int invincibilityGranted = 0;
 };
 
@@ -373,6 +379,8 @@ struct BattleDamageTransactionResult
     std::vector<BattleDamageAbsorptionReceipt> absorptionReceipts;
     bool executed = false;
     bool killed = false;
+    bool recoveryTested = false;
+    bool recoverySucceeded = false;
     bool hurtInvincGranted = false;
     bool deathPrevented = false;
     bool blockedByInvincible = false;
@@ -388,10 +396,10 @@ struct BattleDamageTransactionResult
 class BattleDamageSystem
 {
 public:
-    BattleDamageTransactionResult resolveTransaction(const BattleDamageTransactionInput& input) const;
+    BattleDamageTransactionResult resolveTransaction(const BattleDamageTransactionInput& input, BattleRuntimeRandom* recoveryRandom = nullptr) const;
     BattleDamageModifierResult applyModifiers(const BattleDamageModifierInput& input) const;
     BattleDamageDefenseResult resolveDefense(const BattleDamageDefenseInput& input) const;
-    BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage, bool triggersDefenseEffects = true) const;
+    BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage, bool triggersDefenseEffects = true, BattleRuntimeRandom* recoveryRandom = nullptr) const;
     BattleCooldownIncreaseResult extendActiveCooldown(BattleCooldownState unit, int pct) const;
     bool shouldExecute(const BattleExecuteInput& input) const;
     BattleOnHitResourceResult applyOnHitResources(const BattleOnHitResourceInput& input) const;

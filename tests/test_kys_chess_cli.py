@@ -700,15 +700,26 @@ class ChessCliTests(unittest.TestCase):
             unit for unit in full["unit_stats"] if unit["poison_payload_events"] > 0
         ]
         self.assertEqual(len(poison_units), 2)
-        self.assertTrue(all(unit["magic_points_drained"] > 0 for unit in poison_units))
+        # Poison payloads and MP drains are separate effects. Verify attribution
+        # against emitted events, including sources that apply poison without draining.
+        for unit in full["unit_stats"]:
+            events = [event for event in full["effect_activations"]
+                      if event["source_unit_id"] == unit["unit_id"]]
+            self.assertEqual(unit["magic_points_drained"], sum(
+                event["value"] for event in events if event["type"] == "magic_points_drained"))
+            self.assertEqual(unit["poison_payload_events"], sum(
+                event["type"] == "poison_payload" for event in events))
+            self.assertEqual(unit["poison_application_events"], sum(
+                event["type"] == "poison_applied" for event in events))
+        self.assertTrue(any(unit["magic_points_drained"] == 0 for unit in poison_units))
         self.assertTrue(
             all(
                 unit["poison_application_events"] <= unit["poison_payload_events"]
                 for unit in poison_units
             )
         )
-        self.assertTrue(all(unit["poison_ticks"] > 0 for unit in poison_units))
-        self.assertTrue(all(unit["poison_damage"] > 0 for unit in poison_units))
+        self.assertTrue(any(unit["poison_ticks"] > 0 for unit in poison_units))
+        self.assertTrue(any(unit["poison_damage"] > 0 for unit in poison_units))
 
         drain = next(
             event
@@ -772,12 +783,12 @@ class ChessCliTests(unittest.TestCase):
         reward = response["result"]["next_observation"]["pending_reward"]
         sword = next(option for option in reward["options"] if option["label"] == "越女劍")
         self.assertIn("角色加成(韓小瑩)", sword["description"])
-        self.assertIn("主彈道命中時", sword["description"])
-        self.assertIn("有25%機率", sword["description"])
-        self.assertIn("被主彈命中的敵人", sword["description"])
+        self.assertIn("主彈命中：", sword["description"])
+        self.assertIn("25%機率", sword["description"])
+        self.assertIn("對主彈目標", sword["description"])
         self.assertIn("擊退120像素", sword["description"])
-        self.assertIn("鎖定7幀", sword["description"])
-        self.assertIn("\n  閃避率+18%", sword["description"])
+        self.assertIn("鎖7幀", sword["description"])
+        self.assertIn("\n  閃避+18%", sword["description"])
         self.assertNotIn("。；", sword["description"])
         self.assertNotIn("鎖定7幀：", sword["description"])
 

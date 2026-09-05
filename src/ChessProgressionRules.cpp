@@ -202,7 +202,7 @@ void ChessProgressionRules::applyBattleResult(
     }
     if (!state.shopLocked)
     {
-        ChessManagementRules::refreshShop(state, content, random);
+        ChessManagementRules::refreshShop(state, content, random, &events);
     }
     state.campaignComplete = state.fight >= balance.totalFights;
     if (state.campaignComplete)

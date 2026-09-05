@@ -33,7 +33,8 @@ public:
     std::string newSession(
         Difficulty difficulty,
         std::uint64_t seed,
-        ChessCliOutputMode mode = ChessCliOutputMode::Human);
+        ChessCliOutputMode mode = ChessCliOutputMode::Human,
+        std::optional<ChessTalentId> talent = std::nullopt);
     static std::string helpText();
 
     ChessJsonProtocol& protocol() { return protocol_; }

@@ -74,6 +74,9 @@ struct UnitCombatAggregate
     int cooldownManipulationFrames{};
     int invulnerabilityTriggers{};
     int deathPreventionTriggers{};
+    int luckSuccesses{};
+    int luckFailures{};
+    int luckUltimateSubmissions{};
     ChessBattleDamageBreakdown damage;
     std::map<std::string, int> nonSkillDamageSources;
     std::map<std::string, int> nonSkillDamageSourceCounts;
@@ -248,6 +251,9 @@ void addCombatEffect(UnitCombatAggregate& aggregate, const BattleReportEvent& ev
         ++aggregate.cooldownManipulations;
         aggregate.cooldownManipulationFrames += event.value;
     }
+    if (event.statusId == Battle::BattleStatusSemanticId::LethalRecoverySucceeded) ++aggregate.luckSuccesses;
+    if (event.statusId == Battle::BattleStatusSemanticId::LethalRecoveryFailed) ++aggregate.luckFailures;
+    if (event.statusId == Battle::BattleStatusSemanticId::RecoveryUltimateCommitted) ++aggregate.luckUltimateSubmissions;
     if (event.statusId == Battle::BattleStatusSemanticId::DeathPrevented
         || containsText(label, "死亡庇護")
         || containsText(label, "免死"))
@@ -444,6 +450,9 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
         stats.cooldownManipulationFrames = aggregate.cooldownManipulationFrames;
         stats.invulnerabilityTriggers = aggregate.invulnerabilityTriggers;
         stats.deathPreventionTriggers = aggregate.deathPreventionTriggers;
+        stats.luckSuccesses = aggregate.luckSuccesses;
+        stats.luckFailures = aggregate.luckFailures;
+        stats.luckUltimateSubmissions = aggregate.luckUltimateSubmissions;
         stats.damageBreakdown = aggregate.damage;
         for (const auto& [source, damage] : aggregate.nonSkillDamageSources)
         {

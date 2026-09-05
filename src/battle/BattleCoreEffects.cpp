@@ -265,7 +265,8 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* autoUltimate = std::get_if<BattleAutoUltimateCommand>(&command))
     {
-        return CoreDetail::tryCommitAutoUltimate(
+        bool submitted{};
+        const bool handled = CoreDetail::tryCommitAutoUltimate(
             state,
             frame,
             autoUltimate->unitId,
@@ -276,7 +277,17 @@ bool reduceFrameGameplayCommand(
             sinks.attackSpawns,
             sinks.gameplayEvents,
             sinks.logEvents,
-            sinks.visualEvents);
+            sinks.visualEvents, &submitted);
+        if (autoUltimate->reportSubmission)
+        {
+            CoreDetail::appendStatusEventLog(sinks.logEvents, autoUltimate->unitId, autoUltimate->unitId,
+                submitted ? "賭運自動絕招已提交" : "賭運自動絕招未提交：沒有可用絕招或合法目標");
+            sinks.logEvents.back().statusId = submitted
+                ? BattleStatusSemanticId::RecoveryUltimateCommitted : BattleStatusSemanticId::RecoveryUltimateSkipped;
+            sinks.logEvents.back().semanticSourceKind = "talent";
+            sinks.logEvents.back().semanticSourceName = "賭運";
+        }
+        return handled;
     }
     if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
     {

@@ -18,6 +18,7 @@ struct ChessSaveSlotSummary
     int rosterCount{};
     std::uint64_t replaySequence{};
     ChessSha256 stateHash{};
+    ChessTalentId talent = ChessTalentId::DivineArms;
 };
 
 struct ChessTimelineReplacement

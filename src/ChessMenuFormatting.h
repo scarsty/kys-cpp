@@ -344,10 +344,14 @@ inline std::string chessFightWinGrowthGuideLine(const BalanceConfig& balance)
         balance.fightWinGrowthSpeed);
 }
 
-inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const ChessGameContent& content)
+inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const ChessGameContent& content, std::optional<ChessTalentId> selectedTalent = std::nullopt)
 {
     const auto& balance = content.balance();
     const auto& neigong = content.neigongConfig();
+    const auto talentId = selectedTalent.value_or(balance.defaultTalent);
+    auto equipmentRewards = balance.playerEquipmentRewards;
+    if (const auto extra = balance.talentEquipmentRewards.find(talentId); extra != balance.talentEquipmentRewards.end())
+        equipmentRewards.insert(equipmentRewards.end(), extra->second.begin(), extra->second.end());
 
     const auto formatTierPrices = [&balance]() {
         std::string result;
@@ -362,27 +366,28 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const Ches
         return result;
     };
 
-    const auto formatEquipmentRewardLine = [&balance]() {
-        if (balance.playerEquipmentRewards.empty())
+    const auto formatEquipmentRewardLine = [&equipmentRewards]() {
+        if (equipmentRewards.empty())
         {
             return std::string("· 本難度沒有固定裝備獎勵，主要從遠征挑戰與商店取得裝備");
         }
 
-        int firstFight = balance.playerEquipmentRewards.front().fight;
-        int maxTier = balance.playerEquipmentRewards.front().maxTier;
-        for (const auto& reward : balance.playerEquipmentRewards)
+        int firstFight = equipmentRewards.front().fight;
+        int maxTier = equipmentRewards.front().maxTier;
+        for (const auto& reward : equipmentRewards)
         {
             firstFight = std::min(firstFight, reward.fight);
             maxTier = std::max(maxTier, reward.maxTier);
         }
         return std::format(
             "· 固定裝備獎勵共{}次，最早第{}回，最高{}階",
-            balance.playerEquipmentRewards.size(),
+            equipmentRewards.size(),
             firstFight,
             maxTier);
     };
 
-    const auto formatLegendaryShopLine = [&balance]() {
+    const auto formatLegendaryShopLine = [&balance, talentId]() {
+        if (!balance.talent(talentId).legendaryShop) return std::string("· 此天賦無神兵商店");
         if (balance.legendaryShop.unlockFight <= 0)
         {
             return std::string("· 神兵商店未開放，可從獎勵與挑戰取得裝備");

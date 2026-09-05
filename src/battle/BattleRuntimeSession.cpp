@@ -100,6 +100,7 @@ BattleRuntimeState buildRuntimeFromSpawns(
     BattleRuntimeState runtime;
     runtime.gridTransform = input.rules.gridTransform;
     runtime.random = BattleRuntimeRandom(input.randomSeed);
+    runtime.talentRandom = BattleRuntimeRandom(input.setup.talentBattleSeed);
     runtime.units.reserve(spawns.size());
 
     for (auto& spawn : spawns)

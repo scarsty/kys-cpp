@@ -167,7 +167,8 @@ ChessCalculatedStats chessRoleStats(
     const ChessRoleDefinition& role,
     const BalanceConfig& balance,
     int star,
-    int fightsWon)
+    int fightsWon,
+    int amplifiedGrowthPercent)
 {
     const auto stats = computeStarBoostedStats(
         {
@@ -197,7 +198,7 @@ ChessCalculatedStats chessRoleStats(
             balance.fightWinGrowthSpeed,
         },
         star,
-        fightsWon);
+        fightsWon, 0, 0, 0, amplifiedGrowthPercent);
     return {
         stats.hp,
         role.MaxMP,
@@ -232,11 +233,12 @@ void applyChessItemBaseStats(ChessCalculatedStats& stats, const ChessItemDefinit
 ChessCalculatedStats chessPieceStats(
     const ChessGameContent& content,
     const ChessSessionPiece& piece,
-    const std::vector<ChessEquipmentInstance>& equipmentInventory)
+    const std::vector<ChessEquipmentInstance>& equipmentInventory,
+    int amplifiedGrowthPercent)
 {
     const auto* role = content.role(piece.roleId);
     assert(role);
-    auto stats = chessRoleStats(*role, content.balance(), piece.star, piece.fightsWon);
+    auto stats = chessRoleStats(*role, content.balance(), piece.star, piece.fightsWon, amplifiedGrowthPercent);
     const auto addEquipment = [&](int equipmentInstanceId) {
         if (equipmentInstanceId < 0)
         {
@@ -260,7 +262,7 @@ ChessCalculatedStats chessPreparedUnitBaselineStats(
 {
     const auto* role = content.role(unit.roleId);
     assert(role);
-    auto stats = chessRoleStats(*role, content.balance(), unit.star, unit.fightsWon);
+    auto stats = chessRoleStats(*role, content.balance(), unit.star, unit.fightsWon, unit.amplifiedGrowthPercent);
     applyChessItemBaseStats(
         stats,
         unit.weaponItemId >= 0 ? content.item(unit.weaponItemId) : nullptr);

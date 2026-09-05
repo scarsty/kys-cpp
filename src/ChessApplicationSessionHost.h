@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include "ChessSessionTypes.h"
 
 namespace KysChess
 {
@@ -18,7 +19,8 @@ class ChessApplicationSessionHost
 public:
     static ChessApplicationSessionHost& instance();
     ChessGameSession& session();
-    void reset(Difficulty difficulty);
+    void reset(Difficulty difficulty, std::optional<ChessTalentId> talent = std::nullopt);
+    std::shared_ptr<const ChessGameContent> contentFor(Difficulty difficulty);
     ChessCheckpointError prepareRestore(
         const ChessSessionCheckpoint& checkpoint,
         std::unique_ptr<ChessGameSession>& replacement);
@@ -31,13 +33,11 @@ private:
     ChessApplicationSessionHost(const ChessApplicationSessionHost&) = delete;
     ChessApplicationSessionHost& operator=(const ChessApplicationSessionHost&) = delete;
 
-    std::shared_ptr<const ChessGameContent> contentFor(Difficulty difficulty);
-
     ChessGameSession* session_ = nullptr;
     std::array<std::shared_ptr<const ChessGameContent>, 3> contentByDifficulty_;
 };
 
 ChessGameSession& applicationChessSession();
-void resetApplicationChessSession(Difficulty difficulty);
+void resetApplicationChessSession(Difficulty difficulty, std::optional<ChessTalentId> talent = std::nullopt);
 
 }

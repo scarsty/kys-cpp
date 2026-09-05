@@ -1,8 +1,10 @@
-﻿#include "UISave.h"
+#include "UISave.h"
 #include "Event.h"
 #include "MainScene.h"
 #include "ScenePreloader.h"
 #include "Save.h"
+#include "ChessSaveFile.h"
+#include "ChessTalent.h"
 #include "SubScene.h"
 #include "UI.h"
 #include "filefunc.h"
@@ -26,6 +28,11 @@ void UISave::refreshEntries()
         if (str.empty())
         {
             str = "-------------------";
+        }
+        if (const auto slot = KysChess::readChessSaveSlotFile(filename))
+        {
+            const auto talent = KysChess::parseChessTalent(slot->checkpoint.replay.header.talent);
+            if (talent) str += std::format("  {} · 第{}關", KysChess::chessTalentName(*talent), slot->checkpoint.state.fight + 1);
         }
         return str;
     };

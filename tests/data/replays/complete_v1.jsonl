@@ -1,3 +1,3 @@
-{"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"dev","content_fingerprint":"8307166c13d4e8c8950ba31962dac47ee207675c7ced46bfc0fac542f17a5b59","difficulty":"normal","root_seed":"0x0000000000005678","options":{"position_swap_enabled":true,"battle_frame_limit":99999}}
-{"record":"decision","action":{"type":"finish_run"},"evidence_hash":"a69520295eb3258d746280c89e68886d"}
-{"record":"footer","status":"complete","terminal_evidence_hash":"a69520295eb3258d746280c89e68886d","final_state_hash":"769039345bdd248ece104925d9287f472c4ae4eb386ddb4e3a60d58b217a7ebc","result":"campaign_complete","fight_reached":0}
+{"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"dev","content_fingerprint":"b407bec8cbffc6f6e707751aad72fe530b305f689c3efab78f9e18a3ad3c4ed3","difficulty":"normal","root_seed":"0x0000000000005678","options":{"position_swap_enabled":true,"battle_frame_limit":99999},"talent":"divine_arms"}
+{"record":"decision","action":{"type":"finish_run"},"evidence_hash":"536b132cb09ecd75e22cf8f834de3c22"}
+{"record":"footer","status":"complete","terminal_evidence_hash":"536b132cb09ecd75e22cf8f834de3c22","final_state_hash":"8f226e1c63c9c087dc1de1a3ac2360ac9e7c4641b1d800d088aa328bfe806d72","result":"campaign_complete","fight_reached":0}

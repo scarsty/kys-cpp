@@ -1,0 +1,727 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "星級加成": {},
+    "棋子成長": {},
+    "經濟": {},
+    "棋子費用": {},
+    "經驗表": {},
+    "最高等級": {},
+    "背包上限": {},
+    "最低出戰人數": {},
+    "商店數量": {},
+    "基礎禁棋數": {},
+    "每級增加禁棋數": {},
+    "無羈絆關卡": {},
+    "商店權重": {},
+    "敵人表": {},
+    "進度": {},
+    "神兵商店": {
+      "type": "object",
+      "properties": {
+        "通關後": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "價格": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "通關後",
+        "價格"
+      ],
+      "additionalProperties": false
+    },
+    "敵人裝備": {},
+    "棋手天賦": {
+      "type": "object",
+      "properties": {
+        "預設": {
+          "enum": [
+            "神兵",
+            "晚成",
+            "賭徒",
+            "中堅"
+          ]
+        },
+        "可選": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "神兵",
+              "晚成",
+              "賭徒",
+              "中堅"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "預設",
+        "可選"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "預設": {
+                "const": "神兵"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "可選": {
+                "contains": {
+                  "const": "神兵"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "預設": {
+                "const": "晚成"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "可選": {
+                "contains": {
+                  "const": "晚成"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "預設": {
+                "const": "賭徒"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "可選": {
+                "contains": {
+                  "const": "賭徒"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "預設": {
+                "const": "中堅"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "可選": {
+                "contains": {
+                  "const": "中堅"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "玩家裝備獎勵": {
+      "type": "object",
+      "properties": {
+        "基本": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "關卡": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "最低層級": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "最高層級": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "選項數量": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "追加選項費用": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "關卡",
+              "最低層級",
+              "最高層級",
+              "選項數量",
+              "追加選項費用"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "最低層級": {
+                      "const": 1
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "最高層級": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "最低層級": {
+                      "const": 2
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "最高層級": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 4
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "最低層級": {
+                      "const": 3
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "最高層級": {
+                      "type": "integer",
+                      "minimum": 3,
+                      "maximum": 4
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "最低層級": {
+                      "const": 4
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "最高層級": {
+                      "type": "integer",
+                      "minimum": 4,
+                      "maximum": 4
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "天賦額外": {
+          "type": "object",
+          "properties": {
+            "神兵": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "關卡": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "最低層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "最高層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "選項數量": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "追加選項費用": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "關卡",
+                  "最低層級",
+                  "最高層級",
+                  "選項數量",
+                  "追加選項費用"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 1
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 2
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 3
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 3,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 4
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 4,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "晚成": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "關卡": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "最低層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "最高層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "選項數量": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "追加選項費用": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "關卡",
+                  "最低層級",
+                  "最高層級",
+                  "選項數量",
+                  "追加選項費用"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 1
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 2
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 3
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 3,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 4
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 4,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "賭徒": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "關卡": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "最低層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "最高層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "選項數量": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "追加選項費用": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "關卡",
+                  "最低層級",
+                  "最高層級",
+                  "選項數量",
+                  "追加選項費用"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 1
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 2
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 3
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 3,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 4
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 4,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "中堅": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "關卡": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "最低層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "最高層級": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "選項數量": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "追加選項費用": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "關卡",
+                  "最低層級",
+                  "最高層級",
+                  "選項數量",
+                  "追加選項費用"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 1
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 2
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 3
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 3,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "最低層級": {
+                          "const": 4
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "最高層級": {
+                          "type": "integer",
+                          "minimum": 4,
+                          "maximum": 4
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "基本"
+      ],
+      "additionalProperties": false
+    },
+    "禁棋解鎖": {}
+  },
+  "required": [
+    "棋手天賦",
+    "玩家裝備獎勵"
+  ],
+  "additionalProperties": false,
+  "description": "平衡配置頂層欄位及棋手天賦、裝備獎勵結構；完整數值與跨欄位不變量由 ChessBalance 載入器驗證。"
+}

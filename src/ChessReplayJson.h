@@ -50,6 +50,7 @@ struct ChessReplayHeaderData
     std::string difficulty;
     std::string root_seed;
     ChessReplayOptionsData options;
+    std::string talent;
 };
 
 struct ChessReplayDecisionData

@@ -1966,8 +1966,10 @@ bool tryCommitAutoUltimate(
     std::vector<BattleAttackSpawnRequest>& attackSpawns,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+    std::vector<BattleVisualEvent>& visualEvents,
+    bool* submitted)
 {
+    if (submitted) *submitted = false;
     auto& unitRecord = state.units.require(unitId);
     auto& unit = unitRecord.core;
     if (!unit.alive)
@@ -2181,6 +2183,7 @@ bool tryCommitAutoUltimate(
     {
         applyRuntimeUnitMpDelta(state, unit, actionInput.cast.mpDelta);
     }
+    if (submitted) *submitted = true;
     return true;
 }
 

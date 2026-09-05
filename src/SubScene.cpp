@@ -1,4 +1,4 @@
-﻿#include "SubScene.h"
+#include "SubScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
 #include "ChessApplicationSessionHost.h"
@@ -233,6 +233,21 @@ void SubScene::draw()
         seg(std::format("背包{}/{}", observation.roster.size() - deployed, cfg.benchSize), {200, 180, 255, 255});
         const char* diffName = chessDifficultyDisplayName(session.content().difficulty());
         seg(std::format("[{}]", diffName), {255, 150, 150, 255});
+        const int talentX = x;
+        seg(std::format("天賦：{}", observation.talentName), {230, 205, 130, 255});
+        const auto talentPointer = PointerInput::instance().logicalPointerUiPosition();
+        if (talentPointer.x >= talentX && talentPointer.x < x && talentPointer.y < 32)
+        {
+            const auto lines = wrapDisplayText(observation.talentDescription, 72);
+            engine->fillRoundedRect({15, 18, 22, 245}, std::min(talentX, w - 690), 37, 680,
+                static_cast<int>(lines.size()) * 25 + 20, 8);
+            int textY = 47;
+            for (const auto& line : lines)
+            {
+                font->draw(line, 18, std::min(talentX, w - 690) + 12, textY, {240, 226, 198, 255});
+                textY += 25;
+            }
+        }
 
         // Quick-access chess button (bottom-right of screen)
         if (isCurrentRunOwner())

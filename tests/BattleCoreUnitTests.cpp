@@ -902,3 +902,48 @@ TEST_CASE("BattleFrameRunner_RemovesExpiredAndDeadSourceAreasAtLifecycleBoundari
     REQUIRE(state.areas.areas.size() == 1);
     CHECK(state.areas.areas[0].id == persistent.areaId);
 }
+
+TEST_CASE("lethal recovery commits an immediate ultimate without spending or filling MP", "[battle][talent][recovery]")
+{
+    int recoveredMp{};
+    for (bool hasUltimate : {false, true})
+    {
+        BattleRuntimeState state;
+        configureRuntimeMovement(state, worldWith({
+            unit(0, 0, {100, 100, 0}, CombatStyle::Ranged),
+            unit(1, 1, {180, 100, 0}),
+        }));
+        state.attacks = attackWorld();
+        seedRuntimeUnits(state, {
+            runtimeUnitSnapshot(0, 0, 100, {100, 100, 0}),
+            runtimeUnitSnapshot(1, 1, 100, {180, 100, 0}),
+        });
+        auto damage = lethalDamageInput(1, 0);
+        damage.defender.vitals.mp = 23;
+        damage.defender.vitals.maxMp = 100;
+        damage.defender.lethalRecovery = BattleLethalRecovery{100, 1, 120};
+        queuePendingDamage(state, damage);
+        if (hasUltimate) configureAutoUltimateActionRuntime(state, 0, 1);
+        const auto result = runBattleFrame(state);
+        CHECK(state.units.requireCore(0).alive);
+        CHECK(state.units.requireCore(0).vitals.hp == 1);
+        CHECK(state.units.require(0).damage.lethalRecovery->used);
+        CHECK(state.talentRandom.rawDrawCount() == 1);
+        // Receiving damage can grant normal hit MP; compare against the same recovery without a cast.
+        const int currentMp = state.units.requireCore(0).vitals.mp;
+        CHECK(currentMp < 100);
+        if (hasUltimate) CHECK(currentMp == recoveredMp);
+        else recoveredMp = currentMp;
+        CHECK(std::ranges::any_of(result.logEvents, [&](const auto& log) {
+            return log.statusId == (hasUltimate ? BattleStatusSemanticId::RecoveryUltimateCommitted
+                : BattleStatusSemanticId::RecoveryUltimateSkipped);
+        }));
+        if (hasUltimate)
+        {
+            CHECK_FALSE(state.nextFrame.queuedAttacks().empty());
+            CHECK(std::ranges::any_of(result.gameplayEvents, [](const auto& event) {
+                return event.type == BattleGameplayEventType::CastStarted && event.sourceUnitId == 0;
+            }));
+        }
+    }
+}

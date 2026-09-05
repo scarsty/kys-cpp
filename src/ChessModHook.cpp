@@ -111,13 +111,13 @@ ChessSaveSceneState ChessModHook::initialSaveSceneState()
     return {MOD_SCENE_ID, MOD_ENTRY_X, MOD_ENTRY_Y, 1};
 }
 
-bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty)
+bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty, ChessTalentId talent)
 {
     scene = MOD_SCENE_ID;
     x = MOD_ENTRY_X;
     y = MOD_ENTRY_Y;
     event = -1;
-    resetApplicationChessSession(difficulty);
+    resetApplicationChessSession(difficulty, talent);
     needIntro_ = true;
     return true;
 }

@@ -23,6 +23,9 @@ struct ChessPvpPiece
     int weaponItemId = -1;
     int armorItemId = -1;
     int fightsWon{};
+    int amplifiedGrowthPercent{};
+    int openingMp{};
+    std::optional<Battle::BattleLethalRecovery> lethalRecovery;
 
     auto operator<=>(const ChessPvpPiece&) const = default;
 };

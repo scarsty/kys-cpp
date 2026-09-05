@@ -127,6 +127,14 @@ bool validatePiece(
         error = std::format("{}第{}名角色星級 {} 無效", team, index + 1, piece.star);
         return false;
     }
+    if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > 100 || piece.openingMp < 0
+        || (piece.lethalRecovery && (piece.lethalRecovery->chancePercent < 0
+            || piece.lethalRecovery->chancePercent > 100 || piece.lethalRecovery->survivalHp < 1
+            || piece.lethalRecovery->invincibleFrames < 0 || piece.lethalRecovery->used)))
+    {
+        error = std::format("{}第{}名角色天賦戰鬥資料無效", team, index + 1);
+        return false;
+    }
     for (const int itemId : {piece.weaponItemId, piece.armorItemId})
     {
         if (itemId >= 0 && !content.item(itemId))
@@ -155,6 +163,9 @@ void appendTeam(
         unit.weaponItemId = piece.weaponItemId;
         unit.armorItemId = piece.armorItemId;
         unit.fightsWon = piece.fightsWon;
+        unit.amplifiedGrowthPercent = piece.amplifiedGrowthPercent;
+        unit.openingMp = piece.openingMp;
+        unit.lethalRecovery = piece.lethalRecovery;
         if (source.formationSlots.empty())
         {
             unit.formationSlot = index;
@@ -236,6 +247,9 @@ ChessStandaloneBattleTeam chessStandaloneBattleTeam(
             piece.armorItemId,
             piece.chessInstanceId,
             piece.fightsWon,
+            piece.amplifiedGrowthPercent,
+            piece.openingMp,
+            piece.lethalRecovery,
         });
     }
     return result;
@@ -369,6 +383,8 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
         : static_cast<std::uint32_t>(random.nextBounded(
             ChessRngStream::BattleSeed,
             static_cast<std::uint64_t>(UINT_MAX) + 1));
+    const auto talentSeed = chessBeveSha256("KYS_TALENT_STANDALONE", request.rootSeed, prepared.battleSeed, request.stableBattleId);
+    for (int i = 0; i < 4; ++i) prepared.talentBattleSeed |= static_cast<std::uint32_t>(talentSeed[i]) << (8 * i);
     BattleSetupFactory::populateBaseFormation(prepared, *content);
 
     ChessStandaloneBattleBuild result;

@@ -1104,3 +1104,41 @@ TEST_CASE("BattleRuntimeUnit_UsesSharedUnitValueObjects", "[battle][initializati
     CHECK(unit.motion.position.x == 1);
     CHECK(unit.animation.cooldown == 7);
 }
+
+TEST_CASE("talent initialization amplifies complete growth and adds capped opening MP", "[battle][talent][initialization]")
+{
+    auto spawns = runtimeSpawns({runtimeUnit(0, 0, 100, 20, 30, 40)});
+    spawns[0].unit.vitals.maxMp = 100;
+    spawns[0].unit.vitals.mp = 25;
+    BattleRuntimeSetupSeed setup;
+    setup.allyRoster.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
+        .fightsWon = 3, .amplifiedGrowthPercent = 100, .openingMp = 50,
+        .lethalRecovery = BattleLethalRecovery{70, 1, 120}});
+    setup.units.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
+        .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40});
+    BattleSetupComboDefinition combo;
+    combo.id = 99;
+    combo.name = "開場與勝場";
+    combo.memberRoleIds = {1001};
+    ChangeResourceAction mp;
+    mp.resource = BattleResource::Mp;
+    mp.kind = ResourceChangeKind::Restore;
+    mp.amount.flat = 60;
+    EffectRule rule;
+    rule.id = {1};
+    rule.event = EffectEvent::BattleInitialized;
+    rule.selector.kind = EffectSelectorKind::Self;
+    rule.actions = {{mp}};
+    combo.thresholds.push_back({.count = 1, .rules = {rule}, .fightWinGrowth = {2, 1, 3}});
+    setup.comboDefinitions.push_back(combo);
+    const auto output = initializeBattleStartForTest(std::move(spawns), setup);
+    REQUIRE(output.spawns.size() == 1);
+    const auto& spawn = output.spawns[0];
+    CHECK(spawn.unit.vitals.mp == 100);
+    const auto expected = computeStarBoostedStats({100, 20, 30, 40}, setup.starGrowth, 2, 3, 2, 1, 3, 100);
+    CHECK(spawn.unit.vitals.maxHp == expected.hp);
+    CHECK(spawn.unit.stats.attack == expected.atk);
+    CHECK(spawn.unit.stats.defence == expected.def);
+    REQUIRE(spawn.damage.lethalRecovery);
+    CHECK(spawn.damage.lethalRecovery->chancePercent == 70);
+}

@@ -70,7 +70,7 @@ TEST_CASE("stored vector order and exact action payload remain authoritative", "
     ChessRunRandom random(12);
     CHECK(chessStateHash(first, random) != chessStateHash(second, random));
 
-    ChessReplayHeader header{"1", "normal", 12, {}, {}};
+    ChessReplayHeader header{"1", "normal", ChessTalentId::DivineArms, 12, {}, {}};
     ChessReplayJournal firstJournal(header);
     ChessReplayJournal secondJournal(header);
     ChessAction firstAction;

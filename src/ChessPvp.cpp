@@ -1,4 +1,5 @@
 #include "ChessPvp.h"
+#include "ChessBattlePlanner.h"
 
 #include "BattlefieldData.h"
 #include "ChessManagementRules.h"
@@ -72,6 +73,17 @@ ChessPvpComposition extractChessPvpComposition(const ChessGameSession& session)
             itemId(piece.armorInstanceId),
             piece.fightsWon,
         });
+    }
+    PreparedChessBattle battle;
+    for (const auto& piece : result.pieces)
+        battle.units.push_back({.chessInstanceId = piece.chessInstanceId, .roleId = piece.roleId,
+            .team = 0, .star = piece.star});
+    ChessBattlePlanner::applyPlayerTalents(battle, state, session.content());
+    for (std::size_t i = 0; i < result.pieces.size(); ++i)
+    {
+        result.pieces[i].amplifiedGrowthPercent = battle.units[i].amplifiedGrowthPercent;
+        result.pieces[i].openingMp = battle.units[i].openingMp;
+        result.pieces[i].lethalRecovery = battle.units[i].lethalRecovery;
     }
     return result;
 }

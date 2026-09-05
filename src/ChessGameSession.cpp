@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <limits>
+#include <stdexcept>
 #include <utility>
 
 namespace KysChess
@@ -82,7 +83,10 @@ ChessReplayHeader ChessGameSession::makeReplayHeader(
     header.gameVersion = content.gameVersion();
     header.difficulty = difficultyId(content.difficulty());
     header.rootSeed = rootSeed;
+    header.talent = options.talent.value_or(content.balance().defaultTalent);
+    if (!content.balance().allowsTalent(header.talent)) throw std::invalid_argument("難度不允許此天賦");
     header.options = options;
+    header.options.talent = header.talent;
     header.options.battleFrameLimit = kChessBattleFrameLimit;
     header.contentFingerprint = content.contentFingerprint();
     return header;
@@ -99,10 +103,18 @@ ChessGameSession::ChessGameSession(
       executionMode_(executionMode)
 {
     state_.difficulty = content_->difficulty();
+    state_.talent = journal_.header().talent;
     state_.money = content_->balance().initialMoney;
     state_.options = journal_.header().options;
     state_.campaignComplete = content_->balance().totalFights <= 0;
     ChessManagementRules::initializeShop(state_, *content_, random_);
+    if (state_.talent == ChessTalentId::Gambler)
+    {
+        const auto& talent = content_->balance().talent(state_.talent);
+        std::vector<ChessSemanticEvent> initialEvents;
+        ChessRewardRules::enqueueForcedBan(state_, *content_, talent.openingBans,
+            talent.banMaxTier, initialEvents, talent.banMinTier);
+    }
 }
 
 std::unique_ptr<ChessGameSession> ChessGameSession::createStandaloneBattle(
@@ -172,6 +184,22 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.phase = state_.phase;
     observation.difficulty = content_->difficulty();
     observation.options = state_.options;
+    observation.talent = state_.talent;
+    observation.shopGuarantees = state_.shopGuarantees;
+    observation.talentName = chessTalentName(state_.talent);
+    const auto& talent = content_->balance().talent(state_.talent);
+    observation.talentDescription = chessTalentDescription(content_->balance(), state_.talent);
+    observation.talentHasLegendaryShop = talent.legendaryShop;
+    observation.luckChancePerStack = talent.luckChancePerStack;
+    observation.luckChanceCap = talent.luckChanceCap;
+    const auto nextReward = [&](const auto& rewards) -> std::optional<BalanceConfig::PlayerEquipmentReward> {
+        for (const auto& reward : rewards) if (reward.fight > state_.fight) return reward;
+        return std::nullopt;
+    };
+    observation.nextBasicEquipmentReward = nextReward(content_->balance().playerEquipmentRewards);
+    if (const auto extra = content_->balance().talentEquipmentRewards.find(state_.talent);
+        extra != content_->balance().talentEquipmentRewards.end())
+        observation.nextTalentEquipmentReward = nextReward(extra->second);
     observation.money = state_.money;
     observation.interestGold = ChessProgressionRules::interestGold(state_, *content_);
     observation.nextInterestThreshold = ChessProgressionRules::nextInterestThreshold(state_, *content_);
@@ -388,7 +416,8 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         equip.candidateIds.insert(equip.candidateIds.end(), assigned.begin(), assigned.end());
         result.push_back(std::move(equip));
     }
-    if (content_->balance().legendaryShop.unlockFight > 0
+    if (content_->balance().talent(state_.talent).legendaryShop
+        && content_->balance().legendaryShop.unlockFight > 0
         && state_.fight >= content_->balance().legendaryShop.unlockFight)
     {
         auto legendary = selectionAction(

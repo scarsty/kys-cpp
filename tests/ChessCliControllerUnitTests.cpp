@@ -170,6 +170,6 @@ TEST_CASE("interactive new validates difficulty and seed", "[chess][cli]")
         "new impossible not-a-seed",
         ChessCliOutputMode::Compact);
 
-    CHECK(output == "用法：new <easy|normal|hard> <種子>\n");
+    CHECK(output == "用法：new <easy|normal|hard> <種子> [天賦ID]\n");
     CHECK(controller.protocol().session()->observe().stateHash == before);
 }

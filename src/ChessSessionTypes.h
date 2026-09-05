@@ -121,6 +121,13 @@ enum class ChessSemanticEventType : std::uint16_t
     FreeShopRefreshConsumed,
     ExperienceAwarded,
     FormationChanged,
+    OpeningTalentBansQueued,
+    OpeningTalentShopRefreshed,
+    LuckGranted,
+    LuckMerged,
+    ShopGuaranteeQueued,
+    ShopGuaranteeInjected,
+    ShopGuaranteeCancelled,
 };
 
 enum class ChessRewardKind : std::uint16_t
@@ -137,6 +144,7 @@ struct ChessSessionOptions
 {
     bool positionSwapEnabled = true;
     int battleFrameLimit = kChessBattleFrameLimit;
+    std::optional<ChessTalentId> talent;
 
     auto operator<=>(const ChessSessionOptions&) const = default;
 };
@@ -201,6 +209,7 @@ struct ChessSessionPiece
     int weaponInstanceId = -1;
     int armorInstanceId = -1;
     int fightsWon{};
+    int luckStacks{};
 
     auto operator<=>(const ChessSessionPiece&) const = default;
 };
@@ -250,6 +259,8 @@ struct ChessPendingReward
 struct ChessSessionState
 {
     Difficulty difficulty = Difficulty::Easy;
+    ChessTalentId talent = ChessTalentId::DivineArms;
+    std::vector<int> shopGuarantees;
     int money{};
     int experience{};
     int level{};
@@ -306,7 +317,16 @@ struct ChessGameplayObservation
 {
     ChessSessionPhase phase{};
     Difficulty difficulty = Difficulty::Easy;
+    ChessTalentId talent = ChessTalentId::DivineArms;
+    std::vector<int> shopGuarantees;
     ChessSessionOptions options;
+    std::string talentName;
+    std::string talentDescription;
+    bool talentHasLegendaryShop{};
+    int luckChancePerStack{};
+    int luckChanceCap{};
+    std::optional<BalanceConfig::PlayerEquipmentReward> nextBasicEquipmentReward;
+    std::optional<BalanceConfig::PlayerEquipmentReward> nextTalentEquipmentReward;
     int money{};
     int interestGold{};
     std::optional<int> nextInterestThreshold;

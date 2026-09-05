@@ -174,6 +174,13 @@ std::string ChessObservationText::format(
         }
         text += "\n";
     }
+    text += std::format("天賦：{}\n{}\n", observation.talentName, observation.talentDescription);
+    if (!observation.shopGuarantees.empty())
+    {
+        text += "下次刷新保證：";
+        for (int roleId : observation.shopGuarantees) text += roleName(content, roleId) + " ";
+        text += "\n";
+    }
     if (!observation.shop.empty())
     {
         text += "商店：\n";
@@ -204,6 +211,7 @@ std::string ChessObservationText::format(
             piece.fightsWon,
             piece.weaponInstanceId,
             piece.armorInstanceId);
+        if (piece.luckStacks > 0) text += std::format("    賭運 {} 層（{}%）\n", piece.luckStacks, content.balance().talent(observation.talent).luckChance(piece.luckStacks));
     }
     text += "陣形：";
     for (const int id : observation.formationSlots)

@@ -10,6 +10,8 @@ namespace KysChess
 class ChessBattlePlanner
 {
 public:
+    static void applyPlayerTalents(PreparedChessBattle& battle,
+        const ChessSessionState& state, const ChessGameContent& content);
     static PreparedChessBattle prepareCampaign(
         const ChessSessionState& state,
         const ChessGameContent& content,

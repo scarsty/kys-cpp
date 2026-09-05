@@ -60,9 +60,26 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
     }
     if (state.phase == ChessSessionPhase::BattleResolution
         || state.difficulty != session.content_->difficulty()
+        || !session.content_->balance().allowsTalent(state.talent)
+        || state.talent != replay.header.talent
+        || state.options.talent != state.talent
         || !ChessManagementRules::formationIsValid(state, state.formationSlots))
     {
         return ChessCheckpointError::UnrepresentableSnapshot;
+    }
+    for (const auto& [id, piece] : state.roster)
+    {
+        if (piece.luckStacks < 0 || (state.talent != ChessTalentId::Gambler && piece.luckStacks != 0))
+            return ChessCheckpointError::UnrepresentableSnapshot;
+    }
+    for (int roleId : state.shopGuarantees)
+    {
+        const auto* role = session.content_->role(roleId);
+        if (state.talent != ChessTalentId::Backbone || !role
+            || role->Cost != session.content_->balance().talent(state.talent).targetTier
+            || std::ranges::any_of(state.roster, [&](const auto& entry) {
+                return entry.second.roleId == roleId && entry.second.star == 3;
+            })) return ChessCheckpointError::UnrepresentableSnapshot;
     }
     session.state_ = state;
     session.random_.restore(random);
@@ -136,7 +153,7 @@ std::optional<ChessSessionCheckpoint> ChessSessionCheckpoint::parseJson(
     ChessCheckpointError& error)
 {
     ChessSessionCheckpointData data;
-    constexpr auto options = glz::opts{.error_on_unknown_keys = false};
+    constexpr auto options = glz::opts{.error_on_unknown_keys = false, .error_on_missing_keys = true};
     if (glz::read<options>(data, json))
     {
         error = ChessCheckpointError::Malformed;
@@ -162,7 +179,7 @@ std::optional<ParsedChessSavePayload> parseChessSavePayload(
     }
 
     ChessSaveSlotData slot;
-    constexpr auto options = glz::opts{.error_on_unknown_keys = false};
+    constexpr auto options = glz::opts{.error_on_unknown_keys = false, .error_on_missing_keys = true};
     if (glz::read<options>(slot, payload))
     {
         error = ChessCheckpointError::Malformed;

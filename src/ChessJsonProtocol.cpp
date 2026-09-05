@@ -34,6 +34,7 @@ constexpr std::string_view kAutoSaveLabel = "自動存檔";
 constexpr std::string_view kNewGameSchema = R"({
     "type":"object",
     "properties":{
+        "talent":{"type":"string","enum":["divine_arms","late_bloomer","gambler","backbone"],"description":"棋手天賦；省略時採用難度配置的預設值"},
         "difficulty":{"type":"string","enum":["easy","normal","hard"],"default":"normal"},
         "seed":{"type":"string","pattern":"^0x[0-9a-fA-F]{16}$","default":"0x0000000000000001","description":"0x 前綴加上固定 16 位十六進位數字，例如 0x000000000000BEEF"},
         "position_swap_enabled":{"type":"boolean","default":true},
@@ -408,6 +409,12 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             return response(request->id, false, {}, "content_load_failed", "無法載入遊戲內容");
         }
         ChessSessionOptions options;
+        if (params->talent)
+        {
+            options.talent = parseChessTalent(*params->talent);
+            if (!options.talent || !content->balance().allowsTalent(*options.talent))
+                return response(request->id, false, {}, "invalid_params", "未知天賦或此難度不可選用");
+        }
         if (params->position_swap_enabled)
         {
             options.positionSwapEnabled = *params->position_swap_enabled;

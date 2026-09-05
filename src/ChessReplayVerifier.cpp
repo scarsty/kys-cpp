@@ -174,7 +174,9 @@ ChessReplayAudit::ChessReplayAudit(
     const auto expectedDifficulty = content->difficulty() == Difficulty::Easy
         ? "easy"
         : content->difficulty() == Difficulty::Normal ? "normal" : "hard";
-    if (replay_.header.difficulty != expectedDifficulty)
+    if (replay_.header.difficulty != expectedDifficulty
+        || !content->balance().allowsTalent(replay_.header.talent)
+        || replay_.header.options.talent != replay_.header.talent)
     {
         fail(ChessReplayMismatch::Header, 0, "重播難度與規則內容不相符");
         return;

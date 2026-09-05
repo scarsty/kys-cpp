@@ -483,6 +483,7 @@ struct BattleRuntimeState
     BattleCastLifecycle castLifecycle;
     BattleHealRuntimeState heals;
     BattleRuntimeRandom random;
+    BattleRuntimeRandom talentRandom;
     BattleAreaEffectState areas;
     BattleEffectRuleStore effectRules;
     BattleEffectCommandRuntimeState effectCommands;

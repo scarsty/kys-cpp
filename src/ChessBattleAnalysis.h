@@ -74,6 +74,9 @@ struct ChessBattleUnitAnalysis
     int cooldownManipulationFrames{};
     int invulnerabilityTriggers{};
     int deathPreventionTriggers{};
+    int luckSuccesses{};
+    int luckFailures{};
+    int luckUltimateSubmissions{};
     ChessCalculatedStats initialCombatStats;
     ChessCalculatedStats initialStatDeltaFromSpecialEffects;
     int enemyAttackDebuff{};

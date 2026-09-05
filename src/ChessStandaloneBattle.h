@@ -31,6 +31,9 @@ struct ChessStandaloneBattlePiece
     int armorItemId = -1;
     int chessInstanceId = -1;
     int fightsWon{};
+    int amplifiedGrowthPercent{};
+    int openingMp{};
+    std::optional<Battle::BattleLethalRecovery> lethalRecovery;
 };
 
 struct ChessStandaloneBattleTeam

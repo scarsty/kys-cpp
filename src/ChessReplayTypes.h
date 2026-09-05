@@ -9,6 +9,7 @@ struct ChessReplayHeader
 {
     std::string gameVersion;
     std::string difficulty;
+    ChessTalentId talent = ChessTalentId::DivineArms;
     std::uint64_t rootSeed{};
     ChessSessionOptions options;
     ChessSha256 contentFingerprint{};

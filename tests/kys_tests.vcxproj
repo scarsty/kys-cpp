@@ -137,6 +137,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="ChessContextMenuUnitTests.cpp" />
     <ClCompile Include="ChessGameContentUnitTests.cpp" />
     <ClCompile Include="ChessGameQueriesUnitTests.cpp" />
+    <ClCompile Include="ChessTalentUnitTests.cpp" />
     <ClCompile Include="ChessGameSessionUnitTests.cpp" />
     <ClCompile Include="ChessStandaloneBattleUnitTests.cpp" />
     <ClCompile Include="ChessTournamentUnitTests.cpp" />

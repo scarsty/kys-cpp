@@ -167,6 +167,8 @@ PieceDto pieceDto(
     dto.star = piece.star;
     dto.deployed = piece.deployed;
     dto.fights_won = piece.fightsWon;
+    dto.luck_stacks = piece.luckStacks;
+    dto.luck_chance_percent = content.balance().talent(observation.talent).luckChance(piece.luckStacks);
     if (!full)
     {
         return dto;
@@ -174,7 +176,8 @@ PieceDto pieceDto(
     dto.current_stats = roleStatsDto(chessPieceStats(
         content,
         piece,
-        observation.equipmentInventory));
+        observation.equipmentInventory,
+        content.balance().talent(observation.talent).amplifiedGrowthPercent));
     dto.current_stats_note = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果於開戰時套用";
     return dto;
 }
@@ -825,6 +828,16 @@ ObservationDto observationDto(
     std::span<const ChessLegalActionDescriptor> legalActions)
 {
     ObservationDto dto{};
+    dto.talent = chessTalentId(observation.talent);
+    dto.talent_name = observation.talentName;
+    dto.talent_description = observation.talentDescription;
+    dto.talent_has_legendary_shop = observation.talentHasLegendaryShop;
+    dto.legendary_shop_unlocked = observation.talentHasLegendaryShop
+        && content.balance().legendaryShop.unlockFight > 0
+        && observation.fight >= content.balance().legendaryShop.unlockFight;
+    dto.shop_guarantees = observation.shopGuarantees;
+    dto.next_basic_equipment_reward = observation.nextBasicEquipmentReward;
+    dto.next_talent_equipment_reward = observation.nextTalentEquipmentReward;
     const bool full = detail == ObservationDetail::Full;
     dto.detail = full ? "full" : "compact";
     dto.phase = phaseText(observation.phase);
@@ -1651,6 +1664,8 @@ ChessInstanceInspectionDto chessInstanceInspectionDto(
     dto.chess.star = analysis.piece.star;
     dto.chess.deployed = analysis.piece.deployed;
     dto.chess.fights_won = analysis.piece.fightsWon;
+    dto.chess.luck_stacks = analysis.piece.luckStacks;
+    dto.chess.luck_chance_percent = analysis.luckChancePercent;
     dto.chess.current_stats = roleStatsDto(analysis.currentStats);
     dto.chess.current_stats_note = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果於開戰時套用";
     dto.one_star_equivalent_copies = analysis.oneStarEquivalentCopies;
@@ -1752,6 +1767,14 @@ std::string semanticEventTypeId(ChessSemanticEventType type)
     case ChessSemanticEventType::FreeShopRefreshConsumed: return "free_shop_refresh_consumed";
     case ChessSemanticEventType::ExperienceAwarded: return "experience_awarded";
     case ChessSemanticEventType::FormationChanged: return "formation_changed";
+    case ChessSemanticEventType::OpeningTalentBansQueued: return "opening_talent_bans_queued";
+    case ChessSemanticEventType::OpeningTalentShopRefreshed: return "opening_talent_shop_refreshed";
+    case ChessSemanticEventType::LuckGranted: return "luck_granted";
+    case ChessSemanticEventType::LuckMerged: return "luck_merged";
+    case ChessSemanticEventType::ShopGuaranteeQueued: return "shop_guarantee_queued";
+    case ChessSemanticEventType::ShopGuaranteeInjected: return "shop_guarantee_injected";
+    case ChessSemanticEventType::ShopGuaranteeCancelled: return "shop_guarantee_cancelled";
+
     }
     std::unreachable();
 }
@@ -2131,6 +2154,9 @@ BattleUnitStatsDto battleUnitStatsDto(
     assignMetric(dto.cooldown_manipulation_frames, analysis.cooldownManipulationFrames);
     assignMetric(dto.invulnerability_triggers, analysis.invulnerabilityTriggers);
     assignMetric(dto.death_prevention_triggers, analysis.deathPreventionTriggers);
+    assignMetric(dto.luck_successes, analysis.luckSuccesses);
+    assignMetric(dto.luck_failures, analysis.luckFailures);
+    assignMetric(dto.luck_ultimate_submissions, analysis.luckUltimateSubmissions);
     assignMetric(dto.enemy_attack_debuff, analysis.enemyAttackDebuff);
     assignMetric(dto.enemy_defence_debuff, analysis.enemyDefenceDebuff);
     if (full)
@@ -2367,6 +2393,7 @@ SaveSlotDto saveSlotDto(const ChessSaveSlotSummary& slot)
         slot.rosterCount,
         slot.replaySequence,
         chessSha256Hex(slot.stateHash),
+        chessTalentId(slot.talent),
     };
 }
 
