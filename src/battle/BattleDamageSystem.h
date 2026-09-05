@@ -138,6 +138,7 @@ struct BattleScriptedHitRequestInput
     int stunFrames = 0;
     int bleedStacks = 0;
     int bleedMaxStacks = 0;
+    std::optional<BattleStatusProducerProvenance> bleedProducer;
 };
 
 struct BattleDamageAbsorptionLayer
@@ -317,6 +318,7 @@ struct BattleDamageRequest
     int frozenLowHpImmunityPct = 25;
     int bleedStacks = 0;
     int bleedMaxStacks = 0;
+    std::optional<BattleStatusProducerProvenance> bleedProducer;
     bool triggersDefenseEffects = true;
 };
 
@@ -389,7 +391,11 @@ public:
     BattleCooldownIncreaseResult extendActiveCooldown(BattleCooldownState unit, int pct) const;
     bool shouldExecute(const BattleExecuteInput& input) const;
     BattleOnHitResourceResult applyOnHitResources(const BattleOnHitResourceInput& input) const;
-    BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
+    BattleStatusApplyResult applyBleed(
+        BattleStatusUnitState target,
+        const BattleStatusProducerProvenance& provenance,
+        int stacks,
+        int maxStacks) const;
     int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
     BattleAttackPotencySnapshot snapshotAttackPotency(
         int effectiveAttack,

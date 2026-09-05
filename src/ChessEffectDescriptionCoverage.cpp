@@ -8,6 +8,9 @@
 
 namespace KysChess::EffectDescriptionDetail
 {
+template<typename>
+inline constexpr bool AlwaysFalse = false;
+
 DescriptionSourceField descriptionSource(
     const EffectRule& rule,
     DescriptionSourceFieldKind kind,
@@ -44,8 +47,12 @@ DescriptionTriggerFact::SubjectRole descriptionSubjectRole(
     case EffectObservationScope::Owner:
         return DescriptionTriggerFact::SubjectRole::EffectOwner;
     case EffectObservationScope::OwnerTeamEventSource:
+    case EffectObservationScope::StatusHolderEventSource:
+    case EffectObservationScope::StatusSourceEventSource:
+    case EffectObservationScope::SourceOwnerTeamEventSource:
         return DescriptionTriggerFact::SubjectRole::EventSource;
     case EffectObservationScope::EventTarget:
+    case EffectObservationScope::StatusHolderEventTarget:
         return DescriptionTriggerFact::SubjectRole::EventTarget;
     }
     std::unreachable();
@@ -267,7 +274,7 @@ std::string descriptionAuditValue(const T& value)
     else if constexpr (std::is_same_v<T, std::string>)
         return value;
     else
-        static_assert(false, "unsupported description audit scalar");
+        static_assert(AlwaysFalse<T>, "unsupported description audit scalar");
 }
 
 template<typename T>
@@ -318,10 +325,8 @@ void appendEffectNumberCoverage(
         number.status
             ? std::to_string(static_cast<int>(*number.status))
             : "absent");
-    append("statusEffect", !number.statusEffect,
-        number.statusEffect
-            ? std::to_string(static_cast<int>(*number.statusEffect))
-            : "absent");
+    append("statusSource", number.statusSource == StatusSourceMatch::Any,
+        std::to_string(static_cast<int>(number.statusSource)));
     append("stateSlot", !number.stateSlot,
         number.stateSlot
             ? std::to_string(static_cast<int>(*number.stateSlot))
@@ -334,6 +339,14 @@ void appendEffectNumberCoverage(
         number.minimum ? std::to_string(*number.minimum) : "absent");
     append("maximum", !number.maximum,
         number.maximum ? std::to_string(*number.maximum) : "absent");
+    append("statusScale", number.statusScale == StatusNumberScale::Once,
+        std::to_string(static_cast<int>(number.statusScale)));
+    append("boundNumerator", number.base != EffectNumberBase::BoundRatio
+            && number.multiplierBase != EffectNumberBase::BoundRatio,
+        std::to_string(number.boundNumerator));
+    append("boundDenominator", number.base != EffectNumberBase::BoundRatio
+            && number.multiplierBase != EffectNumberBase::BoundRatio,
+        std::to_string(number.boundDenominator));
 }
 
 void appendSelectorCoverage(
@@ -457,6 +470,22 @@ void appendConditionCoverage(
                     variantIndex, std::format("{}.perspective", path),
                     DescriptionFieldDisposition::Visible,
                     std::to_string(static_cast<int>(typed.perspective)));
+            else if constexpr (std::is_same_v<T, IsUltimateCondition>
+                || std::is_same_v<T, CastUsesEffectSourceMagicCondition>
+                || std::is_same_v<T, IsMainProjectileCondition>
+                || std::is_same_v<T, IsRootAttackCondition>
+                || std::is_same_v<T, SourceIsLastAliveCondition>
+                || std::is_same_v<T, TargetNotInvincibleCondition>
+                || std::is_same_v<T, OtherLivingAllyUsesBoundMagicCondition>
+                || std::is_same_v<T, DamageOriginIsAttackCondition>
+                || std::is_same_v<T, DamageKilledTargetCondition>
+                || std::is_same_v<T, EventTargetBelongsToBoundSourceCondition>
+                || std::is_same_v<T, TargetMpWasFullBeforeCastCondition>
+                || std::is_same_v<T, RandomSelectionAvailableCondition>
+                || std::is_same_v<T, TargetIsStatusHolderCondition>)
+                static_cast<void>(typed);
+            else
+                static_assert(AlwaysFalse<T>, "Unhandled effect-condition coverage");
         },
         condition);
 }
@@ -498,6 +527,12 @@ void appendApplyStatusCoverage(
             append("quantity.addLayers", false, std::to_string(quantity.count));
             append("quantity.limit", false, std::to_string(quantity.limit));
         }
+        else if constexpr (std::is_same_v<T, AddSharedStatusLayers>)
+        {
+            append("quantity.addSharedLayers", false, std::to_string(quantity.count));
+            append("quantity.targetTotalLimit", false,
+                std::to_string(quantity.targetTotalLimit));
+        }
         else if constexpr (std::is_same_v<T, SetStatusMarks>)
             append("quantity.setMarks", false, std::to_string(quantity.count));
         else if constexpr (std::is_same_v<T, AddDamageBlockCharges>)
@@ -509,41 +544,42 @@ void appendApplyStatusCoverage(
             append("quantity.setBlockCharges", false, std::to_string(quantity.count));
         else if constexpr (std::is_same_v<T, SetStatusTriggerCharges>)
             append("quantity.triggerCharges", false, std::to_string(quantity.count));
+        else
+            static_assert(AlwaysFalse<T>, "Unhandled status-quantity coverage");
     }, action.quantity);
     append("reapplication",
         action.reapplication == StatusReapplicationPolicy::Implicit,
         std::to_string(static_cast<int>(action.reapplication)));
-    append("effects.variant", false, std::to_string(action.effects.index()));
+    append("poisonSameEventMerge",
+        action.poisonSameEventMerge == PoisonSameEventMerge::None,
+        std::to_string(static_cast<int>(action.poisonSameEventMerge)));
+    append("behavior", !action.behavior,
+        action.behavior ? "present" : "absent");
+    for (const auto& field : statusNamedNumberFieldCatalog)
+    {
+        const auto& value = statusNamedNumberField(action, field.id);
+        append(std::string(field.label), !value,
+            value ? "present" : "absent");
+    }
+    if (action.behavior)
+        append("behavior.ruleCount", false,
+            std::to_string(action.behavior->rules.size()));
     if (action.duration)
         appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
             variantIndex, *action.duration, std::format("{}.duration.value", path),
             DescriptionPlayerFact::Action);
-    const auto appendEffectNumber = [&](const EffectNumber& number, std::string_view field)
+    for (const auto& field : statusNamedNumberFieldCatalog)
     {
-        appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
-            variantIndex, number, std::format("{}.effects.{}", path, field),
+        const auto& value = statusNamedNumberField(action, field.id);
+        if (!value) continue;
+        appendEffectNumberCoverage(
+            coverage,
+            rule,
+            DescriptionSourceFieldKind::Action,
+            variantIndex,
+            *value,
+            std::format("{}.{}.value", path, field.label),
             DescriptionPlayerFact::Action);
-    };
-    if (std::holds_alternative<NoStatusEffects>(action.effects))
-        append("effects.none", false, "present");
-    forEachStatusEffectField(
-        action.effects,
-        [&](StatusEffectFieldId id, const EffectNumber& number)
-        {
-            appendEffectNumber(number, statusEffectFieldCatalogEntry(id).coveragePath);
-        },
-        [&](StatusEffectFieldId id, bool value)
-        {
-            append(std::format("effects.{}",
-                statusEffectFieldCatalogEntry(id).coveragePath),
-                false,
-                value ? "true" : "false");
-        });
-    if (const auto* poison = std::get_if<PoisonStatusEffects>(&action.effects))
-    {
-        append("effects.sameEventMerge",
-            poison->sameEventMerge == PoisonSameEventMerge::None,
-            std::to_string(static_cast<int>(poison->sameEventMerge)));
     }
 }
 
@@ -844,16 +880,43 @@ void appendActionCoverage(
                     appendApplyStatusCoverage(coverage, rule, variantIndex,
                         *typed.whenDepleted, std::format("{}.whenDepleted.value", path));
             }
+            else if constexpr (std::is_same_v<T, ConsumeThisStatusAction>)
+            {
+                const ConsumeThisStatusAction defaults;
+                scalarField("quantity", typed.quantity, defaults.quantity);
+                optionalField("whenDepleted", typed.whenDepleted.has_value(),
+                    typed.whenDepleted ? "present" : "absent");
+                if (typed.whenDepleted)
+                    appendApplyStatusCoverage(coverage, rule, variantIndex,
+                        *typed.whenDepleted, std::format("{}.whenDepleted.value", path));
+            }
             else if constexpr (std::is_same_v<T, RemoveStatusAction>)
             {
                 const RemoveStatusAction defaults;
                 scalarField("statuses", typed.statuses, defaults.statuses);
+                scalarField("source", typed.source, defaults.source);
                 scalarField("negativeOnly", typed.negativeOnly, defaults.negativeOnly);
                 scalarField("controlOnly", typed.controlOnly, defaults.controlOnly);
                 scalarField("clearCurrentActionStagger", typed.clearCurrentActionStagger,
                     defaults.clearCurrentActionStagger);
                 scalarField("count", typed.count, defaults.count);
                 scalarField("order", typed.order, defaults.order);
+            }
+            else if constexpr (std::is_same_v<T, SuppressCurrentCastContactsAction>)
+            {
+                optionalField("originalTargetShield", typed.originalTargetShield.has_value(),
+                    typed.originalTargetShield ? "present" : "absent");
+                if (typed.originalTargetShield)
+                    appendEffectNumberCoverage(coverage, rule,
+                        DescriptionSourceFieldKind::Action, variantIndex,
+                        *typed.originalTargetShield,
+                        std::format("{}.originalTargetShield.value", path));
+            }
+            else if constexpr (std::is_same_v<T, MakeIncomingAttackMissAction>)
+            {
+            }
+            else if constexpr (std::is_same_v<T, BlockPositiveDamageAction>)
+            {
             }
             else if constexpr (std::is_same_v<T, DealDamageAction>)
             {
@@ -931,7 +994,9 @@ void appendActionCoverage(
                 std::visit([&](const auto& behavior)
                 {
                     using B = std::decay_t<decltype(behavior)>;
-                    if constexpr (std::is_same_v<B, ProjectileBounceAttackBehavior>)
+                    if constexpr (std::is_same_v<B, std::monostate>)
+                        static_cast<void>(behavior);
+                    else if constexpr (std::is_same_v<B, ProjectileBounceAttackBehavior>)
                     {
                         const ProjectileBounceAttackBehavior defaults;
                         scalarField("runtimeBehavior.additionalHits", behavior.additionalHits,
@@ -968,6 +1033,10 @@ void appendActionCoverage(
                         scalarField("runtimeBehavior.bleedStacks", behavior.bleedStacks,
                             defaults.bleedStacks);
                     }
+                    else
+                        static_assert(
+                            AlwaysFalse<B>,
+                            "Unhandled attack-runtime-behavior coverage");
                 }, typed.runtimeBehavior);
             }
             else if constexpr (std::is_same_v<T, ForceMoveAction>)
@@ -1100,7 +1169,9 @@ void appendActionCoverage(
             else if constexpr (std::is_same_v<T, StateMachineAction>)
                 appendStateMachineCoverage(coverage, rule, variantIndex, typed,
                     std::format("{}.stateMachine", path));
-            else
+            else if constexpr (std::is_same_v<
+                                   T,
+                                   std::shared_ptr<ConditionalEffectAction>>)
             {
                 assert(typed);
                 appendAuditCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
@@ -1127,6 +1198,8 @@ void appendActionCoverage(
                     appendActionCoverage(coverage, rule, typed->whenFalse[index],
                         std::format("{}.whenFalse[{}]", path, index));
             }
+            else
+                static_assert(AlwaysFalse<T>, "Unhandled effect-action coverage");
         },
         action.value);
 }

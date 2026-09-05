@@ -1,8 +1,14 @@
 # Chess status contributions and composable behaviors
 
+> **Superseded in part before completion.** The named-debuff storage,
+> reapplication, bleed, and `化勁`/`刺目` arbitration sections in this document
+> are superseded by `chess-named-debuff-groups-amendment.md`. Positive
+> producer-local contribution, generic rule, binding, ordering, and description
+> infrastructure remains applicable where the amendment does not override it.
+
 ## Document status
 
-This is a design and implementation plan. It does not describe an already completed migration.
+This document records the delivered status-contribution and composable-behavior design. Its type names, ordering keys, binding phases, and runtime rules are aligned with the implementation currently present in this working tree.
 
 This document starts from the working-tree state after the semantic status-authoring migration described in `chess-status-effect-authoring-and-description-design.md`. It supersedes the following decisions from that document:
 
@@ -12,13 +18,11 @@ This document starts from the working-tree state after the semantic status-autho
 - that the runtime may reduce every status payload to anonymous `potency` and `secondaryPotency` slots; and
 - that a stored status behavior needs a status-specific combat path such as `insertTrueQiHitDamage`.
 
-The earlier document remains the record of the completed semantic-YAML and description migration. Where the two documents disagree about status instance ownership or name-specific effect ownership, this document is normative.
-
-Implementation must not begin until this document has been reviewed. The first implementation phase is characterization only.
+The earlier document remains the record of the semantic-YAML and description migration. Where the two documents disagree about status instance ownership or name-specific effect ownership, this document is normative. This status is scoped to the design described here; it is not a claim that unrelated repository work is complete.
 
 ## Executive decision
 
-The runtime will use **independent status contributions grouped by status identity**.
+The runtime uses **independent status contributions grouped by status identity**.
 
 A status name such as `真氣` is a grouping identity used by conditions, cleansing, consumption, UI, and descriptions. It is not a declaration that every producer supplied an interchangeable cap and effect definition.
 
@@ -51,7 +55,7 @@ status group: 真氣
 
 The aggregate status has 9 visible layers, but the two contributions remain independently meaningful. On a qualifying hit they produce `7 × 9` and `2 × 15` at their own execution positions. Neither cap clamps the other contribution, and neither payload replaces the other.
 
-There will be no global status-definition config. Caps and behaviors remain visible in the effect that grants them.
+There is no global status-definition config. Caps and behaviors remain visible in the effect that grants them.
 
 ## Decisions at a glance
 
@@ -64,18 +68,18 @@ There will be no global status-definition config. Caps and behaviors remain visi
 | Do several holders share a producer's capacity? | No. Capacity and family-local replacement are scoped to `(producer family, holder unit)`; every selected target receives its own allocation. |
 | Can repeated value drift or borrowing multiply a producer's cap? | No. On one holder, runtime instances and immutable-value generations remain distinct for attribution but draw from the same finite producer-family capacity. |
 | Does the strongest per-layer value upgrade weaker layers? | No. Each contribution evaluates its own layers. |
-| Is `max` used implicitly for cap or behavior? | No. Dominant/shared resolution would be a separate, explicit future mechanic. |
+| Is `max` used implicitly for cap or behavior? | No. Only named reducers such as strongest-poison arbitration perform dominant/shared resolution. |
 | May a status name use a behavior formerly associated with another status? | Yes, when the trigger and action are structurally and temporally valid and the producer still satisfies any reviewed minimum behavior profile for that player-facing status name. |
 | What remains status-name metadata? | Label, quantity noun/family, polarity, control classification, cleanse grouping, genuinely intrinsic group semantics, and optional minimum behavior-profile capabilities used by whole-content validation. |
 | How is per-layer scaling authored? | With a numeric `每層數值`, never `每層: true` and never an identity `百分比: 100`. |
 | What does an omitted damage `範圍` mean? | Single target. Authors write `範圍` only for `圓形` or `方形`. Explicit `範圍: 單體` is rejected. |
 | Do status behaviors use the generic effect engine? | Yes. Stored behavior rules reuse event, selector, condition, action, validation, ordering, and description infrastructure. |
 
-## Why the current model is unsafe
+## Why the replaced model was unsafe
 
 ### Same-name additive merge destroys ownership
 
-`BattleStatusSystem::apply` currently locates the first stored instance by `BattleStatusKind`. Its generic `AddStack` branch then:
+The replaced `BattleStatusSystem::apply` located the first stored instance by `BattleStatusKind`. Its generic `AddStack` branch then:
 
 1. adds to that instance's quantity;
 2. clamps the complete result using the incoming request's `stackLimit`;
@@ -100,11 +104,11 @@ Taking the maximum cap is deterministic but creates a shared-cap game rule. Taki
 
 If maximum potency controls the shared pool, one strong layer upgrades all weak layers to 100. If only the strong layer remains worth 100, the runtime must remember its provenance, which is the contribution model.
 
-Therefore, this design does not add an implicit `max`, `min`, latest-wins, or weighted-average resolver. Those may be valid explicit game mechanics later, but they are not neutral storage behavior.
+Therefore, this design has no implicit `max`, `min`, latest-wins, or weighted-average resolver. A dominant/shared resolver exists only as an explicitly named mechanic; it is never neutral storage behavior.
 
-### A name-indexed payload catalog overstates the invariant
+### A name-indexed payload catalog overstated the invariant
 
-The current status field catalog answers:
+The replaced status field catalog answered:
 
 > Which fields may the C++ payload selected by this status name contain?
 
@@ -125,28 +129,26 @@ This is why a diagnostic such as the following feels arbitrary:
 
 Preventing a cast is valid or invalid because of the event phase, current-cast context, target relationship, and action semantics. It is not technically invalid because the displayed status label is `真氣`.
 
-### The specialized True-Qi bridge removes the generality we already built
+### The specialized True-Qi bridge removed genericity
 
-The generic effect system already has events, selectors, conditions, actions, source binding, ordering, and command reduction. The current True-Qi implementation exits that system after application, reads a single status instance on hit, synthesizes a pure-damage command, and requires one origin-bearing instance.
+The generic effect system already had events, selectors, conditions, actions, source binding, ordering, and command reduction. The replaced True-Qi implementation exited that system after application, read a single status instance on hit, synthesized a pure-damage command, and required one origin-bearing instance.
 
 The generalized work was not mistaken. The missing abstraction is an active, source-owned status contribution that can expose its stored behavior to the same generic dispatcher.
 
-### Current code reference map
+### Delivered code reference map
 
-Line numbers are deliberately omitted because the working tree is still changing. These symbols are the review anchors:
+Line numbers are deliberately omitted because the working tree is still changing. These symbols are the implementation anchors:
 
-| Current responsibility | File and symbol | Design issue or retained behavior |
+| Responsibility | File and symbol | Delivered behavior |
 | --- | --- | --- |
-| Stored status object | `src/battle/BattleStatusSystem.h`: `BattleTypedStatusInstance` | Stores one source, stacks, anonymous primary/secondary potency, optional origin, and sequence. It does not retain a producer key, cap, or typed bound behavior. |
-| Status application | `src/battle/BattleStatusSystem.cpp`: `BattleStatusSystem::apply` | Generic merge selects first-by-kind; `AddStack` clamps with the incoming cap and overwrites source/potency/origin. Poison, stun, and MP block already have specialized reducers that require separate characterization. |
-| Aggregate queries | `src/battle/BattleStatusSystem.cpp`: `BattleStatusQuerySnapshot::stacks`, `potency`, `secondaryPotency` | Stacks sum, while both potency accessors take maximum. The mixed reducer policy is implicit and unsafe for heterogeneous contributions. |
-| True-Qi hit behavior | `src/battle/BattleCoreAttacks.cpp`: `insertTrueQiHitDamage` | Reads the first True-Qi instance, asserts exactly one, multiplies potency by stacks, and derives order arithmetically. |
-| Status identity/effect metadata | `src/ChessBattleEffectSemantics.cpp`: `statusCatalog`; `src/ChessBattleEffectSemantics.h`: `statusEffectFieldCatalog` | The shared catalog work is retained, but effect fields currently belong to a status name and lower to anonymous runtime slots. |
-| Status YAML parser | `src/ChessBattleEffectParser.cpp`: status effect payload parsing | Enforces the name-owned payload shape. It will be replaced by context/action validation after the contribution storage is safe. |
-| Generic effect rules | `src/ChessBattleEffectTypes.h`: `EffectRule`, `EffectActionValue`; `src/battle/BattleEffectSystem.*` | Reused rather than replaced. Status behavior adds an active rule view and contribution-relative context. |
-| Damage area default | `src/ChessBattleEffectTypes.h`: `DamageArea`; parser `造成傷害` branch | Internal default is already `SingleTarget`, and authoring `範圍` is optional. The requested cleanup is schema/content/diagnostic work, not a combat change. |
-| Damage target expansion | `src/battle/BattleCoreDamage.cpp`: `effectDamageTargetIds` | Retains the existing single/circle/square runtime behavior. |
-| Description pipeline | `src/ChessEffectDescription*.cpp/.h` | Semantic-before-lowering architecture is retained; its status node changes from name-owned payload facts to contribution-local behavior rules. |
+| Stored contributions | `src/battle/BattleStatusSystem.h`: `BattleStatusContribution`, `BattleStatusEffectState` | Each holder owns a contribution vector; each contribution retains producer/family identity, optional family limit, bound behavior/runtime state, source, duration, origin, and sequence. |
+| Status application | `src/battle/BattleStatusSystem.cpp`: `BattleStatusSystem::apply` | Performs producer-compatible reapplication and holder-local family allocation while retaining explicit poison, stun, and MP-block reducers. |
+| Aggregate queries and projection | `src/battle/BattleStatusSystem.*`: `BattleStatusQuerySnapshot`, `makeBattleStatusGroupPresentation` | Quantity queries cover all matching contributions with filters; presentation projects status → family → generation without changing storage semantics. |
+| Generic and active dispatch | `src/battle/BattleEffectSystem.*`: `dispatchMerged`, `EffectExecutionOrderKey` | Merges configured and live contribution rule views, sorts them with one structured key, and revalidates generation liveness before execution. |
+| Attack interception | `src/battle/BattleCoreAttacks.cpp`: typed hit resolution | Runs status attack interceptors in a dedicated preflight before ordinary hit resolution, then excludes them from normal `HitBeforeDamage` dispatch. |
+| Status identity and behavior metadata | `src/ChessBattleEffectSemantics.*` | Keeps identity classification separate from the generic behavior/action and numeric-binding catalogs. |
+| Canonical parser and validation | `src/ChessBattleEffectParser.cpp`, `src/ChessBattleEffectValidation.cpp` | Parse and validate local behavior rules, stable action identity, status-relative inputs, source filters, and lifecycle restrictions. |
+| Damage targeting and descriptions | `src/battle/BattleCoreDamage.cpp`, `src/ChessEffectDescription*` | Retain the single/circle/square targeting contract and describe contribution-local semantics without reconstructing anonymous potency slots. |
 
 ## Goals
 
@@ -159,7 +161,7 @@ Line numbers are deliberately omitted because the working tree is still changing
 7. Preserve stable source attribution and exact command ordering.
 8. Make authored YAML explain the mechanic without detached Boolean multipliers or identity coefficients.
 9. Keep Compact, Full, and Detailed descriptions semantic and source-correct.
-10. Migrate shipped content without maintaining legacy parsing forms.
+10. Keep shipped content on canonical authoring without maintaining legacy parsing forms.
 
 ## Non-goals
 
@@ -168,7 +170,7 @@ Line numbers are deliberately omitted because the working tree is still changing
 3. It does not introduce an arbitrary user-named runtime script language.
 4. It does not add implicit strongest-wins behavior for same-name contributions.
 5. It does not guarantee that two independent contributions collapse into one damage transaction.
-6. It does not preserve old YAML spellings after migration.
+6. It does not preserve removed YAML spellings as compatibility aliases.
 7. It does not infer cross-producer compatibility from coincidentally equal display text.
 
 ## Vocabulary
@@ -183,7 +185,7 @@ Identity owns only facts that must be shared for grouping:
 - quantity family and noun (`層`, `次`, `枚印記`);
 - positive/negative/control classification;
 - default cleanse grouping;
-- runtime-owned versus authorable classification; and
+- runtime-owned versus authorable classification;
 - a small number of genuinely intrinsic group reducers, such as the effective control clock for stun; and
 - an optional reviewed minimum behavior profile when the player-facing name makes a stable mechanical promise.
 
@@ -191,7 +193,7 @@ Identity does not own authored cap values, exact numeric tuning, or a list of pe
 
 ### Producer
 
-The configured action that applied the status. A stable producer key consists conceptually of:
+The configured action that applied the status. Its stable key is:
 
 ```cpp
 struct StatusProducerKey
@@ -199,6 +201,8 @@ struct StatusProducerKey
     EffectSourceBinding binding;
     EffectRuleId ruleId;
     std::uint32_t actionOrder{};
+    std::uint32_t behaviorRuleOrder{};
+    std::uint32_t behaviorActionOrder{};
 };
 ```
 
@@ -213,25 +217,17 @@ struct StatusProducerFamilyKey
 {
     EffectSourceKind sourceKind{};
     int sourceId{};
-    int logicalOwnerUnitId{};
+    int logicalOwnerUnitId = -1;
     EffectRuleId ruleId;
     std::uint32_t actionOrder{};
+    std::uint32_t behaviorRuleOrder{};
+    std::uint32_t behaviorActionOrder{};
 };
 ```
 
-Capacity is not global for that key. It is scoped by the unit that holds the contribution:
+Capacity is holder-local without another identity type. Every holder owns a separate `BattleStatusEffectState::statuses` vector, and application scans only that holder's active contributions when allocating a family limit. The invariant is enforced independently for every `(producer family, holder unit)` relationship. `logicalOwnerUnitId` identifies and groups the granting effect owner; it does not group different status holders into one shared pool. A single multi-target action therefore gives every selected holder its own complete family allocation.
 
-```cpp
-struct StatusFamilyCapacityKey
-{
-    int holderUnitId = -1;
-    StatusProducerFamilyKey family;
-};
-```
-
-The invariant is enforced independently for every `(producer family, holder unit)` pair. `logicalOwnerUnitId` identifies and groups the granting effect owner; it does not group different status holders into one shared pool. A single multi-target action therefore gives every selected holder its own complete family allocation.
-
-The concrete lowering may retain more stable source-definition identity when cloned or borrowed rules require it, but it must satisfy these rules:
+The concrete lowering retains stable source-definition identity for cloned and borrowed rules under these rules:
 
 - rebinding the same authored rule for another cast does not create another family capacity;
 - `runtimeInstanceId` distinguishes execution attribution and runtime state, but not family capacity;
@@ -261,19 +257,21 @@ One independently owned stored application of a status identity.
 struct BattleStatusContribution
 {
     BattleStatusKind kind{};
-    StatusProducerKey producer;
-    StatusProducerFamilyKey family;
+    std::optional<StatusProducerKey> producer;
+    std::optional<StatusProducerFamilyKey> producerFamily;
+    std::optional<int> familyLocalLimit;
+    std::shared_ptr<const StatusBehaviorDefinition> behavior;
+    std::vector<EffectRuleRuntimeState> behaviorRuntime;
     int sourceUnitId = -1;
-    StatusQuantity quantity;
-    StatusDurationState duration;
-    BoundStatusBehavior behavior;
-    BattleStatusEffectOrigin origin;
-    StatusContributionRuntimeState runtime;
+    int remainingFrames = 0;
+    int maximumFrames = 0;
+    int stacks = 1;
+    std::optional<BattleStatusEffectOrigin> origin;
     std::uint64_t appliedSequence{};
 };
 ```
 
-The exact types may differ, but family capacity, behavior, source, and origin must not be anonymous mutable fields that an unrelated producer can replace.
+Family capacity, behavior, source, and origin are therefore not anonymous mutable fields that an unrelated producer can replace.
 
 ### Status group
 
@@ -284,7 +282,7 @@ The group is used for:
 - `has status` conditions;
 - aggregate quantity queries;
 - group removal and cleansing;
-- runtime/UI summaries; and
+- runtime query summaries; and
 - behavior arbitration when an action is intrinsically exclusive.
 
 The group is a view/reducer, not a single mutable contribution.
@@ -396,7 +394,7 @@ The status-context `觀察範圍` vocabulary is:
 
 These labels resolve the observer relationship only. The normal rule `目標` still selects the unit that receives each action.
 
-The final parser should share `EffectRule`, selector, condition, action, and `EffectNumber` descriptors. Status context adds only contribution-relative selectors/references and per-layer number evaluation. It must not duplicate the complete generic parser in a second switch.
+The parser shares `EffectRule`, selector, condition, action, and `EffectNumber` descriptors. Status context adds only contribution-relative selectors/references and per-layer number evaluation; it does not duplicate the complete generic parser in a second switch.
 
 ### Persistent behavior
 
@@ -431,15 +429,11 @@ These are not freely chosen presentation labels. In the current hit pipeline, `B
 
 ### Persistent modifier pipeline parity
 
-Every migrated persistent status modifier has a normative pipeline insertion point. Migration may replace the storage and query mechanism, but it may not move the modifier across critical calculation, defense, ignore-defense, typed reductions, healing rounding, shields, per-hit caps, integer/fixed-point rounding, or transaction creation.
+`BattleStatusSystem::snapshot` sorts persistent actions with the same structured status-order key used by active dispatch. It evaluates each persistent number against that contribution's live quantity and folds it into the established combat accumulator without moving the modifier across critical calculation, defense, ignore-defense, typed reductions, healing rounding, shields, per-hit caps, integer/fixed-point rounding, or transaction creation.
 
-The parity rule is:
+The delivered mappings are:
 
-> A status-derived persistent modifier enters the same semantic accumulator, phase, relative order, and rounding boundary used by the current status fold. Relocation is permitted only when a Phase 0 equivalence test proves equality for every interacting path and the relocation is recorded as a deliberate behavior change.
-
-The initial mappings are:
-
-| Status capability | Required current-equivalent insertion |
+| Status capability | Runtime insertion |
 | --- | --- |
 | 戰意 outgoing skill damage | `skillDamagePct`; hit path `outgoingBeforeCritical`; transaction path before flat damage and defense. |
 | 戰意 incoming reduction | `damageReductionPct`; hit path `incomingBase`; transaction path at the existing typed reduction fold. |
@@ -448,9 +442,9 @@ The initial mappings are:
 | 寒毒 speed reduction | Existing status-derived speed percentage accumulator and attribute-query order. |
 | 寒毒 healing prevention | Existing heal-attempt gate, before any applied-heal side effects. |
 
-The 戰意 example's incoming `方式: 百分比加算` with `每層數值: -1` is the exact sign convention of the current generic modifier vocabulary, not placeholder prose. For incoming `PercentAdd`, a negative amount lowers to positive `damageReductionPct`; the hit path likewise inserts the current positive status reduction as a negative `incomingBase` modifier. Phase 2 must pin both representations in equivalence tests. If the final schema instead introduces a positive-valued operation such as an explicit percentage-reduction verb, the example, descriptor, description, and lowering must change together; silently flipping the sign under `百分比加算` is forbidden.
+The 戰意 example's incoming `方式: 百分比加算` with `每層數值: -1` is the exact sign convention of the generic modifier vocabulary. The folds are signed and saturating: speed `PercentAdd` updates signed `speedPctDelta`; outgoing before-defense skill `PercentAdd` updates signed `skillDamagePct`; incoming before-defense all-damage `PercentAdd` is required to be non-positive and is converted to positive `damageReductionPct`; and incoming final all-damage `PercentAdd` updates signed `damageTakenPct`. Incoming reduction uses saturating negation, so `INT_MIN` becomes `INT_MAX` instead of overflowing. All scalar accumulators saturate to signed `int` bounds.
 
-The generic `傷害修正`/heal/attribute vocabulary is acceptable only when its lowering reaches those slots exactly. Phase 0 owns mixed-case equivalence tests with critical hits, defense, ignore defense, other configured modifiers, shields, caps, poison/bleed transaction paths, heal multipliers, and rounding boundaries.
+Heal modifiers remain an ordered sequence and preserve rounding after each step. Thus modifier parity covers the accumulator, phase, order, sign convention, saturation behavior, and rounding boundary—not merely an algebraically similar final percentage.
 
 ### Cross-owner lifecycle example: 七星
 
@@ -538,7 +532,7 @@ At behavior trigger:
 - `每層數值` multiplies the resulting per-layer number by the executing contribution's current layer quantity; and
 - the final action value is range-checked before command creation.
 
-Conceptually, numeric action inputs use:
+`EffectNumber` carries the delivered scale and application-capture fields:
 
 ```cpp
 enum class StatusNumberScale
@@ -547,14 +541,16 @@ enum class StatusNumberScale
     PerContributionLayer,
 };
 
-struct BoundStatusNumber
+struct EffectNumber
 {
-    BoundEffectNumber number;
-    StatusNumberScale scale = StatusNumberScale::Once;
+    // Other formula fields omitted here.
+    StatusNumberScale statusScale = StatusNumberScale::Once;
+    std::int64_t boundNumerator{};
+    std::int64_t boundDenominator = 1;
 };
 ```
 
-The concrete implementation may reuse an existing bound-formula representation, but it must preserve this two-phase contract. Compatibility compares immutable structure and application-bound parameters; it never compares a later event's transient result.
+The implementation reuses the bound-formula representation while preserving this two-phase contract. Compatibility compares immutable structure and application-bound parameters; it never compares a later event's transient result.
 
 #### Closed binding-phase catalog
 
@@ -580,18 +576,19 @@ For the current `EffectNumberBase` surface, the status-behavior binding catalog 
 | `SourceMaxHp` / `來源最大生命` | `ApplicationBound` | Applying effect owner's maximum HP at application. |
 | `SourceMissingHpRatio` / `來源已損生命比例` | `ApplicationBound` | Applying effect owner's missing/current maximum-HP pair at application; do not pre-round the ratio. |
 | `SourceCurrentMpRatio` / `來源目前內力比例` | `ApplicationBound` | Applying effect owner's current/maximum-MP pair at application; do not pre-round the ratio. |
-| `SourceStatusEffectValue` / `來源狀態效果值` | `ApplicationBound` | Legacy migration input captured at application; removed after named contribution values replace it. |
-| `SourceStatusQuantity` / `來源狀態數量` | `ApplicationBound` | Legacy migration input captured at application; new local rules prefer `此狀態貢獻`. |
+| `SourceStatusQuantity` / `來源狀態數量` | `ApplicationBound` | In a stored behavior, sum the applying effect owner's matching status quantity after its authored source filter and replace it with an internal `BoundRatio`; later source-status changes do not alter that generation. In an ordinary configured rule, the same authored base remains legal and reads the effect owner's matching quantity when that rule executes. |
+| `CurrentContributionQuantity` / `此狀態貢獻數量` | `ContributionLive` | Current quantity of the still-live executing generation after liveness revalidation; legal only in a status behavior. |
 | `StoredStateValue` / `狀態槽值` | `ApplicationBound` | State-slot value captured before a borrowed/cast-scoped producer can disappear. |
 | `TargetMaxHp` / `目標最大生命` | `EventLive` | Current selected behavior target maximum HP at the triggering event. |
 | `TargetCurrentHp` / `目標目前生命` | `EventLive` | Current selected behavior target HP at the triggering event. |
 | `TargetCurrentShield` / `目標目前護盾` | `EventLive` | Current selected behavior target shield at the triggering event. |
 | `TargetCurrentCooldown` / `目標目前冷卻` | `EventLive` | Current selected behavior target cooldown at the triggering event. |
 | `FinalHpDamage` / `實際生命傷害` | `EventLive` | The triggering damage transaction's resolved HP damage; legal only at events that provide it. |
-| `ApplicationTargetMaxHp` / `套用目標最大生命` | `ApplicationBound` | Status recipient's maximum HP when the contribution is applied; introduced only for characterized snapshot parity such as `下次承傷上限`. |
-| `此狀態貢獻數量`, `此狀態貢獻行為值` and `每層數值` scale | `ContributionLive` | Read from the still-live executing contribution after liveness revalidation. |
+| `ApplicationTargetMaxHp` / `套用目標最大生命` | `ApplicationBound` | Status recipient's maximum HP when the contribution is applied, including the snapshot semantics of `下次承傷上限`. |
+| `BoundRatio` | `Literal` | Internal application-capture result. It retains numerator and denominator until the formula's final rounding boundary and is not an author-facing lookup. |
+| `每層數值` scale | `ContributionLive` | Multiplies by the still-live executing generation's current quantity after liveness revalidation. |
 
-`ApplicationTargetMaxHp` is the only new application-target base approved by this design. If characterization confirms that `下次承傷上限` snapshots maximum HP when granted, its canonical migration uses `套用目標最大生命`, not the event-live `目標最大生命`. No other `ApplicationTarget…` or `EventSource…` base is part of this migration; a newly required input must amend this closed table before implementation rather than silently changing a `來源…` or `目標…` base's phase.
+`ApplicationTargetMaxHp` snapshots maximum HP when `下次承傷上限` is granted; it is distinct from event-live `TargetMaxHp`. There is no generic numeric base that reads a behavior-defined value from the current contribution. Contribution-local formulas use `CurrentContributionQuantity` or the `每層數值` scale.
 
 `base` and `multiplierBase` are classified independently. A mixed formula may capture its application-bound inputs and retain its event-live input, but rounding/minimum/maximum are applied only after the complete trigger-time value is assembled. Adding a numeric base without a phase, legality set, description phrase, binder, evaluator, and compatibility treatment must fail structurally at compile/test time.
 
@@ -638,11 +635,11 @@ If game design intentionally wants a named restriction, that restriction must be
 
 Open parser capability does not mean a player-facing status label may lie. A producer of `寒毒` that authors only a speed penalty but omits healing prevention would be structurally executable, yet would violate the established game meaning of `寒毒`.
 
-The status identity catalog therefore classifies every row as exactly one of:
+The status identity catalog classifies every row as exactly one of:
 
-- `Intrinsic`: the runtime/group reducer itself supplies the named contract, as for the effective stun clock;
-- `Profiled`: every authored producer must contain a reviewed minimum set of generic behavior capabilities; or
-- `OpenMarker`: the name is only a grouping/link identity and has no implied behavior bundle.
+- `Intrinsic`: authorable intrinsic statuses such as stun and MP block obtain their behavior from the built-in group reducer and may not author a local `效果`; runtime-owned intrinsic statuses may not be applied by effect authoring;
+- `Profiled`: every authored producer must contain a non-empty local `效果` and the reviewed minimum set of generic behavior capabilities; or
+- `OpenMarker`: the name has no implied minimum capability bundle, but every application must still contain a non-empty local `效果`.
 
 A status qualifies for a minimum profile only when all of the following hold:
 
@@ -651,7 +648,7 @@ A status qualifies for a minimum profile only when all of the following hold:
 3. the capability is expected from every producer of that identity, not merely one martial art; and
 4. the contract can be expressed as generic capability tags and relationships rather than an exact payload struct or numeric value.
 
-Profiles require minimum capabilities and allow additional lifecycle-valid behavior. They do not own values, caps, duration, source, action order, or a list of forbidden generic fields. The ordinary parser/schema remains open; a whole-content validation pass compares each complete producer (including contribution-local and explicitly linked rules) with the profile after parsing. Contract tests derive from the same profile catalog, so there is no second name-keyed parser switch.
+Profiles require minimum capabilities and allow additional lifecycle-valid behavior. They do not own values, caps, duration, source, action order, or a list of forbidden generic fields. The ordinary parser/schema remains open; whole-content validation compares each complete producer's local behavior with the profile after parsing. Authored configured rules also may not use reserved intrinsic rule IDs. Contract tests derive from the same profile catalog, so there is no second name-keyed parser switch.
 
 The initial reviewed classification is:
 
@@ -672,10 +669,10 @@ The initial reviewed classification is:
 | `戰意` | `Profiled` | Per-layer outgoing skill-damage increase **and** incoming damage reduction at their parity pipeline slots. |
 | `真氣` | `Profiled` | Holder-hit pure damage scaled by this contribution's layers. |
 | `毒爆` | `Profiled` | Contribution-local death explosion damage and the reviewed poison application. |
-| `無影` | `OpenMarker` | No name-implied payload bundle; whole-content validation still requires every produced marker to have a source-correct linked consumer. |
-| `下一次攻擊必定暴擊` | `Intrinsic` / runtime-owned | Existing runtime-owned next-attack critical behavior. |
+| `無影` | `OpenMarker` | No name-implied capability bundle; every application still provides a non-empty local behavior. |
+| `下一次攻擊必定暴擊` | `Intrinsic` / runtime-owned | Runtime-owned next-attack critical behavior; direct effect authoring is rejected. |
 
-Phase 0 must verify this table against player-visible descriptions and shipped behavior before the profiles become load-time contracts. Changing a profile after that is a game-design change, not parser maintenance.
+This table is the load-time authoring contract. Changing a profile is a game-design change, not parser maintenance.
 
 ### Cast-suppression naming
 
@@ -714,7 +711,9 @@ The command that applies a status must carry:
 - stable execution-order key; and
 - source unit attribution.
 
-Two actions in one effect rule that apply the same status remain distinct because `actionOrder` participates in both the producer key and family key.
+`EffectCommandMetadata` separates authored identity from emitted position. `authoredActionOrder` is the stable identity of an authored leaf, while `actionOrder` is its emitted execution position and expands when an action repeats. Conditional leaf numbering reserves the complete true-branch leaf range before numbering the false branch, so selecting a different branch never changes another leaf's identity. Repeated executions of one authored status action therefore retain one `authoredActionOrder` and one producer family while receiving distinct runtime `actionOrder` values; separately authored or separately nested leaves remain different families.
+
+When a status behavior applies another status, the outer `producerActionOrder` remains the original applying action. The nested `behaviorRuleOrder` and stable `behaviorActionOrder` identify the applying leaf inside the stored behavior. These three authored positions populate the producer and family keys shown above.
 
 Borrowed/cast-scoped rules remain distinct contributions because their runtime binding instance participates in the producer key. The transient instance does not participate in the family key. Removing the borrowed rule does not invalidate a stored contribution's copied metadata, and rebinding the same authored producer cannot allocate another full family cap.
 
@@ -744,6 +743,8 @@ allocated = min(requestedIncrease, max(0, available))
 ```
 
 The allocated quantity goes to the compatible producer generation on that holder or to a new immutable-value generation on that holder. A zero allocation creates no empty contribution. The family limit is stored with/validated against that holder's active family records; this is not a new global status-definition service.
+
+`NoStatusQuantity` lowers to one effective stack with a holder-local family limit of one. Under duration-only `RefreshDuration`, a compatible generation refreshes only its duration. If a different runtime alias or immutable behavior generation in the same family arrives while that one slot is occupied, the existing family generation's duration is refreshed instead: its behavior, provenance, producer identity, and generation identity remain unchanged, and no second contribution is created.
 
 ### Payload changes from the same producer family
 
@@ -780,7 +781,7 @@ The application semantic must say what it does to the group:
 
 These operations may select/remove contributions, but they cannot reuse the generic `AddStack` branch or anonymous `(potency, secondaryPotency, stacks)` tuple.
 
-No generic cross-group cap/effect resolver is added in this migration.
+No generic cross-group cap/effect resolver exists.
 
 ## Group queries and aggregation
 
@@ -796,14 +797,18 @@ The default group quantity is the checked sum of contribution quantities:
 groupQuantity(kind, filter) = Σ contribution.quantity
 ```
 
-Source filters may restrict the sum to:
+The authored `StatusSourceMatch` values lower to one concrete `StatusContributionFilter` contract:
 
-- all contributions;
-- contributions applied by a unit;
-- contributions owned by an effect binding; or
-- the currently executing contribution.
+| Authored relationship | Runtime filter |
+| --- | --- |
+| `Any` | Empty filter; all contributions in the queried group. |
+| `EffectOwner` | `sourceUnitId == binding.ownerUnitId`. |
+| `EffectBinding` | Exact full `EffectSourceBinding`, including `runtimeInstanceId`. |
+| `CurrentContribution` | Exact `holderUnitId + appliedSequence`. |
 
-The existing source-sensitive 七星 lifecycle must use an owner/binding filter, not merely the status name.
+The concrete filter contains optional `holderUnitId`, `sourceUnitId`, `producerBinding`, and `appliedSequence` fields. Query sums use saturating arithmetic and clamp at `INT_MAX`.
+
+The source-sensitive 七星 lifecycle must use the exact current-contribution operation for its local marks, not merely the status name. Public cross-contribution operations that intentionally select a producer relationship use an owner/binding filter instead.
 
 ### Capacity
 
@@ -815,7 +820,7 @@ Storage never has a group cap. A presentation-only derived capacity may be:
 
 when every displayed family on the queried holder has the same quantity family and a finite local limit. Generations and runtime aliases in one family are counted once per holder. This derived group value must not be fed back into application, compatibility, or consumption logic, and no UI/query aggregates family capacity across holders.
 
-When a concise `current / maximum` display would hide materially different behaviors, the UI shows total quantity without a single cap and provides a contribution breakdown.
+The runtime projection keeps total quantity separate from the per-family capacity records, so consumers cannot synthesize `current / maximum` by borrowing one family's cap for the whole group.
 
 ### Behavior values
 
@@ -841,11 +846,11 @@ For strongest-wins mechanics, the behavior action owns a strongest-wins reducer 
 
 ### Source status numeric references
 
-`來源狀態數量` means the sum of matching contribution quantities after applying its source filter.
+`來源狀態數量` is legal in both ordinary configured rules and stored status behaviors. In an ordinary configured rule it reads the effect owner's matching quantity when the rule executes; this is the canonical generic consumer used by fields such as `重複次數`. When authored inside a stored behavior, it instead reads the applying effect owner's matching quantity at application time through `Any`, `EffectOwner`, or exact `EffectBinding` filtering and is stored as `BoundRatio`, so that generation does not observe later source-status changes. `CurrentContribution` is intentionally invalid for this numeric base in either context.
 
-`來源狀態效果值` must name a behavior value and its reducer. Additive values default to sum only when the behavior catalog declares sum as their natural aggregation. No reference silently reads maximum potency.
+`此狀態貢獻數量` is contribution-live and valid only inside a stored status behavior. It reads the current quantity of the exact executing generation after that generation has passed liveness revalidation and after any earlier same-event consumption. `每層數值` uses the same live quantity as its multiplier.
 
-Within a stored behavior rule, `此狀態貢獻` references are preferred because they cannot accidentally combine unrelated producers.
+`CurrentContribution` remains valid for contribution-relative consume/remove operations. No numeric reference silently reads an anonymous potency or maximum behavior value.
 
 ## Triggering and arbitration
 
@@ -869,27 +874,45 @@ Some actions are inherently exclusive for one event:
 - block one damage transaction; or
 - consume one charge to cap one hit.
 
-The dispatcher evaluates eligible contribution rules in deterministic order and revalidates live eligibility after each reduced command. Once an earlier rule prevents or consumes the transaction, later rules must not consume charges for an effect that no longer applies.
+The dispatcher evaluates eligible contribution rules in deterministic order and revalidates live eligibility after each reduced command. Once an earlier rule prevents or consumes the transaction, later rules do not consume charges for an effect that no longer applies.
 
 This arbitration belongs to the action/event contract, not to a list of status names.
 
 The winner order is player-observable and normative. Configured rules and active contribution rules are sorted by the complete structured execution key described below, ascending. The first still-eligible command whose reduction makes the exclusive predicate false wins; every later contender is revalidated and skipped without consumption. There is no status-name priority between heterogeneous contenders.
 
-Consequently, when `化勁` and `刺目` both contend for one attack contact, the earlier structured key determines whether the winning action includes 化勁's shield grant. The losing charge remains available for a later eligible event. This intentionally differs from the current typed loop, which consumes both statuses and grants the 化勁 shield regardless of their application order.
+Consequently, when `化勁` and `刺目` both contend for one attack contact, the earlier structured key determines whether the winning action includes 化勁's shield grant. The losing charge remains available for a later eligible event.
 
 Dependent effects of an exclusive action are success continuations, not independent pre-gathered commands. Reduction either commits the exclusive action, its charge consumption, and its success continuation under one outcome, or commits none of them. Thus a losing 化勁 contribution cannot grant a shield after its suppression command fails live revalidation.
+
+#### Attack-interceptor preflight
+
+Typed hit resolution first dispatches only active status attack interceptors with `StatusBehaviorDispatchFilter::AttackInterceptorsOnly`. This preflight occurs before ordinary dodge, critical handling, cast hit recording, damage, and the normal `HitBeforeDamage` dispatch. The normal path uses `ExcludeAttackInterceptors`, so an interceptor cannot execute twice.
+
+Interceptor rules are tried in structured order. Preflight stops after the first rule that emits either `SuppressCurrentCastContactsEffectCommand` or `MakeIncomingAttackMissEffectCommand`. Later contenders are not evaluated: they do not draw chance state and their charges/runtime state remain untouched. Authoring validation requires an attack interceptor to be the rule's sole direct action; it cannot be nested in a conditional or mixed with another action. Any success effects belong inside the interceptor's success continuation.
 
 ### Periodic behaviors
 
 Periodic runtime state belongs to the contribution. Each contribution has its own tick countdown and remaining trigger charges. Expiring or removing one contribution cannot reset another contribution's tick.
 
-Same-event poison aggregation remains a poison behavior policy. It must group only the applications selected by that policy and must not become a generic same-name overwrite.
+#### Poison same-event aggregation
+
+Poison aggregation is opt-in through `PoisonSameEventMerge::SumDamagePercent` and applies only to poison applications using `KeepHigherDamage`. It is a constrained deterministic preflight, not a general post-dispatch fold. The marker is legal only on a top-level configured `HitBeforeDamage` rule targeting `HitTarget`, where the poison application is the rule's sole direct action. The rule may not have conditions, chance, activation/accounting fields, repetition, or a conditional wrapper. Status-behavior rules cannot opt into this preflight.
+
+At the event boundary, `dispatchMerged` evaluates every already-bound eligible merge rule against the immutable event snapshot before ordinary configured/status-behavior interleaving. It groups commands by the same target unit, the same `binding.ownerUnitId`, and compatible normalized poison behavior. It intentionally does **not** require the same producer family: compatible configured applications from different rules/families may combine when their effect owner and target agree. This is the named poison exception to ordinary producer-family isolation.
+
+Two commands are compatible only when their complete status behaviors are equivalent after normalizing rule IDs and zeroing only the canonical poison damage percentage; the remaining canonical poison damage formula must match exactly. Compatible commands add damage percentages with saturation, keep the maximum duration, and keep the maximum trigger-charge count. Incompatible opt-in commands remain separate strongest-poison candidates; sharing an owner and target is not an error. Each surviving aggregate is injected at the earliest complete structured execution key among its constituents. It retains that earliest command's metadata and provenance, and its merge marker is reset to `None` so it cannot aggregate again. The ordinary poison group reducer then compares each incoming candidate with the active strongest poison in structured order.
+
+#### Global FrameAdvanced dispatch
+
+At each frame start, `BattleEffectEventBridge::dispatchFrameAdvanced` builds one merged snapshot with `includeAllFrameOwners = true`. It includes configured `FrameAdvanced` rules for every living configured owner and `FrameAdvanced` rules from every live contribution on a living holder. The placeholder event owner is replaced with each configured rule's actual owner before that rule is evaluated; dead configured owners and dead holders are skipped.
+
+`BattleFrameRunner::runFrame` dispatches and reduces this frame-start snapshot before advancing status timers. A surviving status with one frame remaining therefore receives its final eligible `FrameAdvanced` tick before expiry. An earlier structured-order removal can still make that snapshotted final rule fail generation-liveness validation.
 
 ### Death and depletion behaviors
 
-Death and depletion effects should be stored with the contribution that supplies the values they use. This removes duplicated producer/consumer constants and makes source ownership explicit.
+Death and depletion effects are stored with the contribution that supplies the values they use. This removes duplicated producer/consumer constants and makes source ownership explicit.
 
-`毒爆` and `七星` are target migration cases:
+`毒爆` and `七星` are representative delivered cases:
 
 - `毒爆` stores its death behavior with each contribution and uses that contribution's layer quantity/value;
 - `七星` stores its hit observation, defense modification, mark consumption, and depletion stun with the mark contribution.
@@ -900,23 +923,27 @@ Generic explicit lifecycle rules may remain when they genuinely coordinate outsi
 
 ### Structured order key
 
-Status behavior commands need an order immediately associated with their producer without using `origin.ruleOrder + 1`.
-
-Conceptually:
+Configured rules, status-owned behaviors, status interceptors, actions, targets, and commands share one concrete key:
 
 ```cpp
 struct EffectExecutionOrderKey
 {
     int sourcePrecedence{};
     std::uint32_t producerRuleOrder{};
-    EffectExecutionLane lane{};
+    EffectExecutionLane lane = EffectExecutionLane::Configured;
     std::uint32_t producerActionOrder{};
     std::uint32_t behaviorRuleOrder{};
+    int holderUnitId = -1;
     std::uint64_t contributionSequence{};
+    std::uint32_t actionOrder{};
+    std::uint32_t targetOrder{};
+    std::uint64_t commandOrdinal{};
+
+    auto operator<=>(const EffectExecutionOrderKey&) const = default;
 };
 ```
 
-Comparison is lexicographic in the field order shown, ascending. `sourcePrecedence` is derived by the authoritative existing mapping used by `effectSourceRuleOrderLess`: Combo, Equipment, EquipmentSynergy, Neigong, then Magic. It is not the raw `EffectSourceKind` enum ordinal. `producerRuleOrder` is the existing globally allocated, immutable registration-order token within that source precedence. The status-behavior lane sorts after its producer rule's normal lane and before the next producer rule order in the same source precedence. Action order, authored behavior order, and finally monotonic contribution sequence break all remaining ties. No two executable rules may remain unordered.
+Default comparison is lexicographic in exactly the field order shown, ascending. `EffectExecutionLane` has `Configured` and `StatusBehavior` lanes, with the configured lane before the status-behavior lane at the same producer rule order; the latter still precedes the next producer rule order. `sourcePrecedence` uses the explicit Combo → Equipment → EquipmentSynergy → Neigong → Magic mapping and never the raw `EffectSourceKind` enum ordinal. A status behavior key derives from source precedence, producer rule order, status lane, producer action order, behavior rule order, holder, contribution sequence, and action order; `targetOrder` and `commandOrdinal` finish command-level ties.
 
 This preserves current mixed-source precedence while avoiding overflow, collision, enum-order accidents, and dependence on vector indices. Rebuilding event indices filters/reindexes lookup storage only; it must not renumber a live producer order token already copied into a contribution. A later borrowed binding receives a later producer order token within Magic precedence even when it shares family capacity with an earlier generation.
 
@@ -934,11 +961,15 @@ Every command created by a status behavior retains:
 - status identity and contribution sequence for diagnostics; and
 - cast/hit provenance available from the triggering event.
 
-Kill credit, presentation skill name, descendants, reflection lineage, damage modifiers, hurt invincibility, and event dispatch must be characterized before migration.
+That provenance feeds kill credit, presentation skill name, descendants, reflection lineage, damage modifiers, hurt invincibility, and later event dispatch.
+
+Configured clone rules retain source kind, source ID, rule ID, and authored action structure. Lowering replaces the owner and source team with the clone's unit/team, clears `runtimeInstanceId`, assigns the appended rule a normal stable registration-order token, and skips `BattleInitialized` and cast-scoped rules. When initial status state is cloned, only unit IDs that pointed to the cloned source are rewritten: `sourceUnitId`, `producer.binding.ownerUnitId`, `producerFamily.logicalOwnerUnitId`, and `origin.binding.ownerUnitId`. External-source contributions remain external. Other source-definition, behavior, runtime-instance, rule/action, and rule-order provenance stays intact, so every clone has its own logical producer family on each holder without losing the source definition.
+
+The runtime spiral-bleed path derives a complete `BattleStatusProducerProvenance` from the originating effect command before spawning projectiles. The attack spawn request, attack instance/event, scripted hit request, bleed application, and final `BattleStatusContribution` carry that provenance through unchanged. `BattleDamageSystem::applyBleed` copies producer, producer family, source unit, origin, and local cap into the additive bleed request and attaches `makeRuntimeBleedStatusBehavior()`. Independent bleed producers therefore retain separate family capacity, origin, tick state, and damage transactions.
 
 ### Active rule integration
 
-Active status behaviors should not be copied into the permanent rule store as ordinary configured rules. Instead, event dispatch gathers two rule views:
+Active status behaviors are not copied into the permanent rule store as ordinary configured rules. Event dispatch gathers two rule views:
 
 1. configured/bound effect rules; and
 2. active status-contribution behavior rules.
@@ -947,7 +978,11 @@ Both views use the same eligibility, selector, condition, evaluation, command, o
 
 This prevents leaked rules and avoids mutating the permanent rule store on every status application or expiry.
 
-Event dispatch snapshots stable contribution identifiers, not references into the status vector. A contribution created during an event becomes eligible starting with the next event; it cannot retroactively join the dispatch that created it. Before each snapshotted contribution rule executes, the dispatcher confirms that the contribution still exists and remains eligible. This permits an earlier command to remove or consume a later contribution without iterator invalidation or same-event recursive activation.
+`dispatchMerged` snapshots configured rules and active contribution rule views, sorts them by the structured key, and revalidates every status rule before it executes. The generation-liveness identity is exactly `(holderUnitId, appliedSequence, kind)`. The dispatcher looks up that generation and reads its current quantity; a removed, depleted, or replaced generation is skipped.
+
+Production event dispatch evaluates liveness against a reducer-backed shadow runtime cloned at the event boundary. After each rule emits commands, that shadow runs the same command reducer for status application, contribution-relative/source-filtered consumption, removal, protection resources, persistent modifiers, and other immediate mutations. Deterministic opt-in poison merge rules are precomputed and replaced by the exact aggregate command that the real reducer will receive before either path advances liveness; an aggregate takes effect at its earliest constituent key, never before an earlier unrelated rule. The shadow also mirrors the real damage-continuation barrier: actions after an emitted damage transaction are not applied to same-event liveness before the transaction settles. This is intentionally not a hand-maintained prediction based only on copied status fields; status shield, stagger shield, ordinary shield, control immunity, low-HP immunity, dynamic stagger resistance, target life, and command-context defaults therefore agree with real reduction.
+
+A new contribution is absent from the current rule snapshot and cannot execute in the same event. Removing, successfully replacing, or depleting one generation cancels its later snapshotted rules, while a blocked replacement leaves the old generation live; another same-name contribution cannot keep a removed generation's behavior alive. A contribution-live number observes the current quantity after earlier same-event reduction. The command reducer repeats the exact `(holderUnitId, appliedSequence, kind, quantity)` liveness check before committing each snapshotted status command, so delayed damage continuations cannot act through a removed or quantity-changed generation.
 
 ## Removal, cleansing, consumption, and expiry
 
@@ -965,7 +1000,11 @@ Source-filtered removal may remove only matching contributions when a mechanic e
 
 ### Cleanse counts groups, not contributions
 
-`移除狀態` with `僅負面`, `僅控制`, or a positive count chooses status identities/groups according to the authored order, then removes all selected contributions in each group. Adding another poison source must not make poison consume two cleanse slots.
+`移除狀態` with `僅負面` uses one unified player-visible negative-effect domain: each matching status identity/group and each matching persistent negative attribute/damage modifier instance consumes one cleanse slot. Descriptions therefore say `負面效果`, not `負面狀態`. `僅控制`, an explicit status list, or a positive count over status-only removal chooses status identities/groups according to the authored order, then removes all selected contributions in each group. Adding another poison source must not make poison consume two cleanse slots.
+
+An authored `狀態來源` filter applies consistently across that unified domain. Status candidates and the eventual group removal both retain the resolved contribution filter. Persistent modifiers match `效果擁有者` by their binding owner and `效果綁定` by their complete binding. `此狀態貢獻` cannot match a separately stored persistent modifier because such an instance has no contribution-generation identity; it selects only the exact status contribution.
+
+Every holder owns one monotonic negative-effect application sequence shared by negative status contributions and persistent negative attribute/damage modifier instances. `最早套用` and `最新套用` compare this shared sequence, never the unrelated storage-local status, attribute-modifier, or damage-modifier counters. A cleanse candidate therefore keeps two identities: the shared ordering sequence used to select it and its storage-local identity used to remove the exact modifier instance. Cloning preserves inherited relative chronology and advances the clone holder's next shared sequence beyond every inherited negative effect before later applications are accepted.
 
 ### Quantity consumption
 
@@ -973,21 +1012,23 @@ Consumption first filters contributions by identity and source relationship. It 
 
 Default order is oldest matching contribution first, matching stable application order. When consuming heterogeneous contributions is player-observable, authoring must state an order such as newest, weakest, or strongest rather than relying on the default.
 
-The current 七星 consumer remains source-owner filtered, so it consumes only the matching mark contribution.
+七星 uses `消耗此狀態`, so its consumer is bound to the exact contribution whose behavior is executing. The broader observation relationship remains owner-team based, but neither the damage modifier nor the consume action can borrow another producer's marks.
 
-`whenDepleted` / depletion behavior is evaluated for the contribution that actually reached zero, not for the aggregate group unless explicitly authored as a group depletion condition.
+`ConsumeThisStatusAction::whenDepleted` is contribution-local: it is evaluated when that exact contribution reaches zero. Generic `ConsumeStatusAction::whenDepleted` is deliberately a filtered-group operation: it runs only when the complete identity/source-filtered set reaches zero after deterministic oldest-first consumption.
 
 ### Expiry
 
-Each contribution tracks and expires its own duration. A group remains present while any contribution remains. Effective duration display defaults to the maximum remaining contribution duration, with a breakdown when contributions differ.
+Each contribution tracks and expires its own duration. A group remains present while any contribution remains. The aggregate runtime `remainingFrames()` query returns the maximum remaining contribution duration. The structured runtime presentation projection does not currently expose per-generation remaining duration, so no heterogeneous-duration tooltip breakdown is claimed by this delivered implementation.
+
+Timer decrement occurs after the global frame-start dispatch and command reduction. Consequently, one remaining frame includes that contribution's last eligible `FrameAdvanced` execution unless an earlier command removes or depletes the exact generation.
 
 Stun and MP-block group-clock semantics remain dedicated reducers because their current reapplication policies intentionally operate on the effective clock.
 
 Status shield, stagger shield, control immunity, and low-HP control immunity remain application-boundary protections. They run before a contribution is created or locally reapplied. When protection shortens a duration, only the surviving incoming duration enters the contribution/group reducer; an unrelated existing contribution is not rewritten.
 
-## Status identity catalog after the migration
+## Status identity catalog
 
-The catalog remains authoritative, but its responsibility narrows.
+The catalog is authoritative for status identity while behavior remains contribution-local.
 
 It owns:
 
@@ -1025,11 +1066,11 @@ The behavior/action catalog separately owns:
 
 Parser, schema, validation, descriptions, and runtime visit the same action/behavior descriptors. Agreement tests are structural, not merely count or hash pins.
 
-Whole-content profile validation runs after a complete producer and its explicitly linked rules are available. It compares generic semantic capability tags and relationships, not source field names. A profile catalog row must have generated positive/negative fixtures; adding a status without selecting `Intrinsic`, `Profiled`, or `OpenMarker` fails structurally.
+Whole-content profile validation runs after a complete producer and its local behavior are available. It compares generic semantic capability tags and relationships, not source field names. A profile catalog row must have generated positive/negative fixtures; adding a status without selecting `Intrinsic`, `Profiled`, or `OpenMarker` fails structurally.
 
-## Status migration matrix
+## Status implementation matrix
 
-The characterization phase must confirm each row before changing behavior.
+The delivered status shapes are:
 
 | Status | Contribution storage | Behavior target | Group-specific rule |
 | --- | --- | --- | --- |
@@ -1048,10 +1089,10 @@ The characterization phase must confirm each row before changing behavior.
 | `戰意` | Producer-owned layers | Persistent per-layer damage modifiers | Aggregate each contribution independently. |
 | `真氣` | Producer-owned layers | Generic holder-hit damage rule | Execute every contribution at its own origin. |
 | `毒爆` | Producer-owned layers | Generic holder-death behavior | Use the dying contribution's quantity/value. |
-| `無影` | Producer-owned marker | Explicit linked or stored behavior | Link by producer identity. |
-| `下一次攻擊必定暴擊` | Runtime-owned | Existing runtime system | Not authorable and not forced through this migration. |
+| `無影` | Producer-owned marker | Non-empty producer-local behavior with no name-implied minimum bundle | No external consumer substitutes for the local behavior. |
+| `下一次攻擊必定暴擊` | Runtime-owned | Existing runtime system | Not authorable through configured effects. |
 
-Names in the final table must use the exact authoritative Traditional Chinese labels. The implementation audit should generate this table from the catalog or test every catalog row so future additions cannot bypass contribution semantics.
+Names use the exact authoritative Traditional Chinese labels. Structural catalog tests require every row to select contribution semantics and an authoring classification.
 
 ## Description AST and presentation
 
@@ -1062,16 +1103,11 @@ The description document receives the producer-local status application before r
 ```cpp
 struct DescriptionStatusApplication
 {
-    BattleStatusKind identity{};
-    DescriptionStatusQuantity quantity;
-    std::optional<DescriptionDuration> duration;
-    DescriptionReapplication reapplication;
-    std::vector<DescriptionStatusBehaviorRule> behaviors;
-    DescriptionContributionScope scope;
+    EffectAction semanticAction;
 };
 ```
 
-It never reconstructs behavior from `potency`, `secondaryPotency`, or the name `真氣`.
+`semanticAction` is an `ApplyStatusAction`; that semantic node retains the status identity, typed quantity, duration, reapplication policy, complete nested behavior, and all source-field coverage. The wrapper marks the action as a status application for description traversal without constructing a parallel, lossy status-only AST. It never reconstructs behavior from `potency`, `secondaryPotency`, or the name `真氣`.
 
 ### Static descriptions describe the local contribution
 
@@ -1093,20 +1129,13 @@ Full and Detailed always make a producer-family cap's scope clear with wording s
 
 ### Runtime status presentation
 
-The runtime group summary may show:
+`makeBattleStatusGroupPresentation` exposes a structured query projection grouped as status → producer family → generation:
 
-```text
-真氣 9層
-```
+- `BattleStatusGroupPresentation` carries `kind`, saturating aggregate `quantity`, and `families`;
+- each `BattleStatusFamilyPresentation` carries optional `producerFamily`, family quantity, optional capacity, and `generations`; and
+- each `BattleStatusGenerationPresentation` carries quantity, `appliedSequence`, and its bound behavior.
 
-When contributions differ, Detailed/tooltip expansion shows:
-
-```text
-九陽神功：7/10層；每層命中附加9點純粹傷害
-另一武功：2/4層；每層命中附加15點純粹傷害
-```
-
-The UI must not show `9/10` by borrowing one producer family's cap for the complete group.
+The projection sorts contributions by `appliedSequence`, counts each family's capacity once, and retains each generation's behavior. It is runtime data only; no tooltip UI is currently wired to render this projection. Consumers must keep the aggregate quantity and per-family caps distinct rather than displaying `9/10` by borrowing one family's cap for a heterogeneous group.
 
 ### 九陽 target descriptions
 
@@ -1126,15 +1155,13 @@ Compact:
 Detailed excerpt:
 
 ```text
-狀態貢獻：真氣
-生產者：九陽神功／套用狀態動作
-數量：增加1層
-本效果來源共用上限：10層
-重複套用範圍：同一效果來源內相容的貢獻世代
+動作：增加真氣1層
+此效果提供的真氣層數上限：10層
 觸發：狀態持有者命中
 目標：命中目標
 動作：每層造成9點純粹傷害
 傷害範圍：單體（省略欄位後的預設值）
+來源：容器規則與穩定識別 ID
 ```
 
 ### 降龍 target descriptions
@@ -1174,7 +1201,7 @@ Compact:
   友軍命中：破防50%、耗此來源1枚；耗盡時眩暈30幀
 ```
 
-Detailed must show producer identity, broader observation relationship, source-filtered consumption, and contribution-local depletion.
+Detailed must show the stable producer-rule source row, broader observation relationship, exact current-contribution consumption, and contribution-local depletion.
 
 ### 九陰白骨爪 target description
 
@@ -1225,7 +1252,12 @@ Validation checks:
 - source-sensitive consumers select contributions unambiguously; and
 - behavior numeric constraints remain safe after maximum family quantity multiplication;
 - every numeric base has exactly one binding-phase catalog row and is legal in its application/event context; and
-- every complete `Profiled` producer satisfies its reviewed minimum capability set.
+- every complete `Profiled` producer satisfies its reviewed minimum capability set;
+- `Profiled` and `OpenMarker` applications provide a non-empty local behavior;
+- authorable `Intrinsic` applications do not provide local behavior, while runtime-owned intrinsic statuses cannot be directly authored;
+- configured authoring does not use reserved intrinsic rule IDs;
+- attack-interceptor actions are the sole direct action of their rule rather than conditional or mixed actions; and
+- poison `同事件合併` is an ungated top-level `命中` → `命中目標` preflight whose poison application is the sole direct action.
 
 Validation does not reject a behavior merely because another status name currently uses it.
 
@@ -1269,126 +1301,25 @@ Minimum-profile diagnostics name both the status and missing capability:
 狀態「寒毒」缺少必要行為「禁止受到治療」；每個「寒毒」來源都必須同時提供治療阻止與速度降低
 ```
 
-## Implementation phases
+## Delivered implementation map
 
-### Phase 0: characterization and review gates
+Line numbers are intentionally omitted because the working tree is active. These symbols define the delivered slice documented here:
 
-No production behavior changes.
-
-1. Add a two-producer test harness capable of applying the same status identity with different bindings, action orders, caps, values, durations, and origins.
-2. Characterize every current status catalog row across application, query, tick, consume, remove, cleanse, expiry, shield interaction, description, and serialization surfaces.
-3. Pin current shipped-content cases separately from hypothetical multi-producer cases.
-4. Characterize mixed-source scheduling with rules from Combo, Equipment, EquipmentSynergy, Neigong, and Magic in the same event. Prove the current `(effectSourcePrecedence, registration order)` sequence and then characterize True-Qi relative to neighboring configured rules, main-projectile-before-damage rules, and repeated borrowed-rule add/remove cycles.
-5. Characterize damage transaction metadata: modifier flags, hurt invincibility, kill credit, presentation, descendants, reflection lineage, and events.
-6. Characterize poison strongest/equal/weaker/replace/same-event behavior.
-7. Characterize stun and MP-block group clocks across different sources and policies.
-8. Characterize source-sensitive 七星 consumption and depletion.
-9. Characterize cleansing count semantics with several same-name independent instances.
-10. Record current Compact, Full, and Detailed outputs for 九陽, 降龍, 七星, 九陰白骨爪, poison, and one charge-based interceptor.
-11. Characterize every persistent status fold at its exact hit/transaction/heal/attribute pipeline position. For 戰意, cover critical, defense, ignore defense, configured before/after/final modifiers, shields, caps, pure/non-skill damage, and rounding; add corresponding mixed cases for 枯骨 and 寒毒.
-12. Characterize every current status-payload `EffectNumberBase`, including `base`/`multiplierBase` mixtures, and approve the closed binding-phase table. Pin snapshot behavior for application-target values such as `下次承傷上限`.
-13. Characterize the current single bleed transaction versus hypothetical independent bleed producers, including shield, invincibility, modifier, presentation, and tick-alignment interactions.
-14. Pin current `化勁` + `刺目` behavior: both are consumed on one contact and 化勁 grants its shield. Separately approve the proposed winner-only behavior and its exact structured-order winner.
-15. Audit every authoritative producer and every clone/borrow path for cross-source overwrite dependencies. `流血` and `傷害抵擋` are known non-poison/stun/MP-block users of current same-name storage and must be decided explicitly; poison, stun, and MP block are not declared the complete retained reducer set until this audit passes. Explicitly cover all three shipped `生成分身` threshold sites in `chess_combos.yaml` (one, two, and three clones): cloned owners inherit every non-opening, non-cast-scoped rule, so the audit must determine which inherited rules can apply status, prove their family source-definition identity, and prove each clone receives a finite distinct `logicalOwnerUnitId` rather than an unbounded runtime alias family.
-16. Review every catalog row's `Intrinsic` / `Profiled` / `OpenMarker` classification and minimum capability set against player-facing descriptions.
-17. Characterize current gather/reduce behavior for same-event status creation/removal, and approve the proposed snapshot-plus-liveness semantics as a deliberate change where it differs.
-18. Review which observed behaviors are intentional. The implementation plan may change only after the intended behavior is recorded in this document.
-
-Exit gate: tests describe every intentional behavior that later phases preserve or deliberately change.
-
-### Phase 1: contribution storage behind the current authoring surface
-
-1. Introduce `StatusProducerKey`, `StatusProducerFamilyKey`, and holder-scoped `StatusFamilyCapacityKey`; include producer action order, logical family identity, and target holder identity in `ApplyStatusEffectCommand` and `BattleStatusApplyRequest`.
-2. Replace `BattleTypedStatusInstance` with a contribution representation that stores immutable identity, holder-scoped family-capacity ownership, source, resolved payload, origin, and sequence.
-3. Change generic reapplication lookup from first-by-kind to holder/producer/family/compatibility lookup, enforcing the checked family-capacity invariant across generations on that holder only.
-4. Preserve special poison, stun, and MP-block reducers as dedicated group operations.
-5. Replace `find(kind)` combat access with contribution iteration or named group reducers.
-6. Make remove/cleanse operate on groups and source-filtered removal operate on contributions.
-7. Make consumption deterministic and contribution-aware.
-8. Update snapshots and serialization/DTOs to retain contribution identity.
-9. Keep the existing semantic YAML temporarily; lower it into the new contribution representation.
-
-Exit gate: current shipped behavior remains characterized; hypothetical same-name different-family applications cannot overwrite each other; value drift and repeated borrowed aliases cannot multiply one producer family's capacity on a holder; and one multi-target application gives every holder an independent allocation.
-
-### Phase 2: behavior/action catalog independent of status name
-
-1. Split status identity metadata from behavior/action metadata.
-2. Remove `BattleStatusKind status` ownership from generic behavior field entries.
-3. Replace name-specific payload structs with composable behavior rules/actions or an equivalent generic resolved representation.
-4. Add status-context selectors and references (`狀態持有者`, `狀態來源`, `來源效果擁有者`, `此狀態貢獻`).
-5. Add `時機: 持續` with a closed set of persistent/query-derived actions.
-6. Add `每層數值` to compatible numeric actions and remove Boolean per-layer contribution flags.
-7. Derive parser, schema, validation, runtime evaluation, and description metadata from the shared action descriptors.
-8. Add the closed numeric binding-phase catalog and structural exhaustiveness checks for binding, evaluation, compatibility, descriptions, and legality.
-9. Add reviewed minimum behavior profiles as whole-content contracts derived from the identity/action catalogs.
-10. Replace wrong-status diagnostics with event/action capability diagnostics plus focused missing-profile diagnostics.
-11. Add a positive fixture proving that a profiled status can use an additional nontraditional behavior when its lifecycle is valid and its minimum profile remains complete.
-
-Exit gate: adding a behavior to a status does not require editing a switch keyed by that status name.
-
-### Phase 3: active status rules in generic dispatch
-
-1. Represent evented contribution behaviors as active rule views.
-2. Gather configured rules and active contribution rules in the same dispatch operation.
-3. Introduce `EffectExecutionOrderKey` and replace arithmetic intrinsic ordering.
-4. Reuse generic condition, selector, formula, action, activation, and command reducers.
-5. Add sequential live revalidation for exclusive/consumptive actions.
-6. Migrate True-Qi hit damage to an ordinary stored behavior rule.
-7. Remove `insertTrueQiHitDamage`, the single-instance assertion, and intrinsic True-Qi rule-ID synthesis once parity tests pass.
-8. Migrate periodic and death/depletion behaviors where doing so removes special bridges without changing intended behavior.
-
-Exit gate: no combat path needs to read the first status instance, True-Qi uses the generic dispatcher, and heterogeneous exclusive winners follow the documented complete key.
-
-### Phase 4: canonical YAML and description migration
-
-1. Change `效果` to the reviewed sequence of local behavior rules.
-2. Migrate all top-level authoritative `config/chess_*.yaml` status producers.
-3. Replace per-layer Boolean flags with `每層數值`.
-4. Remove redundant identity `百分比: 100` nodes where a direct status-relative value is intended; retain genuine 100-percent game values.
-5. Omit `範圍` for every single-target damage action.
-6. Restrict explicit damage-range schema values to `圓形` and `方形` and reject `範圍: 單體`.
-7. Migrate Compact, Full, and Detailed descriptions to contribution-aware nodes and phrases.
-8. Update schema examples, generated documentation, parser fixtures, and error goldens.
-9. Migrate reapplication vocabulary to the scope-explicit `取代同一效果` and `取代整組`; do not retain `取代並重設` as an alias.
-10. Remove the old four name-owned status effect-scope authoring forms after all content migrates.
-
-Exit gate: shipped YAML contains the behavior in each producer, has one canonical spelling, and does not depend on name-specific payload ownership.
-
-### Phase 5: runtime and metadata cleanup
-
-1. Remove `potency` and `secondaryPotency` from status storage and requests.
-2. Remove group `potency(kind)` / `secondaryPotency(kind)` maximum reducers.
-3. Remove obsolete status-specific payload structs and field-to-runtime-slot mappings.
-4. Remove old parser/schema aliases and temporary lowering adapters.
-5. Remove unused accumulated-status bridges and identity formula paths.
-6. Remove stale description archetypes that reconstruct stored behavior from names.
-7. Make structural agreement tests enumerate every behavior variant, context, field, description phrase, validator, and runtime evaluator.
-8. Run full content validation, all unit tests, Debug build, and `git diff --check`.
-
-Exit gate: there is one canonical authoring and runtime model with no compatibility surface.
-
-## File-level implementation map
-
-Line numbers are intentionally omitted because these files are under active migration. Reviewers should use the named symbols.
-
-| Area | Primary files and symbols | Expected work |
+| Area | Primary files and symbols | Implemented responsibility |
 | --- | --- | --- |
-| Canonical effect types | `src/ChessBattleEffectTypes.h`: `ApplyStatusAction`, `StatusEffectPayload`, `EffectActionValue` | Add composable status behavior rules and contribution-relative numeric inputs; retire name-specific payload variants. |
-| Semantic catalogs | `src/ChessBattleEffectSemantics.h/.cpp`: `statusCatalog`, `statusEffectFieldCatalog` | Narrow identity catalog; introduce action/behavior, minimum-profile, and numeric binding-phase catalogs; remove field ownership by status name. |
-| Parser | `src/ChessBattleEffectParser.cpp`: status payload and action parsing | Parse local behavior-rule sequences, contextual selectors, and `每層數值`; focused range-default diagnostic. |
-| Authoring metadata | `src/ChessEffectAuthoringMetadata.h` | Share generic rule/action descriptors; expose only explicit area choices; generate behavior schemas without parallel labels. |
-| Validation | `src/ChessBattleEffectValidation.cpp` | Validate event/action context, contribution quantity compatibility, group-destructive policies, and numeric products. |
-| Description document | `src/ChessEffectDescription*.cpp/.h` | Add contribution scope and behavior rules; remove name-derived effect reconstruction. |
-| Command evaluation | `src/battle/BattleEffectSystem.h/.cpp` | Carry holder/producer/family identity and action order, bind/evaluate phased status numbers, gather active contribution rule views, preserve explicit source precedence in structured ordering. |
-| Status storage | `src/battle/BattleStatusSystem.h/.cpp` | Replace anonymous instance with contributions; per-`(family, holder)` capacity allocation; producer-compatible merge; group queries/removal/consume/expiry. |
-| Hit integration | `src/battle/BattleCoreAttacks.cpp` | Remove True-Qi-specific insertion after generic active rule dispatch reaches parity. |
-| Damage targeting | `src/battle/BattleCoreDamage.cpp` | Retain internal single-target default; no runtime change for omitted range. |
-| Command reduction | battle command/core effect systems | Live revalidation and exclusive behavior arbitration; preserve transaction/provenance semantics. |
-| Content | top-level `config/chess_*.yaml` | Migrate all status behaviors and omit redundant single-target ranges. |
-| Schema generator | `tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp` | Render contextual behavior schemas and circle/square-only explicit range enum. |
-| Tests | C++ effect/status/description suites and Python schema/content tests | Characterization, contribution independence, behavior coverage, presentation, migration rejection. |
+| Canonical effect types | `src/ChessBattleEffectTypes.h`: `ApplyStatusAction`, `StatusBehaviorDefinition`, `EffectActionValue`, `EffectNumberBase`, `StatusSourceMatch` | Composable local behavior rules, status-relative numeric inputs, source relationships, canonical authoring, and stable authored action identity. |
+| Semantic catalogs and validation | `src/ChessBattleEffectSemantics.*`, `src/ChessBattleEffectValidation.cpp` | Separate identity classification from action capabilities; enforce profile, open-marker, intrinsic, lifecycle, numeric-phase, and attack-interceptor restrictions. |
+| Parser and metadata | `src/ChessBattleEffectParser.cpp`, `src/ChessEffectAuthoringMetadata.h` | Parse the canonical behavior/action vocabulary, contextual selectors, `每層數值`, and explicit area choices. |
+| Description document | `src/ChessEffectDescription*.cpp/.h` | Describe producer-local contribution scope and behavior without name-derived potency reconstruction. |
+| Command evaluation and ordering | `src/battle/BattleEffectSystem.h/.cpp` | Bind phased numbers, preserve stable conditional/action identity, merge configured and active rule views, aggregate eligible poison commands, and enforce structured ordering plus generation liveness. |
+| Status storage and queries | `src/battle/BattleStatusSystem.h/.cpp` | Store contributions, allocate holder-local family capacity, perform compatible reapplication and named reducers, apply source filters, fold persistent modifiers, and expose the structured presentation projection. |
+| Hit integration | `src/battle/BattleCoreAttacks.cpp` | Run attack-interceptor preflight and normal hit dispatch without double-executing interceptors. |
+| Frame integration | `src/battle/BattleCore.cpp`, `BattleEffectEventBridge` | Dispatch one global frame-start snapshot before timer decrement, including every living configured owner and live contribution holder. |
+| Bleed integration | `src/battle/BattleCoreDamage.cpp` and attack/scripted-hit paths | Carry complete producer provenance into independent runtime bleed contributions. |
+| Content and schema | top-level `config/chess_*.yaml`, `tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp` | Use canonical local status behavior authoring and reject removed legacy forms. |
+| Verification | C++ effect/status/description suites and Python schema/content tests | Cover contribution isolation, ordering, liveness, formulas, modifiers, poison, clones, bleed, interceptors, descriptions, and authoring rejection. |
 
-## Required tests
+## Verification contract
 
 ### Independent contribution safety
 
@@ -1399,7 +1330,7 @@ Line numbers are intentionally omitted because these files are under active migr
 5. Holder hit executes `10 × 9` and `N × 20` at their respective order positions.
 6. Removing one producer contribution leaves the other active.
 7. Removing group `真氣` removes both.
-8. Group quantity reports the checked sum.
+8. Group quantity reports the saturating sum.
 9. On one holder, group capacity reports each distinct producer family once even when the family has several generations; another holder is queried independently.
 
 ### Holder-scoped family capacity
@@ -1408,7 +1339,7 @@ Line numbers are intentionally omitted because these files are under active migr
 2. Consuming or removing the charge on one ally does not free, consume, or replace either other ally's charge.
 3. The same 七星 producer applies seven marks to enemy A and seven marks to enemy B. Both allocations coexist at seven because capacity is per holder.
 4. `取代同一效果` applied again to enemy B replaces only B's matching family generations and leaves enemy A's marks unchanged.
-5. Per-holder group capacity and runtime display never aggregate another holder's family records.
+5. Per-holder group capacity and runtime projection never aggregate another holder's family records.
 
 ### Same-producer compatibility
 
@@ -1416,7 +1347,7 @@ Line numbers are intentionally omitted because these files are under active migr
 2. Same producer family with a changed evaluated value creates a new generation under additive policy only when family capacity remains.
 3. All active generations in one family on one holder remain at or below that holder's family limit.
 4. `取代同一效果` removes the selected older family generations on the target holder before creating the replacement; `取代整組` is separately tested as group-destructive on that same holder.
-5. Duration refresh does not mutate immutable behavior.
+5. Duration refresh does not mutate immutable behavior; a duration-only runtime alias refreshes the existing one-slot family generation without replacing its identity, provenance, or behavior.
 6. Two apply actions in one rule remain distinct families through action order.
 7. Runtime borrowed bindings remain distinct contributions through runtime instance ID while repeated re-borrows share the logical family cap on each holder independently.
 8. A different limit for the same family is rejected rather than forked, maximized, or treated as a second capacity.
@@ -1425,12 +1356,15 @@ Line numbers are intentionally omitted because these files are under active migr
 
 1. Status behavior sorts after its producer lane and before the next producer rule.
 2. Multiple status behaviors from one contribution preserve authored behavior order.
-3. Multiple contributions preserve structured source/rule/action/sequence order.
+3. Multiple contributions preserve the complete structured source/rule/lane/holder/sequence/action/target/command order.
 4. Repeated rule-store removal/rebuild cycles do not alter stored ordering tokens.
 5. No `+1` arithmetic overflow or collision exists.
-6. Damage metadata, kill credit, presentation, modifiers, invincibility, descendants, and event lineage match characterized intent.
+6. Damage metadata, kill credit, presentation, modifiers, invincibility, descendants, and event lineage preserve their provenance contract.
 7. Mixed Combo, Equipment, EquipmentSynergy, Neigong, and Magic rules retain the current explicit source-precedence order before registration order; the structured key does not depend on raw enum ordinal or registration token alone.
 8. Rules executed by each of the three shipped clone-count tiers retain source-definition identity, use the clone as logical granting owner, and cannot create an unbounded family through repeated runtime aliasing.
+9. Conditional true/false leaves retain distinct stable authored identities regardless of the selected branch; repetitions share the authored producer family but receive distinct emitted positions.
+10. Runtime bleed preserves producer, family, source, origin, cap, tick state, and independent damage transactions across the spawn/event/scripted-hit chain.
+11. One global `FrameAdvanced` dispatch includes every living configured owner and live holder, runs before timer decrement, and permits the final one-frame tick unless exact-generation liveness cancels it.
 
 ### Exclusive behavior arbitration
 
@@ -1442,18 +1376,21 @@ Line numbers are intentionally omitted because these files are under active migr
 6. A contribution created during an event does not execute during that same event.
 7. A contribution removed earlier in the dispatch does not execute from a stale snapshot.
 8. With both 化勁 and 刺目 present, only the earlier eligible contender consumes; the 化勁 shield occurs only when 化勁 wins.
+9. Attack-interceptor preflight runs before dodge/critical/damage, excludes interceptors from normal `HitBeforeDamage`, and stops after the first suppression/miss command.
+10. A losing attack interceptor neither draws RNG nor changes its charge/runtime state.
 
 ### Query, removal, and consumption
 
 1. `has` is any positive contribution.
-2. quantity is a checked sum with source filters.
+2. quantity is a saturating sum with `Any`, effect-owner, exact-binding, and exact-current-contribution filters.
 3. no generic potency maximum API remains.
-4. cleanse count selects groups, not contributions.
+4. cleanse count selects groups, not contributions, including a regression where two older contributions of one identity plus another eligible identity consume exactly two cleanse slots.
 5. source-filtered removal removes only matching contributions.
 6. oldest-first consumption is deterministic.
-7. source-sensitive 七星 consumes only its producer's marks.
-8. depletion behavior runs for the contribution that reaches zero.
+7. 七星 consumes only the exact contribution whose local behavior executes.
+8. `ConsumeThisStatusAction` depletion is contribution-local; generic filtered `ConsumeStatusAction` depletion occurs only when its complete filtered group reaches zero.
 9. expiry of one contribution leaves the group present if another remains.
+10. application-bound `來源狀態數量` freezes its filtered result, while contribution-live `此狀態貢獻數量` observes earlier same-event consumption of the executing generation.
 
 ### Parser and schema
 
@@ -1470,26 +1407,31 @@ Line numbers are intentionally omitted because these files are under active migr
 11. Every numeric base has one binding phase, legality set, binder, evaluator, compatibility rule, and description path; mixed-phase formulas round only after trigger-time assembly.
 12. Each `Profiled` status has generated complete/incomplete producer fixtures, including a 寒毒 fixture missing only healing prevention.
 13. A profiled status may author additional lifecycle-valid behavior without expanding a status-name parser whitelist.
+14. The removed source-status behavior-value base and generic current-contribution behavior-value spelling are rejected.
+15. `Profiled` and `OpenMarker` require non-empty local behavior; authorable `Intrinsic` rejects it; runtime-owned intrinsic statuses and reserved intrinsic rule IDs cannot be directly authored.
+16. Attack interceptors are accepted only as a rule's sole direct action, with dependent behavior nested under their success continuation.
+17. Poison `同事件合併` is accepted only as a deterministic top-level `命中` → `命中目標` sole direct application; schemas and validation reject status-behavior, conditional, mixed-action, chance, condition, repetition, and activation/accounting forms.
+18. Compatible poison preflight commands aggregate at the earliest constituent structured key, while incompatible normalized behaviors remain separate without throwing.
 
 ### Descriptions
 
 1. 九陽, 降龍, 七星, and 九陰白骨爪 match reviewed Compact/Full/Detailed goldens.
 2. Static descriptions say that caps belong to the producer family when necessary.
-3. Runtime group display counts a producer-family cap once and never borrows one family's cap/value for another.
-4. Heterogeneous contribution breakdown names each producer and local behavior.
+3. The runtime presentation projection counts a producer-family cap once and never borrows one family's cap/value for another.
+4. The projection retains each generation's bound behavior without implying that a tooltip currently renders it.
 5. Detailed shows omitted single-target range as a resolved default.
 6. Full/Compact omit redundant single-target wording.
 7. Every behavior field changes all styles where player-observable and has structural coverage.
 
 ### Existing parity suites
 
-Retain and extend poison, bleed, stun, MP block, status shield, control immunity, heal rounding, damage cap, damage block, 七星, 毒爆, 玄冥神掌 settle/remove/reapply ordering, True-Qi multi-hit, death, execute, invincibility, reflection, and kill-order tests.
+Parity coverage includes poison, bleed, stun, MP block, status shield, control immunity, heal rounding, damage cap, damage block, 七星, 毒爆, 玄冥神掌 settle/remove/reapply ordering, True-Qi multi-hit, death, execute, invincibility, reflection, and kill order.
 
-Add pipeline parity matrices for 戰意, 枯骨, and 寒毒. Add separate-transaction characterization for two bleed producers. Add repeated borrowed-generation capacity tests and application-bound versus event-live formula tests.
+It also covers signed saturating persistent accumulators for 戰意, 枯骨, and 寒毒; poison's compatible same-event cross-family aggregation; independent bleed transactions; repeated borrowed-generation capacity; and application-bound versus contribution-live formulas.
 
-## Deliberate behavior changes
+## Delivered deliberate behavior changes
 
-The following changes are intended and must be called out in release/review notes:
+The delivered model intentionally changed these behaviors from the replaced representation:
 
 1. Same-name effect-bearing applications from different producers no longer overwrite cap, behavior values, source, or origin.
 2. Generic aggregate potency no longer means maximum potency.
@@ -1501,14 +1443,15 @@ The following changes are intended and must be called out in release/review note
 8. Exclusive contenders use winner-only consumption. In particular, one contact no longer consumes both `化勁` and `刺目`; only the earlier eligible structured-order winner consumes, and the 化勁 shield is granted only if 化勁 wins.
 9. Two status-application actions in one configured rule are distinct producer families because their action orders differ, even when they currently author identical behavior. They no longer merge merely because they share rule ID and text.
 10. Status behavior dispatch uses snapshot-plus-liveness semantics: a contribution created during a dispatch cannot act in that same dispatch, while a contribution removed or consumed by an earlier command loses its remaining snapshotted rule executions.
-
-All other combat changes require an explicit amendment after Phase 0 characterization.
+11. Compatible same-event poison applications may aggregate across producer families when their effect owner and target match; no other status receives that exception implicitly.
+12. Opt-in same-event poison aggregation is now a deterministic configured-rule preflight. Status behaviors and gated/composite rules cannot request it; incompatible normalized poisons remain separate candidates instead of terminating dispatch.
+13. Replacing an active poison with a stronger poison now reports `Replaced` rather than `Refreshed`, so the normal status-applied semantic cue is emitted for that replacement. This is an intentional presentation correction; numeric combat behavior is unchanged.
 
 ## Risks and mitigations
 
 | Risk | Mitigation |
 | --- | --- |
-| Contribution model unintentionally changes poison or stun. | Keep their group reducers explicit; characterize cross-source matrices before storage changes. |
+| Contribution model unintentionally changes poison or stun. | Their group reducers remain explicit, with cross-source matrices covering the named policies. |
 | Multiple stored rules double-consume exclusive effects. | Sequential live revalidation and winner-only consumption tests. |
 | Generic status rules become a second parser/runtime. | Reuse existing rule/action descriptors and dispatcher helpers; status context adds only relative bindings. |
 | Per-layer behavior creates many damage transactions. | Define numeric multiplication as one action; only independent origins remain separate transactions. |
@@ -1516,16 +1459,16 @@ All other combat changes require an explicit amendment after Phase 0 characteriz
 | Same-producer dynamic values overwrite snapshots. | Immutable behavior plus separate contribution generations. |
 | Value generations or repeated borrowed aliases multiply the authored cap. | Distinguish producer identity from producer-family identity; all generations/aliases on one holder share one checked family capacity. |
 | A multi-target action accidentally shares capacity or replacement across holders. | Key allocation/replacement by `(holderUnitId, producerFamily)` and test three-target charges plus two-target 七星 replacement. |
-| UI shows a misleading cap. | Aggregate quantity separately; show contribution breakdown when caps/behaviors differ. |
+| A presentation consumer shows a misleading cap. | The structured projection separates aggregate quantity from per-family capacity; no tooltip UI is currently wired. |
 | Source-sensitive lifecycle consumes the wrong contribution. | Producer/binding filters and contribution-local depletion tests. |
 | Catalogs drift again. | One action/behavior descriptor and exhaustive variant visitors; structural agreement tests. |
 | Open behavior parsing lets a named status omit part of its player contract. | Catalog-owned minimum capability profiles checked against complete producers in whole-content validation, without parser whitelists or numeric ownership. |
-| A persistent modifier silently moves calculation phase. | Exact semantic-accumulator/phase parity plus Phase 0 mixed-pipeline equivalence matrices. |
+| A persistent modifier silently moves calculation phase or overflows. | Exact accumulator/phase/order parity, signed saturating folds, saturating negation, and mixed-pipeline tests. |
 | A numeric base is captured or evaluated at the wrong time. | Closed binding-phase catalog shared by binder, evaluator, validator, compatibility, schema, and descriptions. |
-| Independent DoT contributions change transaction interactions. | Treat the split as a deliberate change; characterize and test modifiers, shields, invincibility, timing, metadata, and presentation per contribution. |
-| YAML becomes verbose. | Reuse single-action rule shorthand and omit defaults; evaluate Compact/Full human readability before final schema lock. |
+| Independent DoT contributions change transaction interactions. | The split is deliberate; modifiers, shields, invincibility, timing, metadata, and presentation are verified per contribution. |
+| YAML becomes verbose. | Canonical authoring reuses single-action rule shorthand and omits defaults. |
 | A broad behavior action is invalid in stored context. | Event/action capability validation, not status-name prohibition. |
-| Existing dirty migration work is accidentally overwritten. | Implement in small phases, inspect overlapping diffs, and preserve unrelated user files. |
+| Post-dispatch poison aggregation makes liveness disagree with real protection/replacement outcomes. | Precompute only deterministic configured merge rules, aggregate compatible commands first, and feed the same command at the same earliest structured key to both shadow and real reducers. |
 
 ## Rejected alternatives
 
@@ -1569,59 +1512,20 @@ Rejected as the meaning of `每層數值` because repeated transactions interact
 
 Rejected because assertions would only forbid new producers; they would not preserve the generalized effect model or explain behavior locally.
 
-## Definition of done
+## Implemented design boundary
 
-The full migration is complete only when:
+This document's implementation-aligned claim is limited to the status-contribution slice and its direct effect-system integrations. Within that boundary:
 
-- all status storage is contribution-based;
-- no generic merge finds only the first instance by status kind;
-- same-name producers with different caps/values are independently safe;
-- repeated value generations and borrowed runtime aliases cannot exceed one logical producer family's cap on a holder;
-- multi-target application, family replacement, consumption, and capacity release are isolated per holder;
-- every evented contribution has stable producer identity and origin;
-- active status behavior rules use generic dispatch and structured ordering;
-- the True-Qi specialized hit bridge and one-instance invariant are removed;
-- caps and behaviors remain local to producer configs;
-- status names no longer own arbitrary behavior field whitelists;
-- every status row has an approved intrinsic/profiled/open classification, and profiled producers satisfy their minimum player contract;
-- `potency`, `secondaryPotency`, and their maximum group queries are removed;
-- persistent status modifiers preserve their characterized semantic accumulator, phase, relative order, and rounding boundary;
-- every status-behavior numeric base has one closed binding-phase classification;
-- per-layer authoring uses numeric `每層數值` and never `每層: true`;
-- single-target damage omits `範圍`, and explicit `範圍: 單體` is rejected;
-- group quantity, removal, cleanse, consumption, expiry, and source filters have documented semantics;
-- Compact, Full, and Detailed descriptions are contribution-aware;
-- every authoritative top-level `config/chess_*.yaml` uses canonical authoring;
-- old forms are rejected rather than maintained as aliases;
-- schema/content validation passes for easy, normal, and hard content;
-- all C++ and Python tests pass;
-- the required Debug build succeeds, except for the documented running-game final-link allowance; and
-- `git diff --check` is clean.
+- status storage is contribution-based, with immutable producer/family identity and holder-local family capacity;
+- same-name producers, immutable-value generations, repeated runtime aliases, and multiple holders retain the ownership rules defined above;
+- stable authored conditional/action identity and the complete structured order key govern configured, status-behavior, and interceptor execution;
+- active dispatch uses snapshot-plus-generation-liveness semantics, including global frame-start dispatch and final-tick ordering;
+- application-bound, event-live, and contribution-live formula inputs remain distinct, and source filters lower to concrete contribution filters;
+- persistent modifiers retain signed saturating accumulator parity and ordered heal rounding;
+- poison alone has the documented compatible same-event cross-family merge exception;
+- clone and runtime bleed paths retain their documented provenance;
+- authoring enforces profiled/open-marker local behavior, intrinsic restrictions, reserved IDs, and attack-interceptor shape;
+- runtime presentation is the structured status → family → generation query projection, with no tooltip UI currently wired; and
+- removed legacy spellings and anonymous potency/value concepts are not part of this design.
 
-## Review checklist
-
-Reviewers should explicitly answer:
-
-1. Is producer identity sufficiently stable across configured, cloned, borrowed, and runtime-scoped rules?
-2. Does the producer-family key collapse repeated runtime aliases without collapsing genuinely different configured producers or action orders?
-3. Are family capacity and immutable behavior ownership unambiguous, and can no generation mint another cap?
-4. Is capacity/replacement unambiguously scoped to `(producer family, holder unit)`, including multi-target applications?
-5. Do clone and borrow lowering preserve stable source-definition identity while assigning the correct logical granting owner, including all three shipped `生成分身` tiers?
-6. Are any current mechanics unintentionally relying on cross-source `AddStack` overwrite, especially 流血 and 傷害抵擋?
-7. After characterization, are poison, stun, and MP-block the complete retained group reducers, or does another mechanic require an explicit reducer?
-8. Is oldest-first consumption acceptable, and which current actions need an explicit order?
-9. Does group cleanse removing all contributions match player expectations?
-10. Does every minimum profile express a real player contract without becoming a parser whitelist, especially 寒毒's two required behaviors?
-11. Are action/event capability checks sufficient for additional behaviors once minimum profiles are satisfied?
-12. Is `每層數值` clear that it scales one numeric action rather than repeats transactions?
-13. Are the closed application-bound/event-live/contribution-live classifications correct for every numeric base and mixed formula?
-14. Do 戰意, 枯骨, and 寒毒 retain their exact pipeline, sign convention, and rounding positions?
-15. Is the separate-transaction behavior for independent bleed contributions acceptable?
-16. Is winner-only heterogeneous arbitration acceptable when it determines whether 化勁 grants a shield?
-17. Should any independent status damage commands be intentionally coalesced, and can metadata/order remain identical?
-18. Does the complete structured order key preserve the explicit Combo → Equipment → EquipmentSynergy → Neigong → Magic precedence before registration order?
-19. Are 九陽, 降龍, 七星, and 九陰白骨爪 descriptions understandable without external status definitions?
-20. Is strict rejection of explicit `範圍: 單體` preferable to accepting it as redundant authoring?
-21. Does the plan preserve the generic trigger/action work instead of recreating status-specific combat branches?
-22. Are all intended behavior changes explicitly listed?
-23. Is each implementation phase small enough to verify before deleting the previous representation?
+Changes outside this boundary require their own design and verification record rather than being inferred from this document's status.

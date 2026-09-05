@@ -230,15 +230,15 @@ TEST_CASE("JSON protocol role detail selects the contained effect-description st
         R"({"id":2,"method":"inspect_role","params":{"role_id":69,"detail":"compact"}})"));
     REQUIRE(compact.ok);
     REQUIRE(compact.result);
-    CHECK(compact.result->str.contains("戰意+1層"));
-    CHECK_FALSE(compact.result->str.contains("獲得1層戰意"));
+    CHECK(compact.result->str.contains("獲得1層戰意（此來源上限10層"));
+    CHECK_FALSE(compact.result->str.contains("獲得1層戰意，此來源上限10層"));
 
     const auto full = parseResponse(protocol.handleLine(
         R"({"id":3,"method":"inspect_role","params":{"role_id":69,"detail":"full"}})"));
     REQUIRE(full.ok);
     REQUIRE(full.result);
-    CHECK(full.result->str.contains("獲得1層戰意"));
-    CHECK_FALSE(full.result->str.contains("戰意+1層"));
+    CHECK(full.result->str.contains("獲得1層戰意，此來源上限10層"));
+    CHECK_FALSE(full.result->str.contains("獲得1層戰意（此來源上限10層"));
 }
 
 TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",

@@ -1556,6 +1556,7 @@ void applySpiralBleedCastEffect(
     BattleRuntimeState& state,
     int sourceUnitId,
     const BattleCastSkillState& skill,
+    const EffectCommandMetadata& producerMetadata,
     int bleedStacks,
     int projectileCount,
     double projectileSpeed,
@@ -1591,6 +1592,8 @@ void applySpiralBleedCastEffect(
         request.initial.position = sourcePosition;
         request.initial.totalFrame = 35;
         request.initial.scriptedBleedStacks = bleedStacks;
+        request.initial.scriptedBleedProducer =
+            BattleEffectCommandSystem::statusProducerProvenance(producerMetadata);
         request.initial.ignoreProjectileCancel = true;
         request.initial.through = true;
         request.spiralMotion = true;
@@ -1632,6 +1635,7 @@ void appendRuntimeSpiralBleedCastEffects(
                 state,
                 sourceUnitId,
                 skill,
+                command.metadata,
                 spiral->bleedStacks,
                 spiral->projectileCount,
                 projectileSpeed,

@@ -1,11 +1,15 @@
 #include "battle/BattleEffectEventBridge.h"
+#include "battle/BattleEffectCommandSystem.h"
+#include "battle/BattleDamageSystem.h"
 #include "battle/BattleRuntimeUnits.h"
+#include "BattleCoreTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <set>
 #include <utility>
@@ -138,6 +142,44 @@ EffectRule borrowRule(std::uint64_t id = 1)
     return rule;
 }
 
+std::shared_ptr<const StatusBehaviorDefinition> trueQiBehavior(EffectNumber amount)
+{
+    DealDamageAction damage;
+    damage.amount = std::move(amount);
+    damage.kind = BattleDamageKind::Pure;
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.event = EffectEvent::HitBeforeDamage;
+    rule.observation = EffectObservationScope::StatusHolderEventSource;
+    rule.selector.kind = EffectSelectorKind::HitTarget;
+    rule.actions.push_back(action(damage));
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
+}
+
+std::shared_ptr<const StatusBehaviorDefinition> trueQiBehavior(int damagePerLayer)
+{
+    EffectNumber amount;
+    amount.flat = damagePerLayer;
+    amount.statusScale = StatusNumberScale::PerContributionLayer;
+    return trueQiBehavior(std::move(amount));
+}
+
+EffectRule trueQiApplicationRule(std::uint64_t id, int layers, int limit)
+{
+    ApplyStatusAction status;
+    status.status = BattleStatusKind::TrueQi;
+    status.quantity = AddStatusLayers{ layers, limit };
+    status.behavior = trueQiBehavior(9);
+    EffectRule rule;
+    rule.id = EffectRuleId{ id };
+    rule.event = EffectEvent::HitBeforeDamage;
+    rule.selector.kind = EffectSelectorKind::HitTarget;
+    rule.actions.push_back(action(std::move(status)));
+    return rule;
+}
+
 std::vector<int> resourceAmounts(const BattleEffectDispatchResult& result)
 {
     std::vector<int> amounts;
@@ -176,6 +218,395 @@ TEST_CASE("BattleRuntimeEffects snapshots include active typed core attributes",
     runtime.movement.frame = 6;
     const auto snapshot = makeEffectUnitSnapshot(runtime, runtime.units.require(1));
     CHECK(snapshot.attack == runtime.units.requireCore(1).stats.attack + 30);
+}
+
+TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer and the next rule",
+          "[battle][effect][bridge][status][ordering]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const auto source = binding(EffectSourceKind::Magic, 43, 1, 0);
+    runtime.effectRules.append(source, resourceRule(10, EffectEvent::HitBeforeDamage, 11));
+    runtime.effectRules.append(source, resourceRule(20, EffectEvent::HitBeforeDamage, 33));
+    REQUIRE(runtime.effectRules.rules().size() == 2);
+
+    auto behavior = trueQiBehavior(22);
+
+    auto& effects = runtime.units.require(1).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::TrueQi,
+        .producer = StatusProducerKey{ source, EffectRuleId{ 10 }, 0 },
+        .producerFamily = StatusProducerFamilyKey{
+            source.kind,
+            source.sourceId,
+            source.ownerUnitId,
+            EffectRuleId{ 10 },
+            0,
+        },
+        .behavior = behavior,
+        .behaviorRuntime = { EffectRuleRuntimeState{} },
+        .sourceUnitId = 1,
+        .stacks = 1,
+        .origin = BattleStatusEffectOrigin{
+            source,
+            EffectRuleId{ 10 },
+            runtime.effectRules.rules()[0].order,
+        },
+        .appliedSequence = effects.nextStatusSequence++,
+    });
+
+    const auto provenance = attackProvenance(ultimateCast(1, 43));
+    const auto result = BattleEffectEventBridge().dispatch(
+        runtime,
+        { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::HitBeforeDamage,
+        HitEventData{
+            .provenance = provenance,
+            .targetUnitId = 2,
+            .originalTargetUnitId = 2,
+            .damageKind = BattleDamageKind::Skill,
+        });
+
+    REQUIRE(result.commands.size() == 3);
+    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[0].value).amount == 11);
+    CHECK(result.commands[0].metadata.executionLane == EffectExecutionLane::Configured);
+    CHECK(result.commands[0].metadata.ruleOrder == runtime.effectRules.rules()[0].order);
+
+    CHECK(std::get<DealDamageEffectCommand>(result.commands[1].value).amount == 22);
+    CHECK(result.commands[1].metadata.executionLane == EffectExecutionLane::StatusBehavior);
+    CHECK(result.commands[1].metadata.ruleOrder == runtime.effectRules.rules()[0].order);
+    CHECK(result.commands[1].metadata.producerActionOrder == 0);
+    CHECK(result.commands[1].metadata.behaviorRuleOrder == 0);
+    REQUIRE(result.commands[1].metadata.statusContribution);
+    CHECK(result.commands[1].metadata.statusContribution->appliedSequence
+        == effects.statuses.front().appliedSequence);
+
+    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[2].value).amount == 33);
+    CHECK(result.commands[2].metadata.executionLane == EffectExecutionLane::Configured);
+    CHECK(result.commands[2].metadata.ruleOrder == runtime.effectRules.rules()[1].order);
+    CHECK(result.commands[0].metadata.commandOrdinal == 0);
+    CHECK(result.commands[1].metadata.commandOrdinal == 1);
+    CHECK(result.commands[2].metadata.commandOrdinal == 2);
+}
+
+TEST_CASE("BattleEffectEventBridge uses reducer-equivalent protection state for status liveness",
+          "[battle][effect][bridge][status][liveness][protection]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const auto configured = binding(EffectSourceKind::Combo, 1, 1, 0);
+
+    ChangeResourceAction grantStatusShield;
+    grantStatusShield.resource = BattleResource::StatusShield;
+    grantStatusShield.kind = ResourceChangeKind::Grant;
+    grantStatusShield.amount.flat = 60;
+    EffectRule protectionRule;
+    protectionRule.id = EffectRuleId{ 1 };
+    protectionRule.event = EffectEvent::HitBeforeDamage;
+    protectionRule.selector.kind = EffectSelectorKind::HitTarget;
+    protectionRule.actions.push_back(action(grantStatusShield));
+    runtime.effectRules.append(configured, protectionRule);
+
+    ChangeResourceAction oldBehaviorShield;
+    oldBehaviorShield.resource = BattleResource::Shield;
+    oldBehaviorShield.kind = ResourceChangeKind::Grant;
+    oldBehaviorShield.amount.flat = 99;
+    EffectRule oldBehaviorRule;
+    oldBehaviorRule.id = EffectRuleId{ 2 };
+    oldBehaviorRule.event = EffectEvent::HitBeforeDamage;
+    oldBehaviorRule.observation = EffectObservationScope::StatusHolderEventTarget;
+    oldBehaviorRule.selector.kind = EffectSelectorKind::StatusHolder;
+    oldBehaviorRule.actions.push_back(action(oldBehaviorShield));
+    auto oldBehavior = std::make_shared<StatusBehaviorDefinition>();
+    oldBehavior->rules.push_back(oldBehaviorRule);
+
+    ApplyStatusAction replacement;
+    replacement.status = BattleStatusKind::SevenStarMark;
+    replacement.quantity = SetStatusMarks{ 1 };
+    replacement.durationFrames = 30;
+    replacement.reapplication = StatusReapplicationPolicy::Implicit;
+    replacement.behavior = Test::sevenStarStatusBehavior();
+    EffectRule replacementRule;
+    replacementRule.id = EffectRuleId{ 2 };
+    replacementRule.event = EffectEvent::HitBeforeDamage;
+    replacementRule.selector.kind = EffectSelectorKind::HitTarget;
+    replacementRule.actions.push_back(action(replacement));
+    runtime.effectRules.append(configured, replacementRule);
+
+    auto& effects = runtime.units.require(2).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::SevenStarMark,
+        .producer = StatusProducerKey{ configured, EffectRuleId{ 2 }, 0 },
+        .producerFamily = StatusProducerFamilyKey{
+            configured.kind,
+            configured.sourceId,
+            configured.ownerUnitId,
+            EffectRuleId{ 2 },
+            0,
+        },
+        .familyLocalLimit = 1,
+        .behavior = oldBehavior,
+        .behaviorRuntime = { EffectRuleRuntimeState{} },
+        .sourceUnitId = 1,
+        .remainingFrames = 150,
+        .maximumFrames = 150,
+        .stacks = 1,
+        .origin = BattleStatusEffectOrigin{
+            configured,
+            EffectRuleId{ 2 },
+            runtime.effectRules.rules().back().order,
+        },
+        .appliedSequence = effects.nextStatusSequence++,
+    });
+
+    const auto cast = ultimateCast(1, 39);
+    auto dispatched = BattleEffectEventBridge().dispatch(
+        runtime,
+        { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::HitBeforeDamage,
+        HitEventData{
+            .provenance = attackProvenance(cast),
+            .targetUnitId = 2,
+            .originalTargetUnitId = 2,
+            .damageKind = BattleDamageKind::Skill,
+        });
+
+    REQUIRE(dispatched.commands.size() == 3);
+    CHECK(std::get<ChangeResourceEffectCommand>(
+        dispatched.commands.front().value).action.resource
+        == BattleResource::StatusShield);
+    CHECK(std::holds_alternative<ApplyStatusEffectCommand>(
+        dispatched.commands[1].value));
+    CHECK(std::get<ChangeResourceEffectCommand>(
+        dispatched.commands.back().value).amount == 99);
+
+    const auto reduced = BattleEffectCommandSystem().reduce(
+        runtime,
+        dispatched.commands,
+        { .frame = 1 });
+    REQUIRE(reduced.entries.size() == 3);
+    const auto& blocked = std::get<BattleStatusApplyEffectResult>(
+        reduced.entries[1].value);
+    CHECK(blocked.status.outcome == BattleStatusApplyOutcome::BlockedByStatusShield);
+    REQUIRE(effects.statuses.size() == 1);
+    CHECK(effects.statuses.front().appliedSequence == 1);
+    CHECK(runtime.units.requireCore(2).shield == 99);
+}
+
+TEST_CASE("BattleEffectEventBridge aggregates poison before reducer-backed status liveness",
+          "[battle][effect][bridge][status][poison][aggregation][liveness]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const auto combo = binding(EffectSourceKind::Combo, 1, 1, 0);
+    const auto equipment = binding(EffectSourceKind::Equipment, 2, 1, 0);
+    const auto poisonRule = [](std::uint64_t id)
+    {
+        ApplyStatusAction poison;
+        poison.status = BattleStatusKind::Poison;
+        poison.durationFrames = 40;
+        poison.quantity = SetStatusTriggerCharges{ 1 };
+        poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+        poison.poisonSameEventMerge = PoisonSameEventMerge::SumDamagePercent;
+        poison.behavior = Test::poisonStatusBehavior(10);
+
+        EffectRule rule;
+        rule.id = EffectRuleId{ id };
+        rule.event = EffectEvent::HitBeforeDamage;
+        rule.selector.kind = EffectSelectorKind::HitTarget;
+        rule.actions.push_back(action(std::move(poison)));
+        return rule;
+    };
+    runtime.effectRules.append(combo, poisonRule(1));
+    runtime.effectRules.append(equipment, poisonRule(2));
+
+    ChangeResourceAction oldBehaviorShield;
+    oldBehaviorShield.resource = BattleResource::Shield;
+    oldBehaviorShield.kind = ResourceChangeKind::Grant;
+    oldBehaviorShield.amount.flat = 99;
+    EffectRule oldBehaviorRule;
+    oldBehaviorRule.id = EffectRuleId{ 91 };
+    oldBehaviorRule.event = EffectEvent::HitBeforeDamage;
+    oldBehaviorRule.observation = EffectObservationScope::StatusHolderEventTarget;
+    oldBehaviorRule.selector.kind = EffectSelectorKind::StatusHolder;
+    oldBehaviorRule.actions.push_back(action(oldBehaviorShield));
+    auto oldBehavior = std::make_shared<StatusBehaviorDefinition>(
+        *Test::poisonStatusBehavior(5));
+    oldBehavior->rules.push_back(std::move(oldBehaviorRule));
+
+    const auto oldBinding = binding(EffectSourceKind::Magic, 90, 1, 0);
+    auto& effects = runtime.units.require(2).status.effects;
+    effects.statusShield = 50;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::Poison,
+        .producer = StatusProducerKey{ oldBinding, EffectRuleId{ 90 }, 0 },
+        .producerFamily = StatusProducerFamilyKey{
+            oldBinding.kind,
+            oldBinding.sourceId,
+            oldBinding.ownerUnitId,
+            EffectRuleId{ 90 },
+            0,
+        },
+        .familyLocalLimit = 1,
+        .behavior = oldBehavior,
+        .behaviorRuntime = std::vector(
+            oldBehavior->rules.size(), EffectRuleRuntimeState{}),
+        .sourceUnitId = 1,
+        .remainingFrames = 90,
+        .maximumFrames = 90,
+        .stacks = 1,
+        .origin = BattleStatusEffectOrigin{
+            oldBinding,
+            EffectRuleId{ 90 },
+            100,
+        },
+        .appliedSequence = effects.nextStatusSequence++,
+    });
+
+    const auto cast = ultimateCast(1, 39);
+    const auto dispatched = BattleEffectEventBridge().dispatch(
+        runtime,
+        { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::HitBeforeDamage,
+        HitEventData{
+            .provenance = attackProvenance(cast),
+            .targetUnitId = 2,
+            .originalTargetUnitId = 2,
+            .damageKind = BattleDamageKind::Skill,
+        });
+
+    REQUIRE(dispatched.commands.size() == 2);
+    const auto& aggregated = std::get<ApplyStatusEffectCommand>(
+        dispatched.commands.front().value);
+    REQUIRE(aggregated.action.behavior);
+    const auto& periodicDamage = std::get<DealDamageAction>(
+        aggregated.action.behavior->rules.front().actions.front().value);
+    CHECK(periodicDamage.amount.percent == 20);
+    CHECK(std::get<ChangeResourceEffectCommand>(
+        dispatched.commands.back().value).amount == 99);
+
+    const auto reduced = BattleEffectCommandSystem().reduce(
+        runtime,
+        dispatched.commands,
+        { .frame = 1 });
+    REQUIRE(reduced.entries.size() == 2);
+    const auto& blocked = std::get<BattleStatusApplyEffectResult>(
+        reduced.entries.front().value);
+    CHECK(blocked.status.outcome == BattleStatusApplyOutcome::BlockedByStatusShield);
+    CHECK(effects.statusShield == 10);
+    REQUIRE(effects.statuses.size() == 1);
+    CHECK(effects.statuses.front().appliedSequence == 1);
+    CHECK(runtime.units.requireCore(2).shield == 99);
+}
+
+TEST_CASE("A status created during dispatch becomes active on the next matching event",
+          "[battle][effect][bridge][status][snapshot][liveness]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const auto source = binding(EffectSourceKind::Magic, 43, 1, 0);
+    auto applicationRule = trueQiApplicationRule(10, 1, 10);
+    applicationRule.selector.kind = EffectSelectorKind::Self;
+    runtime.effectRules.append(source, applicationRule);
+
+    const auto provenance = attackProvenance(ultimateCast(1, 43));
+    const auto dispatchHit = [&](std::uint64_t eventOrdinal)
+    {
+        return BattleEffectEventBridge().dispatch(
+            runtime,
+            { .frame = 1, .eventOrdinal = eventOrdinal, .ownerUnitId = 1 },
+            EffectEvent::HitBeforeDamage,
+            HitEventData{
+                .provenance = provenance,
+                .targetUnitId = 2,
+                .originalTargetUnitId = 2,
+                .damageKind = BattleDamageKind::Skill,
+            });
+    };
+
+    const auto first = dispatchHit(1);
+    REQUIRE(first.commands.size() == 1);
+    REQUIRE(std::holds_alternative<ApplyStatusEffectCommand>(first.commands.front().value));
+    CHECK(std::ranges::none_of(first.commands, [](const auto& command)
+    {
+        return std::holds_alternative<DealDamageEffectCommand>(command.value);
+    }));
+    BattleEffectCommandSystem().reduce(
+        runtime,
+        first.commands,
+        { .frame = 1, .attack = provenance });
+    REQUIRE(runtime.units.require(1).status.effects.has(BattleStatusKind::TrueQi));
+
+    const auto second = dispatchHit(2);
+    CHECK(std::ranges::count_if(second.commands, [](const auto& command)
+    {
+        return std::holds_alternative<ApplyStatusEffectCommand>(command.value);
+    }) == 1);
+    CHECK(std::ranges::count_if(second.commands, [](const auto& command)
+    {
+        return std::holds_alternative<DealDamageEffectCommand>(command.value);
+    }) == 1);
+}
+
+TEST_CASE("Status numbers bind application inputs but keep event inputs live until one final rounding",
+          "[battle][effect][bridge][status][number][binding][rounding]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = { 51, 51, 100, 100 };
+    runtime.units.requireCore(2).vitals = { 3, 100, 100, 100 };
+    const auto source = binding(EffectSourceKind::Magic, 43, 1, 0);
+
+    EffectNumber mixed;
+    mixed.base = EffectNumberBase::ApplicationTargetMaxHp;
+    mixed.multiplierBase = EffectNumberBase::TargetCurrentHp;
+    mixed.percent = 1;
+    mixed.minimum = 1;
+    mixed.statusScale = StatusNumberScale::PerContributionLayer;
+    auto applicationRule = trueQiApplicationRule(10, 2, 10);
+    applicationRule.selector.kind = EffectSelectorKind::Self;
+    std::get<ApplyStatusAction>(applicationRule.actions.front().value).behavior
+        = trueQiBehavior(mixed);
+    runtime.effectRules.append(source, applicationRule);
+
+    const auto provenance = attackProvenance(ultimateCast(1, 43));
+    const auto dispatchHit = [&](std::uint64_t eventOrdinal)
+    {
+        return BattleEffectEventBridge().dispatch(
+            runtime,
+            { .frame = 1, .eventOrdinal = eventOrdinal, .ownerUnitId = 1 },
+            EffectEvent::HitBeforeDamage,
+            HitEventData{
+                .provenance = provenance,
+                .targetUnitId = 2,
+                .originalTargetUnitId = 2,
+                .damageKind = BattleDamageKind::Skill,
+            });
+    };
+
+    const auto first = dispatchHit(1);
+    REQUIRE(first.commands.size() == 1);
+    BattleEffectCommandSystem().reduce(
+        runtime,
+        first.commands,
+        { .frame = 1, .attack = provenance });
+    const auto& stored = runtime.units.require(1).status.effects.statuses;
+    REQUIRE(stored.size() == 1);
+    REQUIRE(stored.front().behavior);
+    const auto& boundNumber = std::get<DealDamageAction>(
+        stored.front().behavior->rules.front().actions.front().value).amount;
+    CHECK(boundNumber.base == EffectNumberBase::BoundRatio);
+    CHECK(boundNumber.boundNumerator == 51);
+    CHECK(boundNumber.boundDenominator == 1);
+    REQUIRE(boundNumber.multiplierBase);
+    CHECK(*boundNumber.multiplierBase == EffectNumberBase::TargetCurrentHp);
+
+    // The stored application maximum remains 51, while current target HP is
+    // read from the later event: floor(51 * 5 * 1% * 2 layers) == 5.
+    runtime.units.requireCore(1).vitals.maxHp = 99;
+    runtime.units.requireCore(2).vitals.hp = 5;
+    const auto second = dispatchHit(2);
+    const auto damage = std::ranges::find_if(second.commands, [](const auto& command)
+    {
+        return std::holds_alternative<DealDamageEffectCommand>(command.value);
+    });
+    REQUIRE(damage != second.commands.end());
+    CHECK(std::get<DealDamageEffectCommand>(damage->value).amount == 5);
 }
 
 TEST_CASE("BattleEffectEventBridge preserves continuation and settlement payloads",
@@ -429,6 +860,280 @@ TEST_CASE("BattleEffectEventBridge dispatch is deterministically scoped to the s
     CHECK(ownerOneResult.commands.front().metadata.targetUnitId == 1);
     CHECK(std::get<ChangeResourceEffectCommand>(
         ownerOneResult.commands.front().value).amount == 101);
+}
+
+TEST_CASE("BattleEffectEventBridge dispatches production bleed behavior on the merged frame path",
+          "[battle][effect][bridge][status][bleed][frame]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    auto applied = BattleDamageSystem{}.applyBleed(
+        runtime.units.require(2).statusDamageState(),
+        makeBattleStatusProducerProvenance(
+            {
+                .kind = EffectSourceKind::Combo,
+                .sourceId = 301,
+                .ownerUnitId = 1,
+            },
+            EffectRuleId{ 301 },
+            2),
+        2,
+        3);
+    REQUIRE(applied.applied);
+    runtime.units.require(2).writeStatusDamageResult(applied.target);
+
+    BattleEffectEventBridge bridge;
+    const auto event = bridge.makeEvent(
+        runtime,
+        { .frame = 10, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::FrameAdvanced,
+        FrameTickEventData{ .deltaFrames = 10, .periodOrdinal = 1 });
+    const auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
+
+    REQUIRE(dispatched.commands.size() == 1);
+    const auto& damage = std::get<DealDamageEffectCommand>(
+        dispatched.commands.front().value);
+    CHECK(damage.amount == 2);
+    CHECK(damage.action.kind == BattleDamageKind::Bleed);
+    REQUIRE(dispatched.commands.front().metadata.statusContribution);
+    CHECK(dispatched.commands.front().metadata.statusContribution->holderUnitId == 2);
+    CHECK(dispatched.commands.front().metadata.statusContribution->quantity == 2);
+}
+
+TEST_CASE("Bleed reapplication before a due frame tick preserves the clock and uses the dispatch snapshot",
+          "[battle][effect][bridge][status][bleed][frame][reapply][snapshot]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    // Use a lower-precedence incoming source so the application command is
+    // ordered before the existing higher-precedence status tick.
+    const auto originalSource = binding(EffectSourceKind::Equipment, 301, 1, 0);
+    auto applied = BattleDamageSystem{}.applyBleed(
+        runtime.units.require(2).statusDamageState(),
+        makeBattleStatusProducerProvenance(
+            originalSource,
+            EffectRuleId{ 301 },
+            2),
+        2,
+        3);
+    REQUIRE(applied.applied);
+    runtime.units.require(2).writeStatusDamageResult(applied.target);
+    auto* bleed = runtime.units.require(2).status.effects.find(BattleStatusKind::Bleed);
+    REQUIRE(bleed);
+    REQUIRE(bleed->behaviorRuntime.size() == 1);
+    bleed->behaviorRuntime.front().intervalFramesRemaining = 1;
+    const auto groupSequence = bleed->appliedSequence;
+
+    ApplyStatusAction addLayer;
+    addLayer.status = BattleStatusKind::Bleed;
+    addLayer.quantity = AddSharedStatusLayers{ 1, 3 };
+    addLayer.behavior = makeCatalogOwnedStatusBehavior(addLayer);
+    EffectRule applyRule;
+    applyRule.id = EffectRuleId{ 302 };
+    applyRule.event = EffectEvent::FrameAdvanced;
+    applyRule.selector.kind = EffectSelectorKind::Enemies;
+    applyRule.selector.count = 1;
+    applyRule.actions.push_back(action(addLayer));
+    const auto incomingSource = binding(EffectSourceKind::Combo, 302, 1, 0);
+    runtime.effectRules.append(incomingSource, applyRule);
+
+    BattleEffectEventBridge bridge;
+    const auto event = bridge.makeEvent(
+        runtime,
+        { .frame = 10, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::FrameAdvanced,
+        FrameTickEventData{ .deltaFrames = 1, .periodOrdinal = 1 });
+    const auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
+
+    REQUIRE(dispatched.commands.size() == 2);
+    CHECK(std::holds_alternative<ApplyStatusEffectCommand>(
+        dispatched.commands.front().value));
+    const auto& damage = std::get<DealDamageEffectCommand>(
+        dispatched.commands.back().value);
+    CHECK(damage.amount == 2);
+    CHECK(damage.action.kind == BattleDamageKind::Bleed);
+    CHECK(dispatched.commands.back().metadata.binding == originalSource);
+    REQUIRE(dispatched.commands.back().metadata.statusContribution);
+    CHECK(dispatched.commands.back().metadata.statusContribution->quantity == 2);
+    CHECK(dispatched.commands.back().metadata.statusContribution->appliedSequence
+        == groupSequence);
+
+    bleed = runtime.units.require(2).status.effects.find(BattleStatusKind::Bleed);
+    REQUIRE(bleed);
+    CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
+
+    BattleEffectCommandSystem().reduce(
+        runtime,
+        dispatched.commands,
+        { .frame = 10 });
+    bleed = runtime.units.require(2).status.effects.find(BattleStatusKind::Bleed);
+    REQUIRE(bleed);
+    CHECK(bleed->stacks == 3);
+    CHECK(bleed->appliedSequence == groupSequence);
+    REQUIRE(bleed->origin);
+    CHECK(bleed->origin->binding == incomingSource);
+    CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
+}
+
+TEST_CASE("Cloned status rules retain source definition identity and use the clone as logical owner",
+          "[battle][effect][bridge][clone][status][provenance]")
+{
+    BattleRuntimeState runtime;
+    runtime.gridTransform.tileWidth = 32.0;
+    runtime.units.append(runtimeUnit(1, 0, 100, 100));
+    runtime.units.append(runtimeUnit(2, 1, 100, 100));
+    runtime.units.append(runtimeUnit(4, 0, 100, 100));
+
+    const auto source = binding(EffectSourceKind::Magic, 106, 1, 0);
+    runtime.effectRules.append(source, trueQiApplicationRule(10, 1, 10));
+    runtime.effectRules.appendClonedOwnerRules(1, 4, 0);
+    REQUIRE(runtime.effectRules.rules().size() == 2);
+    const auto& cloned = runtime.effectRules.rules()[1];
+    CHECK(cloned.binding.kind == EffectSourceKind::Magic);
+    CHECK(cloned.binding.sourceId == 106);
+    CHECK(cloned.binding.ownerUnitId == 4);
+    CHECK(cloned.binding.runtimeInstanceId == 0);
+    CHECK(cloned.rule.id == EffectRuleId{ 10 });
+
+    auto cast = ultimateCast(20, 106);
+    cast.sourceUnitId = 4;
+    const auto provenance = attackProvenance(cast);
+    const auto dispatched = BattleEffectEventBridge().dispatch(
+        runtime,
+        { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 4 },
+        EffectEvent::HitBeforeDamage,
+        HitEventData{
+            .provenance = provenance,
+            .targetUnitId = 2,
+            .originalTargetUnitId = 2,
+            .damageKind = BattleDamageKind::Skill,
+        });
+    REQUIRE(dispatched.commands.size() == 1);
+    const auto& command = dispatched.commands.front();
+    REQUIRE(std::holds_alternative<ApplyStatusEffectCommand>(command.value));
+    CHECK(command.metadata.binding == cloned.binding);
+    CHECK(command.metadata.ruleId == EffectRuleId{ 10 });
+
+    BattleEffectCommandSystem().reduce(
+        runtime,
+        command,
+        { .frame = 1, .attack = provenance });
+    const auto& statuses = runtime.units.require(2).status.effects.statuses;
+    REQUIRE(statuses.size() == 1);
+    REQUIRE(statuses.front().producer);
+    REQUIRE(statuses.front().producerFamily);
+    CHECK(statuses.front().producer->binding == cloned.binding);
+    CHECK(statuses.front().producer->ruleId == EffectRuleId{ 10 });
+    CHECK(statuses.front().producerFamily->sourceKind == EffectSourceKind::Magic);
+    CHECK(statuses.front().producerFamily->sourceId == 106);
+    CHECK(statuses.front().producerFamily->logicalOwnerUnitId == 4);
+    CHECK(statuses.front().producerFamily->ruleId == EffectRuleId{ 10 });
+}
+
+TEST_CASE("Repeated borrowed status bindings share one family cap per holder without losing provenance",
+          "[battle][effect][bridge][borrow][status][capacity][provenance]")
+{
+    BattleRuntimeState runtime;
+    runtime.gridTransform.tileWidth = 32.0;
+    runtime.units.append(runtimeUnit(1, 0, 100, 100));
+    runtime.units.append(runtimeUnit(2, 1, 100, 100));
+    runtime.units.append(runtimeUnit(3, 1, 100, 100));
+    runtime.units.append(runtimeUnit(4, 1, 100, 100));
+
+    const auto source = binding(EffectSourceKind::Magic, 71, 2, 1);
+    runtime.effectRules.append(source, trueQiApplicationRule(10, 6, 10));
+    BorrowedRuleFilter filter;
+    filter.allowedActionCategories = { BorrowedRuleActionCategory::Status };
+    BattleEffectEventBridge bridge;
+    BattleEffectCommandSystem commands;
+
+    const auto bindAndApply = [&](BattleCastId castId, int holderUnitId)
+    {
+        const std::array sourceUnitIds{ 2 };
+        const auto added = runtime.effectRules.bindBorrowedUltimateRules(
+            castId,
+            1,
+            0,
+            sourceUnitIds,
+            filter,
+            CastPropagationPolicy::BorrowedUltimateRules);
+        REQUIRE(added.size() == 1);
+        const auto borrowedBinding = runtime.effectRules.rules()[added.front()].binding;
+        REQUIRE(borrowedBinding.runtimeInstanceId != 0);
+
+        auto cast = ultimateCast(castId.value(), 43);
+        const auto provenance = attackProvenance(cast);
+        const auto dispatched = bridge.dispatch(
+            runtime,
+            {
+                .frame = static_cast<int>(castId.value()),
+                .eventOrdinal = castId.value(),
+                .ownerUnitId = 1,
+            },
+            EffectEvent::HitBeforeDamage,
+            HitEventData{
+                .provenance = provenance,
+                .targetUnitId = holderUnitId,
+                .originalTargetUnitId = holderUnitId,
+                .damageKind = BattleDamageKind::Skill,
+            });
+        const auto application = std::ranges::find_if(
+            dispatched.commands,
+            [](const auto& command)
+            {
+                return std::holds_alternative<ApplyStatusEffectCommand>(command.value);
+            });
+        REQUIRE(application != dispatched.commands.end());
+        CHECK(application->metadata.binding == borrowedBinding);
+        commands.reduce(
+            runtime,
+            *application,
+            {
+                .frame = static_cast<int>(castId.value()),
+                .attack = provenance,
+            });
+        return borrowedBinding;
+    };
+
+    const BattleCastId firstCast{ 100 };
+    const auto firstBinding = bindAndApply(firstCast, 3);
+    runtime.effectRules.removeCastScopedRules(firstCast);
+    const BattleCastId secondCast{ 101 };
+    const auto secondBinding = bindAndApply(secondCast, 3);
+    runtime.effectRules.removeCastScopedRules(secondCast);
+
+    REQUIRE(firstBinding.runtimeInstanceId != secondBinding.runtimeInstanceId);
+    const auto& firstHolder = runtime.units.require(3).status.effects.statuses;
+    REQUIRE(firstHolder.size() == 2);
+    CHECK(firstHolder[0].stacks == 6);
+    CHECK(firstHolder[1].stacks == 4);
+    REQUIRE(firstHolder[0].producer);
+    REQUIRE(firstHolder[1].producer);
+    REQUIRE(firstHolder[0].producerFamily);
+    REQUIRE(firstHolder[1].producerFamily);
+    CHECK(firstHolder[0].producer->binding.runtimeInstanceId
+        == firstBinding.runtimeInstanceId);
+    CHECK(firstHolder[1].producer->binding.runtimeInstanceId
+        == secondBinding.runtimeInstanceId);
+    CHECK(firstHolder[0].producerFamily == firstHolder[1].producerFamily);
+    CHECK(firstHolder[0].producerFamily->sourceKind == EffectSourceKind::Magic);
+    CHECK(firstHolder[0].producerFamily->sourceId == 71);
+    CHECK(firstHolder[0].producerFamily->logicalOwnerUnitId == 1);
+    CHECK(firstHolder[0].producerFamily->ruleId == EffectRuleId{ 10 });
+
+    const BattleCastId thirdCast{ 102 };
+    const auto thirdBinding = bindAndApply(thirdCast, 3);
+    CHECK(thirdBinding.runtimeInstanceId != secondBinding.runtimeInstanceId);
+    const auto& capped = runtime.units.require(3).status.effects.statuses;
+    REQUIRE(capped.size() == 2);
+    CHECK(capped[0].stacks + capped[1].stacks == 10);
+
+    runtime.effectRules.removeCastScopedRules(thirdCast);
+    const auto fourthBinding = bindAndApply(BattleCastId{ 103 }, 4);
+    CHECK(fourthBinding.runtimeInstanceId != thirdBinding.runtimeInstanceId);
+    const auto& secondHolder = runtime.units.require(4).status.effects.statuses;
+    REQUIRE(secondHolder.size() == 1);
+    CHECK(secondHolder.front().stacks == 6);
+    REQUIRE(secondHolder.front().producerFamily);
+    CHECK(secondHolder.front().producerFamily == firstHolder.front().producerFamily);
 }
 
 TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast without recursive copies",

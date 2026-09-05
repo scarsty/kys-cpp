@@ -13,6 +13,7 @@ namespace KysChess::Battle
 
 struct BattleRuntimeState;
 class BattleRuntimeUnits;
+struct BattleStatusQuerySnapshot;
 
 struct HealTransactionId
 {
@@ -23,18 +24,7 @@ struct HealTransactionId
 
 using BattleHealCastId = std::uint64_t;
 
-enum class BattleHealKind
-{
-    Direct,
-    Team,
-    Aura,
-    OnHit,
-    KillReward,
-    DeathMedical,
-    Rescue,
-    Regeneration,
-    Lifesteal,
-};
+using BattleHealKind = EffectHealKind;
 
 enum class BattleHealBase
 {
@@ -89,6 +79,10 @@ struct BattleHealModifierState
     bool blocked = false;
     std::vector<int> receivedHealPcts;
 };
+
+BattleHealModifierState battleStatusHealModifiers(
+    const BattleStatusQuerySnapshot& status,
+    BattleHealKind kind);
 
 enum class BattleHealEventType
 {

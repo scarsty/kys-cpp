@@ -112,13 +112,16 @@ ChessSha256 effectNumberContentHash(const EffectNumber& number)
         static_cast<int>(number.base),
         number.multiplierBase,
         number.status,
-        number.statusEffect,
+        static_cast<int>(number.statusSource),
         number.stateSlot,
         number.flat,
         number.percent,
         static_cast<int>(number.rounding),
         number.minimum,
-        number.maximum);
+        number.maximum,
+        static_cast<int>(number.statusScale),
+        number.boundNumerator,
+        number.boundDenominator);
 }
 
 ChessSha256 selectorContentHash(const EffectSelector& selector)
@@ -217,6 +220,8 @@ std::vector<ChessSha256> conditionContentHashes(
     return result;
 }
 
+ChessSha256 statusBehaviorContentHash(const StatusBehaviorDefinition& behavior);
+
 ChessSha256 applyStatusContentHash(const ApplyStatusAction& action)
 {
     const auto quantityHash = std::visit([&](const auto& quantity)
@@ -233,51 +238,6 @@ ChessSha256 applyStatusContentHash(const ApplyStatusAction& action)
             return chessBeveSha256(
                 "KYS_EFFECT_STATUS_QUANTITY", action.quantity.index(), quantity.count);
     }, action.quantity);
-    const auto effectsHash = std::visit([&](const auto& effects)
-    {
-        using T = std::decay_t<decltype(effects)>;
-        const auto domain = "KYS_EFFECT_STATUS_EFFECTS";
-        if constexpr (std::is_same_v<T, NoStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index());
-        else if constexpr (std::is_same_v<T, PoisonStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.currentHpDamagePercent),
-                static_cast<int>(effects.sameEventMerge));
-        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.maxHpDamagePercent));
-        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(), effects.blocksHealing,
-                effectNumberContentHash(effects.speedReductionPercent));
-        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.damageTakenIncreasePercent),
-                effectNumberContentHash(effects.healingReductionPercent));
-        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(), effects.preventsCast,
-                effectNumberContentHash(effects.originalTargetShield));
-        else if constexpr (std::is_same_v<T, BlindedStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(), effects.preventsCast);
-        else if constexpr (std::is_same_v<T, NextIncomingAttackMissStatusEffects>)
-            return chessBeveSha256(
-                domain, action.effects.index(), effects.makesIncomingAttackMiss);
-        else if constexpr (std::is_same_v<T, DamageBlockStatusEffects>)
-            return chessBeveSha256(
-                domain, action.effects.index(), effects.blocksPositiveNonExecuteDamage);
-        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.damageCap));
-        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.skillDamageIncreasePercent),
-                effectNumberContentHash(effects.damageReductionPercent));
-        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.pureDamagePerHit));
-        else
-            return chessBeveSha256(domain, action.effects.index(),
-                effectNumberContentHash(effects.deathPureDamage));
-    }, action.effects);
     return chessBeveSha256(
         "KYS_EFFECT_APPLY_STATUS",
         static_cast<int>(action.status),
@@ -285,7 +245,10 @@ ChessSha256 applyStatusContentHash(const ApplyStatusAction& action)
         action.duration ? std::optional{ effectNumberContentHash(*action.duration) } : std::nullopt,
         quantityHash,
         static_cast<int>(action.reapplication),
-        effectsHash);
+        static_cast<int>(action.poisonSameEventMerge),
+        action.behavior
+            ? std::optional{ statusBehaviorContentHash(*action.behavior) }
+            : std::nullopt);
 }
 
 ChessSha256 areaModifierContentHash(const AreaModifier& modifier)
@@ -410,10 +373,23 @@ ChessSha256 actionContentHash(const EffectAction& action)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     static_cast<int>(typed.status), typed.quantity, static_cast<int>(typed.source),
                     typed.whenDepleted ? std::optional{ applyStatusContentHash(*typed.whenDepleted) } : std::nullopt);
+            else if constexpr (std::is_same_v<T, ConsumeThisStatusAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    typed.quantity,
+                    typed.whenDepleted ? std::optional{ applyStatusContentHash(*typed.whenDepleted) } : std::nullopt);
             else if constexpr (std::is_same_v<T, RemoveStatusAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
-                    typed.statuses, typed.negativeOnly, typed.controlOnly,
+                    typed.statuses, static_cast<int>(typed.source),
+                    typed.negativeOnly, typed.controlOnly,
                     typed.clearCurrentActionStagger, typed.count, static_cast<int>(typed.order));
+            else if constexpr (std::is_same_v<T, SuppressCurrentCastContactsAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    typed.originalTargetShield
+                        ? std::optional{ effectNumberContentHash(*typed.originalTargetShield) }
+                        : std::nullopt);
+            else if constexpr (std::is_same_v<T, MakeIncomingAttackMissAction>
+                || std::is_same_v<T, BlockPositiveDamageAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index());
             else if constexpr (std::is_same_v<T, DealDamageAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     effectNumberContentHash(typed.amount),
@@ -514,6 +490,13 @@ std::vector<RuleContentView> effectRuleContentViews(
             actionContentHashes(rule.actions));
     }
     return result;
+}
+
+ChessSha256 statusBehaviorContentHash(const StatusBehaviorDefinition& behavior)
+{
+    return chessBeveSha256(
+        "KYS_STATUS_BEHAVIOR",
+        effectRuleContentViews(behavior.rules));
 }
 
 NonBattleRuleContentView nonBattleRuleContentView(const ChessNonBattleRule& rule)
@@ -734,6 +717,20 @@ ChessSha256 chessContentFingerprint(const ChessGameContentData& data)
         data.battlefields);
 }
 
+}
+
+ChessSha256 statusBehaviorContentFingerprint(
+    const StatusBehaviorDefinition& behavior)
+{
+    return statusBehaviorContentHash(behavior);
+}
+
+bool statusBehaviorsEquivalent(
+    const std::shared_ptr<const StatusBehaviorDefinition>& lhs,
+    const std::shared_ptr<const StatusBehaviorDefinition>& rhs)
+{
+    if (!lhs || !rhs) return lhs == rhs;
+    return statusBehaviorContentHash(*lhs) == statusBehaviorContentHash(*rhs);
 }
 
 ChessGameContent::ChessGameContent(ChessGameContentData data, std::string gameVersion)

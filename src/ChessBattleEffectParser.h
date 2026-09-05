@@ -13,7 +13,8 @@ bool parseEffectRule(
     EffectRule& out,
     EffectRuleId id,
     const std::string& context,
-    const ChessDiagnosticSink& diagnostics = {});
+    const ChessDiagnosticSink& diagnostics = {},
+    bool statusBehavior = false);
 bool validateEffectAuthoringDescriptorProbes(std::string& error);
 bool parseMagicEffects(
     const YAML::Node& root,

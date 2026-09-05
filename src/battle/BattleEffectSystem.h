@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ChessBattleEffectSemantics.h"
+#include "../ChessBattleEffectValidation.h"
 #include "../Point.h"
 #include "BattleCastLifecycle.h"
 #include "BattleHealSystem.h"
@@ -24,6 +25,8 @@
 namespace KysChess::Battle
 {
 
+struct BattleStatusEffectState;
+
 class BattleRuntimeRandom;
 
 int effectSourcePrecedence(EffectSourceKind kind);
@@ -32,14 +35,17 @@ bool effectSourceRuleOrderLess(
     std::uint32_t lhsOrder,
     EffectSourceKind rhsSource,
     std::uint32_t rhsOrder);
+bool effectHealKindMatchesLabels(
+    BattleHealKind kind,
+    std::span<const std::string> labels);
 
 struct EffectStatusSnapshot
 {
     BattleStatusKind state{};
     int sourceUnitId = -1;
+    std::optional<EffectSourceBinding> producerBinding;
+    std::uint64_t appliedSequence{};
     int stacks = 1;
-    int potency{};
-    int secondaryPotency{};
 };
 
 struct EffectUnitSnapshot
@@ -70,7 +76,9 @@ struct EffectUnitSnapshot
 
     bool hasState(BattleStatusKind state) const;
     bool hasStateFromSource(BattleStatusKind state, int sourceUnitId) const;
-    int stackCount(BattleStatusKind stack) const;
+    int stackCount(
+        BattleStatusKind stack,
+        const StatusContributionFilter& filter = {}) const;
     bool usesMagic(int magicId) const;
 };
 
@@ -133,6 +141,26 @@ struct EffectFormulaInputs
 {
     std::optional<std::int64_t> storedStateValue;
 };
+
+struct EffectStatusContributionContext
+{
+    int holderUnitId = -1;
+    int sourceUnitId = -1;
+    BattleStatusKind kind{};
+    int quantity{};
+    std::uint64_t appliedSequence{};
+    EffectRuleId producerRuleId;
+    std::uint32_t producerRuleOrder{};
+    std::uint32_t producerActionOrder{};
+    std::uint32_t behaviorRuleOrder{};
+
+    bool operator==(const EffectStatusContributionContext&) const = default;
+};
+
+StatusContributionFilter resolveStatusContributionFilter(
+    StatusSourceMatch match,
+    const EffectSourceBinding& binding,
+    const std::optional<EffectStatusContributionContext>& contribution);
 
 struct InitializationEventData
 {
@@ -201,14 +229,20 @@ struct EffectAttackDamageOrigin
 
 struct EffectStatusDamageOrigin
 {
-    BattleStatusKind status{};
-    int sourceUnitId = -1;
+    EffectSourceBinding binding;
+    EffectStatusContributionContext contribution;
+    std::uint32_t behaviorActionOrder{};
+    std::optional<BattleCastProvenance> triggeringCast;
+    std::optional<BattleAttackProvenance> triggeringAttack;
 };
 
 struct EffectRuleDamageOrigin
 {
     EffectRuleId ruleId;
     EffectSourceBinding binding;
+    std::uint32_t actionOrder{};
+    std::optional<BattleCastProvenance> triggeringCast;
+    std::optional<BattleAttackProvenance> triggeringAttack;
 };
 
 struct EffectEnvironmentDamageOrigin {};
@@ -218,6 +252,18 @@ using EffectDamageOrigin = std::variant<
     EffectStatusDamageOrigin,
     EffectRuleDamageOrigin,
     EffectEnvironmentDamageOrigin>;
+
+EffectDamageOrigin makeEffectDamageOrigin(
+    EffectSourceBinding binding,
+    EffectRuleId ruleId,
+    std::uint32_t authoredActionOrder,
+    std::optional<EffectStatusContributionContext> statusContribution,
+    std::optional<BattleCastProvenance> triggeringCast,
+    std::optional<BattleAttackProvenance> triggeringAttack);
+const BattleCastProvenance* effectDamageCastProvenance(
+    const EffectDamageOrigin& origin);
+const BattleAttackProvenance* effectDamageAttackProvenance(
+    const EffectDamageOrigin& origin);
 
 struct DamageResultEventData
 {
@@ -304,6 +350,13 @@ struct EffectEventHeader
     const EffectUnitSnapshot* owner = nullptr;
     BattleEffectReadView battle;
     EffectFormulaInputs formulaInputs;
+    std::optional<EffectStatusContributionContext> statusContribution;
+};
+
+enum class EffectExecutionLane
+{
+    Configured,
+    StatusBehavior,
 };
 
 struct EffectEventContext
@@ -319,12 +372,49 @@ struct EffectCommandMetadata
     EffectRuleId ruleId;
     EffectEvent event{};
     std::uint32_t ruleOrder{};
+    // Stable identity of the authored action within the rule. Unlike
+    // actionOrder, this value does not expand when the rule repeats.
+    std::uint32_t authoredActionOrder{};
     std::uint32_t actionOrder{};
     std::uint32_t targetOrder{};
     std::uint64_t commandOrdinal{};
     int targetUnitId = -1;
     int eventSourceUnitId = -1;
+    EffectExecutionLane executionLane = EffectExecutionLane::Configured;
+    std::uint32_t producerActionOrder{};
+    std::uint32_t behaviorRuleOrder{};
+    std::optional<EffectStatusContributionContext> statusContribution;
 };
+
+// One structured order key is shared by configured rules, status-owned
+// behavior commands, and status interceptors.  The explicit source precedence
+// deliberately does not depend on EffectSourceKind's enum ordinal.
+struct EffectExecutionOrderKey
+{
+    int sourcePrecedence{};
+    std::uint32_t producerRuleOrder{};
+    EffectExecutionLane lane = EffectExecutionLane::Configured;
+    std::uint32_t producerActionOrder{};
+    std::uint32_t behaviorRuleOrder{};
+    int holderUnitId = -1;
+    std::uint64_t contributionSequence{};
+    std::uint32_t actionOrder{};
+    std::uint32_t targetOrder{};
+    std::uint64_t commandOrdinal{};
+
+    auto operator<=>(const EffectExecutionOrderKey&) const = default;
+};
+
+EffectExecutionOrderKey effectExecutionOrderKey(
+    const EffectCommandMetadata& metadata);
+EffectExecutionOrderKey statusBehaviorExecutionOrderKey(
+    const EffectSourceBinding& binding,
+    std::uint32_t producerRuleOrder,
+    std::uint32_t producerActionOrder,
+    std::uint32_t behaviorRuleOrder,
+    int holderUnitId,
+    std::uint64_t contributionSequence,
+    std::uint32_t actionOrder);
 
 struct ModifyAttributeEffectCommand
 {
@@ -353,45 +443,18 @@ struct ModifyHealTransactionEffectCommand
 struct ApplyStatusEffectCommand
 {
     ApplyStatusAction action;
-    int potency{};
-    int secondaryPotency{};
     std::optional<int> evaluatedDurationFrames;
 };
-
-template <typename Evaluator>
-std::pair<int, int> evaluateStatusRuntimeValues(
-    const ApplyStatusAction& action,
-    Evaluator&& evaluate)
-{
-    std::pair<int, int> result{};
-    bool hasPotency{};
-    bool hasSecondaryPotency{};
-    forEachStatusEffectField(
-        action.effects,
-        [&](StatusEffectFieldId id, const EffectNumber& number)
-        {
-            const auto& field = statusEffectFieldCatalogEntry(id);
-            assert(field.runtimeSlot);
-            if (*field.runtimeSlot == StatusRuntimeValueSlot::Potency)
-            {
-                assert(!hasPotency);
-                result.first = evaluate(number);
-                hasPotency = true;
-            }
-            else
-            {
-                assert(!hasSecondaryPotency);
-                result.second = evaluate(number);
-                hasSecondaryPotency = true;
-            }
-        },
-        [](StatusEffectFieldId, bool) {});
-    return result;
-}
 
 struct ConsumeStatusEffectCommand
 {
     ConsumeStatusAction action;
+    std::optional<ApplyStatusEffectCommand> whenDepleted;
+};
+
+struct ConsumeThisStatusEffectCommand
+{
+    ConsumeThisStatusAction action;
     std::optional<ApplyStatusEffectCommand> whenDepleted;
 };
 
@@ -406,6 +469,13 @@ struct DealDamageEffectCommand
     int amount{};
     int transactionCount = 1;
 };
+
+struct SuppressCurrentCastContactsEffectCommand
+{
+    int originalTargetShield{};
+};
+
+struct MakeIncomingAttackMissEffectCommand {};
 
 struct ResolvedEffectAttackSource
 {
@@ -453,8 +523,11 @@ using EffectCommandValue = std::variant<
     ModifyHealTransactionEffectCommand,
     ApplyStatusEffectCommand,
     ConsumeStatusEffectCommand,
+    ConsumeThisStatusEffectCommand,
     RemoveStatusEffectCommand,
     DealDamageEffectCommand,
+    SuppressCurrentCastContactsEffectCommand,
+    MakeIncomingAttackMissEffectCommand,
     ModifyAttackEffectCommand,
     ForceMoveEffectCommand,
     CreateAreaEffectCommand,
@@ -487,33 +560,6 @@ struct EffectRuleRuntimeKey
     auto operator<=>(const EffectRuleRuntimeKey&) const = default;
 };
 
-struct EffectRuleRuntimeState
-{
-    int activationCount{};
-    int eligibleEventCount{};
-    int intervalFramesRemaining{};
-};
-
-struct EffectSharedCooldownKey
-{
-    EffectSourceKind sourceKind{};
-    int sourceId{};
-    int sourceTeam{};
-    std::uint64_t sourceInstanceId{};
-    EffectRuleId ruleId;
-
-    auto operator<=>(const EffectSharedCooldownKey&) const = default;
-};
-
-struct EffectActivationScopeKey
-{
-    EffectRuleRuntimeKey rule;
-    BattleCastId castId;
-    int targetUnitId = -1;
-
-    auto operator<=>(const EffectActivationScopeKey&) const = default;
-};
-
 struct EffectStateKey
 {
     int ownerUnitId = -1;
@@ -530,7 +576,10 @@ class BattleEffectRuleStore
 {
 public:
     void clear();
-    std::size_t append(EffectSourceBinding binding, const EffectRule& rule);
+    std::size_t append(
+        EffectSourceBinding binding,
+        const EffectRule& rule,
+        EffectRuleAuthoringContext context = EffectRuleAuthoringContext::Configured);
     void append(EffectSourceBinding binding, std::span<const EffectRule> rules);
     void appendClonedOwnerRules(int sourceOwnerUnitId,
                                 int cloneOwnerUnitId,
@@ -579,13 +628,11 @@ public:
 
 private:
     static constexpr std::size_t EventCount =
-        static_cast<std::size_t>(EffectEvent::AllyDied) + 1;
+        static_cast<std::size_t>(EffectEvent::StatusPersistent) + 1;
 
     std::vector<BoundEffectRule> rules_;
     std::array<std::vector<std::size_t>, EventCount> ruleIndicesByEvent_;
     std::map<EffectRuleRuntimeKey, EffectRuleRuntimeState> runtimeByRule_;
-    std::map<EffectSharedCooldownKey, std::int64_t> sharedCooldownUntilFrame_;
-    std::map<EffectActivationScopeKey, int> activationEvaluations_;
     std::map<EffectStateKey, std::int64_t> stateValues_;
     std::map<int, bool> blinkAttackWeakestTargetByOwner_;
     std::uint64_t nextRuntimeInstanceId_ = 1;
@@ -602,6 +649,44 @@ struct EffectRuleActivation
     EffectSourceBinding binding;
     EffectRuleId ruleId;
     std::vector<int> targetUnitIds;
+};
+
+struct ActiveStatusBehaviorView
+{
+    EffectSourceBinding binding;
+    EffectRuleId producerRuleId;
+    std::uint32_t producerRuleOrder{};
+    std::uint32_t producerActionOrder{};
+    int holderUnitId = -1;
+    int sourceUnitId = -1;
+    BattleStatusKind kind{};
+    int quantity{};
+    std::uint64_t appliedSequence{};
+    const BattleStatusEffectState* holderEffects = nullptr;
+    std::shared_ptr<const StatusBehaviorDefinition> behavior;
+    std::vector<EffectRuleRuntimeState>* runtime = nullptr;
+};
+
+enum class StatusBehaviorDispatchFilter
+{
+    All,
+    AttackInterceptorsOnly,
+    OutgoingCastSuppressorsOnly,
+    IncomingAttackMissOnly,
+    ExcludeAttackInterceptors,
+};
+
+// Production dispatch supplies a reducer-backed shadow runtime so a later
+// status rule is checked against the same status/protection transitions that
+// real command reduction will perform.  Lower-level effect-system tests may
+// omit it and use the self-contained status-only projection instead.
+struct StatusBehaviorDispatchLiveness
+{
+    std::function<std::optional<int>(
+        int holderUnitId,
+        std::uint64_t appliedSequence,
+        BattleStatusKind kind)> contributionQuantity;
+    std::function<void(std::span<const EffectCommand>)> reduceRuleCommands;
 };
 
 // Timing-sensitive actions are consumed by their owning battle system at the
@@ -634,7 +719,22 @@ public:
         BattleEffectRuleStore& store,
         const EffectEventContext& context,
         BattleRuntimeRandom& random,
-        std::span<const std::size_t> ruleIndices) const;
+        std::span<const std::size_t> ruleIndices,
+        bool finalizeEvent = true) const;
+    BattleEffectDispatchResult dispatchMerged(
+        BattleEffectRuleStore& store,
+        const EffectEventContext& context,
+        BattleRuntimeRandom& random,
+        std::span<const ActiveStatusBehaviorView> behaviors,
+        StatusBehaviorDispatchFilter filter = StatusBehaviorDispatchFilter::All,
+        bool includeAllFrameOwners = false,
+        const StatusBehaviorDispatchLiveness* reducerLiveness = nullptr) const;
+    BattleEffectDispatchResult dispatchStatusBehaviors(
+        const EffectEventContext& context,
+        BattleRuntimeRandom& random,
+        std::span<const ActiveStatusBehaviorView> behaviors,
+        StatusBehaviorDispatchFilter filter = StatusBehaviorDispatchFilter::All,
+        const StatusBehaviorDispatchLiveness* reducerLiveness = nullptr) const;
 
     static bool eventPayloadMatches(const EffectEventContext& context);
     static int evaluateNumber(const EffectNumber& number,
@@ -645,6 +745,12 @@ public:
                                           BattleRuntimeRandom& random,
                                           const std::function<bool(
                                               const EffectUnitSnapshot&)>& candidateFilter = {});
+
+private:
+    void finalizeEventDispatch(
+        BattleEffectRuleStore& store,
+        const EffectEventContext& context,
+        BattleEffectDispatchResult& result) const;
 };
 
 }  // namespace KysChess::Battle

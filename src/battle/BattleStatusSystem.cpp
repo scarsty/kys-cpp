@@ -1,58 +1,291 @@
 #include "BattleStatusSystem.h"
 
+#include "../ChessBattleEffectSemantics.h"
 #include "../ChessBattleEffectTypes.h"
+#include "BattleEffectSystem.h"
 #include "BattleRuntimeUnits.h"
 
 #include <algorithm>
 #include <cassert>
 #include <limits>
+#include <stdexcept>
 #include <tuple>
+#include <type_traits>
 
 namespace KysChess::Battle
 {
 
+BattleStatusGroupStorage::BattleStatusGroupStorage(
+    std::initializer_list<value_type> values)
+{
+    for (const auto& value : values) push_back(value);
+}
+
+BattleStatusGroupStorage::BattleStatusGroupStorage(container_type values)
+{
+    reserve(values.size());
+    for (auto& value : values) push_back(std::move(value));
+}
+
+BattleStatusGroupStorage& BattleStatusGroupStorage::operator=(
+    std::initializer_list<value_type> values)
+{
+    clear();
+    reserve(values.size());
+    for (const auto& value : values) push_back(value);
+    return *this;
+}
+
+BattleStatusGroupStorage& BattleStatusGroupStorage::operator=(container_type values)
+{
+    clear();
+    reserve(values.size());
+    for (auto& value : values) push_back(std::move(value));
+    return *this;
+}
+
+void BattleStatusGroupStorage::assertCanInsert(BattleStatusKind kind) const
+{
+    if (statusCatalogEntry(kind).storage
+        == StatusStorageModel::ProducerOwnedContributions)
+    {
+        return;
+    }
+    assert(std::ranges::none_of(values_, [kind](const auto& status)
+    {
+        return status.kind == kind;
+    }));
+}
+
+void BattleStatusGroupStorage::rebuildGroups() const
+{
+    groups_.clear();
+    groups_.reserve(values_.size());
+    taxonomyKinds_.clear();
+    taxonomyKinds_.reserve(values_.size());
+    for (std::size_t index = 0; index < values_.size(); ++index)
+    {
+        const auto kind = values_[index].kind;
+        taxonomyKinds_.push_back(kind);
+        auto group = std::ranges::find(groups_, kind, &BattleStatusGroupEntry::kind);
+        const auto storage = statusCatalogEntry(kind).storage;
+        if (group != groups_.end())
+        {
+            assert(storage == StatusStorageModel::ProducerOwnedContributions);
+            auto* producerOwned = std::get_if<ProducerOwnedContributions>(
+                &group->state);
+            assert(producerOwned);
+            producerOwned->contributionIndices.push_back(index);
+            continue;
+        }
+
+        BattleStatusGroupState state;
+        switch (storage)
+        {
+        case StatusStorageModel::ProducerOwnedContributions:
+            state = ProducerOwnedContributions{ { index } };
+            break;
+        case StatusStorageModel::SharedLayerDebuff:
+            state = SharedLayerDebuff{ index };
+            break;
+        case StatusStorageModel::SelectedDebuffInstance:
+            state = SelectedDebuffInstance{ index };
+            break;
+        case StatusStorageModel::SharedDurationControl:
+            state = SharedDurationControl{ index };
+            break;
+        }
+        groups_.push_back({ kind, std::move(state) });
+    }
+}
+
+void BattleStatusGroupStorage::ensureGroupsFresh() const
+{
+    const bool kindsMatch = taxonomyKinds_.size() == values_.size()
+        && std::equal(
+            taxonomyKinds_.begin(),
+            taxonomyKinds_.end(),
+            values_.begin(),
+            [](BattleStatusKind cached, const value_type& value)
+            {
+                return cached == value.kind;
+            });
+    if (!kindsMatch)
+        rebuildGroups();
+}
+
+void BattleStatusGroupStorage::push_back(const value_type& value)
+{
+    assertCanInsert(value.kind);
+    values_.push_back(value);
+    rebuildGroups();
+}
+
+void BattleStatusGroupStorage::push_back(value_type&& value)
+{
+    assertCanInsert(value.kind);
+    values_.push_back(std::move(value));
+    rebuildGroups();
+}
+
+BattleStatusGroupStorage::iterator BattleStatusGroupStorage::erase(
+    const_iterator position)
+{
+    const auto offset = std::distance(values_.cbegin(), position);
+    values_.erase(position);
+    rebuildGroups();
+    return values_.begin() + offset;
+}
+
+const BattleStatusGroupState* BattleStatusGroupStorage::groupState(
+    BattleStatusKind kind) const
+{
+    ensureGroupsFresh();
+    const auto group = std::ranges::find(groups_, kind, &BattleStatusGroupEntry::kind);
+    return group != groups_.end() ? &group->state : nullptr;
+}
+
+BattleStatusProducerProvenance makeBattleStatusProducerProvenance(
+    EffectSourceBinding binding,
+    EffectRuleId ruleId,
+    std::uint32_t ruleOrder,
+    std::uint32_t actionOrder,
+    std::uint32_t behaviorRuleOrder,
+    std::uint32_t behaviorActionOrder)
+{
+    const int sourceUnitId = binding.ownerUnitId;
+    return {
+        .producer = {
+            .binding = binding,
+            .ruleId = ruleId,
+            .actionOrder = actionOrder,
+            .behaviorRuleOrder = behaviorRuleOrder,
+            .behaviorActionOrder = behaviorActionOrder,
+        },
+        .producerFamily = {
+            .sourceKind = binding.kind,
+            .sourceId = binding.sourceId,
+            .logicalOwnerUnitId = sourceUnitId,
+            .ruleId = ruleId,
+            .actionOrder = actionOrder,
+            .behaviorRuleOrder = behaviorRuleOrder,
+            .behaviorActionOrder = behaviorActionOrder,
+        },
+        .origin = {
+            std::move(binding),
+            ruleId,
+            ruleOrder,
+        },
+        .sourceUnitId = sourceUnitId,
+    };
+}
+
+namespace
+{
+
+int saturatedAdd(int left, int right)
+{
+    return static_cast<int>(std::clamp(
+        static_cast<std::int64_t>(left) + right,
+        static_cast<std::int64_t>(std::numeric_limits<int>::min()),
+        static_cast<std::int64_t>(std::numeric_limits<int>::max())));
+}
+
+int saturatedNegate(int value)
+{
+    return value == std::numeric_limits<int>::min()
+        ? std::numeric_limits<int>::max()
+        : -value;
+}
+
+}
+
 bool isNegativeBattleStatus(BattleStatusKind kind)
 {
-    switch (kind)
-    {
-    case BattleStatusKind::Poison:
-    case BattleStatusKind::Bleed:
-    case BattleStatusKind::Stun:
-    case BattleStatusKind::MpBlocked:
-    case BattleStatusKind::ColdPoison:
-    case BattleStatusKind::WitheredBone:
-    case BattleStatusKind::SevenStarMark:
-    case BattleStatusKind::NeutralizeForce:
-    case BattleStatusKind::Blinded:
-        return true;
-    case BattleStatusKind::NextAttackMiss:
-    case BattleStatusKind::DamageBlockLayer:
-    case BattleStatusKind::SingleHitCapLayer:
-    case BattleStatusKind::BattleSpirit:
-    case BattleStatusKind::TrueQi:
-    case BattleStatusKind::PoisonExplosion:
-    case BattleStatusKind::Shadowless:
-    case BattleStatusKind::NextAttackCritical:
-        return false;
-    }
-    assert(false);
-    return false;
+    return statusCatalogEntry(kind).negative;
 }
 
 bool isControlBattleStatus(BattleStatusKind kind)
 {
-    return kind == BattleStatusKind::Stun;
+    return statusCatalogEntry(kind).control;
 }
 
-BattleTypedStatusInstance* BattleStatusEffectState::find(BattleStatusKind kind)
+namespace
 {
-    const auto status = std::ranges::find(statuses, kind, &BattleTypedStatusInstance::kind);
+
+int presentationQuantitySum(int left, int right)
+{
+    assert(left >= 0);
+    assert(right >= 0);
+    return static_cast<int>(std::min<std::int64_t>(
+        static_cast<std::int64_t>(left) + right,
+        std::numeric_limits<int>::max()));
+}
+
+}
+
+BattleStatusGroupPresentation makeBattleStatusGroupPresentation(
+    const BattleStatusEffectState& effects,
+    BattleStatusKind kind)
+{
+    BattleStatusGroupPresentation result;
+    result.kind = kind;
+
+    std::vector<const BattleStatusContribution*> ordered;
+    ordered.reserve(effects.statuses.size());
+    for (const auto& status : effects.statuses)
+    {
+        if (status.kind == kind) ordered.push_back(&status);
+    }
+    std::ranges::sort(ordered, {}, &BattleStatusContribution::appliedSequence);
+
+    for (const auto* status : ordered)
+    {
+        assert(status->stacks >= 0);
+        result.quantity = presentationQuantitySum(result.quantity, status->stacks);
+        if (status->targetTotalLimit)
+        {
+            assert(!result.targetTotalCapacity
+                || result.targetTotalCapacity == status->targetTotalLimit);
+            result.targetTotalCapacity = status->targetTotalLimit;
+        }
+        auto family = std::ranges::find_if(
+            result.families,
+            [&](const BattleStatusFamilyPresentation& candidate)
+            {
+                return candidate.producerFamily == status->producerFamily;
+            });
+        if (family == result.families.end())
+        {
+            result.families.push_back({
+                .producerFamily = status->producerFamily,
+                .capacity = status->familyLocalLimit,
+            });
+            family = std::prev(result.families.end());
+        }
+        else
+        {
+            assert(family->capacity == status->familyLocalLimit);
+        }
+        family->quantity = presentationQuantitySum(family->quantity, status->stacks);
+        family->generations.push_back({
+            .quantity = status->stacks,
+            .appliedSequence = status->appliedSequence,
+            .behavior = status->behavior,
+        });
+    }
+    return result;
+}
+
+BattleStatusContribution* BattleStatusEffectState::find(BattleStatusKind kind)
+{
+    const auto status = std::ranges::find(statuses, kind, &BattleStatusContribution::kind);
     return status != statuses.end() ? &*status : nullptr;
 }
 
-const BattleTypedStatusInstance* BattleStatusEffectState::find(BattleStatusKind kind) const
+const BattleStatusContribution* BattleStatusEffectState::find(BattleStatusKind kind) const
 {
-    const auto status = std::ranges::find(statuses, kind, &BattleTypedStatusInstance::kind);
+    const auto status = std::ranges::find(statuses, kind, &BattleStatusContribution::kind);
     return status != statuses.end() ? &*status : nullptr;
 }
 
@@ -63,14 +296,24 @@ bool BattleStatusEffectState::has(BattleStatusKind kind) const
 
 int BattleStatusEffectState::remainingFrames(BattleStatusKind kind) const
 {
-    const auto* status = find(kind);
-    return status ? status->remainingFrames : 0;
+    int remaining{};
+    for (const auto& status : statuses)
+    {
+        if (status.kind == kind)
+            remaining = std::max(remaining, status.remainingFrames);
+    }
+    return remaining;
 }
 
 int BattleStatusEffectState::maximumFrames(BattleStatusKind kind) const
 {
-    const auto* status = find(kind);
-    return status ? status->maximumFrames : 0;
+    int maximum{};
+    for (const auto& status : statuses)
+    {
+        if (status.kind == kind)
+            maximum = std::max(maximum, status.maximumFrames);
+    }
+    return maximum;
 }
 
 void BattleStatusEffectState::setFrames(
@@ -92,13 +335,21 @@ void BattleStatusEffectState::setFrames(
     {
         assert(nextStatusSequence > 0);
         assert(nextStatusSequence < std::numeric_limits<std::uint64_t>::max());
-        statuses.push_back({
+        BattleStatusContribution contribution{
             .kind = kind,
             .sourceUnitId = sourceUnitId,
             .remainingFrames = frames,
             .maximumFrames = std::max(frames, maximum),
             .appliedSequence = nextStatusSequence++,
-        });
+        };
+        if (isNegativeBattleStatus(kind))
+        {
+            assert(nextNegativeEffectSequence > 0);
+            assert(nextNegativeEffectSequence
+                < std::numeric_limits<std::uint64_t>::max());
+            contribution.negativeEffectSequence = nextNegativeEffectSequence++;
+        }
+        statuses.push_back(std::move(contribution));
         return;
     }
     status->sourceUnitId = sourceUnitId;
@@ -108,28 +359,16 @@ void BattleStatusEffectState::setFrames(
 
 void BattleStatusEffectState::clear(BattleStatusKind kind)
 {
-    std::erase_if(statuses, [kind](const BattleTypedStatusInstance& status)
+    statuses.eraseIf([kind](const BattleStatusContribution& status)
     {
         return status.kind == kind;
     });
 }
 
-namespace
-{
-
-bool poisonDamageDue(int frame, int intervalFrames)
-{
-    assert(frame >= 0);
-    assert(intervalFrames > 0);
-    return frame % intervalFrames == 0;
-}
-
-}  // namespace
-
 int projectRemainingPoisonDamage(
     const BattleRemainingPoisonDamageInput& input)
 {
-    assert(input.firstFutureFrame >= 0);
+    assert(input.framesUntilNextTick > 0);
     assert(input.remainingFrames >= 0);
     assert(input.remainingStacks >= 0);
     assert(input.intervalFrames > 0);
@@ -143,17 +382,15 @@ int projectRemainingPoisonDamage(
         return 0;
     }
 
-    const int phase = input.firstFutureFrame % input.intervalFrames;
-    const int firstTickOffset = phase == 0
-        ? 0
-        : input.intervalFrames - phase;
-    if (firstTickOffset >= input.remainingFrames)
+    assert(input.framesUntilNextTick <= input.intervalFrames);
+    if (input.framesUntilNextTick > input.remainingFrames)
     {
         return 0;
     }
 
     const std::int64_t scheduledTickCount = 1
-        + (static_cast<std::int64_t>(input.remainingFrames) - 1 - firstTickOffset)
+        + (static_cast<std::int64_t>(input.remainingFrames)
+            - input.framesUntilNextTick)
             / input.intervalFrames;
     const std::int64_t tickCount = std::min<std::int64_t>(
         scheduledTickCount,
@@ -213,42 +450,171 @@ std::uint64_t allocateStatusSequence(BattleStatusEffectState& effects)
     return effects.nextStatusSequence++;
 }
 
-BattleTypedStatusInstance& appendStatus(
+std::uint64_t allocateNegativeEffectSequence(BattleStatusEffectState& effects)
+{
+    assert(effects.nextNegativeEffectSequence > 0);
+    assert(effects.nextNegativeEffectSequence
+        < std::numeric_limits<std::uint64_t>::max());
+    return effects.nextNegativeEffectSequence++;
+}
+
+BattleStatusContribution& appendStatus(
     BattleStatusEffectState& effects,
     const BattleStatusApplyRequest& request,
-    int remainingFrames,
-    int tickFramesRemaining = 0)
+    int remainingFrames)
 {
-    BattleTypedStatusInstance status;
+    BattleStatusContribution status;
     status.kind = request.kind;
+    status.producer = request.producer;
+    status.producerFamily = request.producerFamily;
+    status.familyLocalLimit = request.stackLimit;
+    status.targetTotalLimit = request.targetTotalLimit;
+    status.behavior = request.behavior;
     status.sourceUnitId = request.sourceUnitId;
     status.remainingFrames = remainingFrames;
     status.maximumFrames = remainingFrames;
-    status.tickFramesRemaining = tickFramesRemaining;
-    status.stacks = request.stackLimit
-        ? std::clamp(request.stacks, 0, *request.stackLimit)
+    const auto quantityLimit = request.targetTotalLimit
+        ? request.targetTotalLimit
+        : request.stackLimit;
+    status.stacks = quantityLimit
+        ? std::clamp(request.stacks, 0, *quantityLimit)
         : request.stacks;
-    status.potency = request.potency;
-    status.secondaryPotency = request.secondaryPotency;
+    if (status.behavior)
+    {
+        status.behaviorRuntime.reserve(status.behavior->rules.size());
+        for (const auto& rule : status.behavior->rules)
+        {
+            status.behaviorRuntime.push_back({
+                .intervalFramesRemaining = rule.intervalFrames,
+            });
+        }
+    }
     status.origin = request.origin;
     status.appliedSequence = allocateStatusSequence(effects);
+    if (isNegativeBattleStatus(status.kind))
+        status.negativeEffectSequence = allocateNegativeEffectSequence(effects);
     effects.statuses.push_back(status);
     return effects.statuses.back();
 }
 
-bool sameStatus(const BattleTypedStatusInstance& status, BattleStatusKind kind)
+bool sameStatus(const BattleStatusContribution& status, BattleStatusKind kind)
 {
     return status.kind == kind;
 }
 
-auto typedStatusStrength(const BattleTypedStatusInstance& status)
+bool sameProducerFamily(
+    const BattleStatusContribution& status,
+    const BattleStatusApplyRequest& request)
 {
-    return std::tuple(status.potency, status.secondaryPotency, status.stacks);
+    if (status.producerFamily || request.producerFamily)
+    {
+        return status.producerFamily == request.producerFamily;
+    }
+    return status.kind == request.kind
+        && status.familyLocalLimit == request.stackLimit;
 }
 
-auto requestStatusStrength(const BattleStatusApplyRequest& request)
+bool compatibleContribution(
+    const BattleStatusContribution& status,
+    const BattleStatusApplyRequest& request)
 {
-    return std::tuple(request.potency, request.secondaryPotency, request.stacks);
+    return status.kind == request.kind
+        && status.producer == request.producer
+        && sameProducerFamily(status, request)
+        && status.familyLocalLimit == request.stackLimit
+        && statusBehaviorsEquivalent(status.behavior, request.behavior)
+        && status.origin == request.origin;
+}
+
+void validateProducerFamilyDefinition(
+    const BattleStatusEffectState& effects,
+    const BattleStatusApplyRequest& request)
+{
+    if (!request.producerFamily) return;
+    for (const auto& status : effects.statuses)
+    {
+        if (status.producerFamily != request.producerFamily) continue;
+        if (status.kind != request.kind
+            || status.familyLocalLimit != request.stackLimit)
+        {
+            throw std::invalid_argument(
+                "同一狀態生產者家族不可使用不同的狀態種類或容量上限");
+        }
+    }
+}
+
+int usedProducerFamilyCapacity(
+    const BattleStatusEffectState& effects,
+    const BattleStatusApplyRequest& request)
+{
+    std::int64_t used{};
+    for (const auto& status : effects.statuses)
+    {
+        if (!sameProducerFamily(status, request)) continue;
+        assert(status.kind == request.kind);
+        assert(status.familyLocalLimit == request.stackLimit);
+        used = std::min<std::int64_t>(
+            std::numeric_limits<int>::max(),
+            used + status.stacks);
+    }
+    return static_cast<int>(used);
+}
+
+int allocateProducerFamilyCapacity(
+    const BattleStatusEffectState& effects,
+    const BattleStatusApplyRequest& request)
+{
+    assert(request.stackLimit);
+    const int used = usedProducerFamilyCapacity(effects, request);
+    return std::min(request.stacks, std::max(0, *request.stackLimit - used));
+}
+
+void assertCatalogOwnedStatusRequest(const BattleStatusApplyRequest& request)
+{
+    const auto& catalog = statusCatalogEntry(request.kind);
+    if (catalog.behaviorClassification
+        != StatusBehaviorClassification::CatalogOwned)
+    {
+        return;
+    }
+
+    assert(request.behavior);
+    ApplyStatusAction canonical;
+    canonical.status = request.kind;
+    if (request.kind == BattleStatusKind::NeutralizeForce)
+    {
+        const SuppressCurrentCastContactsAction* suppression = nullptr;
+        for (const auto& rule : request.behavior->rules)
+        {
+            for (const auto& action : rule.actions)
+            {
+                if (const auto* candidate = std::get_if<
+                        SuppressCurrentCastContactsAction>(&action.value))
+                {
+                    assert(!suppression);
+                    suppression = candidate;
+                }
+            }
+        }
+        assert(suppression && suppression->originalTargetShield);
+        canonical.neutralizeShield = suppression->originalTargetShield;
+    }
+    const auto expected = makeCatalogOwnedStatusBehavior(canonical);
+    assert(statusBehaviorsEquivalent(request.behavior, expected));
+
+    if (catalog.storage == StatusStorageModel::SharedLayerDebuff)
+    {
+        assert(request.stack == EffectStackPolicy::AddStack);
+        assert(request.targetTotalLimit);
+        assert(!request.stackLimit);
+    }
+    else
+    {
+        assert(catalog.storage == StatusStorageModel::SelectedDebuffInstance);
+        assert(request.stack == EffectStackPolicy::Replace);
+        assert(!request.stackLimit);
+        assert(!request.targetTotalLimit);
+    }
 }
 
 int remainingDurationSortValue(int remainingFrames)
@@ -259,6 +625,25 @@ int remainingDurationSortValue(int remainingFrames)
 bool containsStatus(const std::vector<BattleStatusKind>& statuses, BattleStatusKind kind)
 {
     return std::find(statuses.begin(), statuses.end(), kind) != statuses.end();
+}
+
+bool matchesContributionFilter(
+    const BattleStatusContribution& status,
+    int holderUnitId,
+    const StatusContributionFilter& filter)
+{
+    if (filter.holderUnitId && holderUnitId != *filter.holderUnitId)
+        return false;
+    if (filter.sourceUnitId && status.sourceUnitId != *filter.sourceUnitId)
+        return false;
+    if (filter.producerBinding
+        && (!status.producer
+            || status.producer->binding != *filter.producerBinding))
+        return false;
+    if (filter.appliedSequence
+        && status.appliedSequence != *filter.appliedSequence)
+        return false;
+    return true;
 }
 
 bool matchesRemovalFilter(const BattleStatusRemoveRequest& request, BattleStatusKind kind)
@@ -369,84 +754,6 @@ struct RuntimeStatusTickTarget
     int& invincible() { return unit.invincible; }
 };
 
-void tickPoison(
-    const BattleStatusSystemConfig& config,
-    RuntimeStatusTickTarget& target,
-    BattleStatusTickResult& result)
-{
-    auto& effects = target.status.effects;
-    auto* poison = effects.find(BattleStatusKind::Poison);
-    if (!poison)
-    {
-        return;
-    }
-    assert(poison->remainingFrames > 0);
-    assert(poison->stacks > 0);
-    assert(poison->potency > 0);
-
-    --poison->remainingFrames;
-    if (config.poisonDamageIntervalFrames > 0
-        && poisonDamageDue(config.frame, config.poisonDamageIntervalFrames))
-    {
-        const auto scaledDamage = static_cast<std::int64_t>(target.hp())
-            * poison->potency / 100;
-        const int damage = static_cast<int>(std::clamp<std::int64_t>(
-            scaledDamage,
-            1,
-            std::numeric_limits<int>::max()));
-        result.events.push_back({
-            BattleStatusEventType::PoisonDamage,
-            target.id(),
-            poison->sourceUnitId,
-            damage,
-            "中毒",
-        });
-        --poison->stacks;
-    }
-
-    if (poison->remainingFrames <= 0 || poison->stacks <= 0)
-    {
-        effects.clear(BattleStatusKind::Poison);
-    }
-}
-
-void tickBleed(
-    const BattleStatusSystemConfig& config,
-    RuntimeStatusTickTarget& target,
-    BattleStatusTickResult& result)
-{
-    auto& effects = target.status.effects;
-    auto* bleed = effects.find(BattleStatusKind::Bleed);
-    if (!bleed)
-    {
-        return;
-    }
-    assert(bleed->stacks > 0);
-
-    if (bleed->tickFramesRemaining > 0)
-    {
-        --bleed->tickFramesRemaining;
-    }
-
-    if (bleed->tickFramesRemaining <= 0)
-    {
-        const auto scaledDamage = static_cast<std::int64_t>(target.maxHp())
-            * bleed->stacks * bleed->potency / 100;
-        const int damage = static_cast<int>(std::clamp<std::int64_t>(
-            scaledDamage,
-            1,
-            std::numeric_limits<int>::max()));
-        result.events.push_back({
-            BattleStatusEventType::BleedDamage,
-            target.id(),
-            bleed->sourceUnitId,
-            damage,
-            "流血",
-        });
-        bleed->tickFramesRemaining = config.bleedDamageIntervalFrames;
-    }
-}
-
 void tickSimpleTimers(RuntimeStatusTickTarget& target)
 {
     if (target.invincible() > 0)
@@ -460,9 +767,7 @@ void tickStatuses(RuntimeStatusTickTarget& target, BattleStatusTickResult& resul
     auto& statuses = target.status.effects.statuses;
     for (auto it = statuses.begin(); it != statuses.end();)
     {
-        if (it->kind == BattleStatusKind::Poison
-            || it->kind == BattleStatusKind::Bleed
-            || it->kind == BattleStatusKind::Stun)
+        if (it->kind == BattleStatusKind::Stun)
         {
             ++it;
             continue;
@@ -505,14 +810,29 @@ BattleStatusTickResult tickStatusTarget(
         return result;
     }
 
-    tickPoison(config, target, result);
-    tickBleed(config, target, result);
+    static_cast<void>(config);
     tickSimpleTimers(target);
     tickStatuses(target, result);
     return result;
 }
 
 }  // namespace
+
+int poisonDamagePercent(
+    const std::shared_ptr<const StatusBehaviorDefinition>& behavior)
+{
+    assert(behavior);
+    const auto capability = canonicalPoisonDamageCapability(*behavior);
+    assert(capability && capability->damage);
+    return capability->damage->amount.percent;
+}
+
+std::shared_ptr<const StatusBehaviorDefinition> makeRuntimeBleedStatusBehavior()
+{
+    ApplyStatusAction bleed;
+    bleed.status = BattleStatusKind::Bleed;
+    return makeCatalogOwnedStatusBehavior(bleed);
+}
 
 BattleStatusSystem::BattleStatusSystem(BattleStatusSystemConfig config)
     : config_(config)
@@ -549,14 +869,27 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     {
         assert(*request.stackLimit > 0);
     }
-    if (request.stack == EffectStackPolicy::AddStack)
+    if (request.targetTotalLimit)
+    {
+        assert(*request.targetTotalLimit > 0);
+    }
+    assertCatalogOwnedStatusRequest(request);
+    if (request.stack == EffectStackPolicy::AddStack
+        && statusCatalogEntry(request.kind).storage
+            == StatusStorageModel::ProducerOwnedContributions)
     {
         assert(request.stackLimit);
     }
-    if (request.kind == BattleStatusKind::TrueQi)
+    if (request.behavior)
     {
-        assert(request.stack == EffectStackPolicy::AddStack);
+        assert(request.producer);
+        assert(request.producerFamily);
         assert(request.origin);
+    }
+    if (statusCatalogEntry(request.kind).storage
+        == StatusStorageModel::ProducerOwnedContributions)
+    {
+        validateProducerFamilyDefinition(target.effects, request);
     }
 
     BattleStatusApplyResult result;
@@ -592,125 +925,93 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     case BattleStatusKind::Poison:
     {
         assert(durationFrames > 0);
-        assert(request.potency > 0);
-        auto* poison = effects.find(BattleStatusKind::Poison);
-        const bool active = poison != nullptr;
-        const int requestedStacks = request.stackLimit
-            ? std::min(request.stacks, *request.stackLimit)
-            : request.stacks;
-
-        if (active
-            && (request.stack == EffectStackPolicy::KeepStrongest
-                || request.stack == EffectStackPolicy::Independent)
-            && request.potency <= poison->potency)
+        assert(request.behavior);
+        const auto active = std::ranges::find(
+            effects.statuses,
+            BattleStatusKind::Poison,
+            &BattleStatusContribution::kind);
+        if (request.stack == EffectStackPolicy::Replace)
+        {
+            const bool replaced = active != effects.statuses.end();
+            effects.clear(BattleStatusKind::Poison);
+            auto& poison = appendStatus(effects, request, durationFrames);
+            result.applied = true;
+            result.value = poisonDamagePercent(poison.behavior);
+            result.outcome = replaced
+                ? BattleStatusApplyOutcome::Replaced
+                : BattleStatusApplyOutcome::Applied;
+            return result;
+        }
+        assert(request.stack == EffectStackPolicy::KeepStrongest);
+        const int incomingDamage = poisonDamagePercent(request.behavior);
+        const auto strongest = std::ranges::max_element(
+            effects.statuses,
+            {},
+            [&](const auto& status)
+            {
+                return status.kind == BattleStatusKind::Poison
+                    ? poisonDamagePercent(status.behavior)
+                    : std::numeric_limits<int>::min();
+            });
+        const bool hasActive = strongest != effects.statuses.end()
+            && strongest->kind == BattleStatusKind::Poison;
+        if (hasActive && incomingDamage <= poisonDamagePercent(strongest->behavior))
         {
             result.outcome = BattleStatusApplyOutcome::KeptStronger;
-            result.value = poison->potency;
+            result.value = poisonDamagePercent(strongest->behavior);
             return result;
         }
-
-        if (request.stack == EffectStackPolicy::AddStack)
+        effects.statuses.eraseIf([](const auto& status)
         {
-            if (!active)
-            {
-                poison = &appendStatus(effects, request, durationFrames);
-            }
-            const int before = active ? poison->stacks : 0;
-            poison->stacks = addAndClamp(
-                before, request.stacks, 0, *request.stackLimit);
-            poison->remainingFrames = durationFrames;
-            poison->maximumFrames = std::max(poison->maximumFrames, durationFrames);
-            poison->potency = request.potency;
-            poison->sourceUnitId = request.sourceUnitId;
-            poison->origin = request.origin;
-            result.applied = poison->stacks != before;
-            result.value = poison->stacks;
-            result.outcome = BattleStatusApplyOutcome::StackChanged;
-            return result;
-        }
-
-        if (!active)
-        {
-            poison = &appendStatus(effects, request, durationFrames);
-        }
-        else if (request.stack == EffectStackPolicy::Replace)
-        {
-            effects.clear(BattleStatusKind::Poison);
-            poison = &appendStatus(effects, request, durationFrames);
-        }
-        poison->stacks = requestedStacks;
-        poison->remainingFrames = durationFrames;
-        poison->maximumFrames = std::max(poison->maximumFrames, durationFrames);
-        poison->potency = request.potency;
-        poison->sourceUnitId = request.sourceUnitId;
-        poison->origin = request.origin;
+            return status.kind == BattleStatusKind::Poison;
+        });
+        auto& poison = appendStatus(effects, request, durationFrames);
         result.applied = true;
-        result.value = request.potency;
-        result.outcome = active
-            ? (request.stack == EffectStackPolicy::Replace
-                ? BattleStatusApplyOutcome::Replaced
-                : request.stack == EffectStackPolicy::KeepStrongest
-                ? BattleStatusApplyOutcome::Replaced
-                : BattleStatusApplyOutcome::Refreshed)
+        result.value = incomingDamage;
+        result.outcome = hasActive
+            ? BattleStatusApplyOutcome::Replaced
             : BattleStatusApplyOutcome::Applied;
         return result;
     }
     case BattleStatusKind::Bleed:
     {
+        assert(request.targetTotalLimit);
+        assert(request.behavior);
         auto* bleed = effects.find(BattleStatusKind::Bleed);
-        const int before = bleed ? bleed->stacks : 0;
-        int after = request.stacks;
-        if (request.stack == EffectStackPolicy::AddStack)
+        if (!bleed)
         {
-            after = addAndClamp(before, request.stacks, 0, *request.stackLimit);
-        }
-        else if (request.stack == EffectStackPolicy::KeepStrongest)
-        {
-            after = std::max(before, request.stacks);
-        }
-        else if (request.stack == EffectStackPolicy::Refresh)
-        {
-            after = std::max(before, request.stacks);
-        }
-        if (request.stackLimit)
-        {
-            after = std::min(after, *request.stackLimit);
+            auto& applied = appendStatus(effects, request, 0);
+            result.applied = applied.stacks > 0;
+            result.value = applied.stacks;
+            result.outcome = BattleStatusApplyOutcome::Applied;
+            return result;
         }
 
-        after = std::max(0, after);
-        if (after <= 0)
+        assert(bleed->targetTotalLimit);
+        const int before = bleed->stacks;
+        const int ceiling = std::max(
+            *bleed->targetTotalLimit,
+            *request.targetTotalLimit);
+        const int after = addAndClamp(before, request.stacks, 0, ceiling);
+        bleed->targetTotalLimit = ceiling;
+        if (after > before)
         {
-            effects.clear(BattleStatusKind::Bleed);
-        }
-        else
-        {
-            if (before <= 0)
-            {
-                bleed = &appendStatus(
-                    effects,
-                    request,
-                    0,
-                    config_.bleedDamageIntervalFrames);
-            }
-            else if (request.stack == EffectStackPolicy::Replace)
-            {
-                bleed->appliedSequence = allocateStatusSequence(effects);
-            }
-            assert(bleed);
+            // The shared packet identity, clock, and runtime remain intact.
+            // Only an application that really contributes a layer becomes the
+            // effective source for later dispatches.  The negative chronology
+            // still advances so cleanse ordering follows the accepted
+            // application rather than the group's original creation.
             bleed->stacks = after;
-            if (bleed->tickFramesRemaining <= 0)
-            {
-                bleed->tickFramesRemaining = config_.bleedDamageIntervalFrames;
-            }
+            bleed->producer = request.producer;
+            bleed->producerFamily = request.producerFamily;
+            bleed->behavior = request.behavior;
             bleed->sourceUnitId = request.sourceUnitId;
-            bleed->potency = request.potency;
             bleed->origin = request.origin;
+            bleed->negativeEffectSequence = allocateNegativeEffectSequence(effects);
+            result.applied = true;
         }
-        result.applied = after != before;
         result.value = after;
-        result.outcome = request.stack == EffectStackPolicy::AddStack
-            ? BattleStatusApplyOutcome::StackChanged
-            : (before > 0 ? BattleStatusApplyOutcome::Replaced : BattleStatusApplyOutcome::Applied);
+        result.outcome = BattleStatusApplyOutcome::StackChanged;
         return result;
     }
     case BattleStatusKind::Stun:
@@ -736,7 +1037,10 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             after = durationFrames;
             break;
         }
-        if (!stun || request.stack == EffectStackPolicy::Replace)
+        const bool incomingOwnsClock = !stun
+            || request.stack == EffectStackPolicy::Replace
+            || after > before;
+        if (incomingOwnsClock)
         {
             const int previousMaximum = stun ? stun->maximumFrames : 0;
             effects.clear(BattleStatusKind::Stun);
@@ -745,7 +1049,6 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         }
         stun->remainingFrames = after;
         stun->maximumFrames = std::max(stun->maximumFrames, after);
-        stun->sourceUnitId = request.sourceUnitId;
 
         result.applied = after > before;
         result.value = after - before;
@@ -768,14 +1071,16 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         {
             after = std::max(before, durationFrames);
         }
-        if (!mpBlock || request.stack == EffectStackPolicy::Replace)
+        const bool incomingOwnsClock = !mpBlock
+            || request.stack == EffectStackPolicy::Replace
+            || after > before;
+        if (incomingOwnsClock)
         {
             effects.clear(BattleStatusKind::MpBlocked);
             mpBlock = &appendStatus(effects, request, after);
         }
         mpBlock->remainingFrames = after;
         mpBlock->maximumFrames = std::max(mpBlock->maximumFrames, after);
-        mpBlock->sourceUnitId = request.sourceUnitId;
         result.applied = after > before;
         result.value = after - before;
         result.outcome = before > 0
@@ -788,6 +1093,21 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     case BattleStatusKind::SevenStarMark:
     case BattleStatusKind::NeutralizeForce:
     case BattleStatusKind::Blinded:
+    {
+        const bool replaced = effects.has(request.kind);
+        effects.clear(request.kind);
+        auto& selected = appendStatus(effects, request, durationFrames);
+        result.applied = true;
+        result.value = selected.stacks;
+        if (!replaced)
+            result.outcome = BattleStatusApplyOutcome::Applied;
+        else if (request.kind == BattleStatusKind::ColdPoison
+            || request.kind == BattleStatusKind::WitheredBone)
+            result.outcome = BattleStatusApplyOutcome::Refreshed;
+        else
+            result.outcome = BattleStatusApplyOutcome::Replaced;
+        return result;
+    }
     case BattleStatusKind::NextAttackMiss:
     case BattleStatusKind::DamageBlockLayer:
     case BattleStatusKind::SingleHitCapLayer:
@@ -799,20 +1119,21 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         break;
     }
 
-    auto first = std::find_if(effects.statuses.begin(), effects.statuses.end(), [&](const auto& status)
+    auto compatible = std::find_if(
+        effects.statuses.begin(), effects.statuses.end(), [&](const auto& status)
     {
-        return sameStatus(status, request.kind);
+        return compatibleContribution(status, request);
     });
-    auto append = [&]() -> BattleTypedStatusInstance&
+    auto append = [&](const BattleStatusApplyRequest& applied) -> BattleStatusContribution&
     {
-        return appendStatus(effects, request, durationFrames);
+        return appendStatus(effects, applied, durationFrames);
     };
 
     switch (request.stack)
     {
     case EffectStackPolicy::Independent:
     {
-        auto& status = append();
+        auto& status = append(request);
         result.applied = true;
         result.value = status.stacks;
         result.outcome = BattleStatusApplyOutcome::Applied;
@@ -820,12 +1141,19 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case EffectStackPolicy::Replace:
     {
-        const bool replaced = first != effects.statuses.end();
-        std::erase_if(effects.statuses, [&](const auto& status)
+        const bool replaced = std::ranges::any_of(
+            effects.statuses,
+            [&](const auto& status)
+            {
+                return status.kind == request.kind
+                    && sameProducerFamily(status, request);
+            });
+        effects.statuses.eraseIf([&](const auto& status)
         {
-            return sameStatus(status, request.kind);
+            return status.kind == request.kind
+                && sameProducerFamily(status, request);
         });
-        auto& status = append();
+        auto& status = append(request);
         result.applied = true;
         result.value = status.stacks;
         result.outcome = replaced
@@ -835,96 +1163,84 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case EffectStackPolicy::Refresh:
     {
-        if (first == effects.statuses.end())
+        if (compatible == effects.statuses.end())
         {
-            auto& status = append();
-            result.value = status.stacks;
-            result.outcome = BattleStatusApplyOutcome::Applied;
+            if (request.stackLimit
+                && usedProducerFamilyCapacity(effects, request)
+                    >= *request.stackLimit)
+            {
+                assert(request.producerFamily);
+                assert(*request.stackLimit == 1);
+                const auto existingFamily = std::find_if(
+                    effects.statuses.begin(), effects.statuses.end(),
+                    [&](const auto& status)
+                {
+                    return status.kind == request.kind
+                        && sameProducerFamily(status, request);
+                });
+                assert(existingFamily != effects.statuses.end());
+                existingFamily->remainingFrames = durationFrames;
+                existingFamily->maximumFrames = std::max(
+                    existingFamily->maximumFrames,
+                    durationFrames);
+                result.value = existingFamily->stacks;
+                result.outcome = BattleStatusApplyOutcome::Refreshed;
+            }
+            else
+            {
+                auto& status = append(request);
+                result.value = status.stacks;
+                result.outcome = BattleStatusApplyOutcome::Applied;
+            }
         }
         else
         {
-            first->sourceUnitId = request.sourceUnitId;
-            first->remainingFrames = durationFrames;
-            first->stacks = request.stacks;
-            first->potency = request.potency;
-            first->secondaryPotency = request.secondaryPotency;
-            first->origin = request.origin;
-            result.value = first->stacks;
+            compatible->remainingFrames = durationFrames;
+            compatible->maximumFrames = std::max(
+                compatible->maximumFrames,
+                durationFrames);
+            result.value = compatible->stacks;
             result.outcome = BattleStatusApplyOutcome::Refreshed;
         }
         result.applied = true;
         break;
     }
     case EffectStackPolicy::KeepStrongest:
-    {
-        if (first == effects.statuses.end())
-        {
-            auto& status = append();
-            result.applied = true;
-            result.value = status.stacks;
-            result.outcome = BattleStatusApplyOutcome::Applied;
-        }
-        else if (requestStatusStrength(request) > typedStatusStrength(*first))
-        {
-            first->sourceUnitId = request.sourceUnitId;
-            first->remainingFrames = durationFrames;
-            first->stacks = request.stacks;
-            first->potency = request.potency;
-            first->secondaryPotency = request.secondaryPotency;
-            first->origin = request.origin;
-            result.applied = true;
-            result.value = first->stacks;
-            result.outcome = BattleStatusApplyOutcome::Replaced;
-        }
-        else if (requestStatusStrength(request) == typedStatusStrength(*first)
-                 && durationFrames > first->remainingFrames)
-        {
-            first->remainingFrames = durationFrames;
-            result.applied = true;
-            result.value = first->stacks;
-            result.outcome = BattleStatusApplyOutcome::Refreshed;
-        }
-        else
-        {
-            result.value = first->stacks;
-            result.outcome = BattleStatusApplyOutcome::KeptStronger;
-        }
+        assert(false && "保留最強必須由具名群組 reducer 處理");
         break;
-    }
     case EffectStackPolicy::AddStack:
     {
-        if (first == effects.statuses.end())
+        const int allocated = allocateProducerFamilyCapacity(effects, request);
+        if (compatible == effects.statuses.end())
         {
-            if (request.stacks > 0)
+            if (allocated > 0)
             {
-                auto& status = append();
+                auto allocatedRequest = request;
+                allocatedRequest.stacks = allocated;
+                auto& status = append(allocatedRequest);
                 result.applied = status.stacks > 0;
-                result.value = status.stacks;
             }
         }
         else
         {
-            const int before = first->stacks;
-            first->stacks = addAndClamp(
-                first->stacks, request.stacks, 0, *request.stackLimit);
-            if (request.stacks > 0)
+            if (allocated > 0)
             {
-                first->sourceUnitId = request.sourceUnitId;
-                first->potency = request.potency;
-                first->secondaryPotency = request.secondaryPotency;
-                first->origin = request.origin;
+                compatible->stacks = addAndClamp(
+                    compatible->stacks,
+                    allocated,
+                    0,
+                    *request.stackLimit);
                 if (durationFrames > 0)
                 {
-                    first->remainingFrames = durationFrames;
+                    compatible->remainingFrames = durationFrames;
+                    compatible->maximumFrames = std::max(
+                        compatible->maximumFrames,
+                        durationFrames);
                 }
-            }
-            result.applied = first->stacks != before;
-            result.value = first->stacks;
-            if (first->stacks <= 0)
-            {
-                effects.statuses.erase(first);
+                result.applied = true;
             }
         }
+        result.value = usedProducerFamilyCapacity(effects, request);
         result.outcome = BattleStatusApplyOutcome::StackChanged;
         break;
     }
@@ -932,41 +1248,46 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     return result;
 }
 
-BattleStatusRemoveResult BattleStatusSystem::remove(
-    BattleStatusUnitState target,
+std::vector<BattleStatusRemovalCandidate> BattleStatusSystem::removalCandidates(
+    const BattleStatusUnitState& target,
     const BattleStatusRemoveRequest& request) const
 {
     assert(target.id >= 0);
     assert(request.count >= 0);
 
-    struct Candidate
+    std::vector<BattleStatusRemovalCandidate> candidates;
+    const auto removalSequence = [](const BattleStatusContribution& status)
     {
-        std::size_t index{};
-        BattleStatusKind kind{};
-        int remainingFrames{};
-        std::uint64_t sequence{};
+        return status.negativeEffectSequence != 0
+            ? status.negativeEffectSequence
+            : status.appliedSequence;
     };
-
-    BattleStatusRemoveResult result;
-    result.target = std::move(target);
-    auto& effects = result.target.effects;
-    const bool hadStun = effects.has(BattleStatusKind::Stun);
-    std::vector<Candidate> candidates;
-    for (std::size_t i = 0; i < effects.statuses.size(); ++i)
+    for (const auto& status : target.effects.statuses)
     {
-        const auto& status = effects.statuses[i];
-        if (matchesRemovalFilter(request, status.kind))
+        if (!matchesRemovalFilter(request, status.kind)
+            || !matchesContributionFilter(status, target.id, request.filter)) continue;
+        auto candidate = std::ranges::find(
+            candidates,
+            status.kind,
+            &BattleStatusRemovalCandidate::kind);
+        if (candidate == candidates.end())
         {
             candidates.push_back({
-                i,
                 status.kind,
                 status.remainingFrames,
-                status.appliedSequence,
+                removalSequence(status),
             });
+            continue;
         }
+        candidate->remainingFrames = std::max(
+            remainingDurationSortValue(candidate->remainingFrames),
+            remainingDurationSortValue(status.remainingFrames));
+        candidate->sequence = request.order == StatusRemovalOrder::Newest
+            ? std::max(candidate->sequence, removalSequence(status))
+            : std::min(candidate->sequence, removalSequence(status));
     }
 
-    std::sort(candidates.begin(), candidates.end(), [&](const Candidate& lhs, const Candidate& rhs)
+    std::sort(candidates.begin(), candidates.end(), [&](const auto& lhs, const auto& rhs)
     {
         switch (request.order)
         {
@@ -997,32 +1318,42 @@ BattleStatusRemoveResult BattleStatusSystem::remove(
             }
             break;
         }
-        return std::tuple(lhs.kind, lhs.index)
-            < std::tuple(rhs.kind, rhs.index);
+        return lhs.kind < rhs.kind;
     });
+    return candidates;
+}
+
+BattleStatusRemoveResult BattleStatusSystem::remove(
+    BattleStatusUnitState target,
+    const BattleStatusRemoveRequest& request) const
+{
+    assert(target.id >= 0);
+    assert(request.count >= 0);
+
+    BattleStatusRemoveResult result;
+    auto candidates = removalCandidates(target, request);
+    result.target = std::move(target);
+    auto& effects = result.target.effects;
+    const bool hadStun = effects.has(BattleStatusKind::Stun);
 
     const std::size_t removeCount = request.count > 0
         ? std::min<std::size_t>(request.count, candidates.size())
         : candidates.size();
-    std::vector<bool> removeStatus(effects.statuses.size());
+    std::vector<BattleStatusKind> selectedKinds;
     bool removeStun = false;
     for (std::size_t i = 0; i < removeCount; ++i)
     {
         const auto& candidate = candidates[i];
-        removeStatus[candidate.index] = true;
+        selectedKinds.push_back(candidate.kind);
         removeStun = removeStun || candidate.kind == BattleStatusKind::Stun;
         result.removedStatuses.push_back(candidate.kind);
         ++result.removedCount;
     }
-
-    for (std::size_t i = effects.statuses.size(); i > 0; --i)
+    effects.statuses.eraseIf([&](const auto& status)
     {
-        const std::size_t index = i - 1;
-        if (removeStatus[index])
-        {
-            effects.statuses.erase(effects.statuses.begin() + static_cast<std::ptrdiff_t>(index));
-        }
-    }
+        return std::ranges::contains(selectedKinds, status.kind)
+            && matchesContributionFilter(status, result.target.id, request.filter);
+    });
     result.currentActionStaggerCleared = removeStun;
     if (request.clearCurrentActionStagger)
     {
@@ -1048,7 +1379,7 @@ BattleStatusConsumeResult BattleStatusSystem::consume(
         for (auto it = effects.statuses.begin(); it != effects.statuses.end(); ++it)
         {
             if (it->kind != request.kind
-                || (request.sourceUnitId && it->sourceUnitId != *request.sourceUnitId))
+                || !matchesContributionFilter(*it, result.target.id, request.filter))
             {
                 continue;
             }
@@ -1091,7 +1422,7 @@ BattleStatusConsumeResult BattleStatusSystem::consume(
     for (const auto& status : effects.statuses)
     {
         if (status.kind == request.kind
-            && (!request.sourceUnitId || status.sourceUnitId == *request.sourceUnitId))
+            && matchesContributionFilter(status, result.target.id, request.filter))
         {
             result.remainingStacks += status.stacks;
         }
@@ -1159,57 +1490,132 @@ BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
     BattleStatusQuerySnapshot result;
     result.statusShield = effects.statusShield;
     result.staggerShield = effects.staggerShield;
-    result.statuses = effects.statuses;
+    result.statuses.assign(effects.statuses.begin(), effects.statuses.end());
     std::sort(result.statuses.begin(), result.statuses.end(), [](const auto& lhs, const auto& rhs)
     {
         return std::tuple(lhs.appliedSequence, lhs.kind, lhs.sourceUnitId)
             < std::tuple(rhs.appliedSequence, rhs.kind, rhs.sourceUnitId);
     });
 
+    const auto persistentNumber = [](const EffectNumber& number, int quantity)
+    {
+        const auto value = effectiveConstantEffectNumberValue(number, quantity);
+        assert(value);
+        return *value;
+    };
+
+    struct OrderedPersistentAction
+    {
+        const BattleStatusContribution* status{};
+        const EffectAction* action{};
+        EffectExecutionOrderKey order;
+    };
+    std::vector<OrderedPersistentAction> persistentActions;
     for (const auto& status : result.statuses)
     {
-        switch (status.kind)
+        if (!status.behavior) continue;
+        assert(status.origin);
+        assert(status.producer);
+        for (std::uint32_t ruleOrder = 0;
+             ruleOrder < status.behavior->rules.size();
+             ++ruleOrder)
         {
-        case BattleStatusKind::ColdPoison:
-            result.healingBlocked = true;
-            result.speedPctDelta -= status.potency * status.stacks;
-            break;
-        case BattleStatusKind::WitheredBone:
-            assert(status.secondaryPotency >= 0 && status.secondaryPotency <= 100);
-            result.damageTakenPct += status.potency * status.stacks;
-            for (int i = 0; i < status.stacks; ++i)
+            const auto& rule = status.behavior->rules[ruleOrder];
+            if (rule.event != EffectEvent::StatusPersistent) continue;
+            for (std::uint32_t actionOrder = 0;
+                 actionOrder < rule.actions.size();
+                 ++actionOrder)
             {
-                result.receivedHealMultipliersPct.push_back(100 - status.secondaryPotency);
+                persistentActions.push_back({
+                    .status = &status,
+                    .action = &rule.actions[actionOrder],
+                    .order = statusBehaviorExecutionOrderKey(
+                        status.origin->binding,
+                        status.origin->ruleOrder,
+                        status.producer->actionOrder,
+                        ruleOrder,
+                        -1,
+                        status.appliedSequence,
+                        actionOrder),
+                });
             }
-            break;
-        case BattleStatusKind::BattleSpirit:
-            result.skillDamagePct += status.potency * status.stacks;
-            result.damageReductionPct += status.secondaryPotency * status.stacks;
-            break;
-        case BattleStatusKind::TrueQi:
-            break;
-        case BattleStatusKind::Poison:
-        case BattleStatusKind::Bleed:
-        case BattleStatusKind::Stun:
-        case BattleStatusKind::MpBlocked:
-        case BattleStatusKind::SevenStarMark:
-        case BattleStatusKind::NeutralizeForce:
-        case BattleStatusKind::Blinded:
-        case BattleStatusKind::NextAttackMiss:
-        case BattleStatusKind::DamageBlockLayer:
-        case BattleStatusKind::SingleHitCapLayer:
-        case BattleStatusKind::PoisonExplosion:
-        case BattleStatusKind::Shadowless:
-        case BattleStatusKind::NextAttackCritical:
-            break;
         }
+    }
+    std::ranges::stable_sort(persistentActions, [](const auto& lhs, const auto& rhs)
+    {
+        return lhs.order < rhs.order;
+    });
+
+    for (const auto& ordered : persistentActions)
+    {
+        const auto& status = *ordered.status;
+        const auto& action = *ordered.action;
+        std::visit([&](const auto& modifier)
+        {
+            using T = std::decay_t<decltype(modifier)>;
+            if constexpr (std::is_same_v<T, ModifyAttributeAction>)
+            {
+                assert(modifier.attribute == BattleAttribute::Speed);
+                assert(modifier.operation == AttributeOperation::PercentAdd);
+                assert(modifier.durationFrames == 0);
+                result.speedPctDelta = saturatedAdd(
+                    result.speedPctDelta,
+                    persistentNumber(modifier.amount, status.stacks));
+            }
+            else if constexpr (std::is_same_v<T, ModifyDamageAction>)
+            {
+                assert(modifier.durationFrames == 0);
+                if (modifier.operation
+                    == DamageModifierOperation::CapSingleHitAtValue)
+                {
+                    return;
+                }
+                assert(modifier.operation == DamageModifierOperation::PercentAdd);
+                const int amount = persistentNumber(
+                    modifier.amount,
+                    status.stacks);
+                if (modifier.perspective == DamageModifierPerspective::Outgoing)
+                {
+                    assert(modifier.stage == DamageModifierStage::BeforeDefense);
+                    assert(modifier.channel == DamageChannel::Skill);
+                    result.skillDamagePct = saturatedAdd(result.skillDamagePct, amount);
+                }
+                else if (modifier.stage == DamageModifierStage::BeforeDefense)
+                {
+                    assert(modifier.channel == DamageChannel::All);
+                    assert(amount <= 0);
+                    result.damageReductionPct = saturatedAdd(
+                        result.damageReductionPct,
+                        saturatedNegate(amount));
+                }
+                else
+                {
+                    assert(modifier.stage == DamageModifierStage::Final);
+                    assert(modifier.channel == DamageChannel::All);
+                    result.damageTakenPct = saturatedAdd(result.damageTakenPct, amount);
+                }
+            }
+            else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
+            {
+                result.healTransactionModifiers.push_back(modifier);
+            }
+            else if constexpr (std::is_same_v<T, BlockPositiveDamageAction>)
+            {
+            }
+            else
+            {
+                assert(false && "持續狀態規則包含不可查詢的動作");
+            }
+        }, action.value);
     }
     return result;
 }
 
 BattleStatusQuerySnapshot BattleStatusSystem::snapshot(const BattleStatusUnitState& target) const
 {
-    return snapshot(target.effects);
+    auto result = snapshot(target.effects);
+    result.holderUnitId = target.id;
+    return result;
 }
 
 bool BattleStatusQuerySnapshot::has(BattleStatusKind kind) const
@@ -1220,43 +1626,59 @@ bool BattleStatusQuerySnapshot::has(BattleStatusKind kind) const
     });
 }
 
-int BattleStatusQuerySnapshot::stacks(BattleStatusKind kind) const
+int BattleStatusQuerySnapshot::stacks(
+    BattleStatusKind kind,
+    const StatusContributionFilter& filter) const
 {
-    int result = 0;
+    std::int64_t result{};
     for (const auto& status : statuses)
     {
-        if (status.kind == kind)
+        if (status.kind == kind
+            && matchesContributionFilter(status, holderUnitId, filter))
         {
-            result += status.stacks;
+            result = std::min<std::int64_t>(
+                std::numeric_limits<int>::max(),
+                result + status.stacks);
         }
     }
-    return result;
+    return static_cast<int>(result);
 }
 
-int BattleStatusQuerySnapshot::potency(BattleStatusKind kind) const
+std::optional<int> BattleStatusQuerySnapshot::familyCapacity(
+    BattleStatusKind kind) const
 {
-    int result = 0;
+    std::vector<StatusProducerFamilyKey> counted;
+    std::int64_t total{};
+    bool hasFiniteCapacity = false;
     for (const auto& status : statuses)
     {
-        if (status.kind == kind)
-        {
-            result = std::max(result, status.potency);
-        }
+        if (status.kind != kind || status.stacks <= 0) continue;
+        if (!status.producerFamily || !status.familyLocalLimit)
+            return std::nullopt;
+        if (std::ranges::contains(counted, *status.producerFamily)) continue;
+        counted.push_back(*status.producerFamily);
+        hasFiniteCapacity = true;
+        total = std::min<std::int64_t>(
+            std::numeric_limits<int>::max(),
+            total + *status.familyLocalLimit);
     }
-    return result;
+    return hasFiniteCapacity
+        ? std::optional{ static_cast<int>(total) }
+        : std::nullopt;
 }
 
-int BattleStatusQuerySnapshot::secondaryPotency(BattleStatusKind kind) const
+std::optional<int> BattleStatusQuerySnapshot::targetTotalCapacity(
+    BattleStatusKind kind) const
 {
-    int result = 0;
+    std::optional<int> capacity;
     for (const auto& status : statuses)
     {
-        if (status.kind == kind)
-        {
-            result = std::max(result, status.secondaryPotency);
-        }
+        if (status.kind != kind || status.stacks <= 0) continue;
+        if (!status.targetTotalLimit) return std::nullopt;
+        assert(!capacity || capacity == status.targetTotalLimit);
+        capacity = status.targetTotalLimit;
     }
-    return result;
+    return capacity;
 }
 
 BattleStatusRuntimeUnit makeBattleStatusRuntimeUnit(const BattleStatusUnitState& unit)
@@ -1314,6 +1736,18 @@ void rewriteBattleStatusSourceUnitId(
     for (auto& typedStatus : status.effects.statuses)
     {
         rewrite(typedStatus.sourceUnitId);
+        if (typedStatus.producer)
+        {
+            rewrite(typedStatus.producer->binding.ownerUnitId);
+        }
+        if (typedStatus.producerFamily)
+        {
+            rewrite(typedStatus.producerFamily->logicalOwnerUnitId);
+        }
+        if (typedStatus.origin)
+        {
+            rewrite(typedStatus.origin->binding.ownerUnitId);
+        }
     }
 }
 

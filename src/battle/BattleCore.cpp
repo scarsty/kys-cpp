@@ -476,7 +476,15 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
         expiredDamageAbsorptions,
         upcomingFrame);
 
-    // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
+    // One frame-start snapshot orders configured and status-owned rules
+    // together. Commands are reduced before timers advance, so a configured
+    // removal can suppress a later status rule while a surviving contribution
+    // still receives its final eligible tick before expiry.
+    auto deferredFrameEffectBatches = CoreDetail::dispatchFrameAdvancedEffects(
+        state,
+        frame,
+        upcomingFrame);
+    // Tick status timers after the merged per-frame rules have dispatched.
     CoreDetail::advanceStatus(state, frame.currentFrameDamage());
     // Tick unit cooldown/action/MP timers and collect typed skill-finished effects.
     auto runtimeAdvance = CoreDetail::advanceRuntimeUnits(state);
@@ -487,12 +495,6 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
             std::move(batch.context));
     }
     CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
-    // Evaluate all typed per-frame rules from one frame-start snapshot before
-    // movement or action selection can change their conditions.
-    auto deferredFrameEffectBatches = CoreDetail::dispatchFrameAdvancedEffects(
-        state,
-        frame,
-        upcomingFrame);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
     CoreDetail::reduceCommandsBeforeMovement(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.

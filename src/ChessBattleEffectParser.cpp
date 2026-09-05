@@ -388,6 +388,10 @@ bool parseConditionPayload(
     {
         out = RandomSelectionAvailableCondition{};
     }
+    else if (type == "目標為狀態持有者")
+    {
+        out = TargetIsStatusHolderCondition{};
+    }
     else
     {
         error = std::format("未知條件「{}」", type);
@@ -516,237 +520,6 @@ bool requiredTrue(
     return true;
 }
 
-bool parseStatusEffectPayload(
-    PayloadView& node,
-    ApplyStatusAction& action,
-    std::string& error)
-{
-    const auto& catalog = statusCatalogEntry(action.status);
-    const auto effectsNode = node["效果"];
-    if (catalog.effectScope == StatusEffectScope::None
-        || catalog.effectScope == StatusEffectScope::RuntimeOwned)
-    {
-        if (effectsNode)
-        {
-            error = std::format("狀態「{}」不可填寫「效果」", battleStatusLabel(action.status));
-            return false;
-        }
-        action.effects = NoStatusEffects{};
-        return true;
-    }
-    if (!effectsNode)
-    {
-        error = std::format("狀態「{}」需要「效果」", battleStatusLabel(action.status));
-        return false;
-    }
-
-    PayloadView effects(effectsNode, statusEffectsPayload);
-    if (!effects.validate(error)) return false;
-    const auto expectedScope = statusEffectScopeLabel(catalog.effectScope);
-    assert(!expectedScope.empty());
-    const auto valuesNode = effects[expectedScope];
-    if (!valuesNode)
-    {
-        error = std::format(
-            "狀態「{}」的效果必須使用「{}」",
-            battleStatusLabel(action.status), expectedScope);
-        return false;
-    }
-    PayloadView values(valuesNode, statusEffectValuePayload);
-    if (!values.validate(error)) return false;
-    for (const auto& entry : valuesNode)
-    {
-        const auto label = entry.first.as<std::string>();
-        const auto suppliedForStatus = std::ranges::find_if(
-            statusEffectFieldCatalog,
-            [&](const auto& field)
-            {
-                return field.label == label && field.status == action.status;
-            });
-        if (suppliedForStatus != statusEffectFieldCatalog.end()) continue;
-        std::vector<BattleStatusKind> owners;
-        for (const auto& field : statusEffectFieldCatalog)
-        {
-            if (field.label == label && !std::ranges::contains(owners, field.status))
-                owners.push_back(field.status);
-        }
-        assert(!owners.empty());
-        std::string ownerLabels;
-        for (std::size_t index = 0; index < owners.size(); ++index)
-        {
-            if (index > 0) ownerLabels += "、";
-            ownerLabels += std::format("「{}」", battleStatusLabel(owners[index]));
-        }
-        error = std::format(
-            "狀態「{}」的效果不允許欄位「{}」；此欄位屬於狀態{}",
-            battleStatusLabel(action.status),
-            label,
-            ownerLabels);
-        return false;
-    }
-    const auto field = [&](StatusEffectFieldId id)
-    {
-        return values[statusEffectFieldLabel(id)];
-    };
-    const auto parseNumber = [&](StatusEffectFieldId id, EffectNumber& out)
-    {
-        const auto label = statusEffectFieldLabel(id);
-        const auto numberNode = field(id);
-        if (!numberNode)
-        {
-            error = std::format(
-                "狀態「{}」的效果缺少「{}」",
-                battleStatusLabel(action.status),
-                label);
-            return false;
-        }
-        std::string numberError;
-        if (parseEffectNumberNode(numberNode, out, numberError)) return true;
-        error = std::format(
-            "狀態「{}」的效果「{}」不是有效數值：{}",
-            battleStatusLabel(action.status),
-            label,
-            numberError);
-        return false;
-    };
-
-    switch (action.status)
-    {
-    case BattleStatusKind::Poison:
-    {
-        PoisonStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::PoisonCurrentHpDamagePercent,
-                parsed.currentHpDamagePercent)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::Bleed:
-    {
-        BleedStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::BleedMaxHpDamagePercent,
-                parsed.maxHpDamagePercent)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::ColdPoison:
-    {
-        ColdPoisonStatusEffects parsed;
-        if (!requiredTrue(values,
-                statusEffectFieldLabel(StatusEffectFieldId::ColdPoisonBlocksHealing),
-                parsed.blocksHealing, error)
-            || !parseNumber(
-                StatusEffectFieldId::ColdPoisonSpeedReductionPercent,
-                parsed.speedReductionPercent)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::WitheredBone:
-    {
-        WitheredBoneStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::WitheredBoneDamageTakenIncreasePercent,
-                parsed.damageTakenIncreasePercent)
-            || !parseNumber(
-                StatusEffectFieldId::WitheredBoneHealingReductionPercent,
-                parsed.healingReductionPercent)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::NeutralizeForce:
-    {
-        NeutralizeForceStatusEffects parsed;
-        if (!requiredTrue(values,
-                statusEffectFieldLabel(StatusEffectFieldId::NeutralizeForcePreventsCast),
-                parsed.preventsCast, error)
-            || !parseNumber(
-                StatusEffectFieldId::NeutralizeForceOriginalTargetShield,
-                parsed.originalTargetShield)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::Blinded:
-    {
-        BlindedStatusEffects parsed;
-        if (!requiredTrue(values,
-                statusEffectFieldLabel(StatusEffectFieldId::BlindedPreventsCast),
-                parsed.preventsCast, error)) return false;
-        action.effects = parsed;
-        break;
-    }
-    case BattleStatusKind::NextAttackMiss:
-    {
-        NextIncomingAttackMissStatusEffects parsed;
-        if (!requiredTrue(
-                values,
-                statusEffectFieldLabel(StatusEffectFieldId::NextIncomingAttackMiss),
-                parsed.makesIncomingAttackMiss, error)) return false;
-        action.effects = parsed;
-        break;
-    }
-    case BattleStatusKind::DamageBlockLayer:
-    {
-        DamageBlockStatusEffects parsed;
-        if (!requiredTrue(
-                values,
-                statusEffectFieldLabel(
-                    StatusEffectFieldId::DamageBlockPositiveNonExecuteDamage),
-                parsed.blocksPositiveNonExecuteDamage, error)) return false;
-        action.effects = parsed;
-        break;
-    }
-    case BattleStatusKind::SingleHitCapLayer:
-    {
-        SingleHitCapStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::SingleHitDamageCap,
-                parsed.damageCap)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::BattleSpirit:
-    {
-        BattleSpiritStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::BattleSpiritSkillDamageIncreasePercent,
-                parsed.skillDamageIncreasePercent)
-            || !parseNumber(
-                StatusEffectFieldId::BattleSpiritDamageReductionPercent,
-                parsed.damageReductionPercent)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::TrueQi:
-    {
-        TrueQiStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::TrueQiPureDamagePerHit,
-                parsed.pureDamagePerHit)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::PoisonExplosion:
-    {
-        PoisonExplosionStatusEffects parsed;
-        if (!parseNumber(
-                StatusEffectFieldId::PoisonExplosionDeathPureDamage,
-                parsed.deathPureDamage)) return false;
-        action.effects = std::move(parsed);
-        break;
-    }
-    case BattleStatusKind::Stun:
-    case BattleStatusKind::MpBlocked:
-    case BattleStatusKind::SevenStarMark:
-    case BattleStatusKind::Shadowless:
-    case BattleStatusKind::NextAttackCritical:
-        assert(false);
-        break;
-    }
-
-    return values.finish(error) && effects.finish(error);
-}
-
 bool parseStatusQuantity(
     PayloadView& node,
     ApplyStatusAction& action,
@@ -781,6 +554,17 @@ bool parseStatusQuantity(
         AddStatusLayers quantity;
         if (!parseOperationField(fields[0], quantity.count)
             || !parseOperationField(fields[1], quantity.limit)) return false;
+        action.quantity = quantity;
+        return true;
+    }
+    case StatusQuantityModel::SharedLayers:
+    {
+        const auto fields = statusQuantityOperationFields(
+            StatusQuantityOperationId::AddSharedLayers);
+        assert(fields.size() == 2);
+        AddSharedStatusLayers quantity;
+        if (!parseOperationField(fields[0], quantity.count)
+            || !parseOperationField(fields[1], quantity.targetTotalLimit)) return false;
         action.quantity = quantity;
         return true;
     }
@@ -912,10 +696,90 @@ bool parseSemanticStatusApplication(
         return false;
     }
 
-    if (!parseStatusEffectPayload(node, action, error)) return false;
+    for (const auto& field : statusNamedNumberFieldCatalog)
+    {
+        const auto value = node[field.label];
+        if (!value) continue;
+        if (!statusHasNamedNumberField(action.status, field.id))
+        {
+            error = std::format(
+                "狀態「{}」不可填寫「{}」",
+                battleStatusLabel(action.status),
+                field.label);
+            return false;
+        }
+        if (!parseEffectNumberNode(
+                value,
+                statusNamedNumberField(action, field.id).emplace(),
+                error)) return false;
+    }
+    for (const auto fieldId : statusNamedNumberFields(action.status))
+    {
+        const auto& field = statusNamedNumberFieldCatalogEntry(fieldId);
+        if (field.required && !statusNamedNumberField(action, fieldId))
+        {
+            error = std::format(
+                "狀態「{}」需要「{}」",
+                battleStatusLabel(action.status),
+                field.label);
+            return false;
+        }
+    }
+
+    if (const auto behaviorNode = node["效果"])
+    {
+        if (statusBehaviorIsCatalogOwned(action.status))
+        {
+            error = std::format(
+                "狀態「{}」的行為由目錄決定，不可填寫「效果」",
+                battleStatusLabel(action.status));
+            return false;
+        }
+        if (!behaviorNode.IsSequence() || behaviorNode.size() == 0)
+        {
+            error = "狀態「效果」必須是非空規則列表";
+            return false;
+        }
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules.reserve(behaviorNode.size());
+        for (std::size_t index = 0; index < behaviorNode.size(); ++index)
+        {
+            EffectRule rule;
+            std::string diagnostic;
+            const auto sink = [&](const ChessDiagnostic& value)
+            {
+                if (value.severity == ChessDiagnosticSeverity::Error)
+                    diagnostic = value.message;
+            };
+            if (!parseEffectRule(
+                    behaviorNode[index],
+                    rule,
+                    EffectRuleId{ index + 1 },
+                    std::format("狀態「{}」效果#{}", battleStatusLabel(action.status), index + 1),
+                    sink,
+                    true))
+            {
+                error = diagnostic.empty() ? "狀態效果規則解析失敗" : diagnostic;
+                return false;
+            }
+            behavior->rules.push_back(std::move(rule));
+        }
+        action.behavior = std::move(behavior);
+    }
+    if (statusBehaviorIsCatalogOwned(action.status))
+    {
+        action.behavior = makeCatalogOwnedStatusBehavior(action);
+    }
+    else if (catalog.behaviorClassification == StatusBehaviorClassification::Profiled
+        && !action.behavior)
+    {
+        error = std::format(
+            "狀態「{}」需要完整的「效果」行為規則",
+            battleStatusLabel(action.status));
+        return false;
+    }
     if (poisonApplication)
     {
-        auto& effects = std::get<PoisonStatusEffects>(action.effects);
         if (const auto merge = node["同事件合併"])
         {
             const auto label = merge.as<std::string>();
@@ -926,18 +790,18 @@ bool parseSemanticStatusApplication(
                 error = std::format("未知中毒同事件合併方式「{}」", label);
                 return false;
             }
-            effects.sameEventMerge = *parsed;
+            action.poisonSameEventMerge = *parsed;
         }
         if (action.reapplication == StatusReapplicationPolicy::KeepHigherDamage
-            && effects.sameEventMerge != PoisonSameEventMerge::SumDamagePercent)
+            && action.poisonSameEventMerge != PoisonSameEventMerge::SumDamagePercent)
         {
             error = "保留較高傷害的中毒必須使用「同事件合併: 合計傷害百分比」";
             return false;
         }
-        if (action.reapplication == StatusReapplicationPolicy::ReplaceAndReset
-            && effects.sameEventMerge != PoisonSameEventMerge::None)
+        if (action.reapplication == StatusReapplicationPolicy::ReplaceExistingPoison
+            && action.poisonSameEventMerge != PoisonSameEventMerge::None)
         {
-            error = "取代並重設的中毒不可使用「同事件合併」";
+            error = "取代現有中毒不可使用「同事件合併」";
             return false;
         }
     }
@@ -1082,6 +946,28 @@ bool parseActionList(const YAML::Node& node, std::vector<EffectAction>& out, std
             std::make_move_iterator(actions.begin()),
             std::make_move_iterator(actions.end()));
     }
+    return true;
+}
+
+bool parseScalableEffectNumber(
+    PayloadView& node,
+    EffectNumber& out,
+    std::string& error)
+{
+    const auto value = node["數值"];
+    const auto perLayerValue = node["每層數值"];
+    if (static_cast<bool>(value) == static_cast<bool>(perLayerValue))
+    {
+        error = value
+            ? "「數值」與「每層數值」不可同時使用"
+            : "必須擇一使用「數值」或「每層數值」";
+        return false;
+    }
+    if (!parseEffectNumberNode(value ? value : perLayerValue, out, error))
+        return false;
+    out.statusScale = perLayerValue
+        ? StatusNumberScale::PerContributionLayer
+        : StatusNumberScale::Once;
     return true;
 }
 
@@ -1443,7 +1329,7 @@ bool parseActionPayload(
         if (!requiredString(node, "屬性", attribute, error)
             || !requiredString(node, "方式", operation, error)
             || !parseAttribute(attribute, action.attribute, error)
-            || !parseEffectNumberNode(node["數值"], action.amount, error)) return false;
+            || !parseScalableEffectNumber(node, action.amount, error)) return false;
         const auto parsedOperation = parseLabel<AttributeOperation>(operation, attributeOperationEnum);
         if (!parsedOperation)
         {
@@ -1476,7 +1362,7 @@ bool parseActionPayload(
         if (!requiredString(node, "階段", stage, error)
             || !requiredString(node, "傷害種類", channel, error)
             || !requiredString(node, "方式", operation, error)
-            || !parseEffectNumberNode(node["數值"], action.amount, error)) return false;
+            || !parseScalableEffectNumber(node, action.amount, error)) return false;
         const auto parsedStage = parseLabel<DamageModifierStage>(stage, damageModifierStageEnum);
         const auto parsedOperation = parseLabel<DamageModifierOperation>(
             operation, damageModifierOperationEnum);
@@ -1518,7 +1404,7 @@ bool parseActionPayload(
             || !requiredString(node, "方式", kind, error)
             || !parseResourceLabel(resource, action.resource, error)
             || !parseResourceChangeKindLabel(kind, action.kind, error)
-            || !parseEffectNumberNode(node["數值"], action.amount, error)
+            || !parseScalableEffectNumber(node, action.amount, error)
             || !parseResourceMetadata(node, action, error)) return false;
         out.value = std::move(action);
         return true;
@@ -1609,6 +1495,31 @@ bool parseActionPayload(
         out.value = std::move(action);
         return true;
     }
+    if (type == "消耗此狀態")
+    {
+        ConsumeThisStatusAction action;
+        if (!optionalInt(node, "消耗數量", action.quantity, error)) return false;
+        if (const auto depleted = node["最後一次"])
+        {
+            std::vector<EffectAction> nestedActions;
+            if (!parseAuthorActionNode(depleted, nestedActions, error)) return false;
+            if (nestedActions.size() != 1)
+            {
+                error = "消耗此狀態的最後一次需要恰好一個套用狀態動作";
+                return false;
+            }
+            auto nested = std::move(nestedActions.front());
+            const auto* statusAction = std::get_if<ApplyStatusAction>(&nested.value);
+            if (!statusAction)
+            {
+                error = "消耗此狀態的最後一次目前只允許套用狀態";
+                return false;
+            }
+            action.whenDepleted = *statusAction;
+        }
+        out.value = std::move(action);
+        return true;
+    }
     if (type == "移除狀態")
     {
         RemoveStatusAction action;
@@ -1631,6 +1542,17 @@ bool parseActionPayload(
             }
             else if (!append(statuses)) return false;
         }
+        if (const auto source = node["狀態來源"])
+        {
+            const auto label = source.as<std::string>();
+            const auto parsed = parseLabel<StatusSourceMatch>(label, statusSourceMatchEnum);
+            if (!parsed)
+            {
+                error = std::format("未知狀態來源「{}」", label);
+                return false;
+            }
+            action.source = *parsed;
+        }
         if (const auto order = node["順序"])
         {
             const auto label = order.as<std::string>();
@@ -1645,12 +1567,42 @@ bool parseActionPayload(
         out.value = std::move(action);
         return true;
     }
+    if (type == "使本次施放攻擊落空")
+    {
+        SuppressCurrentCastContactsAction action;
+        if (const auto succeeded = node["成功後"])
+        {
+            if (!succeeded.IsSequence() || succeeded.size() != 1
+                || !succeeded[0].IsMap() || succeeded[0].size() != 1
+                || !succeeded[0]["原攻擊目標獲得護盾"])
+            {
+                error = "「使本次施放攻擊落空.成功後」必須恰好包含一個「原攻擊目標獲得護盾」動作";
+                return false;
+            }
+            EffectNumber amount;
+            if (!parseEffectNumberNode(
+                    succeeded[0]["原攻擊目標獲得護盾"], amount, error)) return false;
+            action.originalTargetShield = std::move(amount);
+        }
+        out.value = std::move(action);
+        return true;
+    }
+    if (type == "使本次受到攻擊落空")
+    {
+        out.value = MakeIncomingAttackMissAction{};
+        return true;
+    }
+    if (type == "抵擋非處決正傷害")
+    {
+        out.value = BlockPositiveDamageAction{};
+        return true;
+    }
     if (type == "造成傷害")
     {
         DealDamageAction action;
         std::string kind;
         if (!requiredString(node, "傷害種類", kind, error)
-            || !parseEffectNumberNode(node["數值"], action.amount, error)
+            || !parseScalableEffectNumber(node, action.amount, error)
             || !parseDamageKindLabel(kind, action.kind, error)) return false;
         if (node["交易次數"])
         {
@@ -1661,6 +1613,11 @@ bool parseActionPayload(
         if (const auto area = node["範圍"])
         {
             const auto label = area.as<std::string>();
+            if (label == "單體")
+            {
+                error = "「單體」是造成傷害的預設範圍；請省略欄位「範圍」";
+                return false;
+            }
             const auto parsed = parseLabel<DamageAreaKind>(label, damageAreaKindEnum);
             if (!parsed)
             {
@@ -2300,7 +2257,8 @@ bool parseEffectRule(
     EffectRule& out,
     EffectRuleId id,
     const std::string& context,
-    const ChessDiagnosticSink& diagnostics)
+    const ChessDiagnosticSink& diagnostics,
+    bool statusBehavior)
 {
     const auto mark = node.Mark();
     auto fail = [&](const std::string& message)
@@ -2339,6 +2297,8 @@ bool parseEffectRule(
         if (!timingDescriptor) return fail(std::format("未知時機「{}」", timing));
         out.event = timingDescriptor->event;
         out.selector.kind = timingDescriptor->defaultTarget;
+        if (statusBehavior)
+            out.observation = EffectObservationScope::StatusHolderEventSource;
         if (timingDescriptor->intervalPolicy == TimingIntervalPolicy::Forbidden
             && payload["間隔幀數"])
         {
@@ -2441,7 +2401,12 @@ bool parseEffectRule(
             return fail("像素擊退／拉近屬於精確階段，必須是唯一動作，且不可設定一般規則觸發記帳欄位");
         }
         if (!payload.finish(error)
-            || !validateEffectRule(out, error)) return fail(error);
+            || !validateEffectRule(
+                out,
+                error,
+                statusBehavior
+                    ? EffectRuleAuthoringContext::StatusBehavior
+                    : EffectRuleAuthoringContext::Configured)) return fail(error);
         return true;
     }
     catch (const YAML::Exception& ex)

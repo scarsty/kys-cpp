@@ -87,6 +87,18 @@ public:
         EffectEvent event,
         EffectEventPayload payload) const;
 
+    // FrameAdvanced is the only owner-periodic event. This entry point merges
+    // every living configured owner with all live status contributions into
+    // one structured frame-start stream.
+    BattleEffectDispatchResult dispatchFrameAdvanced(
+        BattleRuntimeState& runtime,
+        const BattleEffectOwnedEvent& event) const;
+
+    BattleEffectDispatchResult dispatchActiveStatusBehaviors(
+        BattleRuntimeState& runtime,
+        const BattleEffectOwnedEvent& event,
+        StatusBehaviorDispatchFilter filter) const;
+
     BattleEffectOwnedEvent makeCastLifecycleEvent(
         const BattleRuntimeState& runtime,
         BattleEffectEventHeaderInput header,

@@ -6,6 +6,7 @@
 #include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
 #include "battle/BattleStatusSystem.h"
+#include "BattleCoreTestHelpers.h"
 #include "Find.h"
 
 #include <catch2/catch_approx.hpp>
@@ -45,7 +46,7 @@ BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 
 void seedDamageExtrasFromUnits(BattleRuntimeState& state);
 
-BattleTypedStatusInstance& appendStatus(
+BattleStatusContribution& appendStatus(
     BattleStatusEffectState& effects,
     BattleStatusKind kind,
     int remainingFrames,
@@ -55,14 +56,49 @@ BattleTypedStatusInstance& appendStatus(
     int tickFramesRemaining = 0,
     int maximumFrames = 0)
 {
+    const EffectSourceBinding binding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 8000 + static_cast<int>(kind),
+        .ownerUnitId = sourceUnitId >= 0 ? sourceUnitId : 0,
+    };
+    const EffectRuleId ruleId{
+        static_cast<std::uint64_t>(8000 + static_cast<int>(kind)) };
+    auto behavior = kind == BattleStatusKind::Poison
+        ? KysChess::Battle::Test::poisonStatusBehavior(potency)
+        : (kind == BattleStatusKind::Bleed
+            ? makeRuntimeBleedStatusBehavior()
+            : nullptr);
     effects.statuses.push_back({
         .kind = kind,
+        .producer = behavior
+            ? std::optional{ StatusProducerKey{ .binding = binding, .ruleId = ruleId } }
+            : std::nullopt,
+        .producerFamily = behavior
+            ? std::optional{ StatusProducerFamilyKey{
+                .sourceKind = binding.kind,
+                .sourceId = binding.sourceId,
+                .logicalOwnerUnitId = binding.ownerUnitId,
+                .ruleId = ruleId,
+            } }
+            : std::nullopt,
+        .targetTotalLimit = kind == BattleStatusKind::Bleed
+            ? std::optional{ stacks }
+            : std::nullopt,
+        .behavior = behavior,
+        .behaviorRuntime = behavior
+            ? std::vector{ EffectRuleRuntimeState{
+                .intervalFramesRemaining = tickFramesRemaining > 0
+                    ? tickFramesRemaining
+                    : behavior->rules.front().intervalFrames,
+            } }
+            : std::vector<EffectRuleRuntimeState>{},
         .sourceUnitId = sourceUnitId,
         .remainingFrames = remainingFrames,
         .maximumFrames = std::max(remainingFrames, maximumFrames),
-        .tickFramesRemaining = tickFramesRemaining,
         .stacks = stacks,
-        .potency = potency,
+        .origin = behavior
+            ? std::optional{ BattleStatusEffectOrigin{ binding, ruleId, 0 } }
+            : std::nullopt,
         .appliedSequence = effects.nextStatusSequence++,
     });
     return effects.statuses.back();
@@ -439,45 +475,31 @@ TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "
         {
         case BattleStatusKind::Poison:
             action.quantity = SetStatusTriggerCharges{ 3 };
-            action.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
-            action.effects = PoisonStatusEffects{
-                .currentHpDamagePercent = EffectNumber{ .flat = 10 },
-            };
+            action.reapplication = StatusReapplicationPolicy::ReplaceExistingPoison;
+            action.behavior = KysChess::Battle::Test::poisonStatusBehavior(10);
             break;
         case BattleStatusKind::Bleed:
             action.durationFrames = 0;
-            action.quantity = AddStatusLayers{ 1, 3 };
-            action.effects = BleedStatusEffects{
-                .maxHpDamagePercent = EffectNumber{ .flat = 1 },
-            };
+            action.quantity = AddSharedStatusLayers{ 1, 3 };
+            action.behavior = makeCatalogOwnedStatusBehavior(action);
             break;
         case BattleStatusKind::Stun:
             action.quantity = NoStatusQuantity{};
             action.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
-            action.effects = NoStatusEffects{};
             break;
         case BattleStatusKind::WitheredBone:
             action.quantity = NoStatusQuantity{};
-            action.reapplication = StatusReapplicationPolicy::RefreshDuration;
-            action.effects = WitheredBoneStatusEffects{
-                .damageTakenIncreasePercent = EffectNumber{ .flat = 10 },
-                .healingReductionPercent = EffectNumber{ .flat = 10 },
-            };
+            action.behavior = makeCatalogOwnedStatusBehavior(action);
             break;
         case BattleStatusKind::DamageBlockLayer:
             action.durationFrames = 0;
             action.quantity = SetDamageBlockCharges{ 1 };
-            action.effects = DamageBlockStatusEffects{
-                .blocksPositiveNonExecuteDamage = true,
-            };
+            action.behavior = KysChess::Battle::Test::damageBlockStatusBehavior();
             break;
         case BattleStatusKind::BattleSpirit:
             action.durationFrames = 0;
             action.quantity = AddStatusLayers{ 1, 5 };
-            action.effects = BattleSpiritStatusEffects{
-                .skillDamageIncreasePercent = EffectNumber{ .flat = 10 },
-                .damageReductionPercent = EffectNumber{ .flat = 1 },
-            };
+            action.behavior = KysChess::Battle::Test::battleSpiritStatusBehavior(10, 1);
             break;
         default:
             FAIL("unexpected status cue case");
@@ -485,7 +507,7 @@ TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "
         queueEffectCommandBatch(state, {
             EffectCommand{
                 metadata,
-                ApplyStatusEffectCommand{ action, 10, 0 },
+                ApplyStatusEffectCommand{ action, std::nullopt },
             },
         });
 
@@ -565,13 +587,10 @@ TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][
         ApplyStatusAction action;
         action.status = BattleStatusKind::BattleSpirit;
         action.quantity = AddStatusLayers{ 1, 5 };
-        action.effects = BattleSpiritStatusEffects{
-            .skillDamageIncreasePercent = EffectNumber{ .flat = 10 },
-            .damageReductionPercent = EffectNumber{ .flat = 1 },
-        };
+        action.behavior = KysChess::Battle::Test::battleSpiritStatusBehavior(10, 1);
         const EffectCommand command{
             metadata,
-            ApplyStatusEffectCommand{ action, 10, 0 },
+            ApplyStatusEffectCommand{ action, std::nullopt },
         };
 
         queueEffectCommandBatch(state, { command });
@@ -967,6 +986,141 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     CHECK(lockedUnit.motion.facing.y == Catch::Approx(0.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 0);
     CHECK(session.runtime().units.require(1).frozenFrames() == 3);
+}
+
+TEST_CASE("BattleFrameRunner_SkippedStatusDamageModifiersCannotAffectTheCurrentHit",
+    "[battle][frame_runner][runtime][effect][status][liveness]")
+{
+    struct Result
+    {
+        int damage{};
+        bool statusRemoved{};
+    };
+
+    const auto resolveHit = [](bool addSelfConsumingStatus)
+    {
+        auto state = ownedRuntimeState();
+        auto& attacker = state.units.requireCore(0);
+        auto& defender = state.units.requireCore(1);
+        attacker.stats.speed = 0;
+        attacker.stats.attack = 100;
+        defender.stats.speed = 0;
+        defender.stats.defence = 100;
+        defender.vitals.hp = 1'000;
+        defender.vitals.maxHp = 1'000;
+        attacker.motion.position = { 17.0f * static_cast<float>(SceneTileWidth),
+                                     3.0f * static_cast<float>(SceneTileWidth), 0 };
+        defender.motion.position = { 18.0f * static_cast<float>(SceneTileWidth),
+                                     3.0f * static_cast<float>(SceneTileWidth), 0 };
+        attacker.motion.facing = { 1, 0, 0 };
+        defender.motion.facing = { -1, 0, 0 };
+        seedDamageExtrasFromUnits(state);
+
+        if (addSelfConsumingStatus)
+        {
+            EffectRule consume;
+            consume.id = EffectRuleId{ 1 };
+            consume.event = EffectEvent::HitBeforeDamage;
+            consume.observation = EffectObservationScope::StatusHolderEventSource;
+            consume.selector.kind = EffectSelectorKind::StatusHolder;
+            consume.actions.push_back(EffectAction{ ConsumeThisStatusAction{} });
+
+            ModifyDamageAction ignoreDefense;
+            ignoreDefense.perspective = DamageModifierPerspective::Outgoing;
+            ignoreDefense.stage = DamageModifierStage::BeforeDefense;
+            ignoreDefense.channel = DamageChannel::All;
+            ignoreDefense.operation = DamageModifierOperation::IgnoreDefensePercent;
+            ignoreDefense.amount.flat = 100;
+            EffectRule ignoreDefenseRule;
+            ignoreDefenseRule.id = EffectRuleId{ 2 };
+            ignoreDefenseRule.event = EffectEvent::HitBeforeDamage;
+            ignoreDefenseRule.observation = EffectObservationScope::StatusHolderEventSource;
+            ignoreDefenseRule.selector.kind = EffectSelectorKind::HitTarget;
+            ignoreDefenseRule.actions.push_back(EffectAction{ ignoreDefense });
+
+            ModifyDamageAction doubleDamage;
+            doubleDamage.perspective = DamageModifierPerspective::Outgoing;
+            doubleDamage.stage = DamageModifierStage::Final;
+            doubleDamage.channel = DamageChannel::All;
+            doubleDamage.operation = DamageModifierOperation::PercentAdd;
+            doubleDamage.amount.flat = 100;
+            EffectRule doubleDamageRule;
+            doubleDamageRule.id = EffectRuleId{ 3 };
+            doubleDamageRule.event = EffectEvent::HitBeforeDamage;
+            doubleDamageRule.observation = EffectObservationScope::StatusHolderEventSource;
+            doubleDamageRule.selector.kind = EffectSelectorKind::HitTarget;
+            doubleDamageRule.actions.push_back(EffectAction{ doubleDamage });
+
+            auto behavior = std::make_shared<StatusBehaviorDefinition>();
+            behavior->rules = {
+                std::move(consume),
+                std::move(ignoreDefenseRule),
+                std::move(doubleDamageRule),
+            };
+            const EffectSourceBinding binding{
+                .kind = EffectSourceKind::Magic,
+                .sourceId = 9100,
+                .ownerUnitId = 0,
+                .sourceTeam = attacker.team,
+            };
+            const EffectRuleId producerRuleId{ 9100 };
+            auto& contribution = appendStatus(
+                state.units.require(0).status.effects,
+                BattleStatusKind::TrueQi,
+                60,
+                1,
+                0,
+                0);
+            contribution.producer = StatusProducerKey{
+                .binding = binding,
+                .ruleId = producerRuleId,
+            };
+            contribution.producerFamily = StatusProducerFamilyKey{
+                .sourceKind = binding.kind,
+                .sourceId = binding.sourceId,
+                .logicalOwnerUnitId = binding.ownerUnitId,
+                .ruleId = producerRuleId,
+            };
+            contribution.behavior = behavior;
+            contribution.behaviorRuntime =
+                KysChess::Battle::Test::initialStatusBehaviorRuntime(behavior);
+            contribution.sourceUnitId = 0;
+            contribution.origin = BattleStatusEffectOrigin{
+                binding,
+                producerRuleId,
+                0,
+            };
+        }
+
+        BattleAttackInstance attack{ ordinaryProjectilePayload() };
+        attack.id = 10;
+        attack.state.attackSourceUnitId = 0;
+        attack.state.preferredTargetUnitId = 1;
+        attack.state.skillId = 101;
+        attack.state.skillMagicPower = 200;
+        attack.state.totalFrame = 30;
+        attack.frame = 29;
+        attack.state.operationType = BattleOperationType::Melee;
+        attack.state.position = defender.motion.position;
+        attack.state.velocity = { 1, 0, 0 };
+        appendTrackedRootAttack(state, std::move(attack));
+
+        const auto frame = runBattleFrame(state);
+        const auto damage = damageLogAmountsFor(frame, 1);
+        REQUIRE(damage.size() == 1);
+        return Result{
+            .damage = damage.front(),
+            .statusRemoved = !state.units.require(0).status.effects.has(
+                BattleStatusKind::TrueQi),
+        };
+    };
+
+    const auto baseline = resolveHit(false);
+    const auto withInvalidatedModifiers = resolveHit(true);
+
+    CHECK(baseline.damage > 0);
+    CHECK(withInvalidatedModifiers.statusRemoved);
+    CHECK(withInvalidatedModifiers.damage == baseline.damage);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity", "[battle][runtime_session][ownership]")
@@ -1378,7 +1532,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.alive = true;
     poisoned.hp = 80;
     poisoned.maxHp = 100;
-    appendStatus(poisoned.effects, BattleStatusKind::Poison, 3, 2, 10, 0);
+    appendStatus(poisoned.effects, BattleStatusKind::Poison, 3, 2, 10, 0, 1);
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
@@ -1396,7 +1550,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     CHECK(state.units.require(1).status.effects.find(BattleStatusKind::Poison)->remainingFrames == 2);
 }
 
-TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[battle][frame_runner][runtime][effect][poison]")
+TEST_CASE("BattleFrameRunner_XuanmingSettlesTheCanonicalPoisonSchedule", "[battle][frame_runner][runtime][effect][poison]")
 {
     auto state = runtimeFrameState();
     state.movement.frame = 40;
@@ -1406,9 +1560,35 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[b
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         target,
+        teamRuntimeUnit(7, 0, 100),
     });
     auto& poison = state.units.require(1).status.effects;
-    appendStatus(poison, BattleStatusKind::Poison, 32, 1, 10, 7);
+    auto& contribution = appendStatus(
+        poison,
+        BattleStatusKind::Poison,
+        65,
+        3,
+        10,
+        7);
+    auto behavior = std::make_shared<StatusBehaviorDefinition>(
+        *contribution.behavior);
+    EffectRule extraPeriodicRule;
+    extraPeriodicRule.id = EffectRuleId{ 9001 };
+    extraPeriodicRule.event = EffectEvent::FrameAdvanced;
+    extraPeriodicRule.observation = EffectObservationScope::StatusHolderEventSource;
+    extraPeriodicRule.selector.kind = EffectSelectorKind::StatusHolder;
+    extraPeriodicRule.intervalFrames = 10;
+    ChangeResourceAction extraShield;
+    extraShield.resource = BattleResource::Shield;
+    extraShield.kind = ResourceChangeKind::Grant;
+    extraShield.amount.flat = 1;
+    extraPeriodicRule.actions.push_back(EffectAction{ extraShield });
+    behavior->rules.insert(behavior->rules.begin(), std::move(extraPeriodicRule));
+    contribution.behavior = std::move(behavior);
+    contribution.behaviorRuntime = {
+        EffectRuleRuntimeState{ .intervalFramesRemaining = 5 },
+        EffectRuleRuntimeState{ .intervalFramesRemaining = 30 },
+    };
     seedDamageExtrasFromUnits(state);
 
     EffectCommandMetadata metadata;
@@ -1448,13 +1628,11 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[b
     applyAction.status = KysChess::BattleStatusKind::Poison;
     applyAction.durationFrames = 150;
     applyAction.quantity = KysChess::SetStatusTriggerCharges{ 5 };
-    applyAction.reapplication = KysChess::StatusReapplicationPolicy::ReplaceAndReset;
-    applyAction.effects = KysChess::PoisonStatusEffects{
-        .currentHpDamagePercent = KysChess::EffectNumber{ .flat = 10 },
-    };
+    applyAction.reapplication = KysChess::StatusReapplicationPolicy::ReplaceExistingPoison;
+    applyAction.behavior = KysChess::Battle::Test::poisonStatusBehavior(10);
     const EffectCommand applyCommand{
         metadata,
-        ApplyStatusEffectCommand{ applyAction, 10, 0 },
+        ApplyStatusEffectCommand{ applyAction, std::nullopt },
     };
     state.effectIntegration.queuedCommandBatches.push_back({
         .commands = { settlementCommand, removeCommand, applyCommand },
@@ -1464,14 +1642,14 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[b
     const auto result = runBattleFrame(state);
 
     CHECK(state.movement.frame == 41);
-    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 10 });
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 19 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
-    CHECK(state.units.requireCore(1).vitals.hp == 91);
+    CHECK(state.units.requireCore(1).vitals.hp == 82);
     const auto* poisonAfterPayload = state.units.require(1).status.effects.find(BattleStatusKind::Poison);
     REQUIRE(poisonAfterPayload);
     CHECK(poisonAfterPayload->remainingFrames == 150);
     CHECK(poisonAfterPayload->stacks == 5);
-    CHECK(poisonAfterPayload->potency == 10);
+    CHECK(poisonDamagePercent(poisonAfterPayload->behavior) == 10);
     CHECK(poisonAfterPayload->sourceUnitId == 0);
 
     const auto payload = std::ranges::find(
@@ -1504,6 +1682,7 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[ba
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         target,
+        teamRuntimeUnit(7, 0, 100),
     });
     auto& poison = state.units.require(1).status.effects;
     appendStatus(poison, BattleStatusKind::Poison, 32, 1, 10, 7);
@@ -1544,7 +1723,7 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[ba
     REQUIRE(poisonAfterBlockedSettlement);
     CHECK(poisonAfterBlockedSettlement->remainingFrames > 0);
     CHECK(poisonAfterBlockedSettlement->stacks == 1);
-    CHECK(poisonAfterBlockedSettlement->potency == 10);
+    CHECK(poisonDamagePercent(poisonAfterBlockedSettlement->behavior) == 10);
     CHECK(poisonAfterBlockedSettlement->sourceUnitId == 7);
 }
 
@@ -1556,6 +1735,7 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRe
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 100),
+        teamRuntimeUnit(7, 0, 100),
     });
     auto& poison = state.units.require(1).status.effects;
     appendStatus(poison, BattleStatusKind::Poison, 19, 1, 10, 7);
@@ -1596,7 +1776,7 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRe
     REQUIRE(poisonAfterZeroSettlement);
     CHECK(poisonAfterZeroSettlement->remainingFrames > 0);
     CHECK(poisonAfterZeroSettlement->stacks == 1);
-    CHECK(poisonAfterZeroSettlement->potency == 10);
+    CHECK(poisonDamagePercent(poisonAfterZeroSettlement->behavior) == 10);
     CHECK(poisonAfterZeroSettlement->sourceUnitId == 7);
 }
 
@@ -1607,6 +1787,7 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 100),
+        teamRuntimeUnit(7, 0, 100),
     });
     auto& poison = state.units.require(1).status.effects;
     appendStatus(poison, BattleStatusKind::Poison, 90, 3, 12, 7);
@@ -1627,13 +1808,11 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
     action.durationFrames = 90;
     action.quantity = KysChess::SetStatusTriggerCharges{ 3 };
     action.reapplication = KysChess::StatusReapplicationPolicy::KeepHigherDamage;
-    action.effects = KysChess::PoisonStatusEffects{
-        .currentHpDamagePercent = KysChess::EffectNumber{ .flat = 7 },
-        .sameEventMerge = KysChess::PoisonSameEventMerge::SumDamagePercent,
-    };
+    action.poisonSameEventMerge = KysChess::PoisonSameEventMerge::SumDamagePercent;
+    action.behavior = KysChess::Battle::Test::poisonStatusBehavior(7);
     const EffectCommand command{
         metadata,
-        ApplyStatusEffectCommand{ action, 7, 0 },
+        ApplyStatusEffectCommand{ action, std::nullopt },
     };
     state.effectIntegration.queuedCommandBatches.push_back({
         .commands = { command },
@@ -1645,7 +1824,7 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
     const auto* poisonAfterWeakerPayload = state.units.require(1).status.effects.find(BattleStatusKind::Poison);
     REQUIRE(poisonAfterWeakerPayload);
     CHECK(poisonAfterWeakerPayload->stacks == 3);
-    CHECK(poisonAfterWeakerPayload->potency == 12);
+    CHECK(poisonDamagePercent(poisonAfterWeakerPayload->behavior) == 12);
     CHECK(poisonAfterWeakerPayload->sourceUnitId == 7);
     const auto payloads = std::ranges::count(
         result.logEvents,
@@ -1880,29 +2059,155 @@ TEST_CASE("BattleFrameRunner_ContinuesCompoundEffectsAfterQueuedDamageSettles", 
     CHECK(state.heals.committedTransactions.size() == 1);
 }
 
+TEST_CASE("BattleFrameRunner_DamageContinuationStopsAtStatusContributionRuleBoundary",
+          "[battle][frame_runner][runtime][effect][damage][continuation][status]")
+{
+    auto state = runtimeFrameState();
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 100),
+    });
+    seedDamageExtrasFromUnits(state);
+    auto& effects = state.units.require(1).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::TrueQi,
+        .stacks = 1,
+        .appliedSequence = 7,
+    });
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::TrueQi,
+        .stacks = 1,
+        .appliedSequence = 8,
+    });
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 21,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = EffectRuleId{ 21 };
+    metadata.event = EffectEvent::HitBeforeDamage;
+    metadata.executionLane = EffectExecutionLane::StatusBehavior;
+    metadata.commandOrdinal = 1;
+    metadata.targetUnitId = 1;
+    metadata.statusContribution = EffectStatusContributionContext{
+        .holderUnitId = 1,
+        .sourceUnitId = 0,
+        .kind = BattleStatusKind::TrueQi,
+        .quantity = 1,
+        .appliedSequence = 7,
+        .producerRuleId = EffectRuleId{ 21 },
+    };
+
+    DealDamageAction damageAction;
+    damageAction.kind = BattleDamageKind::Effect;
+    const EffectCommand damageCommand{
+        metadata,
+        DealDamageEffectCommand{ damageAction, 20, 1 },
+    };
+
+    metadata.actionOrder = 1;
+    metadata.commandOrdinal = 2;
+    metadata.statusContribution->appliedSequence = 8;
+    ChangeResourceAction shieldAction;
+    shieldAction.resource = BattleResource::Shield;
+    shieldAction.kind = ResourceChangeKind::Grant;
+    const EffectCommand shieldCommand{
+        metadata,
+        ChangeResourceEffectCommand{ shieldAction, 20 },
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = { damageCommand, shieldCommand },
+        .context = { .frame = 1 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1).empty());
+    CHECK(state.units.requireCore(1).vitals.hp == 100);
+    CHECK(state.units.requireCore(1).shield == 0);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     state.status.config.bleedDamageIntervalFrames = 10;
-
-    BattleStatusUnitState bleeding;
-    bleeding.id = 1;
-    bleeding.alive = true;
-    bleeding.hp = 80;
-    bleeding.maxHp = 100;
-    appendStatus(bleeding.effects, BattleStatusKind::Bleed, 0, 6, 1, 0, 1);
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
-    state.units.require(1).status = runtimeStatusUnit(bleeding);
     seedDamageExtrasFromUnits(state);
+
+    ApplyStatusAction applyBleed;
+    applyBleed.status = BattleStatusKind::Bleed;
+    applyBleed.quantity = AddSharedStatusLayers{ 6, 6 };
+    applyBleed.behavior = makeCatalogOwnedStatusBehavior(applyBleed);
+    EffectCommandMetadata applyMetadata;
+    applyMetadata.binding = {
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 8001,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    applyMetadata.ruleId = EffectRuleId{ 8001 };
+    applyMetadata.event = EffectEvent::UltimateCommitted;
+    applyMetadata.targetUnitId = 1;
+    const BattleCastProvenance applicationCast{
+        .rootCastId = BattleCastId{ 70 },
+        .castId = BattleCastId{ 70 },
+        .sourceUnitId = 0,
+        .magicId = 8001,
+        .ultimate = true,
+    };
+    BattleEffectCommandSystem().reduce(
+        state,
+        EffectCommand{
+            applyMetadata,
+            ApplyStatusEffectCommand{ applyBleed, std::nullopt },
+        },
+        {
+            .frame = 0,
+            .cast = applicationCast,
+        });
+    auto* appliedBleed = state.units.require(1).status.effects.find(
+        BattleStatusKind::Bleed);
+    REQUIRE(appliedBleed);
+    REQUIRE(appliedBleed->behaviorRuntime.size() == 1);
+    appliedBleed->behaviorRuntime.front().intervalFramesRemaining = 1;
+
+    ChangeResourceAction shield;
+    shield.resource = BattleResource::Shield;
+    shield.kind = ResourceChangeKind::Grant;
+    shield.amount.flat = 13;
+    EffectRule fabricatedCastLineage;
+    fabricatedCastLineage.id = EffectRuleId{ 8002 };
+    fabricatedCastLineage.event = EffectEvent::DamageResolved;
+    fabricatedCastLineage.selector.kind = EffectSelectorKind::Self;
+    fabricatedCastLineage.conditions = {
+        IsUltimateCondition{},
+        DamageKindInCondition{ { "流血" } },
+    };
+    fabricatedCastLineage.actions = { EffectAction{ shield } };
+    appendOwnerEffectRule(state, 0, 8002, fabricatedCastLineage);
+
+    auto fabricatedAttackLineage = fabricatedCastLineage;
+    fabricatedAttackLineage.id = EffectRuleId{ 8003 };
+    fabricatedAttackLineage.conditions = {
+        DamageOriginIsAttackCondition{},
+        DamageKindInCondition{ { "流血" } },
+    };
+    std::get<ChangeResourceAction>(
+        fabricatedAttackLineage.actions.front().value).amount.flat = 17;
+    appendOwnerEffectRule(state, 0, 8003, std::move(fabricatedAttackLineage));
 
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 6 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
     CHECK(state.units.requireCore(1).vitals.hp == 74);
+    CHECK(state.units.requireCore(0).shield == 0);
     auto bleedLog = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Damage
@@ -1923,10 +2228,82 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     CHECK(bleedNumber != result.visualEvents.end());
 }
 
+TEST_CASE("BattleFrameRunner combines simultaneous bleed producers into one holder-local transaction",
+          "[battle][frame_runner][runtime][status][bleed][contribution]")
+{
+    auto state = runtimeFrameState();
+    state.status.config.bleedDamageIntervalFrames = 10;
+
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 80),
+        teamRuntimeUnit(2, 0, 100),
+        teamRuntimeUnit(3, 1, 100),
+    });
+    seedDamageExtrasFromUnits(state);
+
+    const auto& bleedingRecord = state.units.require(1);
+    auto bleeding = makeBattleStatusUnitState(
+        bleedingRecord.status,
+        bleedingRecord.core);
+    auto first = BattleDamageSystem().applyBleed(
+        bleeding,
+        makeBattleStatusProducerProvenance({
+            .kind = EffectSourceKind::Magic,
+            .sourceId = 8001,
+            .ownerUnitId = 0,
+        }, EffectRuleId{ 8001 }),
+        3,
+        3);
+    auto second = BattleDamageSystem().applyBleed(
+        std::move(first.target),
+        makeBattleStatusProducerProvenance({
+            .kind = EffectSourceKind::Magic,
+            .sourceId = 8002,
+            .ownerUnitId = 2,
+        }, EffectRuleId{ 8002 }),
+        4,
+        7);
+    auto* bleed = second.target.effects.find(BattleStatusKind::Bleed);
+    REQUIRE(bleed);
+    REQUIRE(bleed->behaviorRuntime.size() == 1);
+    bleed->behaviorRuntime.front().intervalFramesRemaining = 1;
+    state.units.require(1).status = makeBattleStatusRuntimeUnit(second.target);
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 7 });
+    CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 2 });
+    CHECK(state.units.requireCore(1).vitals.hp == 73);
+    CHECK(std::ranges::count_if(result.logEvents, [](const BattleLogEvent& event)
+    {
+        return event.type == BattleLogEventType::Damage
+            && event.targetUnitId == 1
+            && BattleLogTest::textOf(event) == "流血";
+    }) == 1);
+    CHECK(std::ranges::count_if(result.visualEvents, [](const BattleVisualEvent& event)
+    {
+        return event.type == BattleVisualEventType::DamageNumber
+            && event.targetUnitId == 1
+            && event.color.r == 190
+            && event.color.g == 120
+            && event.color.b == 60;
+    }) == 1);
+
+    auto& deadHolder = state.units.require(1);
+    deadHolder.core.alive = false;
+    auto* deadBleed = deadHolder.status.effects.find(BattleStatusKind::Bleed);
+    REQUIRE(deadBleed);
+    deadBleed->behaviorRuntime.front().intervalFramesRemaining = 1;
+    const auto deadFrame = runBattleFrame(state);
+    CHECK(damageLogAmountsFor(deadFrame, 1).empty());
+    CHECK(deadBleed->behaviorRuntime.front().intervalFramesRemaining == 1);
+}
+
 TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[battle][frame_runner][runtime][status][damage]")
 {
     const auto damageAfterTick = [](bool poison,
-                                    std::vector<BattleTypedStatusInstance> statuses)
+                                    std::vector<BattleStatusContribution> statuses)
     {
         auto state = runtimeFrameState();
         state.status.config.poisonDamageIntervalFrames = 30;
@@ -1942,9 +2319,15 @@ TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[b
         status.hp = 80;
         status.maxHp = 100;
         status.effects.statuses = std::move(statuses);
+        for (const auto& contribution : status.effects.statuses)
+        {
+            status.effects.nextStatusSequence = std::max(
+                status.effects.nextStatusSequence,
+                contribution.appliedSequence + 1);
+        }
         if (poison)
         {
-            appendStatus(status.effects, BattleStatusKind::Poison, 3, 1, 10, 0);
+            appendStatus(status.effects, BattleStatusKind::Poison, 3, 1, 10, 0, 1);
         }
         else
         {
@@ -1961,19 +2344,16 @@ TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[b
         return 80 - state.units.requireCore(1).vitals.hp;
     };
 
-    const BattleTypedStatusInstance witheredBone{
-        .kind = KysChess::BattleStatusKind::WitheredBone,
-        .sourceUnitId = 0,
-        .remainingFrames = 120,
-        .potency = 25,
-        .secondaryPotency = 75,
-    };
-    const BattleTypedStatusInstance battleSpirit{
-        .kind = KysChess::BattleStatusKind::BattleSpirit,
-        .sourceUnitId = 1,
-        .remainingFrames = 120,
-        .secondaryPotency = 50,
-    };
+    const auto witheredBone = KysChess::Battle::Test::boundStatusBehaviorContribution(
+        KysChess::BattleStatusKind::WitheredBone,
+        KysChess::Battle::Test::witheredBoneStatusBehavior(25, 75),
+        0,
+        9201);
+    const auto battleSpirit = KysChess::Battle::Test::boundStatusBehaviorContribution(
+        KysChess::BattleStatusKind::BattleSpirit,
+        KysChess::Battle::Test::battleSpiritStatusBehavior(0, 50),
+        1,
+        9202);
 
     CHECK(damageAfterTick(true, {}) == 8);
     CHECK(damageAfterTick(false, {}) == 8);

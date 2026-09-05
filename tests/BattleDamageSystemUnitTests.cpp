@@ -1,12 +1,16 @@
 #include "battle/BattleDamageSystem.h"
 #include "ChessBattleEffectTypes.h"
+#include "BattleCoreTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <limits>
 
 using namespace KysChess::Battle;
+using namespace KysChess;
+using namespace KysChess::Battle::Test;
 
 namespace
 {
@@ -39,6 +43,72 @@ BattleStatusUnitState statusUnit(int id)
     state.hp = 100;
     state.maxHp = 200;
     return state;
+}
+
+BattleStatusProducerProvenance bleedProducer(int sourceUnitId, int sourceId)
+{
+    return makeBattleStatusProducerProvenance(
+        {
+            .kind = EffectSourceKind::Combo,
+            .sourceId = sourceId,
+            .ownerUnitId = sourceUnitId,
+        },
+        EffectRuleId{ static_cast<std::uint64_t>(sourceId) },
+        4,
+        2);
+}
+
+void bindTestStatusBehavior(
+    BattleStatusApplyRequest& request,
+    std::shared_ptr<const StatusBehaviorDefinition> behavior,
+    int sourceId)
+{
+    const EffectSourceBinding binding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = sourceId,
+        .ownerUnitId = request.sourceUnitId,
+    };
+    const EffectRuleId ruleId{ static_cast<std::uint64_t>(sourceId) };
+    request.producer = StatusProducerKey{ .binding = binding, .ruleId = ruleId };
+    request.producerFamily = StatusProducerFamilyKey{
+        .sourceKind = binding.kind,
+        .sourceId = sourceId,
+        .logicalOwnerUnitId = request.sourceUnitId,
+        .ruleId = ruleId,
+    };
+    request.behavior = std::move(behavior);
+    request.origin = BattleStatusEffectOrigin{ binding, ruleId, 0 };
+}
+
+BattleStatusContribution damageInterceptorContribution(
+    BattleStatusKind kind,
+    std::shared_ptr<const StatusBehaviorDefinition> behavior,
+    int stacks,
+    int sourceId = 0,
+    std::uint64_t appliedSequence = 1)
+{
+    if (sourceId == 0) sourceId = 6000 + static_cast<int>(kind);
+    const EffectSourceBinding binding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = sourceId,
+        .ownerUnitId = 2,
+    };
+    const EffectRuleId ruleId{ static_cast<std::uint64_t>(sourceId) };
+    return {
+        .kind = kind,
+        .producer = StatusProducerKey{ .binding = binding, .ruleId = ruleId },
+        .producerFamily = StatusProducerFamilyKey{
+            .sourceKind = binding.kind,
+            .sourceId = binding.sourceId,
+            .logicalOwnerUnitId = binding.ownerUnitId,
+            .ruleId = ruleId,
+        },
+        .behavior = std::move(behavior),
+        .sourceUnitId = 2,
+        .stacks = stacks,
+        .origin = BattleStatusEffectOrigin{ binding, ruleId, 0 },
+        .appliedSequence = appliedSequence,
+    };
 }
 
 TEST_CASE("BattleDamageSystem_UsesGroupedVitalsForDamageState", "[battle][damage]")
@@ -75,6 +145,22 @@ TEST_CASE("BattleDamageSystem_Modifiers_ApplyPerUnitAttackerAndDefenderRules", "
     auto result = BattleDamageSystem().applyModifiers(input);
 
     CHECK(result.damage.toInt() == 175);
+    CHECK_FALSE(result.maxHitCapped);
+}
+
+TEST_CASE("BattleDamageSystem_Modifiers_ApplySignedPersistentPercentagesAtTheSameSlots",
+          "[battle][damage][unit][status][signed]")
+{
+    BattleDamageModifierInput input;
+    input.damage = 100;
+    input.usingSkill = true;
+    input.attacker.skillDamagePct = -20;
+    input.defender.damageTakenIncreasePct = -25;
+    input.defenderUnit = unit();
+
+    const auto result = BattleDamageSystem().applyModifiers(input);
+
+    CHECK(result.damage.toInt() == 60);
     CHECK_FALSE(result.maxHitCapped);
 }
 
@@ -161,6 +247,7 @@ TEST_CASE("BattleDamageSystem_ScriptedHitRequestCarriesAcceptedStatusPayloads", 
     input.stunFrames = 7;
     input.bleedStacks = 3;
     input.bleedMaxStacks = 9;
+    input.bleedProducer = bleedProducer(11, 91);
 
     auto request = BattleDamageSystem().makeScriptedHitRequest(input);
 
@@ -433,79 +520,61 @@ TEST_CASE("BattleDamageSystem_OnHitHpUsesHealModifierBeforeMpDrainAndRestore", "
     CHECK(result.attacker.vitals.mp == 31);
 }
 
-TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle][status][poison][unit]")
+TEST_CASE("BattleStatusSystem_PoisonHonorsReplacementAndStrongestPolicies", "[battle][status][poison][unit]")
 {
     BattleStatusSystem system({});
     BattleStatusApplyRequest replace;
     replace.kind = KysChess::BattleStatusKind::Poison;
     replace.sourceUnitId = 1;
     replace.durationFrames = 120;
-    replace.stacks = 5;
-    replace.potency = 10;
+    replace.stacks = 2;
     replace.stack = KysChess::EffectStackPolicy::Replace;
-    replace.stackLimit = 4;
+    replace.stackLimit = 5;
+    bindTestStatusBehavior(replace, poisonStatusBehavior(10), 101);
 
     auto replaced = system.apply(statusUnit(2), replace);
 
     REQUIRE(replaced.applied);
     CHECK(replaced.outcome == BattleStatusApplyOutcome::Applied);
     REQUIRE(replaced.target.effects.find(KysChess::BattleStatusKind::Poison));
-    CHECK(replaced.target.effects.find(KysChess::BattleStatusKind::Poison)->stacks == 4);
-    CHECK(system.snapshot(replaced.target).stacks(KysChess::BattleStatusKind::Poison) == 4);
-
-    BattleStatusApplyRequest add = replace;
-    add.sourceUnitId = 3;
-    add.durationFrames = 150;
-    add.stacks = 3;
-    add.potency = 12;
-    add.stack = KysChess::EffectStackPolicy::AddStack;
-    add.stackLimit = 5;
-    auto stacked = system.apply(replaced.target, add);
-
-    REQUIRE(stacked.applied);
-    CHECK(stacked.outcome == BattleStatusApplyOutcome::StackChanged);
-    const auto* stackedPoison = stacked.target.effects.find(KysChess::BattleStatusKind::Poison);
-    REQUIRE(stackedPoison);
-    CHECK(stackedPoison->stacks == 5);
-    CHECK(stackedPoison->remainingFrames == 150);
-    CHECK(stackedPoison->potency == 12);
-    CHECK(stackedPoison->sourceUnitId == 3);
+    CHECK(replaced.target.effects.find(KysChess::BattleStatusKind::Poison)->stacks == 2);
+    CHECK(system.snapshot(replaced.target).stacks(KysChess::BattleStatusKind::Poison) == 2);
 
     BattleStatusApplyRequest weaker = replace;
     weaker.sourceUnitId = 4;
     weaker.durationFrames = 180;
     weaker.stacks = 6;
-    weaker.potency = 11;
     weaker.stack = KysChess::EffectStackPolicy::KeepStrongest;
     weaker.stackLimit = 6;
-    auto kept = system.apply(stacked.target, weaker);
+    bindTestStatusBehavior(weaker, poisonStatusBehavior(9), 103);
+    auto kept = system.apply(replaced.target, weaker);
 
     CHECK_FALSE(kept.applied);
     CHECK(kept.outcome == BattleStatusApplyOutcome::KeptStronger);
     const auto* keptPoison = kept.target.effects.find(KysChess::BattleStatusKind::Poison);
     REQUIRE(keptPoison);
-    CHECK(keptPoison->stacks == 5);
-    CHECK(keptPoison->remainingFrames == 150);
-    CHECK(keptPoison->potency == 12);
-    CHECK(keptPoison->sourceUnitId == 3);
+    CHECK(keptPoison->stacks == 2);
+    CHECK(keptPoison->remainingFrames == 120);
+    CHECK(poisonDamagePercent(keptPoison->behavior) == 10);
+    CHECK(keptPoison->sourceUnitId == 1);
 
     BattleStatusApplyRequest equal = weaker;
-    equal.potency = 12;
+    bindTestStatusBehavior(equal, poisonStatusBehavior(10), 104);
     equal.durationFrames = 180;
-    const auto equalKept = system.apply(stacked.target, equal);
+    const auto equalKept = system.apply(replaced.target, equal);
 
     CHECK_FALSE(equalKept.applied);
     CHECK(equalKept.outcome == BattleStatusApplyOutcome::KeptStronger);
     const auto* equalPoison = equalKept.target.effects.find(
         KysChess::BattleStatusKind::Poison);
     REQUIRE(equalPoison);
-    CHECK(equalPoison->remainingFrames == 150);
-    CHECK(equalPoison->stacks == 5);
-    CHECK(equalPoison->potency == 12);
-    CHECK(equalPoison->sourceUnitId == 3);
+    CHECK(equalPoison->remainingFrames == 120);
+    CHECK(equalPoison->stacks == 2);
+    CHECK(poisonDamagePercent(equalPoison->behavior) == 10);
+    CHECK(equalPoison->sourceUnitId == 1);
 
     BattleStatusApplyRequest stronger = weaker;
-    stronger.potency = 13;
+    bindTestStatusBehavior(stronger, poisonStatusBehavior(13), 105);
     stronger.durationFrames = 180;
     stronger.stacks = 6;
     stronger.origin = BattleStatusEffectOrigin{
@@ -527,7 +596,7 @@ TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle]
     REQUIRE(strongerPoison);
     CHECK(strongerPoison->remainingFrames == 180);
     CHECK(strongerPoison->stacks == 6);
-    CHECK(strongerPoison->potency == 13);
+    CHECK(poisonDamagePercent(strongerPoison->behavior) == 13);
     CHECK(strongerPoison->sourceUnitId == 4);
     CHECK(strongerPoison->origin == stronger.origin);
 
@@ -535,9 +604,8 @@ TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle]
     reset.sourceUnitId = 5;
     reset.durationFrames = 90;
     reset.stacks = 2;
-    reset.potency = 10;
     reset.stack = KysChess::EffectStackPolicy::Replace;
-    reset.origin.reset();
+    bindTestStatusBehavior(reset, poisonStatusBehavior(10), 106);
     const auto resetApplied = system.apply(strongerApplied.target, reset);
 
     REQUIRE(resetApplied.applied);
@@ -547,9 +615,9 @@ TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle]
     REQUIRE(resetPoison);
     CHECK(resetPoison->remainingFrames == 90);
     CHECK(resetPoison->stacks == 2);
-    CHECK(resetPoison->potency == 10);
+    CHECK(poisonDamagePercent(resetPoison->behavior) == 10);
     CHECK(resetPoison->sourceUnitId == 5);
-    CHECK_FALSE(resetPoison->origin);
+    CHECK(resetPoison->origin == reset.origin);
 
     const auto consumed = system.consume(kept.target, {
         .kind = KysChess::BattleStatusKind::Poison,
@@ -557,13 +625,12 @@ TEST_CASE("BattleStatusSystem_PoisonHonorsStacksCapsAndMergePolicies", "[battle]
     });
     CHECK(consumed.consumed);
     CHECK(consumed.consumedStatus.stacks == 2);
-    CHECK(consumed.remainingStacks == 3);
-    REQUIRE(consumed.target.effects.find(KysChess::BattleStatusKind::Poison));
-    CHECK(consumed.target.effects.find(KysChess::BattleStatusKind::Poison)->stacks == 3);
-    CHECK(system.snapshot(consumed.target).stacks(KysChess::BattleStatusKind::Poison) == 3);
+    CHECK(consumed.remainingStacks == 0);
+    CHECK_FALSE(consumed.target.effects.find(KysChess::BattleStatusKind::Poison));
+    CHECK(system.snapshot(consumed.target).stacks(KysChess::BattleStatusKind::Poison) == 0);
 }
 
-TEST_CASE("BattleStatusSystem refreshes stacked status origin even at the layer cap",
+TEST_CASE("BattleStatusSystem keeps stacked contribution origin immutable at the layer cap",
           "[battle][status][origin][stack]")
 {
     BattleStatusSystem system({});
@@ -571,7 +638,6 @@ TEST_CASE("BattleStatusSystem refreshes stacked status origin even at the layer 
     first.kind = KysChess::BattleStatusKind::TrueQi;
     first.sourceUnitId = 1;
     first.stacks = 10;
-    first.potency = 9;
     first.stack = KysChess::EffectStackPolicy::AddStack;
     first.stackLimit = 10;
     first.origin = BattleStatusEffectOrigin{
@@ -585,6 +651,17 @@ TEST_CASE("BattleStatusSystem refreshes stacked status origin even at the layer 
         .ruleId = KysChess::EffectRuleId{ 100 },
         .ruleOrder = 4,
     };
+    first.producer = StatusProducerKey{
+        .binding = first.origin->binding,
+        .ruleId = first.origin->ruleId,
+    };
+    first.producerFamily = StatusProducerFamilyKey{
+        .sourceKind = first.origin->binding.kind,
+        .sourceId = first.origin->binding.sourceId,
+        .logicalOwnerUnitId = first.origin->binding.ownerUnitId,
+        .ruleId = first.origin->ruleId,
+    };
+    first.behavior = trueQiStatusBehavior(9);
     const auto applied = system.apply(statusUnit(1), first);
     REQUIRE(applied.applied);
 
@@ -601,8 +678,9 @@ TEST_CASE("BattleStatusSystem refreshes stacked status origin even at the layer 
         KysChess::BattleStatusKind::TrueQi);
     REQUIRE(trueQi);
     CHECK(trueQi->stacks == 10);
-    CHECK(trueQi->potency == 9);
-    CHECK(trueQi->origin == cappedRefresh.origin);
+    CHECK(std::get<DealDamageAction>(
+        trueQi->behavior->rules.front().actions.front().value).amount.flat == 9);
+    CHECK(trueQi->origin == first.origin);
 }
 
 TEST_CASE("BattleStatusSystem saturates additive status arithmetic",
@@ -616,20 +694,15 @@ TEST_CASE("BattleStatusSystem saturates additive status arithmetic",
         request.sourceUnitId = 1;
         request.durationFrames = durationFrames;
         request.stacks = std::numeric_limits<int>::max() - 1;
-        request.potency = 1;
         request.stack = KysChess::EffectStackPolicy::AddStack;
-        request.stackLimit = std::numeric_limits<int>::max();
-        if (kind == KysChess::BattleStatusKind::TrueQi)
-        {
-            request.origin = BattleStatusEffectOrigin{
-                .binding = {
-                    .kind = KysChess::EffectSourceKind::Magic,
-                    .sourceId = 106,
-                    .ownerUnitId = 1,
-                },
-                .ruleId = KysChess::EffectRuleId{ 106 },
-            };
-        }
+        if (kind == KysChess::BattleStatusKind::Bleed)
+            request.targetTotalLimit = std::numeric_limits<int>::max();
+        else
+            request.stackLimit = std::numeric_limits<int>::max();
+        const auto behavior = kind == KysChess::BattleStatusKind::Bleed
+            ? makeRuntimeBleedStatusBehavior()
+            : trueQiStatusBehavior(1);
+        bindTestStatusBehavior(request, behavior, 1000 + static_cast<int>(kind));
 
         const auto first = system.apply(statusUnit(2), request);
         REQUIRE(first.target.effects.find(kind));
@@ -643,7 +716,6 @@ TEST_CASE("BattleStatusSystem saturates additive status arithmetic",
             == std::numeric_limits<int>::max());
     };
 
-    verifyLayers(KysChess::BattleStatusKind::Poison, 30);
     verifyLayers(KysChess::BattleStatusKind::Bleed, 0);
     verifyLayers(KysChess::BattleStatusKind::TrueQi, 0);
 
@@ -665,7 +737,7 @@ TEST_CASE("BattleStatusSystem saturates additive status arithmetic",
 TEST_CASE("BattleStatusSystem_RemainingPoisonProjectionUsesFutureTickSchedule", "[battle][status][poison][unit]")
 {
     const BattleRemainingPoisonDamageInput nonAligned{
-        .firstFutureFrame = 41,
+        .framesUntilNextTick = 11,
         .remainingFrames = 31,
         .remainingStacks = 1,
         .intervalFrames = 30,
@@ -675,7 +747,7 @@ TEST_CASE("BattleStatusSystem_RemainingPoisonProjectionUsesFutureTickSchedule", 
     CHECK(projectRemainingPoisonDamage(nonAligned) == 10);
 
     const BattleRemainingPoisonDamageInput decreasingHp{
-        .firstFutureFrame = 1,
+        .framesUntilNextTick = 1,
         .remainingFrames = 90,
         .remainingStacks = 3,
         .intervalFrames = 30,
@@ -685,7 +757,7 @@ TEST_CASE("BattleStatusSystem_RemainingPoisonProjectionUsesFutureTickSchedule", 
     CHECK(projectRemainingPoisonDamage(decreasingHp) == 27);
 
     const BattleRemainingPoisonDamageInput saturating{
-        .firstFutureFrame = 30,
+        .framesUntilNextTick = 1,
         .remainingFrames = 1,
         .remainingStacks = 1,
         .intervalFrames = 30,
@@ -696,7 +768,7 @@ TEST_CASE("BattleStatusSystem_RemainingPoisonProjectionUsesFutureTickSchedule", 
           == std::numeric_limits<int>::max());
 
     const BattleRemainingPoisonDamageInput stackLimited{
-        .firstFutureFrame = 1,
+        .framesUntilNextTick = 1,
         .remainingFrames = 150,
         .remainingStacks = 2,
         .intervalFrames = 30,
@@ -709,46 +781,39 @@ TEST_CASE("BattleStatusSystem_RemainingPoisonProjectionUsesFutureTickSchedule", 
 TEST_CASE("BattleDamageSystem_Bleed_PreservesPendingTickAcrossApplications", "[battle][damage][unit]")
 {
     auto target = statusUnit(2);
-    target.effects.statuses.push_back({
-        .kind = KysChess::BattleStatusKind::Bleed,
-        .stacks = 2,
-    });
-
-    auto result = BattleDamageSystem().applyBleed(target, 1, 2, 3);
+    auto result = BattleDamageSystem().applyBleed(
+        target, bleedProducer(1, 101), 2, 3);
 
     CHECK(result.applied);
     auto* bleed = result.target.effects.find(KysChess::BattleStatusKind::Bleed);
     REQUIRE(bleed);
-    CHECK(bleed->stacks == 3);
-    CHECK(bleed->tickFramesRemaining == 10);
+    CHECK(bleed->stacks == 2);
+    REQUIRE(bleed->behaviorRuntime.size() == 1);
+    CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
     CHECK(bleed->sourceUnitId == 1);
-    CHECK(result.value == 3);
+    CHECK(result.value == 2);
 
-    bleed->tickFramesRemaining = 7;
-    auto capped = BattleDamageSystem().applyBleed(result.target, 4, 1, 3);
-    CHECK_FALSE(capped.applied);
+    bleed->behaviorRuntime.front().intervalFramesRemaining = 7;
+    auto capped = BattleDamageSystem().applyBleed(
+        result.target, bleedProducer(1, 101), 2, 3);
+    CHECK(capped.applied);
     const auto* cappedBleed = capped.target.effects.find(KysChess::BattleStatusKind::Bleed);
     REQUIRE(cappedBleed);
     CHECK(cappedBleed->stacks == 3);
-    CHECK(cappedBleed->tickFramesRemaining == 7);
-    CHECK(cappedBleed->sourceUnitId == 4);
+    CHECK(cappedBleed->behaviorRuntime.front().intervalFramesRemaining == 7);
+    CHECK(cappedBleed->sourceUnitId == 1);
 
-    const auto sequenceBeforeReplace = cappedBleed->appliedSequence;
-    BattleStatusApplyRequest replace;
-    replace.kind = KysChess::BattleStatusKind::Bleed;
-    replace.sourceUnitId = 5;
-    replace.stacks = 1;
-    replace.stack = KysChess::EffectStackPolicy::Replace;
-    auto replaced = BattleStatusSystem({ .bleedDamageIntervalFrames = 10 }).apply(
-        capped.target,
-        replace);
-
-    const auto* replacedBleed = replaced.target.effects.find(KysChess::BattleStatusKind::Bleed);
-    REQUIRE(replacedBleed);
-    CHECK(replacedBleed->stacks == 1);
-    CHECK(replacedBleed->tickFramesRemaining == 7);
-    CHECK(replacedBleed->sourceUnitId == 5);
-    CHECK(replacedBleed->appliedSequence > sequenceBeforeReplace);
+    const auto rejectedAtSharedCap = BattleDamageSystem().applyBleed(
+        capped.target, bleedProducer(4, 404), 1, 3);
+    CHECK_FALSE(rejectedAtSharedCap.applied);
+    CHECK(rejectedAtSharedCap.target.effects.statuses.size() == 1);
+    CHECK(BattleStatusSystem({}).snapshot(rejectedAtSharedCap.target).stacks(
+        KysChess::BattleStatusKind::Bleed) == 3);
+    const auto* unchanged = rejectedAtSharedCap.target.effects.find(
+        KysChess::BattleStatusKind::Bleed);
+    REQUIRE(unchanged);
+    CHECK(unchanged->sourceUnitId == 1);
+    CHECK(unchanged->behaviorRuntime.front().intervalFramesRemaining == 7);
 }
 
 TEST_CASE("BattleDamageSystem_TransactionPhysicalDamageAppliesAttackerDefenderModifiers", "[battle][damage][unit]")
@@ -817,11 +882,10 @@ TEST_CASE("BattleDamageSystem consumes one damage-block charge per eligible tran
     input.defender = unit();
     input.defender.id = 2;
     input.defenderStatus = statusUnit(2);
-    input.defenderStatus.effects.statuses.push_back({
-        .kind = KysChess::BattleStatusKind::DamageBlockLayer,
-        .sourceUnitId = 2,
-        .stacks = 2,
-    });
+    input.defenderStatus.effects.statuses.push_back(damageInterceptorContribution(
+        KysChess::BattleStatusKind::DamageBlockLayer,
+        damageBlockStatusBehavior(),
+        2));
 
     const auto first = BattleDamageSystem().resolveTransaction(input);
 
@@ -863,12 +927,10 @@ TEST_CASE("BattleDamageSystem consumes the next-hit cap even when it does not re
         input.defender = unit();
         input.defender.id = 2;
         input.defenderStatus = statusUnit(2);
-        input.defenderStatus.effects.statuses.push_back({
-            .kind = KysChess::BattleStatusKind::SingleHitCapLayer,
-            .sourceUnitId = 2,
-            .stacks = 1,
-            .potency = 30,
-        });
+        input.defenderStatus.effects.statuses.push_back(damageInterceptorContribution(
+            KysChess::BattleStatusKind::SingleHitCapLayer,
+            singleHitCapStatusBehavior(30),
+            1));
         return BattleDamageSystem().resolveTransaction(input);
     };
 
@@ -885,6 +947,156 @@ TEST_CASE("BattleDamageSystem consumes the next-hit cap even when it does not re
     CHECK(aboveCap.finalHpDamage == 30);
     CHECK_FALSE(aboveCap.defenderStatus.effects.has(
         KysChess::BattleStatusKind::SingleHitCapLayer));
+}
+
+TEST_CASE("BattleDamageSystem resolves blocks before the strongest next-hit cap and consumes exactly one contribution",
+          "[battle][damage][status][charge][cap][priority]")
+{
+    const auto makeInput = []
+    {
+        BattleDamageTransactionInput input;
+        input.request.attackerUnitId = 1;
+        input.request.defenderUnitId = 2;
+        input.request.baseDamage = 80;
+        input.attacker = unit();
+        input.attacker.id = 1;
+        input.defender = unit();
+        input.defender.id = 2;
+        input.defenderStatus = statusUnit(2);
+        input.defenderStatus.effects.statuses.push_back(
+            damageInterceptorContribution(
+                BattleStatusKind::SingleHitCapLayer,
+                singleHitCapStatusBehavior(30),
+                1,
+                6030,
+                1));
+        input.defenderStatus.effects.statuses.push_back(
+            damageInterceptorContribution(
+                BattleStatusKind::SingleHitCapLayer,
+                singleHitCapStatusBehavior(15),
+                1,
+                6015,
+                2));
+        input.defenderStatus.effects.statuses.push_back(
+            damageInterceptorContribution(
+                BattleStatusKind::DamageBlockLayer,
+                damageBlockStatusBehavior(),
+                1,
+                6099,
+                3));
+        return input;
+    };
+
+    auto input = makeInput();
+    const auto blocked = BattleDamageSystem().resolveTransaction(input);
+    CHECK(blocked.blockedByDamageLayer);
+    CHECK_FALSE(blocked.singleHitCapConsumed);
+    CHECK(blocked.finalHpDamage == 0);
+    CHECK_FALSE(blocked.defenderStatus.effects.has(
+        BattleStatusKind::DamageBlockLayer));
+    CHECK(BattleStatusSystem({}).snapshot(blocked.defenderStatus).stacks(
+        BattleStatusKind::SingleHitCapLayer) == 2);
+
+    input.defender = blocked.defender;
+    input.defenderStatus = blocked.defenderStatus;
+    const auto capped = BattleDamageSystem().resolveTransaction(input);
+    CHECK_FALSE(capped.blockedByDamageLayer);
+    CHECK(capped.singleHitCapConsumed);
+    CHECK(capped.singleHitCapped);
+    CHECK(capped.finalHpDamage == 15);
+    const auto remainingCaps = BattleStatusSystem({}).snapshot(
+        capped.defenderStatus);
+    CHECK(remainingCaps.stacks(BattleStatusKind::SingleHitCapLayer) == 1);
+    REQUIRE(capped.defenderStatus.effects.statuses.size() == 1);
+    CHECK(capped.defenderStatus.effects.statuses.front().producer->binding.sourceId
+        == 6030);
+}
+
+TEST_CASE("BattleDamageSystem breaks equal next-hit cap values by oldest application",
+          "[battle][damage][status][charge][cap][priority]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 80;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defenderStatus = statusUnit(2);
+    input.defenderStatus.effects.statuses.push_back(
+        damageInterceptorContribution(
+            BattleStatusKind::SingleHitCapLayer,
+            singleHitCapStatusBehavior(20),
+            1,
+            6021,
+            9));
+    input.defenderStatus.effects.statuses.push_back(
+        damageInterceptorContribution(
+            BattleStatusKind::SingleHitCapLayer,
+            singleHitCapStatusBehavior(20),
+            1,
+            6022,
+            4));
+
+    const auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.singleHitCapConsumed);
+    CHECK(result.finalHpDamage == 20);
+    REQUIRE(result.defenderStatus.effects.statuses.size() == 1);
+    CHECK(result.defenderStatus.effects.statuses.front().producer->binding.sourceId
+        == 6021);
+}
+
+TEST_CASE("BattleDamageSystem invincibility dual-wield and execute do not consume block or cap out of order",
+          "[battle][damage][status][charge][cap][priority]")
+{
+    const auto resolve = [](int invincible, int dualWield, bool execute)
+    {
+        BattleDamageTransactionInput input;
+        input.request.attackerUnitId = 1;
+        input.request.defenderUnitId = 2;
+        input.request.baseDamage = 80;
+        input.request.canExecute = execute;
+        input.request.executeThresholdPct = execute ? 100 : 0;
+        input.attacker = unit();
+        input.attacker.id = 1;
+        input.defender = unit();
+        input.defender.id = 2;
+        input.defender.invincible = invincible;
+        input.defender.dualWieldBlocksRemaining = dualWield;
+        input.defenderStatus = statusUnit(2);
+        input.defenderStatus.effects.statuses.push_back(
+            damageInterceptorContribution(
+                BattleStatusKind::DamageBlockLayer,
+                damageBlockStatusBehavior(),
+                1,
+                6101,
+                1));
+        input.defenderStatus.effects.statuses.push_back(
+            damageInterceptorContribution(
+                BattleStatusKind::SingleHitCapLayer,
+                singleHitCapStatusBehavior(15),
+                1,
+                6102,
+                2));
+        return BattleDamageSystem().resolveTransaction(input);
+    };
+
+    const auto invincible = resolve(10, 1, false);
+    CHECK(invincible.blockedByInvincible);
+    CHECK(invincible.defender.dualWieldBlocksRemaining == 1);
+    CHECK(invincible.defenderStatus.effects.statuses.size() == 2);
+
+    const auto dualWield = resolve(0, 1, false);
+    CHECK(dualWield.blockedByDualWield);
+    CHECK(dualWield.defender.dualWieldBlocksRemaining == 0);
+    CHECK(dualWield.defenderStatus.effects.statuses.size() == 2);
+
+    const auto executed = resolve(10, 1, true);
+    CHECK(executed.executed);
+    CHECK(executed.killed);
+    CHECK(executed.defenderStatus.effects.statuses.size() == 2);
 }
 
 TEST_CASE("BattleDamageSystem_TransactionInvincibilityBlocksNormalDamageButNotExecute", "[battle][damage][unit]")
@@ -1109,6 +1321,7 @@ TEST_CASE("BattleDamageSystem_TransactionAcceptedZeroDamageEffectsCanApplyStatus
     input.request.stunFrames = 6;
     input.request.bleedStacks = 1;
     input.request.bleedMaxStacks = 3;
+    input.request.bleedProducer = bleedProducer(1, 101);
     input.attacker = unit();
     input.attacker.id = 1;
     input.defender = unit();
@@ -1200,13 +1413,11 @@ TEST_CASE("BattleDamageSystem_TransactionTypedDamageTakenRespectsPreResolvedBoun
     input.defender = unit();
     input.defender.id = 2;
     input.defenderStatus = statusUnit(2);
-    input.defenderStatus.effects.statuses.push_back({
-        .kind = KysChess::BattleStatusKind::WitheredBone,
-        .sourceUnitId = 1,
-        .remainingFrames = 120,
-        .potency = 25,
-        .secondaryPotency = 75,
-    });
+    input.defenderStatus.effects.statuses.push_back(boundStatusBehaviorContribution(
+        KysChess::BattleStatusKind::WitheredBone,
+        witheredBoneStatusBehavior(25, 75),
+        1,
+        9001));
 
     input.request.baseDamage = 66;
     const auto resolvedHere = BattleDamageSystem().resolveTransaction(input);
@@ -1228,12 +1439,11 @@ TEST_CASE("BattleDamageSystem_TransactionTypedDamageTakenRespectsPreResolvedBoun
     const auto typedDefenderOnly = BattleDamageSystem().resolveTransaction(input);
     CHECK(typedDefenderOnly.finalHpDamage == 82);
 
-    input.defenderStatus.effects.statuses.push_back({
-        .kind = KysChess::BattleStatusKind::BattleSpirit,
-        .sourceUnitId = 2,
-        .remainingFrames = 120,
-        .secondaryPotency = 10,
-    });
+    input.defenderStatus.effects.statuses.push_back(boundStatusBehaviorContribution(
+        KysChess::BattleStatusKind::BattleSpirit,
+        battleSpiritStatusBehavior(0, 10),
+        2,
+        9002));
     input.request.baseDamage = 80;
     const auto typedReduction = BattleDamageSystem().resolveTransaction(input);
     CHECK(typedReduction.resolvedDamageBeforeDefense == 90);
@@ -1256,12 +1466,11 @@ TEST_CASE("BattleDamageSystem_PreResolvedTypedReductionSharesCapWithAbsorptionAn
     input.defender.id = 2;
     input.defender.shield = 15;
     input.defenderStatus = statusUnit(2);
-    input.defenderStatus.effects.statuses.push_back({
-        .kind = KysChess::BattleStatusKind::BattleSpirit,
-        .sourceUnitId = 2,
-        .remainingFrames = 120,
-        .secondaryPotency = 70,
-    });
+    input.defenderStatus.effects.statuses.push_back(boundStatusBehaviorContribution(
+        KysChess::BattleStatusKind::BattleSpirit,
+        battleSpiritStatusBehavior(0, 70),
+        2,
+        9003));
     input.absorptionLayers = { { 1, 50 } };
 
     const auto reduced = BattleDamageSystem().resolveTransaction(input);
@@ -1271,6 +1480,100 @@ TEST_CASE("BattleDamageSystem_PreResolvedTypedReductionSharesCapWithAbsorptionAn
     CHECK(reduced.absorptionReceipts.front().absorbedDamage == 10);
     CHECK(reduced.shieldAbsorbed == 15);
     CHECK(reduced.finalHpDamage == 5);
+}
+
+TEST_CASE("Persistent status damage modifiers preserve the established accumulator and defense pipeline",
+          "[battle][damage][status][persistent][parity]")
+{
+    struct Scenario
+    {
+        int baseDamage{};
+        bool usingSkill{};
+        bool ignoreDefense{};
+        int shield{};
+        int maxHitPct{};
+    };
+    const std::array scenarios{
+        Scenario{ 67, true, false, 0, 0 },
+        Scenario{ 203, true, true, 17, 20 },
+        Scenario{ 67, false, false, 9, 0 },
+    };
+
+    for (const auto& scenario : scenarios)
+    {
+        CAPTURE(
+            scenario.baseDamage,
+            scenario.usingSkill,
+            scenario.ignoreDefense,
+            scenario.shield,
+            scenario.maxHitPct);
+        BattleDamageTransactionInput statusInput;
+        statusInput.request.attackerUnitId = 1;
+        statusInput.request.defenderUnitId = 2;
+        statusInput.request.baseDamage = scenario.baseDamage;
+        statusInput.request.usingSkill = scenario.usingSkill;
+        statusInput.request.ignoreDefense = scenario.ignoreDefense;
+        statusInput.attacker = unit();
+        statusInput.attacker.id = 1;
+        statusInput.attacker.vitals = { 1000, 1000, 0, 0 };
+        statusInput.defender = unit();
+        statusInput.defender.id = 2;
+        statusInput.defender.vitals = { 1000, 1000, 0, 0 };
+        statusInput.defender.shield = scenario.shield;
+        statusInput.attackerModifiers.flatDamageIncrease = 7;
+        statusInput.defenderModifiers.flatDamageReduction = 3;
+        statusInput.defenderModifiers.damageReductionPct = 11;
+        statusInput.defenderModifiers.maxHitPctMaxHp = scenario.maxHitPct;
+        statusInput.attackerStatus = statusUnit(1);
+        statusInput.defenderStatus = statusUnit(2);
+        statusInput.attackerStatus.effects.statuses.push_back(
+            boundStatusBehaviorContribution(
+                BattleStatusKind::BattleSpirit,
+                battleSpiritStatusBehavior(5, 0),
+                1,
+                9101,
+                3,
+                1));
+        statusInput.defenderStatus.effects.statuses.push_back(
+            boundStatusBehaviorContribution(
+                BattleStatusKind::BattleSpirit,
+                battleSpiritStatusBehavior(0, 7),
+                2,
+                9102,
+                3,
+                1));
+        statusInput.defenderStatus.effects.statuses.push_back(
+            boundStatusBehaviorContribution(
+                BattleStatusKind::WitheredBone,
+                witheredBoneStatusBehavior(25, 75),
+                1,
+                9103,
+                1,
+                2));
+
+        auto explicitInput = statusInput;
+        explicitInput.attackerStatus.effects.statuses.clear();
+        explicitInput.defenderStatus.effects.statuses.clear();
+        explicitInput.attackerModifiers.skillDamagePct += 15;
+        explicitInput.defenderModifiers.damageReductionPct += 21;
+        explicitInput.defenderModifiers.damageTakenIncreasePct += 25;
+
+        const auto fromStatuses = BattleDamageSystem().resolveTransaction(statusInput);
+        const auto fromEstablishedAccumulators = BattleDamageSystem().resolveTransaction(
+            explicitInput);
+        CHECK(fromStatuses.resolvedDamageBeforeDefense
+            == fromEstablishedAccumulators.resolvedDamageBeforeDefense);
+        CHECK(fromStatuses.finalHpDamage == fromEstablishedAccumulators.finalHpDamage);
+        CHECK(fromStatuses.shieldAbsorbed == fromEstablishedAccumulators.shieldAbsorbed);
+        CHECK(fromStatuses.combinedDamageReductionBasisPoints
+            == fromEstablishedAccumulators.combinedDamageReductionBasisPoints);
+        CHECK(fromStatuses.singleHitCapped
+            == fromEstablishedAccumulators.singleHitCapped);
+        CHECK(fromStatuses.defender.vitals.hp
+            == fromEstablishedAccumulators.defender.vitals.hp);
+        CHECK(fromStatuses.defender.shield
+            == fromEstablishedAccumulators.defender.shield);
+    }
 }
 
 TEST_CASE("BattleDamageSystem_PreservesTypedPoisonAndBleedKinds", "[battle][damage][status][unit]")

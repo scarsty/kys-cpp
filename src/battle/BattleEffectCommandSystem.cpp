@@ -131,6 +131,7 @@ bool sameDamageAbsorptionDomain(
     return sameBinding(absorption.binding, metadata.binding)
         && absorption.ruleId == metadata.ruleId
         && absorption.actionOrder == metadata.actionOrder
+        && absorption.statusContribution == metadata.statusContribution
         && absorption.targetUnitId == metadata.targetUnitId
         && absorption.slot == action.slot;
 }
@@ -251,6 +252,35 @@ bool expiryLater(
     return current && *candidate > *current;
 }
 
+std::uint64_t allocateNegativeEffectSequence(
+    std::uint64_t* nextSequence,
+    bool negative)
+{
+    if (!negative || !nextSequence) return 0;
+    assert(*nextSequence > 0);
+    assert(*nextSequence < std::numeric_limits<std::uint64_t>::max());
+    return (*nextSequence)++;
+}
+
+template<class Instance>
+void updateModifierPolarity(
+    Instance& instance,
+    bool negative,
+    std::uint64_t* nextNegativeEffectSequence)
+{
+    if (negative && !instance.negative)
+    {
+        instance.negativeEffectSequence = allocateNegativeEffectSequence(
+            nextNegativeEffectSequence,
+            true);
+    }
+    else if (!negative)
+    {
+        instance.negativeEffectSequence = 0;
+    }
+    instance.negative = negative;
+}
+
 template<class Instance,
          class SameDomain,
          class Make,
@@ -318,8 +348,14 @@ std::pair<BattleModifierApplyOutcome, Instance> applyStackPolicy(
         else if (incomingStrength > strength(*first))
         {
             const auto sequence = first->sequence;
+            const auto negativeEffectSequence = first->negativeEffectSequence;
+            const bool wasNegative = first->negative;
             *first = make();
             first->sequence = sequence;
+            if (wasNegative && first->negative)
+            {
+                first->negativeEffectSequence = negativeEffectSequence;
+            }
             applied = &*first;
             outcome = BattleModifierApplyOutcome::Replaced;
         }
@@ -356,10 +392,17 @@ BattleAttributeModifierInstance makeAttributeModifier(
     BattleEffectCommandRuntimeState& runtime,
     const EffectCommandMetadata& metadata,
     const ModifyAttributeEffectCommand& command,
-    int frame)
+    int frame,
+    std::uint64_t* nextNegativeEffectSequence)
 {
+    const bool negative = attributeModifierIsNegative(
+        command.action.operation,
+        command.amount);
     return {
         .sequence = runtime.nextAttributeSequence++,
+        .negativeEffectSequence = allocateNegativeEffectSequence(
+            nextNegativeEffectSequence,
+            negative),
         .binding = metadata.binding,
         .ruleId = metadata.ruleId,
         .actionOrder = metadata.actionOrder,
@@ -375,9 +418,7 @@ BattleAttributeModifierInstance makeAttributeModifier(
         .eventSourceUnitId = command.action.stackScope == EffectStackScope::EventSource
             ? metadata.eventSourceUnitId
             : -1,
-        .negative = attributeModifierIsNegative(
-            command.action.operation,
-            command.amount),
+        .negative = negative,
     };
 }
 
@@ -385,7 +426,8 @@ BattleAttributeEffectResult applyAttribute(
     BattleEffectCommandRuntimeState& runtime,
     const EffectCommandMetadata& metadata,
     const ModifyAttributeEffectCommand& command,
-    int frame)
+    int frame,
+    std::uint64_t* nextNegativeEffectSequence)
 {
     const auto expiry = modifierExpiry(frame, command.action.durationFrames);
     const auto [outcome, modifier] = applyStackPolicy(
@@ -397,7 +439,12 @@ BattleAttributeEffectResult applyAttribute(
         },
         [&]
         {
-            return makeAttributeModifier(runtime, metadata, command, frame);
+            return makeAttributeModifier(
+                runtime,
+                metadata,
+                command,
+                frame,
+                nextNegativeEffectSequence);
         },
         [&](auto& current)
         {
@@ -406,9 +453,12 @@ BattleAttributeEffectResult applyAttribute(
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
             current.stackLimit = command.action.stackLimit;
-            current.negative = attributeModifierIsNegative(
-                command.action.operation,
-                command.amount);
+            updateModifierPolarity(
+                current,
+                attributeModifierIsNegative(
+                    command.action.operation,
+                    command.amount),
+                nextNegativeEffectSequence);
         },
         [](const auto& current)
         {
@@ -432,9 +482,12 @@ BattleAttributeEffectResult applyAttribute(
             current.amount = command.amount;
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
-            current.negative = attributeModifierIsNegative(
-                command.action.operation,
-                command.amount);
+            updateModifierPolarity(
+                current,
+                attributeModifierIsNegative(
+                    command.action.operation,
+                    command.amount),
+                nextNegativeEffectSequence);
         });
     return { outcome, modifier };
 }
@@ -443,10 +496,18 @@ BattleDamageModifierInstance makeDamageModifier(
     BattleEffectCommandRuntimeState& runtime,
     const EffectCommandMetadata& metadata,
     const ModifyDamageEffectCommand& command,
-    int frame)
+    int frame,
+    std::uint64_t* nextNegativeEffectSequence)
 {
+    const bool negative = damageModifierIsNegative(
+        command.action.perspective,
+        command.action.operation,
+        command.amount);
     return {
         .sequence = runtime.nextDamageSequence++,
+        .negativeEffectSequence = allocateNegativeEffectSequence(
+            nextNegativeEffectSequence,
+            negative),
         .binding = metadata.binding,
         .ruleId = metadata.ruleId,
         .actionOrder = metadata.actionOrder,
@@ -464,10 +525,7 @@ BattleDamageModifierInstance makeDamageModifier(
         .stack = command.action.stack,
         .stackLimit = command.action.stackLimit,
         .stackCount = 1,
-        .negative = damageModifierIsNegative(
-            command.action.perspective,
-            command.action.operation,
-            command.amount),
+        .negative = negative,
     };
 }
 
@@ -475,7 +533,8 @@ BattleDamageModifierEffectResult applyDamageModifier(
     BattleEffectCommandRuntimeState& runtime,
     const EffectCommandMetadata& metadata,
     const ModifyDamageEffectCommand& command,
-    int frame)
+    int frame,
+    std::uint64_t* nextNegativeEffectSequence)
 {
     const auto expiry = modifierExpiry(frame, command.action.durationFrames);
     const auto [outcome, modifier] = applyStackPolicy(
@@ -487,7 +546,12 @@ BattleDamageModifierEffectResult applyDamageModifier(
         },
         [&]
         {
-            return makeDamageModifier(runtime, metadata, command, frame);
+            return makeDamageModifier(
+                runtime,
+                metadata,
+                command,
+                frame,
+                nextNegativeEffectSequence);
         },
         [&](auto& current)
         {
@@ -496,10 +560,13 @@ BattleDamageModifierEffectResult applyDamageModifier(
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
             current.stackLimit = command.action.stackLimit;
-            current.negative = damageModifierIsNegative(
-                command.action.perspective,
-                command.action.operation,
-                command.amount);
+            updateModifierPolarity(
+                current,
+                damageModifierIsNegative(
+                    command.action.perspective,
+                    command.action.operation,
+                    command.amount),
+                nextNegativeEffectSequence);
         },
         [](const auto& current)
         {
@@ -524,10 +591,13 @@ BattleDamageModifierEffectResult applyDamageModifier(
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
             current.stackLimit = command.action.stackLimit;
-            current.negative = damageModifierIsNegative(
-                command.action.perspective,
-                command.action.operation,
-                command.amount);
+            updateModifierPolarity(
+                current,
+                damageModifierIsNegative(
+                    command.action.perspective,
+                    command.action.operation,
+                    command.amount),
+                nextNegativeEffectSequence);
         });
     return { outcome, modifier };
 }
@@ -579,8 +649,9 @@ BattleDamageAbsorptionEffectResult applyDamageAbsorption(
     BattleRuntimeState& state,
     const EffectCommandMetadata& metadata,
     const StartDamageAbsorptionAction& action,
-    int frame)
+    const BattleEffectCommandContext& context)
 {
+    const int frame = context.frame;
     assert(action.durationFrames > 0);
     assert(action.absorbedPct >= 0 && action.absorbedPct <= 100);
     assert(action.returnedPct >= 0);
@@ -600,6 +671,10 @@ BattleDamageAbsorptionEffectResult applyDamageAbsorption(
             .binding = metadata.binding,
             .ruleId = metadata.ruleId,
             .actionOrder = metadata.actionOrder,
+            .authoredActionOrder = metadata.authoredActionOrder,
+            .statusContribution = metadata.statusContribution,
+            .triggeringCast = context.cast,
+            .triggeringAttack = context.attack,
             .targetUnitId = metadata.targetUnitId,
             .slot = action.slot,
             .absorbedPct = action.absorbedPct,
@@ -615,6 +690,10 @@ BattleDamageAbsorptionEffectResult applyDamageAbsorption(
     else
     {
         current->absorbedPct = action.absorbedPct;
+        current->authoredActionOrder = metadata.authoredActionOrder;
+        current->statusContribution = metadata.statusContribution;
+        current->triggeringCast = context.cast;
+        current->triggeringAttack = context.attack;
         current->appliedFrame = frame;
         current->expiresFrameExclusive = expiry;
         current->settleOnSourceDeath = action.settleOnSourceDeath;
@@ -762,18 +841,8 @@ BattleResourceEffectResult commitHeal(
     {
         request.castId = context.cast->castId.value();
     }
-    switch (command.action.healKind)
-    {
-    case EffectHealKind::Direct: request.kind = BattleHealKind::Direct; break;
-    case EffectHealKind::Team: request.kind = BattleHealKind::Team; break;
-    case EffectHealKind::Aura: request.kind = BattleHealKind::Aura; break;
-    case EffectHealKind::OnHit: request.kind = BattleHealKind::OnHit; break;
-    case EffectHealKind::KillReward: request.kind = BattleHealKind::KillReward; break;
-    case EffectHealKind::DeathMedical: request.kind = BattleHealKind::DeathMedical; break;
-    case EffectHealKind::Rescue: request.kind = BattleHealKind::Rescue; break;
-    case EffectHealKind::Regeneration: request.kind = BattleHealKind::Regeneration; break;
-    case EffectHealKind::Lifesteal: request.kind = BattleHealKind::Lifesteal; break;
-    }
+    assert(command.action.healKind != EffectHealKind::Count);
+    request.kind = command.action.healKind;
     request.amount = fixedHealAmount(command.amount);
     request.sourcePolicy = command.action.healSourcePolicy == EffectHealSourcePolicy::AllowDead
         ? BattleHealSourcePolicy::AllowDead
@@ -906,15 +975,57 @@ BattleStatusConsumeEffectResult consumeStatus(
     BattleStatusConsumeRequest request;
     request.kind = command.action.status;
     request.stacks = command.action.quantity;
-    if (command.action.source == StatusSourceMatch::EffectOwner)
-    {
-        request.sourceUnitId = metadata.binding.ownerUnitId;
-    }
+    request.filter = resolveStatusContributionFilter(
+        command.action.source,
+        metadata.binding,
+        metadata.statusContribution);
 
     auto statusConfig = state.status.config;
     statusConfig.frame = context.frame;
     BattleStatusSystem statusSystem(statusConfig);
     auto consumed = statusSystem.consume(record.statusDamageState(), request);
+    record.writeStatusDamageResult(consumed.target);
+
+    std::optional<BattleStatusApplyResult> depleted;
+    if (consumed.consumed
+        && consumed.remainingStacks == 0
+        && command.whenDepleted)
+    {
+        auto applied = applyStatus(
+            state,
+            metadata,
+            *command.whenDepleted,
+            context);
+        depleted = std::move(applied.status);
+    }
+    return {
+        .status = std::move(consumed),
+        .depletedStatus = std::move(depleted),
+    };
+}
+
+BattleStatusConsumeEffectResult consumeThisStatus(
+    BattleRuntimeState& state,
+    const EffectCommandMetadata& metadata,
+    const ConsumeThisStatusEffectCommand& command,
+    const BattleEffectCommandContext& context)
+{
+    assert(metadata.statusContribution);
+    const auto& contribution = *metadata.statusContribution;
+    auto& record = state.units.require(contribution.holderUnitId);
+    auto statusConfig = state.status.config;
+    statusConfig.frame = context.frame;
+    BattleStatusSystem statusSystem(statusConfig);
+    auto consumed = statusSystem.consume(
+        record.statusDamageState(),
+        {
+            .kind = contribution.kind,
+            .stacks = command.action.quantity,
+            .filter = {
+                .holderUnitId = contribution.holderUnitId,
+                .appliedSequence = contribution.appliedSequence,
+            },
+        });
     record.writeStatusDamageResult(consumed.target);
 
     std::optional<BattleStatusApplyResult> depleted;
@@ -945,6 +1056,10 @@ BattleStatusRemoveEffectResult removeStatus(
     auto& record = state.units.require(metadata.targetUnitId);
     BattleStatusRemoveRequest request;
     request.statuses = command.action.statuses;
+    request.filter = resolveStatusContributionFilter(
+        command.action.source,
+        metadata.binding,
+        metadata.statusContribution);
     request.negativeOnly = command.action.negativeOnly;
     request.controlOnly = command.action.controlOnly;
     request.clearCurrentActionStagger = command.action.clearCurrentActionStagger;
@@ -963,12 +1078,28 @@ BattleStatusRemoveEffectResult removeStatus(
         return result;
     }
 
+    const auto modifierMatchesFilter = [&](const EffectSourceBinding& binding)
+    {
+        if (request.filter.holderUnitId
+            && *request.filter.holderUnitId != metadata.targetUnitId) return false;
+        if (request.filter.sourceUnitId
+            && *request.filter.sourceUnitId != binding.ownerUnitId) return false;
+        if (request.filter.producerBinding
+            && *request.filter.producerBinding != binding) return false;
+        // A persistent modifier has no contribution-generation identity.  A
+        // CurrentContribution filter therefore selects only the exact status
+        // contribution from which the command is executing.
+        return !request.filter.appliedSequence;
+    };
+
     const auto removeAllModifiers = [&]
     {
         auto& attributes = state.effectCommands.attributeModifiers;
         for (auto it = attributes.begin(); it != attributes.end();)
         {
-            if (it->targetUnitId != metadata.targetUnitId || !it->negative)
+            if (it->targetUnitId != metadata.targetUnitId
+                || !it->negative
+                || !modifierMatchesFilter(it->binding))
             {
                 ++it;
                 continue;
@@ -981,7 +1112,9 @@ BattleStatusRemoveEffectResult removeStatus(
         auto& damage = state.effectCommands.damageModifiers;
         for (auto it = damage.begin(); it != damage.end();)
         {
-            if (it->targetUnitId != metadata.targetUnitId || !it->negative)
+            if (it->targetUnitId != metadata.targetUnitId
+                || !it->negative
+                || !modifierMatchesFilter(it->binding))
             {
                 ++it;
                 continue;
@@ -1010,22 +1143,20 @@ BattleStatusRemoveEffectResult removeStatus(
     {
         CandidateStorage storage{};
         BattleStatusKind statusKind{};
-        std::uint64_t sequence{};
+        std::uint64_t orderSequence{};
+        std::uint64_t storageSequence{};
         int remainingFrames{};
     };
     std::vector<Candidate> candidates;
-    const auto statusSnapshot = statusSystem.snapshot(record.statusDamageState());
-    for (const auto& status : statusSnapshot.statuses)
+    for (const auto& status : statusSystem.removalCandidates(
+             record.statusDamageState(), request))
     {
-        if (isNegativeBattleStatus(status.kind))
-        {
-            candidates.push_back({
-                .storage = CandidateStorage::Status,
-                .statusKind = status.kind,
-                .sequence = status.appliedSequence,
-                .remainingFrames = status.remainingFrames,
-            });
-        }
+        candidates.push_back({
+            .storage = CandidateStorage::Status,
+            .statusKind = status.kind,
+            .orderSequence = status.sequence,
+            .remainingFrames = status.remainingFrames,
+        });
     }
     const auto remainingModifierFrames = [frame](
         const std::optional<std::int64_t>& expiry)
@@ -1041,11 +1172,16 @@ BattleStatusRemoveEffectResult removeStatus(
     };
     for (const auto& modifier : state.effectCommands.attributeModifiers)
     {
-        if (modifier.targetUnitId == metadata.targetUnitId && modifier.negative)
+        if (modifier.targetUnitId == metadata.targetUnitId
+            && modifier.negative
+            && modifierMatchesFilter(modifier.binding))
         {
             candidates.push_back({
                 .storage = CandidateStorage::AttributeModifier,
-                .sequence = modifier.sequence,
+                .orderSequence = modifier.negativeEffectSequence != 0
+                    ? modifier.negativeEffectSequence
+                    : modifier.sequence,
+                .storageSequence = modifier.sequence,
                 .remainingFrames = remainingModifierFrames(
                     modifier.expiresFrameExclusive),
             });
@@ -1053,11 +1189,16 @@ BattleStatusRemoveEffectResult removeStatus(
     }
     for (const auto& modifier : state.effectCommands.damageModifiers)
     {
-        if (modifier.targetUnitId == metadata.targetUnitId && modifier.negative)
+        if (modifier.targetUnitId == metadata.targetUnitId
+            && modifier.negative
+            && modifierMatchesFilter(modifier.binding))
         {
             candidates.push_back({
                 .storage = CandidateStorage::DamageModifier,
-                .sequence = modifier.sequence,
+                .orderSequence = modifier.negativeEffectSequence != 0
+                    ? modifier.negativeEffectSequence
+                    : modifier.sequence,
+                .storageSequence = modifier.sequence,
                 .remainingFrames = remainingModifierFrames(
                     modifier.expiresFrameExclusive),
             });
@@ -1082,22 +1223,22 @@ BattleStatusRemoveEffectResult removeStatus(
             {
                 return lhsDuration > rhsDuration;
             }
-            if (lhs.sequence != rhs.sequence)
+            if (lhs.orderSequence != rhs.orderSequence)
             {
-                return lhs.sequence < rhs.sequence;
+                return lhs.orderSequence < rhs.orderSequence;
             }
             break;
         }
         case StatusRemovalOrder::Oldest:
-            if (lhs.sequence != rhs.sequence)
+            if (lhs.orderSequence != rhs.orderSequence)
             {
-                return lhs.sequence < rhs.sequence;
+                return lhs.orderSequence < rhs.orderSequence;
             }
             break;
         case StatusRemovalOrder::Newest:
-            if (lhs.sequence != rhs.sequence)
+            if (lhs.orderSequence != rhs.orderSequence)
             {
-                return lhs.sequence > rhs.sequence;
+                return lhs.orderSequence > rhs.orderSequence;
             }
             break;
         }
@@ -1127,6 +1268,7 @@ BattleStatusRemoveEffectResult removeStatus(
         {
             BattleStatusRemoveRequest single;
             single.statuses = { candidate.statusKind };
+            single.filter = request.filter;
             single.negativeOnly = true;
             single.count = 1;
             single.order = request.order;
@@ -1140,7 +1282,7 @@ BattleStatusRemoveEffectResult removeStatus(
             auto& modifiers = state.effectCommands.attributeModifiers;
             const auto found = std::ranges::find(
                 modifiers,
-                candidate.sequence,
+                candidate.storageSequence,
                 &BattleAttributeModifierInstance::sequence);
             assert(found != modifiers.end());
             result.removedAttributeModifiers.push_back(std::move(*found));
@@ -1153,7 +1295,7 @@ BattleStatusRemoveEffectResult removeStatus(
             auto& modifiers = state.effectCommands.damageModifiers;
             const auto found = std::ranges::find(
                 modifiers,
-                candidate.sequence,
+                candidate.storageSequence,
                 &BattleDamageModifierInstance::sequence);
             assert(found != modifiers.end());
             result.removedDamageModifiers.push_back(std::move(*found));
@@ -1250,7 +1392,10 @@ BattleEffectDamageRequestOutput makeDamageRequest(
         .action = command.action,
         .source = metadata.binding,
         .ruleId = metadata.ruleId,
-        .provenance = context.attack,
+        .triggeringCast = context.cast,
+        .triggeringAttack = context.attack,
+        .statusContribution = metadata.statusContribution,
+        .authoredActionOrder = metadata.authoredActionOrder,
         .transactionCount = command.transactionCount,
         .eventSourceUnitId = metadata.eventSourceUnitId,
     };
@@ -1261,6 +1406,22 @@ BattleEffectReductionValue reduceCommand(
     const EffectCommand& effectCommand,
     const BattleEffectCommandContext& context)
 {
+    if (effectCommand.metadata.statusContribution)
+    {
+        const auto& status = *effectCommand.metadata.statusContribution;
+        const auto& holder = state.units.require(status.holderUnitId);
+        const auto live = std::ranges::find(
+            holder.status.effects.statuses,
+            status.appliedSequence,
+            &BattleStatusContribution::appliedSequence);
+        if (live == holder.status.effects.statuses.end()
+            || live->kind != status.kind
+            || live->stacks <= 0
+            || live->stacks != status.quantity)
+        {
+            return BattleSkippedEffectResult{};
+        }
+    }
     return std::visit(Overloaded{
         [&](const ModifyAttributeEffectCommand& command) -> BattleEffectReductionValue
         {
@@ -1274,11 +1435,15 @@ BattleEffectReductionValue reduceCommand(
                     command.amount),
                 [&](const auto& effective)
                 {
+                    auto& nextNegativeEffectSequence = state.units
+                        .require(effectCommand.metadata.targetUnitId)
+                        .status.effects.nextNegativeEffectSequence;
                     return applyAttribute(
                         state.effectCommands,
                         effectCommand.metadata,
                         effective,
-                        context.frame);
+                        context.frame,
+                        &nextNegativeEffectSequence);
                 });
         },
         [&](const ModifyDamageEffectCommand& command) -> BattleEffectReductionValue
@@ -1298,11 +1463,15 @@ BattleEffectReductionValue reduceCommand(
                         command.amount),
                     [&](const auto& effective)
                     {
+                        auto& nextNegativeEffectSequence = state.units
+                            .require(effectCommand.metadata.targetUnitId)
+                            .status.effects.nextNegativeEffectSequence;
                         return applyDamageModifier(
                             state.effectCommands,
                             effectCommand.metadata,
                             effective,
-                            context.frame);
+                            context.frame,
+                            &nextNegativeEffectSequence);
                     });
             }
             return BattleRoutedEffectCommand<ModifyDamageEffectCommand>{ command };
@@ -1333,6 +1502,10 @@ BattleEffectReductionValue reduceCommand(
         {
             return consumeStatus(state, effectCommand.metadata, command, context);
         },
+        [&](const ConsumeThisStatusEffectCommand& command) -> BattleEffectReductionValue
+        {
+            return consumeThisStatus(state, effectCommand.metadata, command, context);
+        },
         [&](const RemoveStatusEffectCommand& command) -> BattleEffectReductionValue
         {
             return removeStatus(
@@ -1345,6 +1518,18 @@ BattleEffectReductionValue reduceCommand(
         {
             assert(command.amount >= 0);
             return makeDamageRequest(effectCommand.metadata, command, context);
+        },
+        [&](const SuppressCurrentCastContactsEffectCommand& command)
+            -> BattleEffectReductionValue
+        {
+            return BattleRoutedEffectCommand<SuppressCurrentCastContactsEffectCommand>{
+                command };
+        },
+        [&](const MakeIncomingAttackMissEffectCommand& command)
+            -> BattleEffectReductionValue
+        {
+            return BattleRoutedEffectCommand<MakeIncomingAttackMissEffectCommand>{
+                command };
         },
         [&](const ModifyAttackEffectCommand& command) -> BattleEffectReductionValue
         {
@@ -1370,7 +1555,7 @@ BattleEffectReductionValue reduceCommand(
                     state,
                     effectCommand.metadata,
                     *start,
-                    context.frame);
+                    context);
             }
             return BattleRoutedEffectCommand<StateMachineEffectCommand>{ command };
         },
@@ -1466,20 +1651,62 @@ BattleAttributeEffectResult BattleEffectCommandSystem::applyPersistentAttributeM
     BattleEffectCommandRuntimeState& runtime,
     const EffectCommandMetadata& metadata,
     const ModifyAttributeEffectCommand& command,
-    int frame)
+    int frame,
+    std::uint64_t* nextNegativeEffectSequence)
 {
     assert(frame >= 0);
-    return applyAttribute(runtime, metadata, command, frame);
+    return applyAttribute(
+        runtime,
+        metadata,
+        command,
+        frame,
+        nextNegativeEffectSequence);
 }
 
 BattleDamageModifierEffectResult BattleEffectCommandSystem::applyPersistentDamageModifier(
     BattleEffectCommandRuntimeState& runtime,
     const EffectCommandMetadata& metadata,
     const ModifyDamageEffectCommand& command,
-    int frame)
+    int frame,
+    std::uint64_t* nextNegativeEffectSequence)
 {
     assert(frame >= 0);
-    return applyDamageModifier(runtime, metadata, command, frame);
+    return applyDamageModifier(
+        runtime,
+        metadata,
+        command,
+        frame,
+        nextNegativeEffectSequence);
+}
+
+EffectDamageOrigin BattleEffectCommandSystem::damageOrigin(
+    const BattleEffectDamageRequestOutput& output)
+{
+    return makeEffectDamageOrigin(
+        output.source,
+        output.ruleId,
+        output.authoredActionOrder,
+        output.statusContribution,
+        output.triggeringCast,
+        output.triggeringAttack);
+}
+
+BattleStatusProducerProvenance BattleEffectCommandSystem::statusProducerProvenance(
+    const EffectCommandMetadata& metadata)
+{
+    const auto producerActionOrder = metadata.statusContribution
+        ? metadata.producerActionOrder
+        : metadata.authoredActionOrder;
+    const auto behaviorActionOrder = metadata.statusContribution
+        ? metadata.authoredActionOrder
+        : 0;
+    return makeBattleStatusProducerProvenance(
+        metadata.binding,
+        metadata.ruleId,
+        metadata.ruleOrder,
+        producerActionOrder,
+        metadata.behaviorRuleOrder,
+        behaviorActionOrder);
 }
 
 BattleStatusApplyResult BattleEffectCommandSystem::applyStatusCommand(
@@ -1492,20 +1719,47 @@ BattleStatusApplyResult BattleEffectCommandSystem::applyStatusCommand(
 {
     BattleStatusApplyRequest request;
     request.kind = command.action.status;
-    request.sourceUnitId = metadata.binding.ownerUnitId;
+    const auto provenance = statusProducerProvenance(metadata);
+    request.producer = provenance.producer;
+    request.producerFamily = provenance.producerFamily;
+    request.behavior = command.action.behavior;
+    request.sourceUnitId = provenance.sourceUnitId;
     request.durationFrames = command.evaluatedDurationFrames.value_or(
         command.action.durationFrames);
     const auto quantity = lowerStatusQuantity(command.action);
     request.stacks = quantity.stacks;
-    request.potency = command.potency;
-    request.secondaryPotency = command.secondaryPotency;
-    request.origin = BattleStatusEffectOrigin{
-        metadata.binding,
-        metadata.ruleId,
-        metadata.ruleOrder,
-    };
+    request.origin = provenance.origin;
     request.stack = lowerStatusReapplication(command.action);
     request.stackLimit = quantity.stackLimit;
+    const auto storage = statusCatalogEntry(command.action.status).storage;
+    if (storage == StatusStorageModel::SharedLayerDebuff)
+    {
+        request.targetTotalLimit = request.stackLimit;
+        request.stackLimit.reset();
+    }
+    else if (storage != StatusStorageModel::ProducerOwnedContributions)
+    {
+        request.stackLimit.reset();
+    }
+    if (command.action.status == BattleStatusKind::Poison)
+    {
+        // Poison is governed by its explicit strongest/same-event group
+        // reducer. Trigger charges describe the winning group clock rather
+        // than a producer-family capacity and therefore do not participate in
+        // family-limit identity.
+        request.stackLimit.reset();
+    }
+    if (std::holds_alternative<NoStatusQuantity>(command.action.quantity)
+        && command.action.behavior
+        && statusCatalogEntry(command.action.status).storage
+            == StatusStorageModel::ProducerOwnedContributions)
+    {
+        // Duration-only authored behaviors still need a finite holder-local
+        // producer-family allocation. A runtime alias or a newly bound value
+        // can refresh the existing immutable generation's duration, but cannot
+        // accumulate another active copy or replace its bound behavior values.
+        request.stackLimit = 1;
+    }
     request.targetHasShield = targetHasShield;
     request.controlLowHpImmunityPct = context.controlLowHpImmunityPct;
     request.bypassStatusShield = context.bypassStatusShield;
@@ -1542,7 +1796,8 @@ void BattleEffectCommandSystem::inheritCloneEffectModifiers(
     BattleEffectCommandRuntimeState& runtime,
     int sourceUnitId,
     int cloneUnitId,
-    int cloneTeam)
+    int cloneTeam,
+    std::uint64_t& nextNegativeEffectSequence)
 {
     assert(sourceUnitId >= 0);
     assert(cloneUnitId >= 0);
@@ -1561,6 +1816,15 @@ void BattleEffectCommandSystem::inheritCloneEffectModifiers(
             auto cloned = sourceInstance;
             cloned.sequence = nextSequence++;
             cloned.targetUnitId = cloneUnitId;
+            if (cloned.negative)
+            {
+                assert(cloned.negativeEffectSequence > 0);
+                assert(cloned.negativeEffectSequence
+                    < std::numeric_limits<std::uint64_t>::max());
+                nextNegativeEffectSequence = std::max(
+                    nextNegativeEffectSequence,
+                    cloned.negativeEffectSequence + 1);
+            }
             if (cloned.binding.ownerUnitId == sourceUnitId)
             {
                 cloned.binding.ownerUnitId = cloneUnitId;
@@ -1597,7 +1861,8 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
     int sourceUnitId,
     int targetUnitId,
     int targetTeam,
-    int comboId)
+    int comboId,
+    std::uint64_t* nextNegativeEffectSequence)
 {
     assert(sourceUnitId >= 0);
     assert(targetUnitId >= 0);
@@ -1715,6 +1980,9 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
 
         auto transferred = sourceModifier;
         transferred.sequence = runtime.nextAttributeSequence++;
+        transferred.negativeEffectSequence = allocateNegativeEffectSequence(
+            nextNegativeEffectSequence,
+            transferred.negative);
         rewriteAntiComboModifierOwner(
             transferred,
             sourceUnitId,
@@ -1756,6 +2024,9 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
 
         auto transferred = sourceModifier;
         transferred.sequence = runtime.nextDamageSequence++;
+        transferred.negativeEffectSequence = allocateNegativeEffectSequence(
+            nextNegativeEffectSequence,
+            transferred.negative);
         rewriteAntiComboModifierOwner(
             transferred,
             sourceUnitId,

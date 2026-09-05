@@ -1,4 +1,5 @@
 #include "BattleRuntimeScenarioTestHelpers.h"
+#include "BattleCoreTestHelpers.h"
 #include "ChessBattleEffectParser.h"
 #include "Find.h"
 #include "battle/BattleEffectCommandSystem.h"
@@ -9,7 +10,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -694,16 +697,182 @@ TEST_CASE("BattleRuntimeScenario_RealWitheredBoneModifiesHitAndHealTransactions"
     const auto status = BattleStatusSystem({}).snapshot(
         state.units.require(1).statusDamageState());
     CHECK(status.has(BattleStatusKind::WitheredBone));
-    CHECK(status.potency(BattleStatusKind::WitheredBone) == 25);
-    CHECK(status.secondaryPotency(BattleStatusKind::WitheredBone) == 75);
     CHECK(status.damageTakenPct == 25);
-    REQUIRE(status.receivedHealMultipliersPct.size() == 1);
-    CHECK(status.receivedHealMultipliersPct.front() == 25);
+    REQUIRE(status.healTransactionModifiers.size() == 1);
+    CHECK(status.healTransactionModifiers.front().percent == 25);
 
     const auto healed = BattleHealSystem().commit(state, heal);
     CHECK(healed.calculatedAmount == 1000);
     CHECK(healed.modifiedAmount == 250);
     CHECK(healed.appliedAmount == 250);
+}
+
+TEST_CASE("BattleHealSystem_DispatchesStatusOnlyHealEventsAndHonorsContributionLiveness",
+          "[battle][heal][status][liveness]")
+{
+    const auto stateWithBehavior = [](std::shared_ptr<const StatusBehaviorDefinition> behavior)
+    {
+        auto state = initializedVerticalSliceState(basicSessionInput());
+        state.effectRules = {};
+        auto& source = state.units.requireCore(0);
+        auto& target = state.units.requireCore(1);
+        source.vitals.hp = source.vitals.maxHp;
+        target.vitals.hp = 50;
+        target.vitals.maxHp = 100;
+        target.vitals.mp = 0;
+        target.vitals.maxMp = 100;
+
+        const EffectSourceBinding binding{
+            .kind = EffectSourceKind::Magic,
+            .sourceId = 9300,
+            .ownerUnitId = 1,
+            .sourceTeam = target.team,
+        };
+        const EffectRuleId producerRuleId{ 9300 };
+        auto& effects = state.units.require(1).status.effects;
+        effects.statuses.push_back({
+            .kind = BattleStatusKind::TrueQi,
+            .producer = StatusProducerKey{ binding, producerRuleId, 0 },
+            .producerFamily = StatusProducerFamilyKey{
+                binding.kind,
+                binding.sourceId,
+                binding.ownerUnitId,
+                producerRuleId,
+                0,
+            },
+            .behavior = behavior,
+            .behaviorRuntime = initialStatusBehaviorRuntime(behavior),
+            .sourceUnitId = binding.ownerUnitId,
+            .remainingFrames = 120,
+            .maximumFrames = 120,
+            .stacks = 1,
+            .origin = BattleStatusEffectOrigin{ binding, producerRuleId, 0 },
+            .appliedSequence = effects.nextStatusSequence++,
+        });
+        REQUIRE(state.effectRules.rules().empty());
+        return state;
+    };
+    const auto directHeal = []
+    {
+        BattleHealRequest request;
+        request.sourceUnitId = 0;
+        request.targetUnitId = 1;
+        request.kind = BattleHealKind::Direct;
+        request.amount = fixedHealAmount(10);
+        return request;
+    };
+
+    SECTION("heal-attempt modifier remains active without configured rules")
+    {
+        ModifyHealTransactionAction halve;
+        halve.operation = HealModifierOperation::MultiplyReceived;
+        halve.percent = 50;
+        halve.kinds = { "直接" };
+        EffectRule rule;
+        rule.id = EffectRuleId{ 1 };
+        rule.event = EffectEvent::HealAttempted;
+        rule.observation = EffectObservationScope::StatusHolderEventTarget;
+        rule.selector.kind = EffectSelectorKind::StatusHolder;
+        rule.actions = { EffectAction{ halve } };
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules = { std::move(rule) };
+        auto state = stateWithBehavior(std::move(behavior));
+
+        const auto result = BattleHealSystem().commit(state, directHeal());
+
+        CHECK(result.calculatedAmount == 10);
+        CHECK(result.modifiedAmount == 5);
+        CHECK(result.appliedAmount == 5);
+    }
+
+    SECTION("canonical all-kind status modifier matches every runtime heal kind")
+    {
+        ModifyHealTransactionAction block;
+        block.operation = HealModifierOperation::Block;
+        for (const auto& entry : effectHealKindCatalog)
+            block.kinds.emplace_back(entry.authorLabel);
+        EffectRule rule;
+        rule.id = EffectRuleId{ 1 };
+        rule.event = EffectEvent::HealAttempted;
+        rule.observation = EffectObservationScope::StatusHolderEventTarget;
+        rule.selector.kind = EffectSelectorKind::StatusHolder;
+        rule.actions = { EffectAction{ block } };
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules = { std::move(rule) };
+
+        for (std::size_t index = 0;
+             index < static_cast<std::size_t>(BattleHealKind::Count);
+             ++index)
+        {
+            const auto kind = static_cast<BattleHealKind>(index);
+            CAPTURE(kind);
+            auto state = stateWithBehavior(behavior);
+            auto request = directHeal();
+            request.kind = kind;
+
+            const auto result = BattleHealSystem().commit(state, request);
+
+            CHECK(result.modifiedAmount == 0);
+            CHECK(result.appliedAmount == 0);
+        }
+    }
+
+    SECTION("an earlier lifecycle action invalidates a later snapshotted modifier")
+    {
+        EffectRule consume;
+        consume.id = EffectRuleId{ 1 };
+        consume.event = EffectEvent::HealAttempted;
+        consume.observation = EffectObservationScope::StatusHolderEventTarget;
+        consume.selector.kind = EffectSelectorKind::StatusHolder;
+        consume.actions = { EffectAction{ ConsumeThisStatusAction{} } };
+
+        ModifyHealTransactionAction block;
+        block.operation = HealModifierOperation::Block;
+        block.kinds = { "直接" };
+        EffectRule blockRule;
+        blockRule.id = EffectRuleId{ 2 };
+        blockRule.event = EffectEvent::HealAttempted;
+        blockRule.observation = EffectObservationScope::StatusHolderEventTarget;
+        blockRule.selector.kind = EffectSelectorKind::StatusHolder;
+        blockRule.actions = { EffectAction{ block } };
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules = { std::move(consume), std::move(blockRule) };
+        auto state = stateWithBehavior(std::move(behavior));
+
+        const auto result = BattleHealSystem().commit(state, directHeal());
+
+        CHECK(result.modifiedAmount == 10);
+        CHECK(result.appliedAmount == 10);
+        CHECK_FALSE(state.units.require(1).status.effects.has(BattleStatusKind::TrueQi));
+    }
+
+    SECTION("heal-applied actions are queued without configured rules")
+    {
+        ChangeResourceAction restoreMp;
+        restoreMp.resource = BattleResource::Mp;
+        restoreMp.kind = ResourceChangeKind::Restore;
+        restoreMp.amount.flat = 7;
+        EffectRule rule;
+        rule.id = EffectRuleId{ 1 };
+        rule.event = EffectEvent::HealApplied;
+        rule.observation = EffectObservationScope::StatusHolderEventTarget;
+        rule.selector.kind = EffectSelectorKind::StatusHolder;
+        rule.actions = { EffectAction{ restoreMp } };
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules = { std::move(rule) };
+        auto state = stateWithBehavior(std::move(behavior));
+
+        const auto result = BattleHealSystem().commit(state, directHeal());
+        REQUIRE(result.appliedAmount == 10);
+        REQUIRE(state.effectIntegration.queuedCommandBatches.size() == 1);
+        REQUIRE(state.effectIntegration.queuedCommandBatches.front().commands.size() == 1);
+        CHECK(std::holds_alternative<ChangeResourceEffectCommand>(
+            state.effectIntegration.queuedCommandBatches.front().commands.front().value));
+
+        BattleFrameRunner().runFrame(state);
+        // 此幀先執行正常的 1 點回魔，再歸約 HealApplied 的 7 點回復。
+        CHECK(state.units.requireCore(1).vitals.mp == 8);
+    }
 }
 
 TEST_CASE("BattleRuntimeScenario_RealFiveTigerSpawnsFanAndDebuffsDefence", "[battle][scenario][runtime][ultimate-effect][vertical]")

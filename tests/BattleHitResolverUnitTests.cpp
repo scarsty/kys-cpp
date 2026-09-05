@@ -161,6 +161,71 @@ TEST_CASE("BattleHitResolver applies typed damage modifiers in phase order", "[b
     CHECK(result.finalHpDamage == 110);
 }
 
+TEST_CASE("BattleHitResolver saturates extreme additive damage modifiers",
+          "[battle][hit_resolver][damage][unit][boundary]")
+{
+    SECTION("positive percentage totals saturate instead of narrowing negative")
+    {
+        auto input = hitInput();
+        input.skill.resolvedBaseDamage = 100;
+        input.damageModifiers.outgoingBeforeCritical = {
+            {
+                KysChess::DamageModifierOperation::PercentAdd,
+                std::numeric_limits<int>::max(),
+                std::numeric_limits<int>::max(),
+            },
+            {
+                KysChess::DamageModifierOperation::PercentAdd,
+                std::numeric_limits<int>::max(),
+                std::numeric_limits<int>::max(),
+            },
+        };
+
+        const auto result = resolveHit(input);
+
+        CHECK(result.finalHpDamage == std::numeric_limits<int>::max());
+        CHECK(result.shapedHpDamage
+            == Catch::Approx(static_cast<double>(std::numeric_limits<int>::max())));
+    }
+
+    SECTION("negative percentage totals retain the global reduction cap")
+    {
+        auto input = hitInput();
+        input.skill.resolvedBaseDamage = 100;
+        input.damageModifiers.incomingBase = {
+            {
+                KysChess::DamageModifierOperation::PercentAdd,
+                std::numeric_limits<int>::min(),
+            },
+            {
+                KysChess::DamageModifierOperation::PercentAdd,
+                std::numeric_limits<int>::min(),
+            },
+        };
+
+        const auto result = resolveHit(input);
+
+        CHECK(result.finalHpDamage == 20);
+    }
+
+    SECTION("flat additions saturate at the battle integer boundary")
+    {
+        auto input = hitInput();
+        input.skill.resolvedBaseDamage = 100;
+        input.damageModifiers.incomingAfterBase = {
+            {
+                KysChess::DamageModifierOperation::FlatAdd,
+                std::numeric_limits<int>::max(),
+                std::numeric_limits<int>::max(),
+            },
+        };
+
+        const auto result = resolveHit(input);
+
+        CHECK(result.finalHpDamage == std::numeric_limits<int>::max());
+    }
+}
+
 TEST_CASE("BattleHitResolver applies final damage modifiers after random variance", "[battle][hit_resolver][damage][unit]")
 {
     auto input = hitInput();
@@ -628,6 +693,14 @@ TEST_CASE("BattleHitResolver keeps scripted status and damage payloads", "[battl
     input.attackEvent.scriptedDamageTriggersDefenseEffects = true;
     input.attackEvent.scriptedStunFrames = 7;
     input.attackEvent.scriptedBleedStacks = 2;
+    input.attackEvent.scriptedBleedProducer = makeBattleStatusProducerProvenance(
+        {
+            .kind = KysChess::EffectSourceKind::Combo,
+            .sourceId = 31,
+            .ownerUnitId = input.attacker.id,
+        },
+        KysChess::EffectRuleId{ 31 },
+        2);
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.attackEvent.delivery = BattleAttackDelivery::projectile();
     input.attackEvent.payloadClass = BattleProjectilePayloadClass::scriptedControl();

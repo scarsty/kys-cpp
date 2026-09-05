@@ -1,4 +1,5 @@
 #include "battle/BattleCore.h"
+#include "battle/BattleCoreDetail.h"
 #include "BattleCoreTestHelpers.h"
 
 #include "BattleLogTestHelpers.h"
@@ -100,16 +101,75 @@ TEST_CASE("BattleFrameRunner_DispatchesTypedDeathRulesForStatusDamage", "[battle
     allyDeath.event = EffectEvent::AllyDied;
     state.effectRules.append(allyBinding, allyDeath);
 
+    const EffectSourceBinding statusBinding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 21,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+        .runtimeInstanceId = 17,
+    };
+    EffectRule statusDamageResolved;
+    statusDamageResolved.id = { 4 };
+    statusDamageResolved.event = EffectEvent::DamageResolved;
+    statusDamageResolved.selector.kind = EffectSelectorKind::Self;
+    statusDamageResolved.conditions = { IsUltimateCondition{} };
+    ChangeResourceAction lineageShield;
+    lineageShield.resource = BattleResource::Shield;
+    lineageShield.kind = ResourceChangeKind::Grant;
+    lineageShield.amount.flat = 7;
+    statusDamageResolved.actions = { { EffectActionValue{ lineageShield } } };
+    state.effectRules.append(statusBinding, statusDamageResolved);
+
+    const BattleAttackProvenance triggeringAttack{
+        .cast = {
+            .rootCastId = BattleCastId{ 10 },
+            .castId = BattleCastId{ 10 },
+            .sourceUnitId = 0,
+            .magicId = 21,
+            .ultimate = true,
+        },
+        .attackId = BattleAttackId{ 11 },
+        .rootAttack = true,
+        .mainProjectile = true,
+    };
+
     queuePendingDamage(
         state,
         preResolvedDamageInput(0, 1, 10, 20),
         {},
-        EffectStatusDamageOrigin{ BattleStatusKind::Poison, 0 });
+        EffectStatusDamageOrigin{
+            .binding = statusBinding,
+            .contribution = {
+                .holderUnitId = 1,
+                .sourceUnitId = 0,
+                .kind = BattleStatusKind::Poison,
+                .quantity = 3,
+                .appliedSequence = 41,
+                .producerRuleId = EffectRuleId{ 40 },
+                .producerRuleOrder = 12,
+                .producerActionOrder = 2,
+                .behaviorRuleOrder = 1,
+            },
+            .behaviorActionOrder = 3,
+            .triggeringCast = triggeringAttack.cast,
+            .triggeringAttack = triggeringAttack,
+        });
     const auto* queuedOrigin = std::get_if<EffectStatusDamageOrigin>(
         &state.nextFrame.queuedDamage().front().effectOrigin);
     REQUIRE(queuedOrigin != nullptr);
-    CHECK(queuedOrigin->status == BattleStatusKind::Poison);
-    CHECK(queuedOrigin->sourceUnitId == 0);
+    CHECK(queuedOrigin->binding == statusBinding);
+    CHECK(queuedOrigin->contribution.holderUnitId == 1);
+    CHECK(queuedOrigin->contribution.sourceUnitId == 0);
+    CHECK(queuedOrigin->contribution.kind == BattleStatusKind::Poison);
+    CHECK(queuedOrigin->contribution.quantity == 3);
+    CHECK(queuedOrigin->contribution.appliedSequence == 41);
+    CHECK(queuedOrigin->contribution.producerRuleId == EffectRuleId{ 40 });
+    CHECK(queuedOrigin->contribution.producerRuleOrder == 12);
+    CHECK(queuedOrigin->contribution.producerActionOrder == 2);
+    CHECK(queuedOrigin->contribution.behaviorRuleOrder == 1);
+    CHECK(queuedOrigin->behaviorActionOrder == 3);
+    REQUIRE(queuedOrigin->triggeringAttack);
+    CHECK(queuedOrigin->triggeringAttack->attackId == BattleAttackId{ 11 });
 
     runBattleFrame(state);
 
@@ -117,6 +177,8 @@ TEST_CASE("BattleFrameRunner_DispatchesTypedDeathRulesForStatusDamage", "[battle
     CHECK(state.effectRules.activationCount(deathBinding, { 1 }) == 1);
     CHECK(state.effectRules.activationCount(deathBinding, { 2 }) == 0);
     CHECK(state.effectRules.activationCount(allyBinding, { 3 }) == 1);
+    CHECK(state.effectRules.activationCount(statusBinding, { 4 }) == 1);
+    CHECK(state.units.requireCore(0).shield == 7);
 }
 
 TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[battle][core][typed-attribute]")
@@ -548,6 +610,100 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
     CHECK(state.nextFrame.queuedDamage().empty());
 }
 
+
+TEST_CASE("Damage absorption settlement preserves status or configured action provenance",
+          "[battle][core][effect][absorption][status][provenance]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    const BattleAttackProvenance triggeringAttack{
+        .cast = {
+            .rootCastId = BattleCastId{ 31 },
+            .castId = BattleCastId{ 31 },
+            .sourceUnitId = 0,
+            .magicId = 97,
+            .ultimate = true,
+        },
+        .attackId = BattleAttackId{ 32 },
+        .rootAttack = true,
+        .mainProjectile = true,
+    };
+    BattleDamageAbsorptionInstance absorption;
+    absorption.sequence = 1;
+    absorption.binding = {
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 97,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    absorption.ruleId = EffectRuleId{ 97 };
+    absorption.authoredActionOrder = 7;
+    absorption.statusContribution = EffectStatusContributionContext{
+        .holderUnitId = 0,
+        .sourceUnitId = 0,
+        .kind = BattleStatusKind::TrueQi,
+        .quantity = 1,
+        .appliedSequence = 41,
+        .producerRuleId = EffectRuleId{ 97 },
+        .producerRuleOrder = 11,
+        .producerActionOrder = 2,
+        .behaviorRuleOrder = 5,
+    };
+    absorption.triggeringCast = triggeringAttack.cast;
+    absorption.triggeringAttack = triggeringAttack;
+    absorption.targetUnitId = 0;
+    absorption.slot = EffectStateSlot::AbsorbedDamage;
+    absorption.absorbedPct = 40;
+    absorption.appliedFrame = 0;
+    absorption.expiresFrameExclusive = 10;
+    absorption.settlementTarget.kind = EffectSelectorKind::Enemies;
+    absorption.settlementTarget.count = 1;
+    absorption.settlementDamageKind = BattleDamageKind::Pure;
+    absorption.returnedPct = 100;
+    absorption.accumulatedDamage = 10;
+
+    std::vector<BattlePendingDamageIntent> pendingDamage;
+    const std::array statusOwned{ absorption };
+    CoreDetail::appendDamageAbsorptionSettlements(
+        state,
+        pendingDamage,
+        statusOwned,
+        10);
+    REQUIRE(pendingDamage.size() == 1);
+    const auto* statusOrigin = std::get_if<EffectStatusDamageOrigin>(
+        &pendingDamage.front().effectOrigin);
+    REQUIRE(statusOrigin);
+    CHECK(statusOrigin->binding == absorption.binding);
+    CHECK(statusOrigin->contribution == *absorption.statusContribution);
+    CHECK(statusOrigin->behaviorActionOrder == 7);
+    REQUIRE(statusOrigin->triggeringAttack);
+    CHECK(statusOrigin->triggeringAttack->attackId == BattleAttackId{ 32 });
+
+    absorption.sequence = 2;
+    absorption.statusContribution.reset();
+    pendingDamage.clear();
+    const std::array configured{ absorption };
+    CoreDetail::appendDamageAbsorptionSettlements(
+        state,
+        pendingDamage,
+        configured,
+        10);
+    REQUIRE(pendingDamage.size() == 1);
+    const auto* ruleOrigin = std::get_if<EffectRuleDamageOrigin>(
+        &pendingDamage.front().effectOrigin);
+    REQUIRE(ruleOrigin);
+    CHECK(ruleOrigin->binding == absorption.binding);
+    CHECK(ruleOrigin->ruleId == EffectRuleId{ 97 });
+    CHECK(ruleOrigin->actionOrder == 7);
+    REQUIRE(ruleOrigin->triggeringAttack);
+    CHECK(ruleOrigin->triggeringAttack->attackId == BattleAttackId{ 32 });
+}
 
 TEST_CASE("BattleFrameRunner_ExpiresDamageAbsorptionIntoSameFrameRandomPureDamage", "[battle][core][effect][absorption]")
 {

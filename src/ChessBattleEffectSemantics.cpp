@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <limits>
 #include <type_traits>
 
 namespace KysChess
@@ -10,166 +11,112 @@ namespace KysChess
 namespace
 {
 
-constexpr std::array statusCatalog{
-    StatusCatalogEntry{ BattleStatusKind::Poison, StatusQuantityModel::TriggerCharges,
-        StatusEffectScope::PerTrigger, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::PoisonDamage },
-    StatusCatalogEntry{ BattleStatusKind::Bleed, StatusQuantityModel::Layers,
-        StatusEffectScope::PerLayer, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::Stun, StatusQuantityModel::None,
-        StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::StunDuration },
-    StatusCatalogEntry{ BattleStatusKind::MpBlocked, StatusQuantityModel::None,
-        StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::KeepLongerDuration },
-    StatusCatalogEntry{ BattleStatusKind::ColdPoison, StatusQuantityModel::None,
-        StatusEffectScope::Persistent, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::RefreshDuration },
-    StatusCatalogEntry{ BattleStatusKind::WitheredBone, StatusQuantityModel::None,
-        StatusEffectScope::Persistent, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::RefreshDuration },
-    StatusCatalogEntry{ BattleStatusKind::SevenStarMark, StatusQuantityModel::Marks,
-        StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::NeutralizeForce, StatusQuantityModel::TriggerCharges,
-        StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::Blinded, StatusQuantityModel::TriggerCharges,
-        StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::NextAttackMiss, StatusQuantityModel::TriggerCharges,
-        StatusEffectScope::PerTrigger, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::DamageBlockLayer, StatusQuantityModel::DamageBlockCharges,
-        StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::SingleHitCapLayer, StatusQuantityModel::TriggerCharges,
-        StatusEffectScope::PerTrigger, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::BattleSpirit, StatusQuantityModel::Layers,
-        StatusEffectScope::PerLayer, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::TrueQi, StatusQuantityModel::Layers,
-        StatusEffectScope::PerLayer, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::PoisonExplosion, StatusQuantityModel::Layers,
-        StatusEffectScope::PerLayerValue, StatusDurationModel::Forbidden,
-        StatusReapplicationModel::Implicit },
-    StatusCatalogEntry{ BattleStatusKind::Shadowless, StatusQuantityModel::None,
-        StatusEffectScope::None, StatusDurationModel::RequiredPositive,
-        StatusReapplicationModel::RefreshDuration },
-    StatusCatalogEntry{ BattleStatusKind::NextAttackCritical, StatusQuantityModel::Internal,
-        StatusEffectScope::RuntimeOwned, StatusDurationModel::RuntimeOwned,
-        StatusReapplicationModel::Implicit, false },
-};
+template <typename>
+inline constexpr bool alwaysFalse = false;
 
-static_assert([]
+}
+
+std::string_view battleStatusLabel(BattleStatusKind status)
 {
-    for (const auto& status : statusCatalog)
+    return statusCatalogEntry(status).label;
+}
+
+std::int64_t roundEffectRatio(
+    std::int64_t numerator,
+    std::int64_t denominator,
+    EffectRounding rounding)
+{
+    assert(denominator > 0);
+    std::int64_t quotient = numerator / denominator;
+    const std::int64_t remainder = numerator % denominator;
+    if (remainder == 0) return quotient;
+
+    switch (rounding)
     {
-        const auto quantityOperations = statusQuantityOperations(status.quantity);
-        const bool expectsQuantityOperations = status.quantity != StatusQuantityModel::None
-            && status.quantity != StatusQuantityModel::Internal;
-        if (quantityOperations.empty() == expectsQuantityOperations) return false;
-        for (const auto operation : quantityOperations)
-        {
-            if (statusQuantityOperationCatalogEntry(operation).model != status.quantity)
-                return false;
-        }
-        const bool hasFields = std::ranges::any_of(
-            statusEffectFieldCatalog,
-            [&](const auto& field) { return field.status == status.status; });
-        const bool expectsFields = status.effectScope != StatusEffectScope::None
-            && status.effectScope != StatusEffectScope::RuntimeOwned;
-        if (hasFields != expectsFields) return false;
-    }
-    for (const auto& field : statusEffectFieldCatalog)
+    case EffectRounding::TowardZero: return quotient;
+    case EffectRounding::Floor: return numerator < 0 ? quotient - 1 : quotient;
+    case EffectRounding::Ceil: return numerator > 0 ? quotient + 1 : quotient;
+    case EffectRounding::Nearest:
     {
-        const auto status = std::ranges::find(
-            statusCatalog, field.status, &StatusCatalogEntry::status);
-        if (status == statusCatalog.end()
-            || status->effectScope == StatusEffectScope::None
-            || status->effectScope == StatusEffectScope::RuntimeOwned)
-            return false;
+        const auto magnitude = remainder < 0
+            ? static_cast<std::uint64_t>(-(remainder + 1)) + 1
+            : static_cast<std::uint64_t>(remainder);
+        const auto unsignedDenominator = static_cast<std::uint64_t>(denominator);
+        const auto threshold = unsignedDenominator / 2 + unsignedDenominator % 2;
+        if (magnitude >= threshold)
+            quotient += numerator > 0 ? 1 : -1;
+        return quotient;
     }
-    return true;
-}());
-
-bool selectorIsExactly(const EffectSelector& selector, EffectSelectorKind kind)
-{
-    EffectSelector expected;
-    expected.kind = kind;
-    return selector == expected;
+    }
+    assert(false);
+    return quotient;
 }
 
-bool hasDefaultRuleQualifiers(const EffectRule& rule)
-{
-    return rule.chancePct == 100
-        && rule.maxActivations == 0
-        && rule.sharedCooldownFrames == 0
-        && rule.intervalFrames == 0
-        && rule.everyNthEvent == 0
-        && !rule.activationLimit
-        && !rule.repetitionCount;
-}
-
-bool isPlainConstantNumber(const EffectNumber& number)
-{
-    return number.base == EffectNumberBase::Constant
-        && !number.multiplierBase
-        && !number.status
-        && !number.statusEffect
-        && !number.stateSlot
-        && number.percent == 0
-        && number.rounding == EffectRounding::TowardZero
-        && !number.minimum
-        && !number.maximum;
-}
-
-bool matchesStatusQuantityFormula(
+std::optional<int> effectiveConstantEffectNumberValue(
     const EffectNumber& number,
-    BattleStatusKind status)
+    int contributionQuantity)
 {
-    return number.base == EffectNumberBase::SourceStatusQuantity
-        && !number.multiplierBase
-        && number.status == status
-        && !number.statusEffect
-        && !number.stateSlot
-        && number.flat == 0
-        && number.percent == 100
-        && number.rounding == EffectRounding::TowardZero
-        && number.minimum == 1
-        && !number.maximum;
-}
-
-bool matchesStatusEffectValueFormula(
-    const EffectNumber& number,
-    BattleStatusKind status,
-    StatusEffectValueKind effect)
-{
-    return number.base == EffectNumberBase::SourceStatusEffectValue
-        && !number.multiplierBase
-        && number.status == status
-        && number.statusEffect == effect
-        && !number.stateSlot
-        && number.flat == 0
-        && number.percent == 100
-        && number.rounding == EffectRounding::TowardZero
-        && !number.minimum
-        && !number.maximum;
-}
-
-}
-
-std::optional<int> effectiveConstantEffectNumberValue(const EffectNumber& number)
-{
-    if (number.base != EffectNumberBase::Constant || number.multiplierBase)
+    assert(contributionQuantity > 0);
+    if ((number.base != EffectNumberBase::Constant
+            && number.base != EffectNumberBase::BoundRatio)
+        || number.multiplierBase)
     {
         return std::nullopt;
     }
 
-    int value = number.flat;
+    const auto saturatingMultiply = [](std::int64_t lhs, std::int64_t rhs)
+    {
+        if (lhs == 0 || rhs == 0) return std::int64_t{};
+        if (lhs == -1 && rhs == std::numeric_limits<std::int64_t>::min())
+            return std::numeric_limits<std::int64_t>::max();
+        if (rhs == -1 && lhs == std::numeric_limits<std::int64_t>::min())
+            return std::numeric_limits<std::int64_t>::max();
+        if (lhs > 0)
+        {
+            if (rhs > 0 && lhs > std::numeric_limits<std::int64_t>::max() / rhs)
+                return std::numeric_limits<std::int64_t>::max();
+            if (rhs < 0 && rhs < std::numeric_limits<std::int64_t>::min() / lhs)
+                return std::numeric_limits<std::int64_t>::min();
+        }
+        else
+        {
+            if (rhs > 0 && lhs < std::numeric_limits<std::int64_t>::min() / rhs)
+                return std::numeric_limits<std::int64_t>::min();
+            if (rhs < 0 && lhs < std::numeric_limits<std::int64_t>::max() / rhs)
+                return std::numeric_limits<std::int64_t>::max();
+        }
+        return lhs * rhs;
+    };
+    const auto saturatingAdd = [](std::int64_t lhs, std::int64_t rhs)
+    {
+        if (rhs > 0 && lhs > std::numeric_limits<std::int64_t>::max() - rhs)
+            return std::numeric_limits<std::int64_t>::max();
+        if (rhs < 0 && lhs < std::numeric_limits<std::int64_t>::min() - rhs)
+            return std::numeric_limits<std::int64_t>::min();
+        return lhs + rhs;
+    };
+    const std::int64_t denominator = number.base == EffectNumberBase::BoundRatio
+        ? number.boundDenominator
+        : 1;
+    assert(denominator > 0);
+    const std::int64_t base = number.base == EffectNumberBase::BoundRatio
+        ? number.boundNumerator
+        : 0;
+    const auto percentageDenominator = saturatingMultiply(denominator, 100);
+    auto numerator = saturatingAdd(
+        saturatingMultiply(base, number.percent),
+        saturatingMultiply(number.flat, percentageDenominator));
+    if (number.statusScale == StatusNumberScale::PerContributionLayer)
+        numerator = saturatingMultiply(numerator, contributionQuantity);
+    auto evaluated = roundEffectRatio(
+        numerator,
+        percentageDenominator,
+        number.rounding);
+    evaluated = std::clamp<std::int64_t>(
+        evaluated,
+        std::numeric_limits<int>::min(),
+        std::numeric_limits<int>::max());
+    int value = static_cast<int>(evaluated);
     if (number.minimum)
     {
         value = std::max(value, *number.minimum);
@@ -181,18 +128,6 @@ std::optional<int> effectiveConstantEffectNumberValue(const EffectNumber& number
     return value;
 }
 
-const StatusCatalogEntry& statusCatalogEntry(BattleStatusKind status)
-{
-    const auto found = std::ranges::find(statusCatalog, status, &StatusCatalogEntry::status);
-    assert(found != statusCatalog.end());
-    return *found;
-}
-
-std::span<const StatusCatalogEntry> statusCatalogEntries()
-{
-    return statusCatalog;
-}
-
 bool statusReapplicationPolicyAllowed(
     BattleStatusKind status,
     StatusReapplicationPolicy policy)
@@ -200,18 +135,18 @@ bool statusReapplicationPolicyAllowed(
     switch (statusCatalogEntry(status).reapplication)
     {
     case StatusReapplicationModel::Implicit:
+    case StatusReapplicationModel::CatalogKeepLongerDuration:
+    case StatusReapplicationModel::CatalogRefreshDuration:
+    case StatusReapplicationModel::CatalogReplaceSelected:
         return policy == StatusReapplicationPolicy::Implicit;
     case StatusReapplicationModel::StunDuration:
         return policy == StatusReapplicationPolicy::ExtendDuration
-            || policy == StatusReapplicationPolicy::KeepLongerDuration
-            || policy == StatusReapplicationPolicy::ReplaceDuration;
-    case StatusReapplicationModel::KeepLongerDuration:
-        return policy == StatusReapplicationPolicy::KeepLongerDuration;
-    case StatusReapplicationModel::RefreshDuration:
-        return policy == StatusReapplicationPolicy::RefreshDuration;
+            || policy == StatusReapplicationPolicy::KeepLongerDuration;
     case StatusReapplicationModel::PoisonDamage:
         return policy == StatusReapplicationPolicy::KeepHigherDamage
-            || policy == StatusReapplicationPolicy::ReplaceAndReset;
+            || policy == StatusReapplicationPolicy::ReplaceExistingPoison;
+    case StatusReapplicationModel::AuthoredRefreshDuration:
+        return policy == StatusReapplicationPolicy::RefreshDuration;
     }
     assert(false);
     return false;
@@ -219,220 +154,169 @@ bool statusReapplicationPolicyAllowed(
 
 bool statusReapplicationPolicyRequired(BattleStatusKind status)
 {
-    return statusCatalogEntry(status).reapplication
-        != StatusReapplicationModel::Implicit;
-}
-
-bool matchesSevenStarLifecycleProducer(const EffectRule& rule)
-{
-    if (rule.event != EffectEvent::MainProjectileBeforeDamage
-        || rule.observation != EffectObservationScope::Owner
-        || rule.castMatch != EffectCastMatch::BoundMagic
-        || !selectorIsExactly(rule.selector, EffectSelectorKind::HitTarget)
-        || !rule.conditions.empty()
-        || !hasDefaultRuleQualifiers(rule)
-        || rule.actions.size() != 1)
-        return false;
-
-    const auto* applied = std::get_if<ApplyStatusAction>(
-        &rule.actions.front().value);
-    const auto* marks = applied
-        ? std::get_if<SetStatusMarks>(&applied->quantity)
-        : nullptr;
-    return applied
-        && applied->status == BattleStatusKind::SevenStarMark
-        && applied->durationFrames > 0
-        && !applied->duration
-        && marks
-        && marks->count > 0
-        && applied->reapplication == StatusReapplicationPolicy::Implicit
-        && std::holds_alternative<NoStatusEffects>(applied->effects);
-}
-
-bool matchesSevenStarLifecycleConsumer(const EffectRule& rule)
-{
-    if (rule.event != EffectEvent::HitBeforeDamage
-        || rule.observation != EffectObservationScope::OwnerTeamEventSource
-        || rule.castMatch != EffectCastMatch::BoundMagic
-        || !selectorIsExactly(rule.selector, EffectSelectorKind::HitTarget)
-        || !hasDefaultRuleQualifiers(rule)
-        || rule.conditions.size() != 1
-        || rule.actions.size() != 2)
-        return false;
-
-    const auto* required = std::get_if<TargetHasStateFromEffectOwnerCondition>(
-        &rule.conditions.front());
-    const auto* damage = std::get_if<ModifyDamageAction>(
-        &rule.actions.front().value);
-    const auto* consumed = std::get_if<ConsumeStatusAction>(
-        &rule.actions.back().value);
-    if (!required || required->state != BattleStatusKind::SevenStarMark
-        || !damage
-        || damage->perspective != DamageModifierPerspective::Outgoing
-        || damage->stage != DamageModifierStage::BeforeDefense
-        || damage->channel != DamageChannel::Skill
-        || damage->operation != DamageModifierOperation::IgnoreDefensePercent
-        || !isPlainConstantNumber(damage->amount)
-        || damage->durationFrames != 0
-        || damage->stack != EffectStackPolicy::Independent
-        || damage->stackLimit
-        || damage->stackScope != EffectStackScope::Shared
-        || !consumed
-        || consumed->status != BattleStatusKind::SevenStarMark
-        || consumed->quantity <= 0
-        || consumed->source != StatusSourceMatch::EffectOwner
-        || !consumed->whenDepleted)
-        return false;
-
-    const auto& depleted = *consumed->whenDepleted;
-    return depleted.status == BattleStatusKind::Stun
-        && depleted.durationFrames > 0
-        && !depleted.duration
-        && std::holds_alternative<NoStatusQuantity>(depleted.quantity)
-        && depleted.reapplication == StatusReapplicationPolicy::KeepLongerDuration
-        && std::holds_alternative<NoStatusEffects>(depleted.effects);
-}
-
-bool matchesPoisonExplosionLifecycleProducer(const EffectRule& rule)
-{
-    if (rule.event != EffectEvent::AttackCommitted
-        || rule.observation != EffectObservationScope::Owner
-        || rule.castMatch != EffectCastMatch::BoundMagic
-        || !selectorIsExactly(rule.selector, EffectSelectorKind::Self)
-        || !rule.conditions.empty()
-        || !hasDefaultRuleQualifiers(rule)
-        || rule.actions.size() != 1)
-        return false;
-
-    const auto* applied = std::get_if<ApplyStatusAction>(
-        &rule.actions.front().value);
-    const auto* layers = applied
-        ? std::get_if<AddStatusLayers>(&applied->quantity)
-        : nullptr;
-    return applied
-        && applied->status == BattleStatusKind::PoisonExplosion
-        && applied->durationFrames == 0
-        && !applied->duration
-        && layers
-        && layers->count > 0
-        && layers->limit >= layers->count
-        && applied->reapplication == StatusReapplicationPolicy::Implicit
-        && std::holds_alternative<PoisonExplosionStatusEffects>(applied->effects);
-}
-
-bool matchesPoisonExplosionLifecycleConsumer(const EffectRule& rule)
-{
-    if (rule.event != EffectEvent::UnitDied
-        || rule.observation != EffectObservationScope::Owner
-        || rule.castMatch != EffectCastMatch::BoundMagic
-        || rule.conditions.size() != 1
-        || rule.chancePct != 100
-        || rule.maxActivations != 0
-        || rule.sharedCooldownFrames != 0
-        || rule.intervalFrames != 0
-        || rule.everyNthEvent != 0
-        || rule.activationLimit
-        || !rule.repetitionCount
-        || rule.actions.size() != 2)
-        return false;
-
-    EffectSelector expectedTarget;
-    expectedTarget.kind = EffectSelectorKind::UnitsInRadius;
-    expectedTarget.radiusTiles = rule.selector.radiusTiles;
-    expectedTarget.team = EffectTeamFilter::Enemy;
-    if (rule.selector.radiusTiles <= 0 || rule.selector != expectedTarget)
-        return false;
-
-    const auto* required = std::get_if<SourceHasStateCondition>(
-        &rule.conditions.front());
-    const auto* damage = std::get_if<DealDamageAction>(
-        &rule.actions.front().value);
-    const auto* applied = std::get_if<ApplyStatusAction>(
-        &rule.actions.back().value);
-    const auto* poisonQuantity = applied
-        ? std::get_if<SetStatusTriggerCharges>(&applied->quantity)
-        : nullptr;
-    const auto* poisonEffects = applied
-        ? std::get_if<PoisonStatusEffects>(&applied->effects)
-        : nullptr;
-    return required
-        && required->state == BattleStatusKind::PoisonExplosion
-        && matchesStatusQuantityFormula(
-            *rule.repetitionCount, BattleStatusKind::PoisonExplosion)
-        && damage
-        && matchesStatusEffectValueFormula(
-            damage->amount,
-            BattleStatusKind::PoisonExplosion,
-            StatusEffectValueKind::PoisonExplosionDeathPureDamage)
-        && !damage->transactionCount
-        && damage->kind == BattleDamageKind::Pure
-        && damage->appliesDamageModifiers
-        && damage->triggersHurtInvincibility
-        && damage->area.kind == DamageAreaKind::SingleTarget
-        && damage->area.radiusTiles == 0
-        && damage->area.squareSideTiles == 0
-        && damage->perCast.perTargetLimit == 0
-        && !damage->areaProjectiles
-        && applied
-        && applied->status == BattleStatusKind::Poison
-        && applied->durationFrames > 0
-        && !applied->duration
-        && poisonQuantity
-        && poisonQuantity->count > 0
-        && applied->reapplication == StatusReapplicationPolicy::ReplaceAndReset
-        && poisonEffects
-        && isPlainConstantNumber(poisonEffects->currentHpDamagePercent)
-        && poisonEffects->sameEventMerge == PoisonSameEventMerge::None;
-}
-
-std::string_view statusEffectValueLabel(StatusEffectValueKind value)
-{
-    const auto found = std::ranges::find_if(statusEffectFieldCatalog, [&](const auto& field)
+    switch (statusCatalogEntry(status).reapplication)
     {
-        return field.value == value;
-    });
-    assert(found != statusEffectFieldCatalog.end());
-    return found->label;
+    case StatusReapplicationModel::StunDuration:
+    case StatusReapplicationModel::PoisonDamage:
+    case StatusReapplicationModel::AuthoredRefreshDuration:
+        return true;
+    case StatusReapplicationModel::Implicit:
+    case StatusReapplicationModel::CatalogKeepLongerDuration:
+    case StatusReapplicationModel::CatalogRefreshDuration:
+    case StatusReapplicationModel::CatalogReplaceSelected:
+        return false;
+    }
+    assert(false);
+    return false;
 }
 
-bool statusEffectValueBelongsToStatus(
-    StatusEffectValueKind value,
-    BattleStatusKind status)
+bool statusBehaviorIsCatalogOwned(BattleStatusKind status)
 {
-    const auto found = std::ranges::find_if(statusEffectFieldCatalog, [&](const auto& field)
-    {
-        return field.value == value;
-    });
-    assert(found != statusEffectFieldCatalog.end());
-    return found->status == status;
+    return statusCatalogEntry(status).behaviorClassification
+        == StatusBehaviorClassification::CatalogOwned;
 }
 
-StatusRuntimeValueSlot statusEffectRuntimeValueSlot(StatusEffectValueKind value)
+std::shared_ptr<const StatusBehaviorDefinition> makeCatalogOwnedStatusBehavior(
+    const ApplyStatusAction& action)
 {
-    const auto found = std::ranges::find_if(statusEffectFieldCatalog, [&](const auto& field)
+    assert(statusBehaviorIsCatalogOwned(action.status));
+    for (const auto& field : statusNamedNumberFieldCatalog)
     {
-        return field.value == value;
-    });
-    assert(found != statusEffectFieldCatalog.end());
-    assert(found->runtimeSlot);
-    return *found->runtimeSlot;
-}
+        const auto& value = statusNamedNumberField(action, field.id);
+        assert(!value || statusHasNamedNumberField(action.status, field.id));
+    }
+    for (const auto fieldId : statusNamedNumberFields(action.status))
+    {
+        const auto& field = statusNamedNumberFieldCatalogEntry(fieldId);
+        assert(!field.required || statusNamedNumberField(action, fieldId));
+    }
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.observation = EffectObservationScope::StatusHolderEventSource;
+    rule.selector.kind = EffectSelectorKind::StatusHolder;
 
-std::optional<BattleStatusKind> statusEffectPayloadStatus(
-    const StatusEffectPayload& payload)
-{
-    std::optional<BattleStatusKind> result;
-    const auto record = [&](StatusEffectFieldId id)
+    const auto append = [&](auto value)
     {
-        const auto status = statusEffectFieldCatalogEntry(id).status;
-        assert(!result || *result == status);
-        result = status;
+        rule.actions.push_back(EffectAction{ EffectActionValue{ std::move(value) } });
     };
-    forEachStatusEffectField(
-        payload,
-        [&](StatusEffectFieldId id, const EffectNumber&) { record(id); },
-        [&](StatusEffectFieldId id, bool) { record(id); });
-    return result;
+    const auto allHealKinds = []
+    {
+        std::vector<std::string> result;
+        result.reserve(effectHealKindCatalog.size());
+        for (const auto& kind : effectHealKindCatalog)
+            result.emplace_back(kind.authorLabel);
+        return result;
+    };
+
+    switch (action.status)
+    {
+    case BattleStatusKind::Bleed:
+    {
+        rule.event = EffectEvent::FrameAdvanced;
+        rule.intervalFrames = 10;
+        DealDamageAction damage;
+        damage.amount.base = EffectNumberBase::TargetMaxHp;
+        damage.amount.percent = 1;
+        damage.amount.minimum = 1;
+        damage.amount.statusScale = StatusNumberScale::PerContributionLayer;
+        damage.kind = BattleDamageKind::Bleed;
+        append(std::move(damage));
+        break;
+    }
+    case BattleStatusKind::ColdPoison:
+    {
+        rule.event = EffectEvent::StatusPersistent;
+        ModifyHealTransactionAction healing;
+        healing.operation = HealModifierOperation::Block;
+        healing.kinds = allHealKinds();
+        append(std::move(healing));
+
+        ModifyAttributeAction speed;
+        speed.attribute = BattleAttribute::Speed;
+        speed.amount.flat = -25;
+        speed.operation = AttributeOperation::PercentAdd;
+        append(std::move(speed));
+        break;
+    }
+    case BattleStatusKind::WitheredBone:
+    {
+        rule.event = EffectEvent::StatusPersistent;
+        ModifyDamageAction damage;
+        damage.perspective = DamageModifierPerspective::Incoming;
+        damage.stage = DamageModifierStage::Final;
+        damage.channel = DamageChannel::All;
+        damage.amount.flat = 25;
+        damage.operation = DamageModifierOperation::PercentAdd;
+        append(std::move(damage));
+
+        ModifyHealTransactionAction healing;
+        healing.operation = HealModifierOperation::MultiplyReceived;
+        healing.kinds = allHealKinds();
+        healing.percent = 25;
+        append(std::move(healing));
+        break;
+    }
+    case BattleStatusKind::SevenStarMark:
+    {
+        rule.event = EffectEvent::HitBeforeDamage;
+        rule.observation = EffectObservationScope::SourceOwnerTeamEventSource;
+        rule.selector.kind = EffectSelectorKind::HitTarget;
+        rule.conditions.push_back(TargetIsStatusHolderCondition{});
+
+        ModifyDamageAction damage;
+        damage.perspective = DamageModifierPerspective::Outgoing;
+        damage.stage = DamageModifierStage::BeforeDefense;
+        damage.channel = DamageChannel::Skill;
+        damage.amount.flat = 50;
+        damage.operation = DamageModifierOperation::IgnoreDefensePercent;
+        append(std::move(damage));
+
+        ApplyStatusAction stun;
+        stun.status = BattleStatusKind::Stun;
+        stun.durationFrames = 30;
+        stun.quantity = NoStatusQuantity{};
+        stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+        ConsumeThisStatusAction consume;
+        consume.quantity = 1;
+        consume.whenDepleted = std::move(stun);
+        append(std::move(consume));
+        break;
+    }
+    case BattleStatusKind::NeutralizeForce:
+    {
+        const auto& shield = statusNamedNumberField(
+            action,
+            StatusNamedNumberFieldId::NeutralizeShield);
+        assert(shield);
+        rule.event = EffectEvent::HitBeforeDamage;
+        SuppressCurrentCastContactsAction suppress;
+        suppress.originalTargetShield = shield;
+        append(std::move(suppress));
+        break;
+    }
+    case BattleStatusKind::Blinded:
+    {
+        rule.event = EffectEvent::HitBeforeDamage;
+        append(SuppressCurrentCastContactsAction{});
+        break;
+    }
+    case BattleStatusKind::Poison:
+    case BattleStatusKind::Stun:
+    case BattleStatusKind::MpBlocked:
+    case BattleStatusKind::NextAttackMiss:
+    case BattleStatusKind::DamageBlockLayer:
+    case BattleStatusKind::SingleHitCapLayer:
+    case BattleStatusKind::BattleSpirit:
+    case BattleStatusKind::TrueQi:
+    case BattleStatusKind::PoisonExplosion:
+    case BattleStatusKind::Shadowless:
+    case BattleStatusKind::NextAttackCritical:
+        assert(false && "此狀態沒有目錄擁有的行為");
+        break;
+    }
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
 }
 
 LoweredStatusQuantity lowerStatusQuantity(const ApplyStatusAction& action)
@@ -444,12 +328,15 @@ LoweredStatusQuantity lowerStatusQuantity(const ApplyStatusAction& action)
             return { 1, EffectStackPolicy::Independent, std::nullopt };
         else if constexpr (std::is_same_v<T, AddStatusLayers>)
             return { quantity.count, EffectStackPolicy::AddStack, quantity.limit };
+        else if constexpr (std::is_same_v<T, AddSharedStatusLayers>)
+            return { quantity.count, EffectStackPolicy::AddStack,
+                     quantity.targetTotalLimit };
         else if constexpr (std::is_same_v<T, SetStatusMarks>)
             return { quantity.count, EffectStackPolicy::Replace, quantity.count };
         else if constexpr (std::is_same_v<T, AddDamageBlockCharges>)
             return { quantity.count, EffectStackPolicy::AddStack, quantity.limit };
         else if constexpr (std::is_same_v<T, SetDamageBlockCharges>)
-            return { quantity.count, EffectStackPolicy::Replace, std::nullopt };
+            return { quantity.count, EffectStackPolicy::Replace, quantity.count };
         else if constexpr (std::is_same_v<T, SetStatusTriggerCharges>)
             return { quantity.count, EffectStackPolicy::Replace, quantity.count };
     }, action.quantity);
@@ -460,18 +347,35 @@ EffectStackPolicy lowerStatusReapplication(const ApplyStatusAction& action)
     switch (action.reapplication)
     {
     case StatusReapplicationPolicy::Implicit:
-        return lowerStatusQuantity(action).stack;
+        switch (statusCatalogEntry(action.status).reapplication)
+        {
+        case StatusReapplicationModel::CatalogKeepLongerDuration:
+            return EffectStackPolicy::Refresh;
+        case StatusReapplicationModel::CatalogRefreshDuration:
+        case StatusReapplicationModel::CatalogReplaceSelected:
+            return EffectStackPolicy::Replace;
+        case StatusReapplicationModel::Implicit:
+            return lowerStatusQuantity(action).stack;
+        case StatusReapplicationModel::StunDuration:
+        case StatusReapplicationModel::PoisonDamage:
+        case StatusReapplicationModel::AuthoredRefreshDuration:
+            assert(false && "需要作者策略的狀態不可降低隱含重複套用");
+            return EffectStackPolicy::Independent;
+        }
+        assert(false);
+        return EffectStackPolicy::Independent;
     case StatusReapplicationPolicy::ExtendDuration:
         return EffectStackPolicy::Independent;
     case StatusReapplicationPolicy::KeepLongerDuration:
         return EffectStackPolicy::Refresh;
-    case StatusReapplicationPolicy::ReplaceDuration:
-    case StatusReapplicationPolicy::ReplaceAndReset:
-        return EffectStackPolicy::Replace;
     case StatusReapplicationPolicy::RefreshDuration:
         return EffectStackPolicy::Refresh;
     case StatusReapplicationPolicy::KeepHigherDamage:
         return EffectStackPolicy::KeepStrongest;
+    case StatusReapplicationPolicy::ReplaceExistingPoison:
+        return EffectStackPolicy::Replace;
+    case StatusReapplicationPolicy::Count:
+        break;
     }
     assert(false);
     return EffectStackPolicy::Independent;
@@ -534,6 +438,242 @@ bool hasOrdinaryAttackModification(const ModifyAttackAction& action)
     auto ordinary = action;
     ordinary.runtimeBehavior = {};
     return ordinary != ModifyAttackAction{};
+}
+
+std::optional<CanonicalPoisonDamageCapability> canonicalPoisonDamageCapability(
+    const StatusBehaviorDefinition& behavior)
+{
+    EffectSelector holder;
+    holder.kind = EffectSelectorKind::StatusHolder;
+    std::optional<CanonicalPoisonDamageCapability> result;
+    int poisonDamageActionCount{};
+    for (const auto& rule : behavior.rules)
+    {
+        const bool canonicalRule = rule.event == EffectEvent::FrameAdvanced
+            && rule.observation == EffectObservationScope::StatusHolderEventSource
+            && rule.castMatch == EffectCastMatch::BoundMagic
+            && rule.selector == holder
+            && rule.conditions.empty()
+            && rule.chancePct == 100
+            && rule.maxActivations == 0
+            && rule.sharedCooldownFrames == 0
+            && rule.intervalFrames == CanonicalPoisonIntervalFrames
+            && rule.everyNthEvent == 0
+            && !rule.activationLimit
+            && !rule.repetitionCount;
+        for (std::size_t index = 0; index < rule.actions.size(); ++index)
+        {
+            const auto* damage = std::get_if<DealDamageAction>(
+                &rule.actions[index].value);
+            if (!damage || damage->kind != BattleDamageKind::Poison) continue;
+            ++poisonDamageActionCount;
+            if (!canonicalRule || index + 1 >= rule.actions.size()) continue;
+            const auto* consume = std::get_if<ConsumeThisStatusAction>(
+                &rule.actions[index + 1].value);
+            const auto& number = damage->amount;
+            if (!consume
+                || consume->quantity != 1
+                || consume->whenDepleted
+                || number.base != EffectNumberBase::TargetCurrentHp
+                || number.multiplierBase
+                || number.status
+                || number.stateSlot
+                || number.flat != 0
+                || number.percent <= 0
+                || number.rounding != EffectRounding::TowardZero
+                || number.minimum != 1
+                || number.maximum
+                || number.statusScale != StatusNumberScale::Once
+                || number.boundNumerator != 0
+                || number.boundDenominator != 1
+                || damage->transactionCount
+                || !damage->appliesDamageModifiers
+                || !damage->triggersHurtInvincibility
+                || damage->area.kind != DamageAreaKind::SingleTarget
+                || damage->area.radiusTiles != 0
+                || damage->area.squareSideTiles != 0
+                || damage->perCast.perTargetLimit != 0
+                || damage->areaProjectiles)
+            {
+                continue;
+            }
+            if (result) return std::nullopt;
+            result = CanonicalPoisonDamageCapability{
+                .rule = &rule,
+                .damage = damage,
+                .consume = consume,
+            };
+        }
+    }
+    if (poisonDamageActionCount != 1) return std::nullopt;
+    return result;
+}
+
+namespace
+{
+
+template <typename Action, typename Visitor>
+void visitActionNumbers(Action& action, Visitor& visitor, bool recurseIntoStatusBehaviors);
+
+template <typename Rule, typename Visitor>
+void visitRuleNumbers(Rule& rule, Visitor& visitor, bool recurseIntoStatusBehaviors);
+
+template <typename Apply, typename Visitor>
+void visitAppliedStatusNumbers(
+    Apply& action,
+    Visitor& visitor,
+    bool recurseIntoStatusBehaviors)
+{
+    if (action.duration) visitor(*action.duration);
+    for (const auto& field : statusNamedNumberFieldCatalog)
+    {
+        auto& value = statusNamedNumberField(action, field.id);
+        if (value) visitor(*value);
+    }
+    if (!recurseIntoStatusBehaviors || !action.behavior) return;
+    // Catalog-owned behavior is a lowering artifact derived from the named
+    // parameters above. It is validated through the catalog contract, but it
+    // is not a second authored numeric surface and must not be visited twice.
+    if (statusBehaviorIsCatalogOwned(action.status)) return;
+    if constexpr (std::is_invocable_v<Visitor&, const EffectNumber&>)
+    {
+        for (const auto& rule : action.behavior->rules)
+            visitRuleNumbers(rule, visitor, true);
+    }
+    else
+    {
+        assert(false && "可變數值走訪不得遞迴進入不可變的狀態行為");
+    }
+}
+
+template <typename Action, typename Visitor>
+void visitActionNumbers(
+    Action& action,
+    Visitor& visitor,
+    bool recurseIntoStatusBehaviors)
+{
+    std::visit([&](auto& typed)
+    {
+        using T = std::remove_cvref_t<decltype(typed)>;
+        if constexpr (std::is_same_v<T, ModifyAttributeAction>
+            || std::is_same_v<T, ModifyDamageAction>
+            || std::is_same_v<T, ChangeResourceAction>)
+        {
+            visitor(typed.amount);
+        }
+        else if constexpr (std::is_same_v<T, ApplyStatusAction>)
+        {
+            visitAppliedStatusNumbers(
+                typed, visitor, recurseIntoStatusBehaviors);
+        }
+        else if constexpr (std::is_same_v<T, ConsumeStatusAction>
+            || std::is_same_v<T, ConsumeThisStatusAction>)
+        {
+            if (typed.whenDepleted)
+                visitAppliedStatusNumbers(
+                    *typed.whenDepleted, visitor, recurseIntoStatusBehaviors);
+        }
+        else if constexpr (std::is_same_v<T, SuppressCurrentCastContactsAction>)
+        {
+            if (typed.originalTargetShield) visitor(*typed.originalTargetShield);
+        }
+        else if constexpr (std::is_same_v<T, DealDamageAction>)
+        {
+            visitor(typed.amount);
+            if (typed.transactionCount) visitor(*typed.transactionCount);
+        }
+        else if constexpr (std::is_same_v<T, ModifyAttackAction>)
+        {
+            if (typed.damageOverride) visitor(*typed.damageOverride);
+        }
+        else if constexpr (std::is_same_v<T, CreateAreaAction>)
+        {
+            for (auto& modifier : typed.modifiers) visitor(modifier.amount);
+        }
+        else if constexpr (std::is_same_v<T, ModifyCastAction>)
+        {
+            if (typed.mpCost) visitor(*typed.mpCost);
+        }
+        else if constexpr (std::is_same_v<T, StateMachineAction>)
+        {
+            std::visit([&](auto& machine)
+            {
+                using M = std::remove_cvref_t<decltype(machine)>;
+                if constexpr (std::is_same_v<M, BorrowEffectRulesAction>)
+                    visitor(machine.sourceCount);
+                else if constexpr (std::is_same_v<M, ChangeStateValueAction>
+                    || std::is_same_v<M, TransferStateValueAction>
+                    || std::is_same_v<M, RecordMaximumDamageAction>
+                    || std::is_same_v<M, ConsumeRecordedMaximumAction>
+                    || std::is_same_v<M, StartDamageAbsorptionAction>
+                    || std::is_same_v<M, SettleDamageAbsorptionAction>
+                    || std::is_same_v<M, CopyAttackDefinitionAction>
+                    || std::is_same_v<M, SettleRemainingStatusDamageAction>
+                    || std::is_same_v<M, GenerateClonesAction>
+                    || std::is_same_v<M, PreventDeathAction>
+                    || std::is_same_v<M, ConfigureRescueRepositionAction>)
+                {
+                }
+                else
+                    static_assert(alwaysFalse<M>,
+                        "StateMachineAction 數值走訪缺少新型別的明確處理");
+            }, typed);
+        }
+        else if constexpr (std::is_same_v<T, std::shared_ptr<ConditionalEffectAction>>)
+        {
+            assert(typed);
+            for (auto& nested : typed->whenTrue)
+                visitActionNumbers(nested, visitor, recurseIntoStatusBehaviors);
+            for (auto& nested : typed->whenFalse)
+                visitActionNumbers(nested, visitor, recurseIntoStatusBehaviors);
+        }
+        else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>
+            || std::is_same_v<T, RemoveStatusAction>
+            || std::is_same_v<T, ForceMoveAction>
+            || std::is_same_v<T, MakeIncomingAttackMissAction>
+            || std::is_same_v<T, BlockPositiveDamageAction>)
+        {
+        }
+        else
+            static_assert(alwaysFalse<T>,
+                "EffectActionValue 數值走訪缺少新型別的明確處理");
+    }, action.value);
+}
+
+template <typename Rule, typename Visitor>
+void visitRuleNumbers(
+    Rule& rule,
+    Visitor& visitor,
+    bool recurseIntoStatusBehaviors)
+{
+    if (rule.repetitionCount) visitor(*rule.repetitionCount);
+    for (auto& action : rule.actions)
+        visitActionNumbers(action, visitor, recurseIntoStatusBehaviors);
+}
+
+}  // namespace
+
+void forEachEffectNumber(
+    EffectRule& rule,
+    const std::function<void(EffectNumber&)>& visitor)
+{
+    // Mutable traversal is used while binding one contribution generation.
+    // A nested status gets its own binding snapshot when it is later applied.
+    visitRuleNumbers(rule, visitor, false);
+}
+
+void forEachEffectNumber(
+    const EffectRule& rule,
+    const std::function<void(const EffectNumber&)>& visitor)
+{
+    visitRuleNumbers(rule, visitor, true);
+}
+
+void forEachDirectEffectNumber(
+    const EffectRule& rule,
+    const std::function<void(const EffectNumber&)>& visitor)
+{
+    visitRuleNumbers(rule, visitor, false);
 }
 
 }  // namespace KysChess

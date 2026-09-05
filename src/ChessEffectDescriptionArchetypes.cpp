@@ -407,11 +407,49 @@ bool matchesConditionalAttackArchetype(const EffectDescriptionBlock& block)
         && matchesConditionalAttackBranch(*whenFalse, 50, false, std::nullopt);
 }
 
+bool matchesStatusLifecycleArchetype(const EffectDescriptionBlock& block)
+{
+    const auto& trigger = descriptionTrigger(block);
+    const auto actions = descriptionActions(block);
+    return trigger.event == EffectEvent::MainProjectileBeforeDamage
+        && trigger.observation == EffectObservationScope::Owner
+        && trigger.castMatch == EffectCastMatch::BoundMagic
+        && descriptionTarget(block).selector
+            == selectorOfKind(EffectSelectorKind::HitTarget)
+        && descriptionConditions(block).empty()
+        && hasDefaultRuleQualifiers(ruleQualifiers(block))
+        && actions.size() == 1
+        && std::get_if<ApplyStatusAction>(&actions.front()->value)
+        && std::get<ApplyStatusAction>(actions.front()->value).status
+            == BattleStatusKind::SevenStarMark;
+}
+
+bool matchesStackExplosionArchetype(const EffectDescriptionBlock& block)
+{
+    const auto& trigger = descriptionTrigger(block);
+    const auto actions = descriptionActions(block);
+    return trigger.event == EffectEvent::AttackCommitted
+        && trigger.observation == EffectObservationScope::Owner
+        && trigger.castMatch == EffectCastMatch::BoundMagic
+        && descriptionTarget(block).selector
+            == selectorOfKind(EffectSelectorKind::Self)
+        && descriptionConditions(block).empty()
+        && hasDefaultRuleQualifiers(ruleQualifiers(block))
+        && actions.size() == 1
+        && std::get_if<ApplyStatusAction>(&actions.front()->value)
+        && std::get<ApplyStatusAction>(actions.front()->value).status
+            == BattleStatusKind::PoisonExplosion;
+}
+
 DescriptionArchetype descriptionArchetype(const EffectDescriptionBlock& block)
 {
     if (matchesBorrowRulesArchetype(block)) return DescriptionArchetype::BorrowRules;
     if (matchesCopyAttackArchetype(block)) return DescriptionArchetype::CopyAttack;
     if (matchesConditionalAttackArchetype(block)) return DescriptionArchetype::ConditionalAttack;
+    if (matchesStatusLifecycleArchetype(block))
+        return DescriptionArchetype::StatusLifecycle;
+    if (matchesStackExplosionArchetype(block))
+        return DescriptionArchetype::StackExplosion;
     return DescriptionArchetype::Generic;
 }
 
@@ -600,143 +638,5 @@ void classifyPhraseAbsorptions(EffectDescriptionBlock& block)
         }
     }
 }
-
-std::optional<EffectRule> lifecycleRule(const EffectDescriptionBlock& block)
-{
-    if (block.trigger.size() != 1 || block.targets.size() != 1)
-        return std::nullopt;
-    const auto conditions = descriptionConditions(block);
-    const auto actions = descriptionActions(block);
-    if (actions.empty()) return std::nullopt;
-
-    const auto& trigger = descriptionTrigger(block);
-    const auto& target = descriptionTarget(block);
-    const auto& qualifiers = ruleQualifiers(block);
-    EffectRule rule;
-    rule.id = block.sourceRuleId;
-    rule.event = trigger.event;
-    rule.observation = trigger.observation;
-    rule.castMatch = trigger.castMatch;
-    rule.selector = target.selector;
-    for (const auto* condition : conditions) rule.conditions.push_back(*condition);
-    rule.chancePct = qualifiers.chancePct;
-    rule.maxActivations = qualifiers.maxActivations;
-    rule.sharedCooldownFrames = qualifiers.sharedCooldownFrames;
-    rule.intervalFrames = qualifiers.intervalFrames;
-    rule.everyNthEvent = qualifiers.everyNthEvent;
-    rule.activationLimit = qualifiers.activationLimit;
-    rule.repetitionCount = qualifiers.repetitionCount;
-    for (const auto* action : actions) rule.actions.push_back(*action);
-    return rule;
-}
-
-bool matchesStatusLifecycleProducer(
-    const EffectDescriptionBlock& block,
-    BattleStatusKind status)
-{
-    const auto rule = lifecycleRule(block);
-    return status == BattleStatusKind::SevenStarMark
-        && rule
-        && matchesSevenStarLifecycleProducer(*rule);
-}
-
-bool matchesStatusLifecycleConsumer(
-    const EffectDescriptionBlock& block,
-    BattleStatusKind status)
-{
-    const auto rule = lifecycleRule(block);
-    return status == BattleStatusKind::SevenStarMark
-        && rule
-        && matchesSevenStarLifecycleConsumer(*rule);
-}
-
-bool matchesStackExplosionProducer(
-    const EffectDescriptionBlock& block,
-    BattleStatusKind status)
-{
-    const auto rule = lifecycleRule(block);
-    return status == BattleStatusKind::PoisonExplosion
-        && rule
-        && matchesPoisonExplosionLifecycleProducer(*rule);
-}
-
-bool matchesStackExplosionConsumer(
-    const EffectDescriptionBlock& block,
-    BattleStatusKind status)
-{
-    const auto rule = lifecycleRule(block);
-    return status == BattleStatusKind::PoisonExplosion
-        && rule
-        && matchesPoisonExplosionLifecycleConsumer(*rule);
-}
-
-void markLifecycleArchetype(
-    EffectDescriptionBlock& block,
-    DescriptionArchetype archetype)
-{
-    block.archetype = archetype;
-    block.coverage.genericFallback = false;
-    block.coverage.unmatchedShapeSignatures.clear();
-}
-
-void linkStatusLifecycles(EffectDescriptionDocument& document)
-{
-    std::vector<EffectDescriptionBlock*> blocks;
-    for (auto& section : document.sections)
-        for (auto& block : section.blocks)
-            blocks.push_back(&block);
-
-    for (auto* consumer : blocks)
-    {
-        const auto* consumed = consumeStatusAction(*consumer);
-        if (consumed)
-        {
-            std::vector<EffectDescriptionBlock*> compatibleProducers;
-            for (auto* producer : blocks)
-            {
-                if (producer == consumer) continue;
-                if (matchesStatusLifecycleProducer(
-                        *producer, consumed->status)
-                    && matchesStatusLifecycleConsumer(
-                        *consumer, consumed->status))
-                    compatibleProducers.push_back(producer);
-            }
-            if (compatibleProducers.size() == 1)
-            {
-                markLifecycleArchetype(
-                    *compatibleProducers.front(),
-                    DescriptionArchetype::StatusLifecycle);
-                markLifecycleArchetype(
-                    *consumer,
-                    DescriptionArchetype::StatusLifecycle);
-            }
-        }
-
-        const auto& qualifiers = ruleQualifiers(*consumer);
-        if (qualifiers.repetitionCount
-            && qualifiers.repetitionCount->status)
-        {
-            const auto status = *qualifiers.repetitionCount->status;
-            std::vector<EffectDescriptionBlock*> compatibleProducers;
-            for (auto* producer : blocks)
-            {
-                if (producer == consumer) continue;
-                if (matchesStackExplosionProducer(*producer, status)
-                    && matchesStackExplosionConsumer(*consumer, status))
-                    compatibleProducers.push_back(producer);
-            }
-            if (compatibleProducers.size() == 1)
-            {
-                markLifecycleArchetype(
-                    *compatibleProducers.front(),
-                    DescriptionArchetype::StackExplosion);
-                markLifecycleArchetype(
-                    *consumer,
-                    DescriptionArchetype::StackExplosion);
-            }
-        }
-    }
-}
-
 
 }  // namespace KysChess::EffectDescriptionDetail

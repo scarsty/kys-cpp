@@ -1,12 +1,14 @@
 #include "BattleDamageSystem.h"
 
 #include "../ChessBattleEffectTypes.h"
+#include "BattleEffectSystem.h"
 #include "BattleHealSystem.h"
 #include "BattleMath.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <utility>
 
 namespace KysChess::Battle
@@ -14,6 +16,74 @@ namespace KysChess::Battle
 
 namespace
 {
+
+struct StatusDamageInterceptor
+{
+    bool blocks{};
+    int cap{};
+    BattleStatusKind kind{};
+    std::uint64_t appliedSequence{};
+    EffectExecutionOrderKey order;
+};
+
+std::vector<StatusDamageInterceptor> statusDamageInterceptors(
+    const BattleStatusEffectState& effects)
+{
+    std::vector<StatusDamageInterceptor> result;
+    for (const auto& contribution : effects.statuses)
+    {
+        if (!contribution.behavior || contribution.stacks <= 0) continue;
+        for (std::uint32_t ruleOrder = 0;
+             ruleOrder < contribution.behavior->rules.size();
+             ++ruleOrder)
+        {
+            const auto& rule = contribution.behavior->rules[ruleOrder];
+            if (rule.event != EffectEvent::StatusPersistent) continue;
+            for (std::uint32_t actionOrder = 0;
+                 actionOrder < rule.actions.size();
+                 ++actionOrder)
+            {
+                const auto& action = rule.actions[actionOrder];
+                const bool blocks = std::holds_alternative<BlockPositiveDamageAction>(
+                    action.value);
+                int cap{};
+                if (const auto* modifier = std::get_if<ModifyDamageAction>(
+                        &action.value);
+                    modifier
+                    && modifier->operation
+                        == DamageModifierOperation::CapSingleHitAtValue)
+                {
+                    const auto value = effectiveConstantEffectNumberValue(
+                        modifier->amount);
+                    assert(value && *value > 0);
+                    cap = *value;
+                }
+                if (!blocks && cap == 0) continue;
+                assert(contribution.origin);
+                assert(contribution.producer);
+                result.push_back({
+                    .blocks = blocks,
+                    .cap = cap,
+                    .kind = contribution.kind,
+                    .appliedSequence = contribution.appliedSequence,
+                    .order = statusBehaviorExecutionOrderKey(
+                        contribution.origin->binding,
+                        contribution.origin->ruleOrder,
+                        contribution.producer->actionOrder,
+                        ruleOrder,
+                        -1,
+                        contribution.appliedSequence,
+                        actionOrder),
+                });
+            }
+        }
+    }
+    std::ranges::stable_sort(result, [](const auto& lhs, const auto& rhs)
+    {
+        return lhs.order < rhs.order;
+    });
+    return result;
+}
 
 BattleDamageKind effectiveDamageKind(const BattleDamageRequest& request)
 {
@@ -47,18 +117,22 @@ void applyDamageReduction(
     remainingDamageBasisPoints = cappedRemaining;
 }
 
-void applySignedOutgoingDamageDelta(
+void applySignedDamageDelta(
     BattleFixed& damage,
     int pctDelta,
     int& remainingDamageBasisPoints)
 {
     if (pctDelta < 0)
     {
-        applyDamageReduction(damage, -pctDelta, remainingDamageBasisPoints);
+        const int reduction = pctDelta == std::numeric_limits<int>::min()
+            ? 100
+            : -pctDelta;
+        applyDamageReduction(damage, reduction, remainingDamageBasisPoints);
     }
     else if (pctDelta > 0)
     {
-        damage = damage.scaled(100 + pctDelta, 100);
+        damage = damage.scaledPercentSaturated(
+            static_cast<std::int64_t>(100) + pctDelta);
     }
 }
 
@@ -71,10 +145,10 @@ void applyTypedDefenderStatusModifiers(
         damage,
         statuses.damageReductionPct,
         remainingDamageBasisPoints);
-    if (statuses.damageTakenPct > 0)
-    {
-        damage = damage.scaled(100 + statuses.damageTakenPct, 100);
-    }
+    applySignedDamageDelta(
+        damage,
+        statuses.damageTakenPct,
+        remainingDamageBasisPoints);
 }
 
 BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const BattleDamageUnitState& after)
@@ -210,13 +284,19 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             if (input.attackerStatus.id == input.attacker.id)
             {
                 const auto attackerStatuses = statusSystem.snapshot(input.attackerStatus);
-                modifierInput.attacker.skillDamagePct += attackerStatuses.skillDamagePct;
+                modifierInput.attacker.skillDamagePct = battleSaturatedAdd(
+                    modifierInput.attacker.skillDamagePct,
+                    attackerStatuses.skillDamagePct);
             }
             if (result.defenderStatus.id == input.defender.id)
             {
                 const auto defenderStatuses = statusSystem.snapshot(result.defenderStatus);
-                modifierInput.defender.damageReductionPct += defenderStatuses.damageReductionPct;
-                modifierInput.defender.damageTakenIncreasePct += defenderStatuses.damageTakenPct;
+                modifierInput.defender.damageReductionPct = battleSaturatedAdd(
+                    modifierInput.defender.damageReductionPct,
+                    defenderStatuses.damageReductionPct);
+                modifierInput.defender.damageTakenIncreasePct = battleSaturatedAdd(
+                    modifierInput.defender.damageTakenIncreasePct,
+                    defenderStatuses.damageTakenPct);
                 modifierInput.defender.poisoned = modifierInput.defender.poisoned
                     || result.defenderStatus.effects.has(BattleStatusKind::Poison);
             }
@@ -239,7 +319,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             combinedReductionBasisPoints = 10'000 - remainingDamageBasisPoints;
         }
         int remainingDamageBasisPoints = 10'000 - combinedReductionBasisPoints;
-        applySignedOutgoingDamageDelta(
+        applySignedDamageDelta(
             resolvedDamage,
             input.liveOutgoingDamagePctDelta,
             remainingDamageBasisPoints);
@@ -264,20 +344,40 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                     input.request.executeThresholdPct);
         }
 
-        bool blockByStatusLayer = false;
-        int singleHitCap = 0;
+        std::optional<StatusDamageInterceptor> selectedInterceptor;
         BattleStatusSystem statusSystem({});
         if (result.defenderStatus.id == input.defender.id)
         {
-            const auto statuses = statusSystem.snapshot(result.defenderStatus);
-            blockByStatusLayer = statuses.has(BattleStatusKind::DamageBlockLayer);
-            for (const auto& status : statuses.statuses)
+            const auto interceptors = statusDamageInterceptors(
+                result.defenderStatus.effects);
+            const auto block = std::ranges::find_if(
+                interceptors,
+                &StatusDamageInterceptor::blocks);
+            if (block != interceptors.end())
             {
-                if (status.kind == BattleStatusKind::SingleHitCapLayer)
+                selectedInterceptor = *block;
+            }
+            else
+            {
+                const auto cap = std::ranges::min_element(
+                    interceptors,
+                    [](const StatusDamageInterceptor& lhs,
+                       const StatusDamageInterceptor& rhs)
+                    {
+                        const int lhsCap = lhs.cap > 0
+                            ? lhs.cap
+                            : std::numeric_limits<int>::max();
+                        const int rhsCap = rhs.cap > 0
+                            ? rhs.cap
+                            : std::numeric_limits<int>::max();
+                        if (lhsCap != rhsCap) return lhsCap < rhsCap;
+                        if (lhs.appliedSequence != rhs.appliedSequence)
+                            return lhs.appliedSequence < rhs.appliedSequence;
+                        return lhs.order < rhs.order;
+                    });
+                if (cap != interceptors.end() && cap->cap > 0)
                 {
-                    assert(status.potency > 0);
-                    singleHitCap = status.potency;
-                    break;
+                    selectedInterceptor = *cap;
                 }
             }
         }
@@ -287,8 +387,11 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         defenseInput.executed = result.executed;
         defenseInput.defenderWasInvincible = result.defender.invincible > 0;
         defenseInput.defender = result.defender;
-        defenseInput.blockByStatusLayer = blockByStatusLayer;
-        defenseInput.singleHitCap = singleHitCap;
+        defenseInput.blockByStatusLayer = selectedInterceptor
+            && selectedInterceptor->blocks;
+        defenseInput.singleHitCap = selectedInterceptor
+            ? selectedInterceptor->cap
+            : 0;
         defenseInput.remainingDamageBasisPoints =
             10'000 - result.combinedDamageReductionBasisPoints;
         defenseInput.absorptionLayers = input.absorptionLayers;
@@ -307,7 +410,13 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         {
             auto consumed = statusSystem.consume(
                 result.defenderStatus,
-                { .kind = BattleStatusKind::DamageBlockLayer });
+                {
+                    .kind = selectedInterceptor->kind,
+                    .filter = {
+                        .holderUnitId = result.defenderStatus.id,
+                        .appliedSequence = selectedInterceptor->appliedSequence,
+                    },
+                });
             assert(consumed.consumed);
             result.defenderStatus = std::move(consumed.target);
         }
@@ -315,7 +424,13 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         {
             auto consumed = statusSystem.consume(
                 result.defenderStatus,
-                { .kind = BattleStatusKind::SingleHitCapLayer });
+                {
+                    .kind = selectedInterceptor->kind,
+                    .filter = {
+                        .holderUnitId = result.defenderStatus.id,
+                        .appliedSequence = selectedInterceptor->appliedSequence,
+                    },
+                });
             assert(consumed.consumed);
             result.defenderStatus = std::move(consumed.target);
         }
@@ -496,8 +611,9 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         if (canApplyStatusEffects && input.request.bleedStacks > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
+            assert(input.request.bleedProducer);
             auto bleed = applyBleed(result.defenderStatus,
-                                    input.request.attackerUnitId,
+                                    *input.request.bleedProducer,
                                     input.request.bleedStacks,
                                     input.request.bleedMaxStacks);
             result.defenderStatus = bleed.target;
@@ -557,9 +673,12 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     int remainingDamageBasisPoints = 10'000;
 
     if ((input.usingSkill || input.damageKind == BattleDamageKind::Skill)
-        && input.attacker.skillDamagePct > 0)
+        && input.attacker.skillDamagePct != 0)
     {
-        damage = damage.scaled(100 + input.attacker.skillDamagePct, 100);
+        applySignedDamageDelta(
+            damage,
+            input.attacker.skillDamagePct,
+            remainingDamageBasisPoints);
     }
 
     damage += BattleFixed::fromInteger(input.attacker.flatDamageIncrease);
@@ -579,11 +698,15 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
 
     if (input.defender.poisoned && input.attacker.poisonDamageAmpPct > 0)
     {
-        damage = damage.scaled(100 + input.attacker.poisonDamageAmpPct, 100);
+        damage = damage.scaledPercentSaturated(
+            static_cast<std::int64_t>(100) + input.attacker.poisonDamageAmpPct);
     }
-    if (input.defender.damageTakenIncreasePct > 0)
+    if (input.defender.damageTakenIncreasePct != 0)
     {
-        damage = damage.scaled(100 + input.defender.damageTakenIncreasePct, 100);
+        applySignedDamageDelta(
+            damage,
+            input.defender.damageTakenIncreasePct,
+            remainingDamageBasisPoints);
     }
 
     BattleDamageModifierResult result;
@@ -695,6 +818,7 @@ BattleDamageRequest BattleDamageSystem::makeScriptedHitRequest(
     assert(input.stunFrames >= 0);
     assert(input.bleedStacks >= 0);
     assert(input.bleedMaxStacks >= 0);
+    assert(input.bleedStacks == 0 || input.bleedProducer);
 
     BattleDamageRequest request;
     request.attackerUnitId = input.attackerUnitId;
@@ -703,6 +827,7 @@ BattleDamageRequest BattleDamageSystem::makeScriptedHitRequest(
     request.stunFrames = input.stunFrames;
     request.bleedStacks = input.bleedStacks;
     request.bleedMaxStacks = input.bleedMaxStacks;
+    request.bleedProducer = input.bleedProducer;
     return request;
 }
 
@@ -932,10 +1057,11 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
     return result;
 }
 
-BattleStatusApplyResult BattleDamageSystem::applyBleed(BattleStatusUnitState target,
-                                                       int sourceUnitId,
-                                                       int stacks,
-                                                       int maxStacks) const
+BattleStatusApplyResult BattleDamageSystem::applyBleed(
+    BattleStatusUnitState target,
+    const BattleStatusProducerProvenance& provenance,
+    int stacks,
+    int maxStacks) const
 {
     assert(target.id >= 0);
     assert(stacks > 0);
@@ -943,10 +1069,14 @@ BattleStatusApplyResult BattleDamageSystem::applyBleed(BattleStatusUnitState tar
 
     BattleStatusApplyRequest request;
     request.kind = BattleStatusKind::Bleed;
-    request.sourceUnitId = sourceUnitId;
+    request.producer = provenance.producer;
+    request.producerFamily = provenance.producerFamily;
+    request.behavior = makeRuntimeBleedStatusBehavior();
+    request.sourceUnitId = provenance.sourceUnitId;
     request.stacks = stacks;
     request.stack = EffectStackPolicy::AddStack;
-    request.stackLimit = maxStacks;
+    request.targetTotalLimit = maxStacks;
+    request.origin = provenance.origin;
     return BattleStatusSystem({}).apply(std::move(target), request);
 }
 

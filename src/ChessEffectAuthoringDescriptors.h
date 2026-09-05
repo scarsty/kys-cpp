@@ -50,6 +50,7 @@ enum class PayloadSchemaReference
     ActionNode,
     ActionList,
     ConditionList,
+    RuleList,
     Timing,
     Payload,
     PayloadList,
@@ -128,6 +129,7 @@ struct ConditionDescriptor
     ConditionAuthorForm form;
     std::string_view singleParameterField;
     const PayloadDescriptor* payload;
+    bool statusBehaviorOnly = false;
 
     constexpr EffectEventConstraint eventConstraint() const
     {
@@ -150,6 +152,7 @@ enum class ActionPayloadKind
     Area,
     Cast,
     StateMachine,
+    StatusContext,
     Conditional,
 };
 

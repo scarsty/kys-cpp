@@ -2,6 +2,8 @@
 
 #include "ChessEffectDescription.h"
 
+#include <algorithm>
+#include <initializer_list>
 #include <span>
 
 namespace KysChess::EffectDescriptionDetail
@@ -12,6 +14,54 @@ std::string selectorLabel(const EffectSelector& selector, bool compact);
 std::string descriptionNumberLabel(
     const EffectNumber& number,
     EffectDescriptionStyle style);
+// Returns the authored duration using the formula when present, otherwise the
+// fixed frame count.  Keeping this selection in one place prevents specialised
+// status phrases from silently rendering formula durations as 0幀.
+std::string statusDurationLabel(
+    const ApplyStatusAction& status,
+    EffectDescriptionStyle style);
+std::string renderStatusBehaviorDefinition(
+    const StatusBehaviorDefinition& behavior,
+    EffectDescriptionStyle style);
+
+inline bool statusBehaviorHasExactShape(
+    const ApplyStatusAction& status,
+    std::initializer_list<std::size_t> actionCounts)
+{
+    if (!status.behavior || status.behavior->rules.size() != actionCounts.size())
+        return false;
+    return std::ranges::equal(
+        status.behavior->rules,
+        actionCounts,
+        {},
+        [](const EffectRule& rule) { return rule.actions.size(); });
+}
+
+template<typename Action, typename Predicate>
+const Action* findStatusBehaviorAction(
+    const ApplyStatusAction& status,
+    Predicate predicate)
+{
+    if (!status.behavior) return nullptr;
+    for (const auto& rule : status.behavior->rules)
+    {
+        for (const auto& action : rule.actions)
+        {
+            const auto* typed = std::get_if<Action>(&action.value);
+            if (typed && predicate(*typed)) return typed;
+        }
+    }
+    return nullptr;
+}
+
+template<typename Action>
+const Action* findStatusBehaviorAction(const ApplyStatusAction& status)
+{
+    return findStatusBehaviorAction<Action>(
+        status,
+        [](const Action&) { return true; });
+}
+
 std::string borrowedRuleFilterLabel(const BorrowedRuleFilter& filter);
 std::string copiedMagicFilterLabel(const CopiedMagicFilter& filter);
 std::string conditionLabel(
@@ -43,6 +93,8 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
     EffectDescriptionStyle style,
     EffectEvent event,
     bool coalesce);
+std::vector<DescriptionActionPhraseRow> renderDetailedStatusBehaviorRows(
+    const ApplyStatusAction& status);
 
 DescriptionSourceField descriptionSource(
     const EffectRule& rule,
@@ -123,6 +175,7 @@ std::vector<const EffectCondition*> descriptionConditions(
     const EffectDescriptionBlock& block);
 std::vector<const EffectAction*> descriptionActions(
     const EffectDescriptionBlock& block);
+bool hasDefaultRuleQualifiers(const DescriptionRuleQualifiersFact& qualifiers);
 const BorrowEffectRulesAction* borrowRulesAction(
     const EffectDescriptionBlock& block);
 const CopyAttackDefinitionAction* copyAttackAction(
@@ -130,11 +183,12 @@ const CopyAttackDefinitionAction* copyAttackAction(
 bool matchesBorrowRulesArchetype(const EffectDescriptionBlock& block);
 bool matchesCopyAttackArchetype(const EffectDescriptionBlock& block);
 bool matchesConditionalAttackArchetype(const EffectDescriptionBlock& block);
+bool matchesStatusLifecycleArchetype(const EffectDescriptionBlock& block);
+bool matchesStackExplosionArchetype(const EffectDescriptionBlock& block);
 DescriptionArchetype descriptionArchetype(
     const EffectDescriptionBlock& block);
 void classifyArchetypeCoverage(EffectDescriptionBlock& block);
 void applyArchetypeProjection(EffectDescriptionBlock& block);
 void classifyPhraseAbsorptions(EffectDescriptionBlock& block);
-void linkStatusLifecycles(EffectDescriptionDocument& document);
 
 }  // namespace KysChess::EffectDescriptionDetail

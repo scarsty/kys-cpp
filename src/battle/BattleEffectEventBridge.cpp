@@ -4,10 +4,10 @@
 
 #include <cassert>
 #include <algorithm>
-#include <limits>
-#include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 
 namespace KysChess::Battle
@@ -115,54 +115,164 @@ void validateDamageSnapshots(
 
 const BattleCastProvenance* eventCastProvenance(const EffectEventPayload& payload)
 {
-    const auto fromOrigin = [](const EffectDamageOrigin& origin) -> const BattleCastProvenance*
-    {
-        if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
-        {
-            return &attack->provenance.cast;
-        }
-        return nullptr;
-    };
     return std::visit(Overloaded{
         [](const CastPlanEventData& data) { return &data.provenance; },
         [](const CastCommitEventData& data) { return &data.provenance; },
         [](const AttackEventData& data) { return &data.provenance.cast; },
         [](const HitEventData& data) { return &data.provenance.cast; },
         [](const CastAggregateEventData& data) { return &data.provenance; },
-        [&](const DamageResultEventData& data) { return fromOrigin(data.origin); },
-        [&](const ShieldBreakEventData& data) { return fromOrigin(data.cause); },
-        [&](const DeathEventData& data) { return fromOrigin(data.cause); },
+        [&](const DamageResultEventData& data) {
+            return effectDamageCastProvenance(data.origin);
+        },
+        [&](const ShieldBreakEventData& data) {
+            return effectDamageCastProvenance(data.cause);
+        },
+        [&](const DeathEventData& data) {
+            return effectDamageCastProvenance(data.cause);
+        },
         [](const auto&) -> const BattleCastProvenance* { return nullptr; },
     }, payload);
 }
 
-void appendDispatchResult(BattleEffectDispatchResult& destination,
-                          BattleEffectDispatchResult source)
+void sortDispatchCommands(BattleEffectDispatchResult& result)
 {
-    std::uint64_t nextCommandOrdinal{};
-    for (const auto& command : destination.commands)
+    std::ranges::stable_sort(result.commands, [](const auto& lhs, const auto& rhs)
     {
-        assert(command.metadata.commandOrdinal
-            < std::numeric_limits<std::uint64_t>::max());
-        nextCommandOrdinal = std::max(
-            nextCommandOrdinal,
-            command.metadata.commandOrdinal + 1);
-    }
-    for (auto& command : source.commands)
-    {
-        assert(command.metadata.commandOrdinal
-            <= std::numeric_limits<std::uint64_t>::max() - nextCommandOrdinal);
-        command.metadata.commandOrdinal += nextCommandOrdinal;
-    }
-    destination.activations.insert(
-        destination.activations.end(),
-        std::make_move_iterator(source.activations.begin()),
-        std::make_move_iterator(source.activations.end()));
-    destination.commands.insert(
-        destination.commands.end(),
-        std::make_move_iterator(source.commands.begin()),
-        std::make_move_iterator(source.commands.end()));
+        return effectExecutionOrderKey(lhs.metadata)
+            < effectExecutionOrderKey(rhs.metadata);
+    });
+    for (std::uint64_t ordinal = 0; ordinal < result.commands.size(); ++ordinal)
+        result.commands[ordinal].metadata.commandOrdinal = ordinal;
 }
+
+std::vector<ActiveStatusBehaviorView> gatherActiveStatusBehaviors(
+    BattleRuntimeState& runtime)
+{
+    std::vector<ActiveStatusBehaviorView> result;
+    for (auto& holder : runtime.units.all())
+    {
+        for (auto& contribution : holder.status.effects.statuses)
+        {
+            if (!contribution.behavior) continue;
+            assert(contribution.origin);
+            assert(contribution.producer);
+            assert(contribution.behaviorRuntime.size()
+                == contribution.behavior->rules.size());
+            result.push_back({
+                .binding = contribution.origin->binding,
+                .producerRuleId = contribution.origin->ruleId,
+                .producerRuleOrder = contribution.origin->ruleOrder,
+                .producerActionOrder = contribution.producer->actionOrder,
+                .holderUnitId = holder.id(),
+                .sourceUnitId = contribution.sourceUnitId,
+                .kind = contribution.kind,
+                .quantity = contribution.stacks,
+                .appliedSequence = contribution.appliedSequence,
+                .holderEffects = &holder.status.effects,
+                .behavior = contribution.behavior,
+                .runtime = &contribution.behaviorRuntime,
+            });
+        }
+    }
+    return result;
+}
+
+bool livenessReductionStartsDamageContinuation(
+    const BattleEffectReductionValue& value)
+{
+    if (std::holds_alternative<BattleEffectDamageRequestOutput>(value)
+        || std::holds_alternative<BattleDeferredHpResourceOutput>(value))
+    {
+        return true;
+    }
+    const auto* routed = std::get_if<
+        BattleRoutedEffectCommand<StateMachineEffectCommand>>(&value);
+    if (!routed) return false;
+    return std::visit(Overloaded{
+        [&](const ConsumeRecordedMaximumAction&) { return routed->command.outputValue > 0; },
+        [&](const SettleDamageAbsorptionAction&)
+        {
+            return routed->command.outputValue > 0
+                && !routed->command.selectedSourceUnitIds.empty();
+        },
+        [&](const SettleRemainingStatusDamageAction&)
+        {
+            return routed->command.outputValue > 0;
+        },
+        [](const auto&) { return false; },
+    }, routed->command.action);
+}
+
+class ReducerBackedStatusLiveness
+{
+public:
+    ReducerBackedStatusLiveness(
+        const BattleRuntimeState& source,
+        const EffectEventContext& event)
+        : runtime_(source)
+        , commandContext_{ .frame = event.header.frame }
+    {
+        hooks_.contributionQuantity = [&](
+            int holderUnitId,
+            std::uint64_t appliedSequence,
+            BattleStatusKind kind) -> std::optional<int>
+        {
+            const auto& effects = runtime_.units.require(holderUnitId).status.effects;
+            const auto found = std::ranges::find(
+                effects.statuses,
+                appliedSequence,
+                &BattleStatusContribution::appliedSequence);
+            if (found == effects.statuses.end()
+                || found->kind != kind
+                || found->stacks <= 0)
+            {
+                return std::nullopt;
+            }
+            return found->stacks;
+        };
+        hooks_.reduceRuleCommands = [&](std::span<const EffectCommand> commands)
+        {
+            reduceRuleCommands(commands);
+        };
+    }
+
+    const StatusBehaviorDispatchLiveness& hooks() const { return hooks_; }
+
+private:
+    void reduceRuleCommands(std::span<const EffectCommand> commands)
+    {
+        std::size_t actionBegin{};
+        while (actionBegin < commands.size())
+        {
+            const auto actionOrder = commands[actionBegin].metadata.actionOrder;
+            std::size_t actionEnd = actionBegin + 1;
+            while (actionEnd < commands.size()
+                   && commands[actionEnd].metadata.actionOrder == actionOrder)
+            {
+                ++actionEnd;
+            }
+
+            bool startsDamageContinuation = false;
+            for (std::size_t index = actionBegin; index < actionEnd; ++index)
+            {
+                auto reduced = BattleEffectCommandSystem().reduce(
+                    runtime_,
+                    commands[index],
+                    commandContext_);
+                assert(reduced.entries.size() == 1);
+                startsDamageContinuation = startsDamageContinuation
+                    || livenessReductionStartsDamageContinuation(
+                        reduced.entries.front().value);
+            }
+            if (startsDamageContinuation) return;
+            actionBegin = actionEnd;
+        }
+    }
+
+    BattleRuntimeState runtime_;
+    BattleEffectCommandContext commandContext_;
+    StatusBehaviorDispatchLiveness hooks_;
+};
 
 }  // namespace
 
@@ -232,55 +342,78 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatch(
 {
     const auto context = event.context();
     BattleEffectSystem system;
-    auto result = system.dispatch(runtime.effectRules, context, runtime.random);
-
-    std::vector<std::size_t> addedRuleIndices;
-    const auto* cast = eventCastProvenance(event.payload());
-    for (const auto& command : result.commands)
+    auto activeStatusBehaviors = gatherActiveStatusBehaviors(runtime);
+    std::optional<ReducerBackedStatusLiveness> liveness;
+    if (!activeStatusBehaviors.empty())
     {
-        const auto* stateMachine = std::get_if<StateMachineEffectCommand>(&command.value);
-        if (!stateMachine)
-        {
-            continue;
-        }
-        const auto* borrow = std::get_if<BorrowEffectRulesAction>(&stateMachine->action);
-        if (!borrow)
-        {
-            continue;
-        }
-        if (!cast)
-        {
-            throw std::logic_error("借用效果規則需要 cast provenance");
-        }
-        assert(borrow->propagation == CastPropagationPolicy::BorrowedUltimateRules);
-        auto added = runtime.effectRules.bindBorrowedUltimateRules(
-            cast->castId,
-            context.header.owner->id,
-            context.header.owner->team,
-            stateMachine->selectedSourceUnitIds,
-            borrow->filter,
-            borrow->propagation);
-        addedRuleIndices.insert(
-            addedRuleIndices.end(),
-            added.begin(),
-            added.end());
+        liveness.emplace(runtime, context);
     }
-    if (!addedRuleIndices.empty())
-    {
-        appendDispatchResult(
-            result,
-            system.dispatchRuleIndices(
-                runtime.effectRules,
-                context,
-                runtime.random,
-                addedRuleIndices));
-    }
+    auto result = system.dispatchMerged(
+        runtime.effectRules,
+        context,
+        runtime.random,
+        activeStatusBehaviors,
+        event.event() == EffectEvent::HitBeforeDamage
+            ? StatusBehaviorDispatchFilter::ExcludeAttackInterceptors
+            : StatusBehaviorDispatchFilter::All,
+        false,
+        liveness ? &liveness->hooks() : nullptr);
 
     if (event.event() == EffectEvent::CastSettled)
     {
+        const auto* cast = eventCastProvenance(event.payload());
         assert(cast);
         releaseCastScopedRules(runtime, cast->castId);
     }
+    return result;
+}
+
+BattleEffectDispatchResult BattleEffectEventBridge::dispatchFrameAdvanced(
+    BattleRuntimeState& runtime,
+    const BattleEffectOwnedEvent& event) const
+{
+    assert(event.event() == EffectEvent::FrameAdvanced);
+    auto behaviors = gatherActiveStatusBehaviors(runtime);
+    std::erase_if(behaviors, [&](const ActiveStatusBehaviorView& behavior)
+    {
+        return !runtime.units.requireCore(behavior.holderUnitId).alive;
+    });
+    const auto context = event.context();
+    std::optional<ReducerBackedStatusLiveness> liveness;
+    if (!behaviors.empty())
+    {
+        liveness.emplace(runtime, context);
+    }
+    return BattleEffectSystem().dispatchMerged(
+        runtime.effectRules,
+        context,
+        runtime.random,
+        behaviors,
+        StatusBehaviorDispatchFilter::All,
+        true,
+        liveness ? &liveness->hooks() : nullptr);
+}
+
+
+BattleEffectDispatchResult BattleEffectEventBridge::dispatchActiveStatusBehaviors(
+    BattleRuntimeState& runtime,
+    const BattleEffectOwnedEvent& event,
+    StatusBehaviorDispatchFilter filter) const
+{
+    auto behaviors = gatherActiveStatusBehaviors(runtime);
+    const auto context = event.context();
+    std::optional<ReducerBackedStatusLiveness> liveness;
+    if (!behaviors.empty())
+    {
+        liveness.emplace(runtime, context);
+    }
+    auto result = BattleEffectSystem().dispatchStatusBehaviors(
+        context,
+        runtime.random,
+        behaviors,
+        filter,
+        liveness ? &liveness->hooks() : nullptr);
+    sortDispatchCommands(result);
     return result;
 }
 

@@ -62,6 +62,7 @@ struct BattleAttackPayload
     bool scriptedDamageTriggersDefenseEffects = false;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
+    std::optional<BattleStatusProducerProvenance> scriptedBleedProducer;
     int projectileCancelDamage = 0;
     int projectileCancelWeaken = 0;
     int projectilePressurePct = 100;
@@ -229,6 +230,7 @@ struct BattleAttackEvent
     bool scriptedDamageTriggersDefenseEffects = false;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
+    std::optional<BattleStatusProducerProvenance> scriptedBleedProducer;
     bool executeCanHitInvincible = false;
     bool track = false;
     bool through = false;

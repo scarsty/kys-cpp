@@ -311,6 +311,10 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.scriptedDamageTriggersDefenseEffects = true;
     request.initial.scriptedStunFrames = 12;
     request.initial.scriptedBleedStacks = 4;
+    request.initial.scriptedBleedProducer = makeBattleStatusProducerProvenance(
+        { .kind = KysChess::EffectSourceKind::Combo, .sourceId = 71, .ownerUnitId = 3 },
+        KysChess::EffectRuleId{ 71 },
+        5);
     request.initial.payloadClass = BattleProjectilePayloadClass::scriptedControl();
     request.initial.projectileCancelDamage = 90;
     request.initial.projectileCancelWeaken = 13;
@@ -469,6 +473,10 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.state.scriptedDamageTriggersDefenseEffects = true;
     projectile.state.scriptedStunFrames = 12;
     projectile.state.scriptedBleedStacks = 4;
+    projectile.state.scriptedBleedProducer = makeBattleStatusProducerProvenance(
+        { .kind = KysChess::EffectSourceKind::Combo, .sourceId = 71, .ownerUnitId = 3 },
+        KysChess::EffectRuleId{ 71 },
+        5);
     projectile.state.payloadClass = BattleProjectilePayloadClass::scriptedControl();
     projectile.state.executeCanHitInvincible = true;
     projectile.state.projectileCancelWeaken = 6;

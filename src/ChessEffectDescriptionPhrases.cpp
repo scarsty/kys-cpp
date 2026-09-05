@@ -199,6 +199,9 @@ std::string selectorLabel(const EffectSelector& selector, bool compact)
         case EffectMartialCategory::None: assert(false); std::unreachable();
         }
         break;
+    case EffectSelectorKind::StatusHolder:
+        result = "狀態持有者";
+        break;
     }
     assert(!result.empty());
     if (selector.excludeOwner)
@@ -246,6 +249,19 @@ std::string_view damageKindLabel(BattleDamageKind kind)
     return {};
 }
 
+std::string_view statusSourceMatchLabel(StatusSourceMatch source)
+{
+    switch (source)
+    {
+    case StatusSourceMatch::Any: return {};
+    case StatusSourceMatch::EffectOwner: return "僅效果擁有者套用";
+    case StatusSourceMatch::EffectBinding: return "僅同一效果綁定";
+    case StatusSourceMatch::CurrentContribution: return "僅此狀態貢獻";
+    }
+    assert(false);
+    return {};
+}
+
 std::string numberLabel(const EffectNumber& number)
 {
     std::string base;
@@ -255,33 +271,25 @@ std::string numberLabel(const EffectNumber& number)
     {
         base = std::format("目前攻擊×已損生命比例×{}%", number.percent);
     }
-    else switch (number.base)
+    else switch (effectNumberEvaluationKind(number.base))
     {
-    case EffectNumberBase::Constant:
+    case EffectNumberEvaluationKind::Constant:
         break;
-    case EffectNumberBase::SourceStar:
+    case EffectNumberEvaluationKind::SourceStar:
         base = number.percent % 100 == 0
             ? std::format("星級×{}", number.percent / 100)
             : std::format("星級×{}%", number.percent);
         break;
-    case EffectNumberBase::SourceAttack: base = std::format("攻擊的{}%", number.percent); break;
-    case EffectNumberBase::SourceMaxHp: base = std::format("效果持有者最大生命的{}%", number.percent); break;
-    case EffectNumberBase::SourceMissingHpRatio: base = std::format("已損生命比例的{}%", number.percent); break;
-    case EffectNumberBase::SourceCurrentMpRatio: base = std::format("目前內力比例的{}%", number.percent); break;
-    case EffectNumberBase::TargetMaxHp: base = std::format("目標最大生命的{}%", number.percent); break;
-    case EffectNumberBase::TargetCurrentHp: base = std::format("目標目前生命的{}%", number.percent); break;
-    case EffectNumberBase::TargetCurrentShield: base = std::format("目標目前護盾的{}%", number.percent); break;
-    case EffectNumberBase::TargetCurrentCooldown: base = std::format("目標目前冷卻的{}%", number.percent); break;
-    case EffectNumberBase::FinalHpDamage: base = std::format("實際生命傷害的{}%", number.percent); break;
-    case EffectNumberBase::SourceStatusEffectValue:
-        assert(number.status && number.statusEffect);
-        base = number.percent == 100
-            ? std::format("{}的{}", battleStatusLabel(*number.status),
-                statusEffectValueLabel(*number.statusEffect))
-            : std::format("{}的{}的{}%", battleStatusLabel(*number.status),
-                statusEffectValueLabel(*number.statusEffect), number.percent);
-        break;
-    case EffectNumberBase::SourceStatusQuantity:
+    case EffectNumberEvaluationKind::SourceAttack: base = std::format("攻擊的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::SourceMaxHp: base = std::format("效果持有者最大生命的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::SourceMissingHpRatio: base = std::format("已損生命比例的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::SourceCurrentMpRatio: base = std::format("目前內力比例的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::TargetMaxHp: base = std::format("目標最大生命的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::TargetCurrentHp: base = std::format("目標目前生命的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::TargetCurrentShield: base = std::format("目標目前護盾的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::TargetCurrentCooldown: base = std::format("目標目前冷卻的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::FinalHpDamage: base = std::format("實際生命傷害的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::SourceStatusQuantity:
         assert(number.status);
         assert(!statusQuantityMeasure(statusCatalogEntry(*number.status).quantity).empty());
         base = number.percent == 100
@@ -290,37 +298,65 @@ std::string numberLabel(const EffectNumber& number)
             : std::format("{}{}的{}%", battleStatusLabel(*number.status),
                 statusQuantityMeasure(statusCatalogEntry(*number.status).quantity),
                 number.percent);
+        if (number.statusSource != StatusSourceMatch::Any)
+            base += std::format("（{}）", statusSourceMatchLabel(number.statusSource));
         break;
-    case EffectNumberBase::StoredStateValue: base = std::format("狀態槽值的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::CurrentContributionQuantity:
+        base = number.percent == 100
+            ? "此狀態貢獻數量"
+            : std::format("此狀態貢獻數量的{}%", number.percent);
+        break;
+    case EffectNumberEvaluationKind::StoredStateValue: base = std::format("狀態槽值的{}%", number.percent); break;
+    case EffectNumberEvaluationKind::ApplicationTargetMaxHp:
+        base = std::format("套用目標最大生命的{}%", number.percent);
+        break;
+    case EffectNumberEvaluationKind::BoundRatio:
+        base = std::format("已綁定數值{}/{}的{}%",
+            number.boundNumerator,
+            number.boundDenominator,
+            number.percent);
+        break;
+    case EffectNumberEvaluationKind::Count:
+        assert(false);
+        break;
     }
 
     if (number.multiplierBase && !attackScaledByMissingHp)
     {
-        switch (*number.multiplierBase)
+        switch (effectNumberEvaluationKind(*number.multiplierBase))
         {
-        case EffectNumberBase::Constant: base += "×固定基準"; break;
-        case EffectNumberBase::SourceStar: base += "×星級"; break;
-        case EffectNumberBase::SourceAttack: base += "×來源攻擊"; break;
-        case EffectNumberBase::SourceMaxHp: base += "×來源最大生命"; break;
-        case EffectNumberBase::SourceMissingHpRatio: base += "×來源已損生命比例"; break;
-        case EffectNumberBase::SourceCurrentMpRatio: base += "×來源目前內力比例"; break;
-        case EffectNumberBase::TargetMaxHp: base += "×目標最大生命"; break;
-        case EffectNumberBase::TargetCurrentHp: base += "×目標目前生命"; break;
-        case EffectNumberBase::TargetCurrentShield: base += "×目標目前護盾"; break;
-        case EffectNumberBase::TargetCurrentCooldown: base += "×目標目前冷卻"; break;
-        case EffectNumberBase::FinalHpDamage: base += "×實際生命傷害"; break;
-        case EffectNumberBase::SourceStatusEffectValue:
-            assert(number.status && number.statusEffect);
-            base += std::format("×{}的{}", battleStatusLabel(*number.status),
-                statusEffectValueLabel(*number.statusEffect));
-            break;
-        case EffectNumberBase::SourceStatusQuantity:
+        case EffectNumberEvaluationKind::Constant: base += "×固定基準"; break;
+        case EffectNumberEvaluationKind::SourceStar: base += "×星級"; break;
+        case EffectNumberEvaluationKind::SourceAttack: base += "×來源攻擊"; break;
+        case EffectNumberEvaluationKind::SourceMaxHp: base += "×來源最大生命"; break;
+        case EffectNumberEvaluationKind::SourceMissingHpRatio: base += "×來源已損生命比例"; break;
+        case EffectNumberEvaluationKind::SourceCurrentMpRatio: base += "×來源目前內力比例"; break;
+        case EffectNumberEvaluationKind::TargetMaxHp: base += "×目標最大生命"; break;
+        case EffectNumberEvaluationKind::TargetCurrentHp: base += "×目標目前生命"; break;
+        case EffectNumberEvaluationKind::TargetCurrentShield: base += "×目標目前護盾"; break;
+        case EffectNumberEvaluationKind::TargetCurrentCooldown: base += "×目標目前冷卻"; break;
+        case EffectNumberEvaluationKind::FinalHpDamage: base += "×實際生命傷害"; break;
+        case EffectNumberEvaluationKind::SourceStatusQuantity:
             assert(number.status);
             assert(!statusQuantityMeasure(statusCatalogEntry(*number.status).quantity).empty());
             base += std::format("×{}{}", battleStatusLabel(*number.status),
                 statusQuantityMeasure(statusCatalogEntry(*number.status).quantity));
+            if (number.statusSource != StatusSourceMatch::Any)
+                base += std::format("（{}）", statusSourceMatchLabel(number.statusSource));
             break;
-        case EffectNumberBase::StoredStateValue: base += "×狀態槽值"; break;
+        case EffectNumberEvaluationKind::CurrentContributionQuantity:
+            base += "×此狀態貢獻數量";
+            break;
+        case EffectNumberEvaluationKind::StoredStateValue: base += "×狀態槽值"; break;
+        case EffectNumberEvaluationKind::ApplicationTargetMaxHp: base += "×套用目標最大生命"; break;
+        case EffectNumberEvaluationKind::BoundRatio:
+            base += std::format("×已綁定數值{}/{}",
+                number.boundNumerator,
+                number.boundDenominator);
+            break;
+        case EffectNumberEvaluationKind::Count:
+            assert(false);
+            break;
         }
     }
     if (number.base == EffectNumberBase::Constant)
@@ -359,6 +395,8 @@ std::string boundedNumberLabel(const EffectNumber& number)
     {
         result += std::format("，至多{}", *number.maximum);
     }
+    if (number.statusScale == StatusNumberScale::PerContributionLayer)
+        result = "每層" + result;
     return result;
 }
 
@@ -369,17 +407,18 @@ std::string descriptionNumberLabel(
     if (style == EffectDescriptionStyle::Detailed)
         return boundedNumberLabel(number);
 
-    if (const auto constant = effectiveConstantEffectNumberValue(number))
-        return std::to_string(*constant);
-
-    auto result = numberLabel(number);
+    auto result = [&]
+    {
+        if (const auto constant = effectiveConstantEffectNumberValue(number))
+            return std::to_string(*constant);
+        return numberLabel(number);
+    }();
     if (style == EffectDescriptionStyle::Compact)
     {
         if (number.minimum) result += std::format("，至少{}", *number.minimum);
         if (number.maximum) result += std::format("，至多{}", *number.maximum);
-        return result;
     }
-    if (number.minimum || number.maximum)
+    else if (number.minimum || number.maximum)
     {
         result += "（";
         if (number.minimum) result += std::format("至少{}", *number.minimum);
@@ -387,7 +426,20 @@ std::string descriptionNumberLabel(
         if (number.maximum) result += std::format("至多{}", *number.maximum);
         result += "）";
     }
+    if (number.statusScale == StatusNumberScale::PerContributionLayer)
+        result = "每層" + result;
     return result;
+}
+
+std::string statusDurationLabel(
+    const ApplyStatusAction& status,
+    EffectDescriptionStyle style)
+{
+    if (status.duration)
+        return descriptionNumberLabel(*status.duration, style);
+    if (status.durationFrames > 0)
+        return std::to_string(status.durationFrames);
+    return {};
 }
 
 std::string_view borrowedRuleActionCategoryLabel(
@@ -563,6 +615,7 @@ std::string conditionLabel(
                 return std::format("傷害種類為{}", joinedDescriptionLabels(typed.kinds, compact));
             else if constexpr (std::is_same_v<T, TargetMpWasFullBeforeCastCondition>) return "受益者施放前內力已滿";
             else if constexpr (std::is_same_v<T, RandomSelectionAvailableCondition>) return "有合法隨機目標";
+            else if constexpr (std::is_same_v<T, TargetIsStatusHolderCondition>) return "目標為狀態持有者";
             else static_assert(false, "Unhandled effect condition");
         },
         condition);
@@ -656,6 +709,7 @@ std::string_view healKindLabel(EffectHealKind kind)
     case EffectHealKind::Rescue: return "救援治療";
     case EffectHealKind::Regeneration: return "持續回復";
     case EffectHealKind::Lifesteal: return "吸血";
+    case EffectHealKind::Count: break;
     }
     assert(false);
     return {};
@@ -732,6 +786,165 @@ std::string renderDescriptionActionArgument(
     const EffectActionValue& action,
     EffectDescriptionStyle style,
     std::span<const DescriptionQualifier> suppressed = {});
+
+std::optional<std::string> renderCanonicalPoisonApplication(
+    const ApplyStatusAction& application,
+    EffectDescriptionStyle style)
+{
+    if (application.status != BattleStatusKind::Poison
+        || !application.behavior)
+    {
+        return std::nullopt;
+    }
+    const auto* charges = std::get_if<SetStatusTriggerCharges>(
+        &application.quantity);
+    if (!charges) return std::nullopt;
+    const auto capability = canonicalPoisonDamageCapability(*application.behavior);
+    if (!capability
+        || application.behavior->rules.size() != 1
+        || capability->rule->actions.size() != 2) return std::nullopt;
+    const auto* periodicRule = capability->rule;
+    const auto* poisonDamage = capability->damage;
+
+    const bool compact = style == EffectDescriptionStyle::Compact;
+    auto damage = poisonDamage->amount.flat == 0
+            && poisonDamage->amount.percent > 0
+        ? std::format("目前生命{}%", poisonDamage->amount.percent)
+        : descriptionNumberLabel(poisonDamage->amount, style);
+    if (poisonDamage->amount.minimum > 0)
+    {
+        damage += compact
+            ? std::format("、最低{}", *poisonDamage->amount.minimum)
+            : std::format("（最低{}點）", *poisonDamage->amount.minimum);
+    }
+    const auto duration = application.duration
+        ? descriptionNumberLabel(*application.duration, style)
+        : std::to_string(application.durationFrames);
+
+    std::string result = compact
+        ? std::format(
+            "中毒（{}次、{}幀；每{}幀造成{}傷害）",
+            charges->count,
+            duration,
+            periodicRule->intervalFrames,
+            damage)
+        : std::format(
+            "施加可觸發{}次的中毒，持續{}幀；每{}幀造成目標{}的中毒傷害並消耗1次",
+            charges->count,
+            duration,
+            periodicRule->intervalFrames,
+            damage);
+
+    if (application.reapplication == StatusReapplicationPolicy::KeepHigherDamage)
+    {
+        result += application.poisonSameEventMerge
+                == PoisonSameEventMerge::SumDamagePercent
+            ? compact
+                ? "；同效果同事件相容毒傷合計後取較高"
+                : "；同一效果擁有者在同一事件對同一目標施加相容中毒時，先合計傷害百分比，再與現有中毒保留較高傷害"
+            : compact ? "；再施加取較高" : "；再次施加時保留較高傷害";
+    }
+    else if (application.reapplication
+        == StatusReapplicationPolicy::ReplaceExistingPoison)
+    {
+        result += compact
+            ? "；再施加取代現有中毒"
+            : "；再次施加時取代現有中毒";
+    }
+    return result;
+}
+
+std::string renderStatusBehaviorDefinition(
+    const StatusBehaviorDefinition& behavior,
+    EffectDescriptionStyle style)
+{
+    const bool compact = style == EffectDescriptionStyle::Compact;
+    std::string result;
+    for (const auto& rule : behavior.rules)
+    {
+        std::string prefix;
+        if (rule.event == EffectEvent::StatusPersistent)
+        {
+            prefix = compact ? "持續時" : "狀態期間";
+        }
+        else if (rule.event == EffectEvent::FrameAdvanced && rule.intervalFrames > 0)
+        {
+            prefix = std::format("每{}幀", rule.intervalFrames);
+        }
+        else if (rule.event == EffectEvent::HitBeforeDamage)
+        {
+            switch (rule.observation)
+            {
+            case EffectObservationScope::StatusHolderEventSource:
+                prefix = compact ? "持有者命中" : "狀態持有者命中時";
+                break;
+            case EffectObservationScope::StatusHolderEventTarget:
+                prefix = compact ? "持有者受擊" : "狀態持有者受到攻擊時";
+                break;
+            case EffectObservationScope::StatusSourceEventSource:
+                prefix = compact ? "來源命中" : "狀態來源命中時";
+                break;
+            case EffectObservationScope::SourceOwnerTeamEventSource:
+                prefix = compact
+                    ? "來源方友軍命中"
+                    : "來源效果擁有者的任一友軍命中時";
+                break;
+            default:
+                prefix = ruleEventLabel(rule.event, style);
+                break;
+            }
+        }
+        else if (rule.event == EffectEvent::UnitDied
+            && rule.observation == EffectObservationScope::StatusHolderEventTarget)
+        {
+            prefix = compact ? "持有者死亡" : "狀態持有者死亡時";
+        }
+        else
+        {
+            prefix = ruleEventLabel(rule.event, style);
+        }
+
+        if (!rule.conditions.empty())
+        {
+            prefix += compact ? "且" : "，且";
+            for (std::size_t index = 0; index < rule.conditions.size(); ++index)
+            {
+                if (index > 0) prefix += "且";
+                prefix += conditionLabel(rule.conditions[index], compact, rule.event);
+            }
+        }
+
+        std::string actions;
+        for (const auto& action : rule.actions)
+        {
+            if (!actions.empty()) actions += compact ? "、" : "，並";
+            actions += renderDescriptionActionArgument(action.value, style);
+        }
+        if (actions.empty()) continue;
+
+        if (!result.empty()) result += "；";
+        result += prefix;
+        if (rule.selector.kind != EffectSelectorKind::StatusHolder)
+            result += std::format("，對{}", selectorLabel(rule.selector, compact));
+        result += std::format("，{}", actions);
+    }
+    return result;
+}
+
+std::string_view detailedStatusObservationLabel(EffectObservationScope observation)
+{
+    switch (observation)
+    {
+    case EffectObservationScope::Owner: return "效果擁有者";
+    case EffectObservationScope::OwnerTeamEventSource: return "效果擁有者同隊的事件來源";
+    case EffectObservationScope::EventTarget: return "事件目標";
+    case EffectObservationScope::StatusHolderEventSource: return "狀態持有者作為事件來源";
+    case EffectObservationScope::StatusHolderEventTarget: return "狀態持有者作為事件目標";
+    case EffectObservationScope::StatusSourceEventSource: return "狀態來源單位作為事件來源";
+    case EffectObservationScope::SourceOwnerTeamEventSource: return "來源效果擁有者同隊的事件來源";
+    }
+    std::unreachable();
+}
 
 std::string renderDescriptionActionArgument(
     const EffectActionValue& action,
@@ -880,6 +1093,10 @@ std::string renderDescriptionActionArgument(
                         result = compact
                             ? std::format("每次承傷≤最大生命{}", percentAmount())
                             : std::format("每次承傷不超過最大生命的{}", percentAmount());
+                    else if (typed.operation == DamageModifierOperation::CapSingleHitAtValue)
+                        result = compact
+                            ? std::format("下次承傷≤{}", descriptionNumberLabel(typed.amount, style))
+                            : std::format("下次承傷不超過{}", descriptionNumberLabel(typed.amount, style));
                     else if (typed.operation == DamageModifierOperation::ExecuteBelowMaxHpPercent)
                         result = std::format("{}普通傷害後生命低於{}最大生命時處決", damageContext, percentAmount());
                     else
@@ -983,6 +1200,11 @@ std::string renderDescriptionActionArgument(
             }
             else if constexpr (std::is_same_v<T, ApplyStatusAction>)
             {
+                if (const auto poison = renderCanonicalPoisonApplication(
+                        typed, style))
+                {
+                    return *poison;
+                }
                 const auto status = battleStatusLabel(typed.status);
                 const auto quantityModel = statusCatalogEntry(typed.status).quantity;
                 const auto quantityCounter = statusQuantityCounter(quantityModel);
@@ -996,6 +1218,8 @@ std::string renderDescriptionActionArgument(
                         result = compact
                             ? std::format("{}+{}{}", status, quantity.count, quantityCounter)
                             : std::format("獲得{}{}{}", quantity.count, quantityCounter, status);
+                    else if constexpr (std::is_same_v<Q, AddSharedStatusLayers>)
+                        result = std::format("施加{}層{}", quantity.count, status);
                     else if constexpr (std::is_same_v<Q, SetStatusMarks>)
                         result = std::format("將{}{}設為{}{}", status,
                             statusQuantityObjectSuffix(quantityModel),
@@ -1027,59 +1251,11 @@ std::string renderDescriptionActionArgument(
                         ? std::format("，{}幀", typed.durationFrames)
                         : std::format("，持續{}幀", typed.durationFrames);
 
-                std::string effectText;
-                bool poisonSumsSameEventDamage{};
-                std::visit([&](const auto& effects)
-                {
-                    using E = std::decay_t<decltype(effects)>;
-                    if constexpr (std::is_same_v<E, PoisonStatusEffects>)
-                    {
-                        effectText = std::format("每30幀造成目前生命{}%中毒傷害",
-                            descriptionNumberLabel(effects.currentHpDamagePercent, style));
-                        poisonSumsSameEventDamage = effects.sameEventMerge
-                            == PoisonSameEventMerge::SumDamagePercent;
-                    }
-                    else if constexpr (std::is_same_v<E, BleedStatusEffects>)
-                        effectText = std::format("每層每10幀造成最大生命{}%流血傷害",
-                            descriptionNumberLabel(effects.maxHpDamagePercent, style));
-                    else if constexpr (std::is_same_v<E, ColdPoisonStatusEffects>)
-                        effectText = std::format("狀態期間{}速度降低{}%",
-                            effects.blocksHealing ? "無法受到治療、" : "",
-                            descriptionNumberLabel(effects.speedReductionPercent, style));
-                    else if constexpr (std::is_same_v<E, WitheredBoneStatusEffects>)
-                        effectText = std::format("狀態期間受到傷害增加{}%、受到治療減少{}%",
-                            descriptionNumberLabel(effects.damageTakenIncreasePercent, style),
-                            descriptionNumberLabel(effects.healingReductionPercent, style));
-                    else if constexpr (std::is_same_v<E, NeutralizeForceStatusEffects>)
-                        effectText = std::format("觸發時{}使原攻擊目標獲得{}護盾",
-                            effects.preventsCast ? "阻止本次施放，並" : "",
-                            descriptionNumberLabel(effects.originalTargetShield, style));
-                    else if constexpr (std::is_same_v<E, BlindedStatusEffects>)
-                        effectText = effects.preventsCast ? "觸發時阻止本次施放" : "";
-                    else if constexpr (std::is_same_v<E, NextIncomingAttackMissStatusEffects>)
-                        effectText = effects.makesIncomingAttackMiss
-                            ? "觸發時使本次受到攻擊落空" : "";
-                    else if constexpr (std::is_same_v<E, DamageBlockStatusEffects>)
-                        effectText = effects.blocksPositiveNonExecuteDamage
-                            ? "每次抵擋一次非處決正傷害" : "";
-                    else if constexpr (std::is_same_v<E, SingleHitCapStatusEffects>)
-                        effectText = std::format("每次觸發時承傷不超過{}",
-                            descriptionNumberLabel(effects.damageCap, style));
-                    else if constexpr (std::is_same_v<E, BattleSpiritStatusEffects>)
-                        effectText = compact
-                            ? std::format("每層增傷{}%、減傷{}%",
-                                descriptionNumberLabel(effects.skillDamageIncreasePercent, style),
-                                descriptionNumberLabel(effects.damageReductionPercent, style))
-                            : std::format("每層使招式傷害提高{}%、受到傷害降低{}%",
-                                descriptionNumberLabel(effects.skillDamageIncreasePercent, style),
-                                descriptionNumberLabel(effects.damageReductionPercent, style));
-                    else if constexpr (std::is_same_v<E, TrueQiStatusEffects>)
-                        effectText = std::format("每層使命中附加{}純粹傷害",
-                            descriptionNumberLabel(effects.pureDamagePerHit, style));
-                    else if constexpr (std::is_same_v<E, PoisonExplosionStatusEffects>)
-                        effectText = std::format("每層提供{}死亡爆炸純粹傷害",
-                            descriptionNumberLabel(effects.deathPureDamage, style));
-                }, typed.effects);
+                const auto effectText = typed.behavior
+                    ? renderStatusBehaviorDefinition(*typed.behavior, style)
+                    : std::string{};
+                const bool poisonSumsSameEventDamage = typed.poisonSameEventMerge
+                    == PoisonSameEventMerge::SumDamagePercent;
 
                 const auto layerLimit = std::visit([](const auto& quantity) -> std::optional<int>
                 {
@@ -1089,9 +1265,16 @@ std::string renderDescriptionActionArgument(
                         return quantity.limit;
                     return std::nullopt;
                 }, typed.quantity);
+                const auto targetTotalLimit = std::visit([](const auto& quantity) -> std::optional<int>
+                {
+                    using Q = std::decay_t<decltype(quantity)>;
+                    if constexpr (std::is_same_v<Q, AddSharedStatusLayers>)
+                        return quantity.targetTotalLimit;
+                    return std::nullopt;
+                }, typed.quantity);
                 const bool damageBlockLimit = std::holds_alternative<AddDamageBlockCharges>(
                     typed.quantity);
-                if (compact && (!effectText.empty() || layerLimit))
+                if (compact && (!effectText.empty() || layerLimit || targetTotalLimit))
                 {
                     result += "（";
                     if (!effectText.empty()) result += effectText;
@@ -1099,8 +1282,13 @@ std::string renderDescriptionActionArgument(
                     {
                         if (!effectText.empty()) result += "，";
                         result += damageBlockLimit
-                            ? std::format("最多{}次抵擋", *layerLimit)
-                            : std::format("最多{}層", *layerLimit);
+                            ? std::format("此來源最多{}次抵擋", *layerLimit)
+                            : std::format("此來源最多{}層", *layerLimit);
+                    }
+                    if (targetTotalLimit)
+                    {
+                        if (!effectText.empty() || layerLimit) result += "，";
+                        result += std::format("目標總上限{}層", *targetTotalLimit);
                     }
                     result += "）";
                 }
@@ -1109,9 +1297,13 @@ std::string renderDescriptionActionArgument(
                     if (layerLimit)
                     {
                         result += damageBlockLimit
-                            ? std::format("，最多{}次抵擋", *layerLimit)
-                            : std::format("，最多{}層", *layerLimit);
+                            ? std::format("；此效果提供的{}最多{}次抵擋",
+                                status, *layerLimit)
+                            : std::format("；此效果提供的{}最多{}層",
+                                status, *layerLimit);
                     }
+                    if (targetTotalLimit)
+                        result += std::format("；目標共享上限{}層", *targetTotalLimit);
                     if (!effectText.empty()) result += std::format("；{}", effectText);
                 }
 
@@ -1127,23 +1319,32 @@ std::string renderDescriptionActionArgument(
                     if (std::holds_alternative<SetStatusMarks>(typed.quantity))
                         appendReapplication("重設印記與持續時間");
                     break;
-                case StatusReapplicationPolicy::ExtendDuration: appendReapplication("延長持續時間"); break;
+                case StatusReapplicationPolicy::ExtendDuration:
+                    appendReapplication(statusReapplicationPolicyLabel(typed.reapplication));
+                    break;
                 case StatusReapplicationPolicy::KeepLongerDuration:
                     if (compact)
                         result += "（再施加取較長）";
                     else
-                        appendReapplication("保留較長持續時間");
+                        appendReapplication(statusReapplicationPolicyLabel(typed.reapplication));
                     break;
-                case StatusReapplicationPolicy::ReplaceDuration: appendReapplication("重設持續時間"); break;
-                case StatusReapplicationPolicy::RefreshDuration: appendReapplication("刷新持續時間"); break;
-                case StatusReapplicationPolicy::KeepHigherDamage: appendReapplication("保留較高傷害"); break;
-                case StatusReapplicationPolicy::ReplaceAndReset: appendReapplication("取代並重設觸發次數"); break;
+                case StatusReapplicationPolicy::RefreshDuration:
+                    appendReapplication(statusReapplicationPolicyLabel(typed.reapplication));
+                    break;
+                case StatusReapplicationPolicy::KeepHigherDamage:
+                    appendReapplication(statusReapplicationPolicyLabel(typed.reapplication));
+                    break;
+                case StatusReapplicationPolicy::ReplaceExistingPoison:
+                    appendReapplication(statusReapplicationPolicyLabel(typed.reapplication));
+                    break;
+                case StatusReapplicationPolicy::Count:
+                    std::unreachable();
                 }
                 if (poisonSumsSameEventDamage)
                 {
                     result += compact
-                        ? "；同源同事件先合計毒傷%"
-                        : "；同一效果擁有者在同一事件對同一目標施加時，先合計傷害百分比再比較較高傷害";
+                        ? "；同源同事件先合計相容毒傷%"
+                        : "；同一效果擁有者在同一事件對同一目標施加相容中毒時，先合計傷害百分比再比較較高傷害";
                 }
                 return result;
             }
@@ -1157,16 +1358,36 @@ std::string renderDescriptionActionArgument(
                     quantityCounter,
                     battleStatusLabel(typed.status),
                     statusQuantityObjectSuffix(quantityModel));
-                if (typed.source == StatusSourceMatch::EffectOwner) result += std::format("{}僅此來源", qualifierSeparator);
+                if (typed.source != StatusSourceMatch::Any)
+                    result += std::format("{}{}", qualifierSeparator,
+                        statusSourceMatchLabel(typed.source));
                 assert(!typed.whenDepleted
                     && "depleted status branches must be rendered through DescriptionConditional");
+                return result;
+            }
+            else if constexpr (std::is_same_v<T, ConsumeThisStatusAction>)
+            {
+                auto result = std::format("消耗此狀態{}份數量", typed.quantity);
+                if (typed.whenDepleted)
+                {
+                    const auto& depleted = *typed.whenDepleted;
+                    result += std::format("；耗盡時施加{}", battleStatusLabel(depleted.status));
+                    if (depleted.duration)
+                        result += std::format("{}持續{}幀", qualifierSeparator,
+                            descriptionNumberLabel(*depleted.duration, style));
+                    else if (depleted.durationFrames > 0)
+                        result += std::format("{}持續{}幀", qualifierSeparator,
+                            depleted.durationFrames);
+                }
                 return result;
             }
             else if constexpr (std::is_same_v<T, RemoveStatusAction>)
             {
                 std::string result;
                 if (typed.controlOnly) result = "清除全部控制狀態";
-                else if (typed.negativeOnly) result = typed.count == 0 ? "清除全部負面狀態" : std::format("清除{}個負面狀態", typed.count);
+                else if (typed.negativeOnly) result = typed.count == 0
+                    ? "清除全部負面效果"
+                    : std::format("清除{}個負面效果", typed.count);
                 else if (!typed.statuses.empty())
                 {
                     result = "移除";
@@ -1190,8 +1411,24 @@ std::string renderDescriptionActionArgument(
                     if (!result.empty()) result += "並";
                     result += "解除目前動作僵直（保留位置與動作）";
                 }
+                if (typed.source != StatusSourceMatch::Any)
+                    result += std::format("{}{}", qualifierSeparator,
+                        statusSourceMatchLabel(typed.source));
                 return result;
             }
+            else if constexpr (std::is_same_v<T, SuppressCurrentCastContactsAction>)
+            {
+                auto result = std::string("使本次施放的目前及剩餘攻擊落空");
+                if (typed.originalTargetShield)
+                    result += std::format("{}原攻擊目標獲得{}護盾",
+                        qualifierSeparator,
+                        descriptionNumberLabel(*typed.originalTargetShield, style));
+                return result;
+            }
+            else if constexpr (std::is_same_v<T, MakeIncomingAttackMissAction>)
+                return "使本次受到的攻擊落空";
+            else if constexpr (std::is_same_v<T, BlockPositiveDamageAction>)
+                return "抵擋本次非處決正傷害";
             else if constexpr (std::is_same_v<T, DealDamageAction>)
             {
                 const auto kind = std::format("{}傷害", damageKindLabel(typed.kind));
@@ -2260,55 +2497,302 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
     assert(style != EffectDescriptionStyle::Detailed);
     if (const auto* status = std::get_if<ApplyStatusAction>(&action.value))
     {
-        if (status->status == BattleStatusKind::SingleHitCapLayer)
+        const auto* layers = std::get_if<AddStatusLayers>(&status->quantity);
+        if (status->status == BattleStatusKind::Bleed)
         {
-            const auto* quantity = std::get_if<SetStatusTriggerCharges>(
+            const auto* sharedLayers = std::get_if<AddSharedStatusLayers>(
                 &status->quantity);
-            const auto* effects = std::get_if<SingleHitCapStatusEffects>(
-                &status->effects);
-            if (quantity && effects)
+            if (sharedLayers && statusBehaviorHasExactShape(*status, { 1 }))
             {
-                const auto cap = descriptionNumberLabel(effects->damageCap, style);
-                return {{quantity->count == 1
-                    ? std::format("下次承傷不超過{}", cap)
-                    : std::format("接下來{}次承傷皆不超過{}", quantity->count, cap)}};
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {{std::format(
+                        "施加{}層流血（目標總上限{}層）",
+                        sharedLayers->count,
+                        sharedLayers->targetTotalLimit)}};
+                }
+                return {{std::format(
+                    "施加{}層流血，目標共享上限{}層；每10幀造成一次目標最大生命1% × 流血總層數的流血傷害",
+                    sharedLayers->count,
+                    sharedLayers->targetTotalLimit)}};
             }
         }
-        if (status->status == BattleStatusKind::BattleSpirit)
+
+        if (status->status == BattleStatusKind::ColdPoison
+            && statusBehaviorHasExactShape(*status, { 2 }))
         {
-            const auto* layers = std::get_if<AddStatusLayers>(&status->quantity);
-            const auto* effects = std::get_if<BattleSpiritStatusEffects>(
-                &status->effects);
-            const auto increase = effects
-                ? effectiveConstantEffectNumberValue(
-                    effects->skillDamageIncreasePercent)
-                : std::nullopt;
-            const auto reduction = effects
-                ? effectiveConstantEffectNumberValue(
-                    effects->damageReductionPercent)
-                : std::nullopt;
-            if (layers && increase && reduction)
+            const auto* healing = findStatusBehaviorAction<ModifyHealTransactionAction>(
+                *status);
+            const auto* speed = findStatusBehaviorAction<ModifyAttributeAction>(
+                *status);
+            if (healing && speed)
             {
-                const long long maximumIncrease = static_cast<long long>(
-                    layers->limit) * *increase;
-                const long long maximumReduction = static_cast<long long>(
-                    layers->limit) * *reduction;
+                const auto speedDelta = effectiveConstantEffectNumberValue(
+                    speed->amount);
+                assert(speedDelta && *speedDelta <= 0);
+                const auto duration = statusDurationLabel(
+                    *status,
+                    style);
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {{std::format(
+                        "寒毒{}幀（禁療、速度-{}%；再施加取代剩餘時間）",
+                        duration,
+                        -*speedDelta)}};
+                }
+                return {{std::format(
+                    "施加寒毒{}幀；狀態期間無法受到治療、速度降低{}%；再次施加會以新的持續時間取代剩餘時間",
+                    duration,
+                    -*speedDelta)}};
+            }
+        }
+
+        if (status->status == BattleStatusKind::MpBlocked
+            && !status->behavior)
+        {
+            const auto duration = statusDurationLabel(*status, style);
+            if (!duration.empty())
+            {
+                if (style == EffectDescriptionStyle::Compact)
+                    return {{std::format(
+                        "封內{}幀（再施加保留較長持續時間）",
+                        duration)}};
+                return {{std::format(
+                    "施加封內{}幀；再次施加時保留較長持續時間",
+                    duration)}};
+            }
+        }
+
+        if (status->status == BattleStatusKind::NeutralizeForce
+            && statusBehaviorHasExactShape(*status, { 1 }))
+        {
+            const auto* charges = std::get_if<SetStatusTriggerCharges>(
+                &status->quantity);
+            const auto* suppression = findStatusBehaviorAction<
+                SuppressCurrentCastContactsAction>(*status);
+            if (charges && suppression && suppression->originalTargetShield)
+            {
+                const auto shield = descriptionNumberLabel(
+                    *suppression->originalTargetShield,
+                    style);
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {
+                        {std::format(
+                            "化勁{}次：使下次施放落空",
+                            charges->count)},
+                        {std::format(
+                            "觸發時，原攻擊目標獲得{}護盾",
+                            shield), 1},
+                        {"再次施加：完整取代現有化勁", 1},
+                    };
+                }
                 return {
-                    {renderActionDescription(action, style, event, coalesce)},
-                    {style == EffectDescriptionStyle::Compact
-                        ? std::format("滿層增傷{}%、減傷{}%",
-                            maximumIncrease,
-                            maximumReduction)
-                        : std::format("{}層時，招式傷害共提高{}%、受到傷害共降低{}%",
-                            layers->limit,
-                            maximumIncrease,
-                            maximumReduction),
-                        style == EffectDescriptionStyle::Compact ? 1 : 0,
-                        EffectDescriptionSemanticBreak::Qualifier},
+                    {std::format("施加可觸發{}次的化勁", charges->count)},
+                    {std::format(
+                        "觸發時使該次施放目前及剩餘攻擊落空，原攻擊目標獲得{}護盾",
+                        shield), 1},
+                    {"再次施加會完整取代現有化勁", 1},
                 };
             }
         }
+
+        if (status->status == BattleStatusKind::Blinded
+            && statusBehaviorHasExactShape(*status, { 1 }))
+        {
+            const auto* charges = std::get_if<SetStatusTriggerCharges>(
+                &status->quantity);
+            const auto* suppression = findStatusBehaviorAction<
+                SuppressCurrentCastContactsAction>(*status);
+            if (charges && suppression)
+            {
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {
+                        {std::format("刺目{}次：使下次施放落空", charges->count)},
+                        {"再次施加：完整取代現有刺目", 1},
+                    };
+                }
+                return {
+                    {std::format("施加可觸發{}次的刺目", charges->count)},
+                    {"觸發時使該次施放目前及剩餘攻擊落空", 1},
+                    {"再次施加會完整取代現有刺目", 1},
+                };
+            }
+        }
+
+        if (status->status == BattleStatusKind::BattleSpirit
+            && layers
+            && statusBehaviorHasExactShape(*status, { 2 }))
+        {
+            const auto* outgoing = findStatusBehaviorAction<ModifyDamageAction>(
+                *status,
+                [](const ModifyDamageAction& modifier)
+                {
+                    return modifier.perspective == DamageModifierPerspective::Outgoing
+                        && modifier.channel == DamageChannel::Skill
+                        && modifier.operation == DamageModifierOperation::PercentAdd;
+                });
+            const auto* incoming = findStatusBehaviorAction<ModifyDamageAction>(
+                *status,
+                [](const ModifyDamageAction& modifier)
+                {
+                    return modifier.perspective == DamageModifierPerspective::Incoming
+                        && modifier.channel == DamageChannel::All
+                        && modifier.operation == DamageModifierOperation::PercentAdd;
+                });
+            if (outgoing && incoming)
+            {
+                const auto outgoingPerLayer = effectiveConstantEffectNumberValue(
+                    outgoing->amount);
+                const auto incomingPerLayer = effectiveConstantEffectNumberValue(
+                    incoming->amount);
+                assert(outgoingPerLayer && incomingPerLayer && *incomingPerLayer <= 0);
+                const auto reductionPerLayer = -*incomingPerLayer;
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {{std::format(
+                        "獲得{}層戰意（此來源上限{}層；每層招式傷害+{}%、受到傷害減少{}%）",
+                        layers->count,
+                        layers->limit,
+                        *outgoingPerLayer,
+                        reductionPerLayer)}};
+                }
+                return {{std::format(
+                    "獲得{}層戰意，此來源上限{}層；每層使招式傷害+{}%、受到傷害減少{}%",
+                    layers->count,
+                    layers->limit,
+                    *outgoingPerLayer,
+                    reductionPerLayer)}};
+            }
+        }
+
+        if (status->status == BattleStatusKind::WitheredBone
+            && statusBehaviorHasExactShape(*status, { 2 }))
+        {
+            const auto* damage = findStatusBehaviorAction<ModifyDamageAction>(
+                *status,
+                [](const ModifyDamageAction& modifier)
+                {
+                    return modifier.perspective == DamageModifierPerspective::Incoming
+                        && modifier.channel == DamageChannel::All
+                        && modifier.operation == DamageModifierOperation::PercentAdd;
+                });
+            const auto* healing = findStatusBehaviorAction<ModifyHealTransactionAction>(
+                *status,
+                [](const ModifyHealTransactionAction& modifier)
+                {
+                    return modifier.operation == HealModifierOperation::MultiplyReceived;
+                });
+            if (damage && healing)
+            {
+                const auto damageIncrease = effectiveConstantEffectNumberValue(damage->amount);
+                assert(damageIncrease);
+                const auto duration = statusDurationLabel(
+                    *status,
+                    style);
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {{std::format(
+                        "枯骨{}幀（受傷+{}%、受療-{}%；再施加取代剩餘時間）",
+                        duration,
+                        *damageIncrease,
+                        100 - healing->percent)}};
+                }
+                return {
+                    {std::format(
+                        "施加枯骨狀態{}幀；再次施加會以新的持續時間取代剩餘時間",
+                        duration)},
+                    {std::format(
+                        "狀態期間，受到的傷害提高{}%、受到的治療降低{}%",
+                        *damageIncrease,
+                        100 - healing->percent)},
+                };
+            }
+        }
+
+        if (status->status == BattleStatusKind::DamageBlockLayer
+            && statusBehaviorHasExactShape(*status, { 1 }))
+        {
+            const auto* charges = std::get_if<AddDamageBlockCharges>(
+                &status->quantity);
+            const auto* block = findStatusBehaviorAction<BlockPositiveDamageAction>(
+                *status);
+            if (charges && block)
+            {
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {{std::format(
+                        "傷害抵擋+{}次（此來源最多{}次抵擋；每次抵擋一次非處決正傷害）",
+                        charges->count,
+                        charges->limit)}};
+                }
+                return {{std::format(
+                    "增加{}次傷害抵擋；此效果提供的傷害抵擋最多{}次。每次抵擋一次非處決正傷害",
+                    charges->count,
+                    charges->limit)}};
+            }
+        }
+
+        if (status->status == BattleStatusKind::TrueQi
+            && layers
+            && statusBehaviorHasExactShape(*status, { 1 }))
+        {
+            const auto* damage = findStatusBehaviorAction<DealDamageAction>(*status);
+            if (damage)
+            {
+                auto perLayer = damage->amount;
+                perLayer.statusScale = StatusNumberScale::Once;
+                const auto amount = descriptionNumberLabel(perLayer, style);
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    return {
+                        {std::format("真氣+{}層", layers->count)},
+                        {std::format(
+                            "此來源最多{}層；每層命中附加{}{}傷害",
+                            layers->limit,
+                            amount,
+                            damageKindLabel(damage->kind)),
+                            1},
+                    };
+                }
+                return {
+                    {std::format(
+                        "獲得{}層真氣；此效果提供的真氣最多{}層",
+                        layers->count,
+                        layers->limit)},
+                    {std::format(
+                        "持有者命中時，每層真氣對命中目標附加{}點{}傷害",
+                        amount,
+                        damageKindLabel(damage->kind))},
+                };
+            }
+        }
+
+        if (status->status == BattleStatusKind::SingleHitCapLayer
+            && statusBehaviorHasExactShape(*status, { 1 }))
+        {
+            const auto* cap = findStatusBehaviorAction<ModifyDamageAction>(
+                *status,
+                [](const ModifyDamageAction& modifier)
+                {
+                    return modifier.operation == DamageModifierOperation::CapSingleHitAtValue;
+                });
+            if (cap)
+            {
+                auto amount = descriptionNumberLabel(cap->amount, style);
+                if (cap->amount.base == EffectNumberBase::ApplicationTargetMaxHp
+                    && amount.starts_with("套用目標"))
+                {
+                    amount.erase(0, std::string_view("套用").size());
+                }
+                return {{std::format(
+                    "下次承傷不超過{}",
+                    amount)}};
+            }
+        }
     }
+
     const auto* attack = std::get_if<ModifyAttackAction>(&action.value);
     if (!attack)
     {
@@ -2372,6 +2856,224 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
             }
         },
         attack->runtimeBehavior);
+}
+
+std::vector<DescriptionActionPhraseRow> renderDetailedStatusBehaviorRows(
+    const ApplyStatusAction& status)
+{
+    if (!status.behavior) return {};
+
+    if (status.status == BattleStatusKind::BattleSpirit
+        && statusBehaviorHasExactShape(status, { 2 }))
+    {
+        const auto* outgoing = findStatusBehaviorAction<ModifyDamageAction>(
+            status,
+            [](const ModifyDamageAction& modifier)
+            {
+                return modifier.perspective == DamageModifierPerspective::Outgoing
+                    && modifier.channel == DamageChannel::Skill
+                    && modifier.operation == DamageModifierOperation::PercentAdd;
+            });
+        const auto* incoming = findStatusBehaviorAction<ModifyDamageAction>(
+            status,
+            [](const ModifyDamageAction& modifier)
+            {
+                return modifier.perspective == DamageModifierPerspective::Incoming
+                    && modifier.channel == DamageChannel::All
+                    && modifier.operation == DamageModifierOperation::PercentAdd;
+            });
+        if (outgoing && incoming)
+        {
+            const auto outgoingValue = effectiveConstantEffectNumberValue(outgoing->amount);
+            const auto incomingValue = effectiveConstantEffectNumberValue(incoming->amount);
+            assert(outgoingValue && incomingValue && *incomingValue <= 0);
+            return {
+                {std::format("每層生效：招式傷害增加{}%", *outgoingValue)},
+                {std::format("每層生效：傷害減免{}%", -*incomingValue)},
+                {"來源隔離：其他生產者可提供自己的戰意，但不共用此來源的層數上限或每層數值"},
+                {"管線位置：造成與承受修正沿用既有狀態貢獻的傷害結算位置"},
+            };
+        }
+    }
+
+    if (status.status == BattleStatusKind::WitheredBone
+        && statusBehaviorHasExactShape(status, { 2 }))
+    {
+        const auto* damage = findStatusBehaviorAction<ModifyDamageAction>(status);
+        const auto* healing = findStatusBehaviorAction<ModifyHealTransactionAction>(status);
+        if (damage && healing)
+        {
+            const auto damageValue = effectiveConstantEffectNumberValue(damage->amount);
+            assert(damageValue);
+            return {
+                {std::format("持續生效：受到傷害增加{}%", *damageValue)},
+                {std::format("持續生效：受到治療減少{}%", 100 - healing->percent)},
+            };
+        }
+    }
+
+    if (status.status == BattleStatusKind::Bleed
+        && statusBehaviorHasExactShape(status, { 1 }))
+    {
+        return {
+            {"群組規則：所有來源在此目標共享流血層數上限與10幀計時"},
+            {"重新套用：增加層數不重置計時；較高的目標總上限只在目前群組存續期間向上調整"},
+            {"結算：每10幀造成一筆目標最大生命1% × 流血總層數的合併流血傷害，向零取整且至少1點"},
+            {"生命週期：結算不消耗層數；完整移除後，層數、上限、計時與來源一併重置"},
+        };
+    }
+
+    if (status.status == BattleStatusKind::SevenStarMark
+        && statusBehaviorHasExactShape(status, { 2 }))
+    {
+        const auto* damage = findStatusBehaviorAction<ModifyDamageAction>(status);
+        const auto* consume = findStatusBehaviorAction<ConsumeThisStatusAction>(status);
+        assert(damage && consume && consume->whenDepleted);
+        const auto ignoredDefense = effectiveConstantEffectNumberValue(damage->amount);
+        assert(ignoredDefense);
+        return {
+            {"群組規則：目標只保留一個完整七星狀態包"},
+            {"重新套用：以新套用的印記、持續時間、來源與綁定數值原子取代現有七星；新印記數可以較少"},
+            {"觸發：施加方任一友軍以招式命中狀態持有者"},
+            {std::format(
+                "動作：該次招式忽略{}%防禦並消耗{}枚七星印記",
+                *ignoredDefense,
+                consume->quantity)},
+            {std::format(
+                "耗盡時：使狀態持有者{}{}幀",
+                battleStatusLabel(consume->whenDepleted->status),
+                statusDurationLabel(
+                    *consume->whenDepleted,
+                    EffectDescriptionStyle::Detailed)), 1},
+        };
+    }
+
+    if (status.status == BattleStatusKind::NeutralizeForce
+        && statusBehaviorHasExactShape(status, { 1 }))
+    {
+        assert(status.neutralizeShield);
+        return {
+            {"群組規則：目標只保留一個完整化勁充能包；再次施加會完整取代"},
+            {"觸發：狀態持有者的施放命中前"},
+            {"動作：消耗1次化勁，使該次施放目前及剩餘攻擊落空"},
+            {"化解後護盾：原攻擊目標獲得"
+                + descriptionNumberLabel(
+                    *status.neutralizeShield,
+                    EffectDescriptionStyle::Detailed)
+                + "護盾"},
+        };
+    }
+
+    if (status.status == BattleStatusKind::TrueQi
+        && statusBehaviorHasExactShape(status, { 1 }))
+    {
+        const auto* damage = findStatusBehaviorAction<DealDamageAction>(status);
+        if (damage)
+        {
+            auto perLayer = damage->amount;
+            perLayer.statusScale = StatusNumberScale::Once;
+            return {
+                {"觸發：狀態持有者命中"},
+                {"目標：命中目標"},
+                {std::format(
+                    "動作：每層造成{}點{}傷害",
+                    descriptionNumberLabel(perLayer, EffectDescriptionStyle::Detailed),
+                    damageKindLabel(damage->kind))},
+                {"傷害範圍：單體（省略欄位後的預設值）"},
+            };
+        }
+    }
+
+    if (status.status == BattleStatusKind::SingleHitCapLayer
+        && statusBehaviorHasExactShape(status, { 1 }))
+    {
+        const auto* cap = findStatusBehaviorAction<ModifyDamageAction>(status);
+        if (cap)
+        {
+            return {{"持續生效：下次承傷不超過"
+                + descriptionNumberLabel(cap->amount, EffectDescriptionStyle::Detailed)}};
+        }
+    }
+
+    std::vector<DescriptionActionPhraseRow> result;
+    for (const auto& rule : status.behavior->rules)
+    {
+        const auto trigger = rule.event == EffectEvent::HitBeforeDamage
+                && rule.observation == EffectObservationScope::SourceOwnerTeamEventSource
+            ? std::string{"來源效果擁有者的任一友軍命中時"}
+            : rule.event == EffectEvent::UnitDied
+                && rule.observation == EffectObservationScope::StatusHolderEventTarget
+            ? std::string{"狀態持有者死亡時"}
+            : rule.event == EffectEvent::StatusPersistent
+            ? std::string{"狀態期間持續生效"}
+            : ruleEventLabel(rule.event, EffectDescriptionStyle::Detailed);
+        result.push_back({"狀態行為/觸發：" + trigger});
+        result.push_back({std::string{"狀態行為/觀察範圍："}
+            + std::string(detailedStatusObservationLabel(rule.observation))});
+        result.push_back({"狀態行為/目標：" + selectorLabel(rule.selector, false)});
+        for (const auto& condition : rule.conditions)
+            result.push_back({"狀態行為/條件："
+                + conditionLabel(condition, false, rule.event)});
+        if (rule.actions.size() > 1)
+            result.push_back({actionsDependOnOrder(rule.actions)
+                ? "動作關係：依序"
+                : "動作關係：同時"});
+        for (const auto& action : rule.actions)
+        {
+            if (const auto* consume = std::get_if<ConsumeThisStatusAction>(&action.value))
+            {
+                const auto& quantity = statusCatalogEntry(status.status).quantity;
+                result.push_back({std::format(
+                    "動作：消耗此來源{}{}{}{}",
+                    consume->quantity,
+                    statusQuantityCounter(quantity),
+                    battleStatusLabel(status.status),
+                    statusQuantityObjectSuffix(quantity))});
+                if (consume->whenDepleted)
+                {
+                    const auto& depleted = *consume->whenDepleted;
+                    auto summary = depleted;
+                    summary.behavior.reset();
+                    result.push_back({
+                        "耗盡時：" + renderDescriptionActionArgument(
+                            summary,
+                            EffectDescriptionStyle::Detailed),
+                        1 });
+                    auto nestedRows = renderDetailedStatusBehaviorRows(depleted);
+                    for (auto& row : nestedRows)
+                    {
+                        row.indent += 2;
+                        result.push_back(std::move(row));
+                    }
+                }
+                continue;
+            }
+            if (const auto* nested = std::get_if<ApplyStatusAction>(&action.value))
+            {
+                auto summary = *nested;
+                summary.behavior.reset();
+                result.push_back({"動作：" + renderDescriptionActionArgument(
+                    summary,
+                    EffectDescriptionStyle::Detailed)});
+                auto nestedRows = renderDetailedStatusBehaviorRows(*nested);
+                for (auto& row : nestedRows)
+                {
+                    ++row.indent;
+                    result.push_back(std::move(row));
+                }
+                continue;
+            }
+            result.push_back({"動作：" + renderDescriptionActionArgument(
+                action.value,
+                EffectDescriptionStyle::Detailed)});
+            if (const auto* damage = std::get_if<DealDamageAction>(&action.value);
+                damage && damage->area.kind == DamageAreaKind::SingleTarget)
+            {
+                result.push_back({"傷害範圍：單體（省略欄位後的預設值）", 1});
+            }
+        }
+    }
+    return result;
 }
 
 }  // namespace KysChess::EffectDescriptionDetail

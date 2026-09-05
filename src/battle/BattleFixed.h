@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <compare>
 #include <cstdint>
@@ -38,7 +39,13 @@ public:
     }
 
     constexpr std::int64_t raw() const { return raw_; }
-    constexpr int toInt() const { return static_cast<int>(raw_ / Scale); }
+    constexpr int toInt() const
+    {
+        return static_cast<int>(std::clamp<std::int64_t>(
+            raw_ / Scale,
+            std::numeric_limits<int>::min(),
+            std::numeric_limits<int>::max()));
+    }
     constexpr double toDouble() const { return static_cast<double>(raw_) / Scale; }
 
     constexpr BattleFixed scaled(std::int64_t numerator, std::int64_t denominator) const
@@ -57,6 +64,34 @@ public:
             }
         }
         return fromRaw(raw_ * numerator / denominator);
+    }
+
+    constexpr BattleFixed scaledPercentSaturated(std::int64_t factor) const
+    {
+        assert(factor >= 0);
+        constexpr std::int64_t denominator = 100;
+        constexpr std::int64_t maximumRaw =
+            static_cast<std::int64_t>(std::numeric_limits<int>::max()) * Scale;
+        constexpr std::int64_t minimumRaw =
+            static_cast<std::int64_t>(std::numeric_limits<int>::min()) * Scale;
+        const std::int64_t quotient = raw_ / denominator;
+        const std::int64_t remainder = raw_ % denominator;
+        if (factor > 0)
+        {
+            if (quotient > 0 && quotient > maximumRaw / factor)
+                return fromRaw(maximumRaw);
+            if (quotient < 0 && quotient < minimumRaw / factor)
+                return fromRaw(minimumRaw);
+        }
+        const std::int64_t whole = quotient * factor;
+        // |remainder| < 100 and percentage factors are formed from an int
+        // delta plus 100, so this product cannot overflow int64.
+        const std::int64_t fraction = remainder * factor / denominator;
+        if (fraction > 0 && whole > maximumRaw - fraction)
+            return fromRaw(maximumRaw);
+        if (fraction < 0 && whole < minimumRaw - fraction)
+            return fromRaw(minimumRaw);
+        return fromRaw(std::clamp(whole + fraction, minimumRaw, maximumRaw));
     }
 
     constexpr BattleFixed multipliedBy(BattleFixed other) const

@@ -1,5 +1,6 @@
 #include "battle/BattleEffectCommandSystem.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
+#include "BattleCoreTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -9,6 +10,7 @@
 
 using namespace KysChess;
 using namespace KysChess::Battle;
+using namespace KysChess::Battle::Test;
 
 namespace
 {
@@ -162,7 +164,6 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
                 .sourceUnitId = 3,
                 .remainingFrames = 30,
                 .stacks = 1,
-                .potency = 10,
                 .appliedSequence = 3,
             },
             {
@@ -228,7 +229,6 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
                 .kind = BattleStatusKind::Poison,
                 .remainingFrames = 30,
                 .stacks = 1,
-                .potency = 10,
             },
         };
         RemoveStatusAction action;
@@ -255,10 +255,9 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         action.durationFrames = 25;
         action.quantity = NoStatusQuantity{};
         action.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
-        action.effects = NoStatusEffects{};
         const EffectCommand command{
             metadata(92, 2),
-            ApplyStatusEffectCommand{ action, 0, 0 },
+            ApplyStatusEffectCommand{ action, std::nullopt },
         };
 
         const auto reduced = BattleEffectCommandSystem().reduce(
@@ -289,12 +288,11 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         action.status = BattleStatusKind::NextAttackMiss;
         action.durationFrames = 120;
         action.quantity = SetStatusTriggerCharges{ 1 };
-        action.effects = NextIncomingAttackMissStatusEffects{
-            .makesIncomingAttackMiss = true,
-        };
+        action.behavior = attackSuppressionStatusBehavior(
+            BattleStatusKind::NextAttackMiss);
         const EffectCommand command{
             metadata(69, 2),
-            ApplyStatusEffectCommand{ action, 0, 0 },
+            ApplyStatusEffectCommand{ action, std::nullopt },
         };
 
         const auto reduced = BattleEffectCommandSystem().reduce(
@@ -321,13 +319,11 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         replace.status = BattleStatusKind::Poison;
         replace.durationFrames = 120;
         replace.quantity = SetStatusTriggerCharges{ 4 };
-        replace.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
-        replace.effects = PoisonStatusEffects{
-            .currentHpDamagePercent = EffectNumber{ .flat = 10 },
-        };
+        replace.reapplication = StatusReapplicationPolicy::ReplaceExistingPoison;
+        replace.behavior = poisonStatusBehavior(10);
         const EffectCommand replaceCommand{
             metadata(21, 2),
-            ApplyStatusEffectCommand{ replace, 10, 0 },
+            ApplyStatusEffectCommand{ replace, std::nullopt },
         };
 
         const auto replaced = BattleEffectCommandSystem().reduce(
@@ -342,18 +338,17 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
         CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 4);
         CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 120);
-        CHECK(target.status.effects.find(BattleStatusKind::Poison)->potency == 10);
+        CHECK(poisonDamagePercent(
+            target.status.effects.find(BattleStatusKind::Poison)->behavior) == 10);
 
         ApplyStatusAction add = replace;
         add.durationFrames = 150;
         add.quantity = SetStatusTriggerCharges{ 5 };
         add.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
-        add.effects = PoisonStatusEffects{
-            .currentHpDamagePercent = EffectNumber{ .flat = 12 },
-        };
+        add.behavior = poisonStatusBehavior(12);
         const EffectCommand addCommand{
             metadata(21, 2, 1),
-            ApplyStatusEffectCommand{ add, 12, 0 },
+            ApplyStatusEffectCommand{ add, std::nullopt },
         };
 
         const auto stacked = BattleEffectCommandSystem().reduce(
@@ -368,7 +363,8 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
         CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 5);
         CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 150);
-        CHECK(target.status.effects.find(BattleStatusKind::Poison)->potency == 12);
+        CHECK(poisonDamagePercent(
+            target.status.effects.find(BattleStatusKind::Poison)->behavior) == 12);
         const auto snapshot = BattleStatusSystem({}).snapshot(
             target.statusDamageState());
         CHECK(snapshot.stacks(BattleStatusKind::Poison) == 5);
@@ -385,14 +381,12 @@ TEST_CASE("BattleEffectCommandSystem observes every repeated poison application 
     poison.status = BattleStatusKind::Poison;
     poison.durationFrames = 120;
     poison.quantity = SetStatusTriggerCharges{ 4 };
-    poison.reapplication = StatusReapplicationPolicy::ReplaceAndReset;
-    poison.effects = PoisonStatusEffects{
-        .currentHpDamagePercent = EffectNumber{ .flat = 10 },
-    };
+    poison.reapplication = StatusReapplicationPolicy::ReplaceExistingPoison;
+    poison.behavior = poisonStatusBehavior(10);
     const std::array commands{
-        EffectCommand{ metadata(95, 2, 0), ApplyStatusEffectCommand{ poison, 10, 0 } },
-        EffectCommand{ metadata(95, 2, 1), ApplyStatusEffectCommand{ poison, 10, 0 } },
-        EffectCommand{ metadata(95, 2, 2), ApplyStatusEffectCommand{ poison, 10, 0 } },
+        EffectCommand{ metadata(95, 2, 0), ApplyStatusEffectCommand{ poison, std::nullopt } },
+        EffectCommand{ metadata(95, 2, 1), ApplyStatusEffectCommand{ poison, std::nullopt } },
+        EffectCommand{ metadata(95, 2, 2), ApplyStatusEffectCommand{ poison, std::nullopt } },
     };
 
     const auto reduced = BattleEffectCommandSystem().reduce(
@@ -415,6 +409,54 @@ TEST_CASE("BattleEffectCommandSystem observes every repeated poison application 
     CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 60);
 }
 
+TEST_CASE("BattleEffectCommandSystem does not turn an aggregated poison clock into producer-family capacity",
+          "[battle][effect][command][status][poison][aggregation][capacity]")
+{
+    auto state = makeState();
+    auto& target = state.units.require(2);
+
+    ApplyStatusAction aggregated;
+    aggregated.status = BattleStatusKind::Poison;
+    aggregated.durationFrames = 120;
+    aggregated.quantity = SetStatusTriggerCharges{ 5 };
+    aggregated.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+    aggregated.behavior = poisonStatusBehavior(12);
+    const EffectCommand aggregatedCommand{
+        metadata(21, 2),
+        ApplyStatusEffectCommand{ aggregated, std::nullopt },
+    };
+    const auto first = BattleEffectCommandSystem().reduce(
+        state,
+        aggregatedCommand,
+        { .frame = 20 });
+
+    REQUIRE(first.entries.size() == 1);
+    REQUIRE(target.status.effects.statuses.size() == 1);
+    CHECK_FALSE(target.status.effects.statuses.front().familyLocalLimit);
+    CHECK(target.status.effects.statuses.front().stacks == 5);
+
+    ApplyStatusAction producerAlone = aggregated;
+    producerAlone.quantity = SetStatusTriggerCharges{ 3 };
+    producerAlone.behavior = poisonStatusBehavior(14);
+    const EffectCommand producerAloneCommand{
+        metadata(21, 2, 1),
+        ApplyStatusEffectCommand{ producerAlone, std::nullopt },
+    };
+    const auto second = BattleEffectCommandSystem().reduce(
+        state,
+        producerAloneCommand,
+        { .frame = 21 });
+
+    REQUIRE(second.entries.size() == 1);
+    const auto& applied = std::get<BattleStatusApplyEffectResult>(
+        second.entries.front().value).status;
+    CHECK(applied.outcome == BattleStatusApplyOutcome::Replaced);
+    REQUIRE(target.status.effects.statuses.size() == 1);
+    CHECK(target.status.effects.statuses.front().stacks == 3);
+    CHECK_FALSE(target.status.effects.statuses.front().familyLocalLimit);
+    CHECK(poisonDamagePercent(target.status.effects.statuses.front().behavior) == 14);
+}
+
 TEST_CASE("BattleEffectCommandSystem preserves all stun reapplication policies",
           "[battle][effect][command][status][stun][reapplication]")
 {
@@ -428,10 +470,9 @@ TEST_CASE("BattleEffectCommandSystem preserves all stun reapplication policies",
         action.durationFrames = duration;
         action.quantity = NoStatusQuantity{};
         action.reapplication = policy;
-        action.effects = NoStatusEffects{};
         const EffectCommand command{
             metadata(92, 2, ordinal++),
-            ApplyStatusEffectCommand{ action, 0, 0 },
+            ApplyStatusEffectCommand{ action, std::nullopt },
         };
         const auto reduced = system.reduce(
             state,
@@ -444,7 +485,7 @@ TEST_CASE("BattleEffectCommandSystem preserves all stun reapplication policies",
         return std::get<BattleStatusApplyEffectResult>(
             reduced.entries.front().value).status;
     };
-    const auto activeStun = [&]() -> const BattleTypedStatusInstance&
+    const auto activeStun = [&]() -> const BattleStatusContribution&
     {
         const auto* stun = state.units.require(2).status.effects.find(
             BattleStatusKind::Stun);
@@ -479,17 +520,86 @@ TEST_CASE("BattleEffectCommandSystem preserves all stun reapplication policies",
     CHECK(activeStun().remainingFrames == 20);
     CHECK(activeStun().maximumFrames == 20);
 
-    const auto replaced = apply(
-        StatusReapplicationPolicy::ReplaceDuration, 6);
-    CHECK_FALSE(replaced.applied);
-    CHECK(replaced.value == -14);
-    CHECK(activeStun().remainingFrames == 6);
-    CHECK(activeStun().maximumFrames == 20);
+}
+
+TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to one family generation",
+          "[battle][effect][command][status][family][alias]")
+{
+    ApplyStatusAction shadowless;
+    shadowless.status = BattleStatusKind::Shadowless;
+    shadowless.durationFrames = 60;
+    shadowless.quantity = NoStatusQuantity{};
+    shadowless.reapplication = StatusReapplicationPolicy::RefreshDuration;
+    shadowless.behavior = trueQiStatusBehavior(9);
+    const auto firstBehavior = shadowless.behavior;
+
+    auto firstMetadata = metadata(106, 2);
+    firstMetadata.ruleId = EffectRuleId{ 500 };
+    firstMetadata.ruleOrder = 7;
+    firstMetadata.authoredActionOrder = 3;
+    firstMetadata.binding.runtimeInstanceId = 11;
+    BattleStatusUnitState target{
+        .id = 2,
+        .alive = true,
+        .hp = 100,
+        .maxHp = 100,
+    };
+    auto first = BattleEffectCommandSystem::applyStatusCommand(
+        std::move(target),
+        firstMetadata,
+        ApplyStatusEffectCommand{ shadowless, std::nullopt },
+        { .frame = 1 },
+        {},
+        false);
+    REQUIRE(first.target.effects.statuses.size() == 1);
+    const auto firstSequence = first.target.effects.statuses.front().appliedSequence;
+    CHECK(first.target.effects.statuses.front().familyLocalLimit == 1);
+
+    auto aliasMetadata = firstMetadata;
+    aliasMetadata.binding.runtimeInstanceId = 12;
+    shadowless.durationFrames = 90;
+    shadowless.behavior = trueQiStatusBehavior(12);
+    auto alias = BattleEffectCommandSystem::applyStatusCommand(
+        std::move(first.target),
+        aliasMetadata,
+        ApplyStatusEffectCommand{ shadowless, std::nullopt },
+        { .frame = 2 },
+        {},
+        false);
+    CHECK(alias.outcome == BattleStatusApplyOutcome::Refreshed);
+    REQUIRE(alias.target.effects.statuses.size() == 1);
+    const auto& refreshedOriginal = alias.target.effects.statuses.front();
+    REQUIRE(refreshedOriginal.producer);
+    CHECK(refreshedOriginal.producer->binding.runtimeInstanceId == 11);
+    CHECK(refreshedOriginal.remainingFrames == 90);
+    CHECK(refreshedOriginal.appliedSequence == firstSequence);
+    CHECK(statusBehaviorsEquivalent(refreshedOriginal.behavior, firstBehavior));
+
+    shadowless.durationFrames = 120;
+    auto refresh = BattleEffectCommandSystem::applyStatusCommand(
+        std::move(alias.target),
+        aliasMetadata,
+        ApplyStatusEffectCommand{ shadowless, std::nullopt },
+        { .frame = 3 },
+        {},
+        false);
+    CHECK(refresh.outcome == BattleStatusApplyOutcome::Refreshed);
+    REQUIRE(refresh.target.effects.statuses.size() == 1);
+    CHECK(refresh.target.effects.statuses.front().appliedSequence
+        == firstSequence);
+    REQUIRE(refresh.target.effects.statuses.front().producer);
+    CHECK(refresh.target.effects.statuses.front().producer->binding.runtimeInstanceId
+        == 11);
+    CHECK(statusBehaviorsEquivalent(
+        refresh.target.effects.statuses.front().behavior,
+        firstBehavior));
+    CHECK(refresh.target.effects.statuses.front().remainingFrames == 120);
 }
 
 BattleRuntimeState makeState()
 {
     BattleRuntimeState state;
+    state.gridTransform = { SceneTileWidth, 64 };
     appendRuntimeUnit(state, makeRuntimeUnitSpawn(makeUnit(1, 0, 900, 1000, 20), {}));
     appendRuntimeUnit(state, makeRuntimeUnitSpawn(makeUnit(2, 0, 200, 1000, 10), {}));
     appendRuntimeUnit(state, makeRuntimeUnitSpawn(makeUnit(3, 1, 1000, 1000, 80), {}));
@@ -582,6 +692,192 @@ EffectCommand damageAbsorptionCommand(
 
 }  // namespace
 
+TEST_CASE("BattleEffectCommandSystem skips a snapshotted status command after its contribution is removed",
+          "[battle][effect][command][status][snapshot][liveness]")
+{
+    auto state = makeState();
+    auto& effects = state.units.require(2).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::TrueQi,
+        .stacks = 1,
+        .appliedSequence = 7,
+    });
+
+    RemoveStatusAction removal;
+    removal.statuses = { BattleStatusKind::TrueQi };
+    EffectCommand removeCommand{
+        metadata(106, 2, 0),
+        RemoveStatusEffectCommand{ removal },
+    };
+
+    DealDamageAction damage;
+    damage.amount.flat = 9;
+    damage.kind = BattleDamageKind::Pure;
+    auto damageMetadata = metadata(106, 3, 1);
+    damageMetadata.executionLane = EffectExecutionLane::StatusBehavior;
+    damageMetadata.statusContribution = EffectStatusContributionContext{
+        .holderUnitId = 2,
+        .sourceUnitId = 1,
+        .kind = BattleStatusKind::TrueQi,
+        .quantity = 1,
+        .appliedSequence = 7,
+        .producerRuleId = EffectRuleId{ 106 },
+    };
+    const EffectCommand damageCommand{
+        damageMetadata,
+        DealDamageEffectCommand{ damage, 9 },
+    };
+    const std::array commands{ removeCommand, damageCommand };
+
+    const auto reduced = BattleEffectCommandSystem().reduce(
+        state,
+        commands,
+        { .frame = 1 });
+
+    REQUIRE(reduced.entries.size() == 2);
+    CHECK(std::holds_alternative<BattleStatusRemoveEffectResult>(
+        reduced.entries[0].value));
+    CHECK(std::holds_alternative<BattleSkippedEffectResult>(
+        reduced.entries[1].value));
+    CHECK_FALSE(effects.has(BattleStatusKind::TrueQi));
+}
+
+TEST_CASE("BattleEffectCommandSystem preserves complete status damage origin and trigger lineage",
+          "[battle][effect][command][status][damage][provenance]")
+{
+    const EffectSourceBinding firstBinding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 106,
+        .ownerUnitId = 1,
+        .sourceTeam = 0,
+        .runtimeInstanceId = 17,
+    };
+    const BattleAttackProvenance attack{
+        .cast = {
+            .rootCastId = BattleCastId{ 31 },
+            .castId = BattleCastId{ 31 },
+            .sourceUnitId = 1,
+            .magicId = 106,
+            .ultimate = true,
+        },
+        .attackId = BattleAttackId{ 32 },
+        .rootAttack = true,
+        .mainProjectile = true,
+    };
+    BattleEffectDamageRequestOutput first;
+    first.source = firstBinding;
+    first.ruleId = EffectRuleId{ 700 };
+    first.triggeringCast = attack.cast;
+    first.triggeringAttack = attack;
+    first.statusContribution = EffectStatusContributionContext{
+        .holderUnitId = 3,
+        .sourceUnitId = 1,
+        .kind = BattleStatusKind::TrueQi,
+        .quantity = 4,
+        .appliedSequence = 41,
+        .producerRuleId = EffectRuleId{ 700 },
+        .producerRuleOrder = 11,
+        .producerActionOrder = 2,
+        .behaviorRuleOrder = 5,
+    };
+    first.authoredActionOrder = 7;
+
+    const auto firstOrigin = BattleEffectCommandSystem::damageOrigin(first);
+    const auto* status = std::get_if<EffectStatusDamageOrigin>(&firstOrigin);
+    REQUIRE(status);
+    CHECK(status->binding == firstBinding);
+    CHECK(status->contribution == *first.statusContribution);
+    CHECK(status->behaviorActionOrder == 7);
+    REQUIRE(status->triggeringCast);
+    REQUIRE(status->triggeringAttack);
+    CHECK(status->triggeringCast->castId == BattleCastId{ 31 });
+    CHECK(status->triggeringAttack->attackId == BattleAttackId{ 32 });
+    REQUIRE(effectDamageCastProvenance(firstOrigin));
+    REQUIRE(effectDamageAttackProvenance(firstOrigin));
+    CHECK(effectDamageCastProvenance(firstOrigin)->ultimate);
+
+    auto second = first;
+    second.source.sourceId = 206;
+    second.source.runtimeInstanceId = 19;
+    second.statusContribution->appliedSequence = 43;
+    second.statusContribution->producerRuleId = EffectRuleId{ 701 };
+    second.triggeringCast.reset();
+    second.triggeringAttack.reset();
+    const auto secondOrigin = BattleEffectCommandSystem::damageOrigin(second);
+    const auto* secondStatus = std::get_if<EffectStatusDamageOrigin>(&secondOrigin);
+    REQUIRE(secondStatus);
+    CHECK(secondStatus->binding != status->binding);
+    CHECK(secondStatus->contribution.appliedSequence
+        != status->contribution.appliedSequence);
+    CHECK(effectDamageCastProvenance(secondOrigin) == nullptr);
+    CHECK(effectDamageAttackProvenance(secondOrigin) == nullptr);
+
+    auto settlement = first;
+    settlement.statusContribution.reset();
+    const auto settlementOrigin = BattleEffectCommandSystem::damageOrigin(settlement);
+    const auto* rule = std::get_if<EffectRuleDamageOrigin>(&settlementOrigin);
+    REQUIRE(rule);
+    CHECK(rule->binding == firstBinding);
+    CHECK(rule->ruleId == EffectRuleId{ 700 });
+    CHECK(rule->actionOrder == 7);
+    REQUIRE(effectDamageAttackProvenance(settlementOrigin));
+}
+
+TEST_CASE("BattleEffectCommandSystem invalidates a snapshotted status command after partial consumption",
+          "[battle][effect][command][status][snapshot][liveness]")
+{
+    auto state = makeState();
+    auto& effects = state.units.require(2).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::TrueQi,
+        .sourceUnitId = 1,
+        .stacks = 2,
+        .appliedSequence = 7,
+    });
+
+    auto statusMetadata = metadata(106, 2, 0);
+    statusMetadata.executionLane = EffectExecutionLane::StatusBehavior;
+    statusMetadata.statusContribution = EffectStatusContributionContext{
+        .holderUnitId = 2,
+        .sourceUnitId = 1,
+        .kind = BattleStatusKind::TrueQi,
+        .quantity = 2,
+        .appliedSequence = 7,
+        .producerRuleId = EffectRuleId{ 106 },
+    };
+    ConsumeThisStatusAction consume;
+    consume.quantity = 1;
+    const EffectCommand consumeCommand{
+        statusMetadata,
+        ConsumeThisStatusEffectCommand{ consume },
+    };
+
+    DealDamageAction damage;
+    damage.amount.flat = 9;
+    damage.kind = BattleDamageKind::Pure;
+    auto damageMetadata = statusMetadata;
+    damageMetadata.targetUnitId = 3;
+    damageMetadata.actionOrder = 1;
+    const EffectCommand damageCommand{
+        damageMetadata,
+        DealDamageEffectCommand{ damage, 9 },
+    };
+    const std::array commands{ consumeCommand, damageCommand };
+
+    const auto reduced = BattleEffectCommandSystem().reduce(
+        state,
+        commands,
+        { .frame = 1 });
+
+    REQUIRE(reduced.entries.size() == 2);
+    CHECK(std::holds_alternative<BattleStatusConsumeEffectResult>(
+        reduced.entries[0].value));
+    CHECK(std::holds_alternative<BattleSkippedEffectResult>(
+        reduced.entries[1].value));
+    REQUIRE(effects.statuses.size() == 1);
+    CHECK(effects.statuses.front().stacks == 1);
+}
+
 TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices", "[battle][effect][command]")
 {
     BattleEffectCommandSystem system;
@@ -639,14 +935,10 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
         action.status = BattleStatusKind::WitheredBone;
         action.durationFrames = 120;
         action.quantity = NoStatusQuantity{};
-        action.reapplication = StatusReapplicationPolicy::RefreshDuration;
-        action.effects = WitheredBoneStatusEffects{
-            .damageTakenIncreasePercent = EffectNumber{ .flat = 25 },
-            .healingReductionPercent = EffectNumber{ .flat = 75 },
-        };
+        action.behavior = makeCatalogOwnedStatusBehavior(action);
         const EffectCommand command{
             metadata(11, 3),
-            ApplyStatusEffectCommand{ action, 25, 75 },
+            ApplyStatusEffectCommand{ action, std::nullopt },
         };
 
         const auto reduced = system.reduce(state, command, { .frame = 10 });
@@ -657,8 +949,11 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
         const auto snapshot = BattleStatusSystem({}).snapshot(
             state.units.require(3).statusDamageState());
         CHECK(snapshot.has(BattleStatusKind::WitheredBone));
-        CHECK(snapshot.potency(BattleStatusKind::WitheredBone) == 25);
-        CHECK(snapshot.secondaryPotency(BattleStatusKind::WitheredBone) == 75);
+        CHECK(snapshot.damageTakenPct == 25);
+        REQUIRE(snapshot.healTransactionModifiers.size() == 1);
+        CHECK(snapshot.healTransactionModifiers.front().operation
+              == HealModifierOperation::MultiplyReceived);
+        CHECK(snapshot.healTransactionModifiers.front().percent == 25);
     }
 
     SECTION("黃沙命中位置建立持續區域")
@@ -1025,6 +1320,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo initialized resources 
 TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without anti-combo records", "[battle][effect][command][initialization][anti_combo][clone]")
 {
     BattleEffectCommandRuntimeState runtime;
+    std::uint64_t sourceNextNegativeEffectSequence = 1;
     runtime.antiComboAttributeBases.emplace(
         BattleAntiComboAttributeKey{ 1, BattleAttribute::Attack },
         BattleAntiComboAttributeBasis{ 100, 5, 10 });
@@ -1043,7 +1339,7 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
     action.stack = EffectStackPolicy::AddStack;
     action.stackLimit = 5;
     action.stackScope = EffectStackScope::EventSource;
-    const ModifyAttributeEffectCommand command{ action, 7 };
+    const ModifyAttributeEffectCommand command{ action, -7 };
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1052,12 +1348,14 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
         runtime,
         initialized,
         command,
-        0);
+        0,
+        &sourceNextNegativeEffectSequence);
     BattleEffectCommandSystem::applyPersistentAttributeModifier(
         runtime,
         initialized,
         command,
-        0);
+        0,
+        &sourceNextNegativeEffectSequence);
     REQUIRE(runtime.attributeModifiers.size() == 1);
     CHECK(runtime.attributeModifiers[0].stackCount == 2);
 
@@ -1067,14 +1365,17 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
         runtime,
         untrackedMetadata,
         command,
-        0);
+        0,
+        &sourceNextNegativeEffectSequence);
     REQUIRE(runtime.attributeModifiers.size() == 2);
 
+    auto cloneNextNegativeEffectSequence = sourceNextNegativeEffectSequence;
     BattleEffectCommandSystem::inheritCloneEffectModifiers(
         runtime,
         1,
         4,
-        7);
+        7,
+        cloneNextNegativeEffectSequence);
     REQUIRE(runtime.antiComboInitializationRecords.size() == 1);
     CHECK_FALSE(runtime.antiComboAttributeBases.contains(
         BattleAntiComboAttributeKey{ 4, BattleAttribute::Attack }));
@@ -1093,28 +1394,108 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
     CHECK(std::ranges::count_if(
         runtime.attributeModifiers,
         [](const auto& modifier) { return modifier.targetUnitId == 4; }) == 2);
+    CHECK(cloneNextNegativeEffectSequence == sourceNextNegativeEffectSequence);
+    CHECK(clonedModifier.negativeEffectSequence == 1);
+    CHECK(clonedUntrackedModifier.negativeEffectSequence == 2);
+
+    auto laterCloneMetadata = initialized;
+    laterCloneMetadata.binding.ownerUnitId = 4;
+    laterCloneMetadata.targetUnitId = 4;
+    laterCloneMetadata.ruleId = EffectRuleId{ 3400 };
+    const auto laterClone = BattleEffectCommandSystem::applyPersistentAttributeModifier(
+        runtime,
+        laterCloneMetadata,
+        command,
+        1,
+        &cloneNextNegativeEffectSequence);
+    CHECK(laterClone.modifier.negativeEffectSequence == 3);
+    CHECK(cloneNextNegativeEffectSequence == 4);
 }
 
 TEST_CASE("BattleStatusRuntimeUnit rewrites only cloned self-source references", "[battle][effect][command][initialization][clone][status]")
 {
+    const auto contribution = [](BattleStatusKind kind,
+                                 int sourceUnitId,
+                                 EffectSourceKind sourceKind,
+                                 int sourceId,
+                                 EffectRuleId ruleId,
+                                 std::uint32_t actionOrder)
+    {
+        const EffectSourceBinding binding{
+            .kind = sourceKind,
+            .sourceId = sourceId,
+            .ownerUnitId = sourceUnitId,
+            .sourceTeam = 7,
+            .runtimeInstanceId = 19,
+        };
+        return BattleStatusContribution{
+            .kind = kind,
+            .producer = StatusProducerKey{
+                .binding = binding,
+                .ruleId = ruleId,
+                .actionOrder = actionOrder,
+                .behaviorRuleOrder = 3,
+                .behaviorActionOrder = 4,
+            },
+            .producerFamily = StatusProducerFamilyKey{
+                .sourceKind = sourceKind,
+                .sourceId = sourceId,
+                .logicalOwnerUnitId = sourceUnitId,
+                .ruleId = ruleId,
+                .actionOrder = actionOrder,
+                .behaviorRuleOrder = 3,
+                .behaviorActionOrder = 4,
+            },
+            .sourceUnitId = sourceUnitId,
+            .origin = BattleStatusEffectOrigin{
+                .binding = binding,
+                .ruleId = ruleId,
+                .ruleOrder = 11,
+            },
+        };
+    };
     BattleStatusRuntimeUnit status;
     status.effects.statuses = {
-        { .kind = BattleStatusKind::Poison, .sourceUnitId = 1 },
-        { .kind = BattleStatusKind::Bleed, .sourceUnitId = 3 },
-        { .kind = BattleStatusKind::Stun, .sourceUnitId = 1 },
-        { .kind = BattleStatusKind::MpBlocked, .sourceUnitId = 3 },
-        { .kind = BattleStatusKind::BattleSpirit, .sourceUnitId = 1 },
-        { .kind = BattleStatusKind::TrueQi, .sourceUnitId = 3 },
+        contribution(BattleStatusKind::Poison, 1, EffectSourceKind::Magic, 101, { 1001 }, 5),
+        contribution(BattleStatusKind::Bleed, 3, EffectSourceKind::Equipment, 202, { 2002 }, 6),
     };
 
     rewriteBattleStatusSourceUnitId(status, 1, 4);
 
-    CHECK(status.effects.statuses[0].sourceUnitId == 4);
-    CHECK(status.effects.statuses[1].sourceUnitId == 3);
-    CHECK(status.effects.statuses[2].sourceUnitId == 4);
-    CHECK(status.effects.statuses[3].sourceUnitId == 3);
-    CHECK(status.effects.statuses[4].sourceUnitId == 4);
-    CHECK(status.effects.statuses[5].sourceUnitId == 3);
+    const auto& cloned = status.effects.statuses[0];
+    REQUIRE(cloned.producer);
+    REQUIRE(cloned.producerFamily);
+    REQUIRE(cloned.origin);
+    CHECK(cloned.sourceUnitId == 4);
+    CHECK(cloned.producer->binding.ownerUnitId == 4);
+    CHECK(cloned.producerFamily->logicalOwnerUnitId == 4);
+    CHECK(cloned.origin->binding.ownerUnitId == 4);
+    CHECK(cloned.producer->binding.kind == EffectSourceKind::Magic);
+    CHECK(cloned.producer->binding.sourceId == 101);
+    CHECK(cloned.producer->binding.runtimeInstanceId == 19);
+    CHECK(cloned.producer->ruleId == EffectRuleId{ 1001 });
+    CHECK(cloned.producer->actionOrder == 5);
+    CHECK(cloned.producerFamily->sourceKind == EffectSourceKind::Magic);
+    CHECK(cloned.producerFamily->sourceId == 101);
+    CHECK(cloned.producerFamily->ruleId == EffectRuleId{ 1001 });
+    CHECK(cloned.producerFamily->actionOrder == 5);
+    CHECK(cloned.origin->binding.kind == EffectSourceKind::Magic);
+    CHECK(cloned.origin->binding.sourceId == 101);
+    CHECK(cloned.origin->ruleId == EffectRuleId{ 1001 });
+    CHECK(cloned.origin->ruleOrder == 11);
+
+    const auto& external = status.effects.statuses[1];
+    REQUIRE(external.producer);
+    REQUIRE(external.producerFamily);
+    REQUIRE(external.origin);
+    CHECK(external.sourceUnitId == 3);
+    CHECK(external.producer->binding.ownerUnitId == 3);
+    CHECK(external.producerFamily->logicalOwnerUnitId == 3);
+    CHECK(external.origin->binding.ownerUnitId == 3);
+    CHECK(external.producer->binding.kind == EffectSourceKind::Equipment);
+    CHECK(external.producer->binding.sourceId == 202);
+    CHECK(external.producer->ruleId == EffectRuleId{ 2002 });
+    CHECK(external.producer->actionOrder == 6);
 }
 
 TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and clones the complete damage baseline", "[battle][effect][command][initialization][anti_combo][clone][status][damage]")
@@ -1180,11 +1561,8 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     statusAction.status = BattleStatusKind::BattleSpirit;
     statusAction.durationFrames = 180;
     statusAction.quantity = AddStatusLayers{ 2, 5 };
-    statusAction.effects = BattleSpiritStatusEffects{
-        .skillDamageIncreasePercent = EffectNumber{ .flat = 17 },
-        .damageReductionPercent = EffectNumber{ .flat = 9 },
-    };
-    const ApplyStatusEffectCommand statusCommand{ statusAction, 17, 9 };
+    statusAction.behavior = battleSpiritStatusBehavior(17, 9);
+    const ApplyStatusEffectCommand statusCommand{ statusAction, std::nullopt };
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1198,10 +1576,11 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     ApplyStatusAction externalStatusAction;
     externalStatusAction.status = BattleStatusKind::TrueQi;
     externalStatusAction.quantity = AddStatusLayers{ 1, 1 };
-    externalStatusAction.effects = TrueQiStatusEffects{
-        .pureDamagePerHit = EffectNumber{ .flat = 5 },
+    externalStatusAction.behavior = trueQiStatusBehavior(5);
+    const ApplyStatusEffectCommand externalStatusCommand{
+        externalStatusAction,
+        std::nullopt,
     };
-    const ApplyStatusEffectCommand externalStatusCommand{ externalStatusAction, 5, 0 };
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         externalMetadata,
@@ -1235,11 +1614,13 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     REQUIRE(state.units.require(2).status.effects.statuses.size() == 1);
     CHECK(state.units.require(2).status.effects.statuses[0].sourceUnitId == 2);
 
+    std::uint64_t cloneNextNegativeEffectSequence = 1;
     BattleEffectCommandSystem::inheritCloneEffectModifiers(
         runtime,
         1,
         4,
-        7);
+        7,
+        cloneNextNegativeEffectSequence);
     REQUIRE(runtime.damageModifiers.size() == 5);
     const auto& clonedDamage = runtime.damageModifiers[3];
     CHECK(clonedDamage.binding.ownerUnitId == 4);
@@ -1314,6 +1695,76 @@ TEST_CASE("BattleEffectCommandSystem starts refreshes and accumulates damage abs
     CHECK(state.effectRules.stateValue(
         refresh.absorption.binding,
         EffectStateSlot::AbsorbedDamage) == 0);
+}
+
+TEST_CASE("BattleEffectCommandSystem keeps status-owned absorption generations distinct and attributed",
+          "[battle][effect][command][absorption][status][provenance]")
+{
+    auto state = makeState();
+    auto& effects = state.units.require(1).status.effects;
+    effects.statuses = {
+        {
+            .kind = BattleStatusKind::TrueQi,
+            .stacks = 1,
+            .appliedSequence = 41,
+        },
+        {
+            .kind = BattleStatusKind::TrueQi,
+            .stacks = 1,
+            .appliedSequence = 43,
+        },
+    };
+    const BattleAttackProvenance triggeringAttack{
+        .cast = {
+            .rootCastId = BattleCastId{ 31 },
+            .castId = BattleCastId{ 31 },
+            .sourceUnitId = 1,
+            .magicId = 97,
+            .ultimate = true,
+        },
+        .attackId = BattleAttackId{ 32 },
+        .rootAttack = true,
+        .mainProjectile = true,
+    };
+
+    auto first = damageAbsorptionCommand(1, 80, 3);
+    first.metadata.executionLane = EffectExecutionLane::StatusBehavior;
+    first.metadata.authoredActionOrder = 7;
+    first.metadata.statusContribution = EffectStatusContributionContext{
+        .holderUnitId = 1,
+        .sourceUnitId = 1,
+        .kind = BattleStatusKind::TrueQi,
+        .quantity = 1,
+        .appliedSequence = 41,
+        .producerRuleId = EffectRuleId{ 97 },
+        .producerRuleOrder = 11,
+        .producerActionOrder = 2,
+        .behaviorRuleOrder = 5,
+    };
+    auto second = first;
+    second.metadata.statusContribution->appliedSequence = 43;
+
+    const BattleEffectCommandContext context{
+        .frame = 10,
+        .cast = triggeringAttack.cast,
+        .attack = triggeringAttack,
+    };
+    BattleEffectCommandSystem system;
+    system.reduce(state, first, context);
+    system.reduce(state, second, context);
+
+    REQUIRE(state.effectCommands.damageAbsorptions.size() == 2);
+    const auto& firstAbsorption = state.effectCommands.damageAbsorptions[0];
+    const auto& secondAbsorption = state.effectCommands.damageAbsorptions[1];
+    CHECK(firstAbsorption.authoredActionOrder == 7);
+    CHECK(firstAbsorption.statusContribution == first.metadata.statusContribution);
+    CHECK(secondAbsorption.statusContribution == second.metadata.statusContribution);
+    CHECK(firstAbsorption.statusContribution != secondAbsorption.statusContribution);
+    REQUIRE(firstAbsorption.triggeringCast);
+    REQUIRE(firstAbsorption.triggeringAttack);
+    CHECK(firstAbsorption.triggeringCast->castId == BattleCastId{ 31 });
+    CHECK(firstAbsorption.triggeringAttack->attackId == BattleAttackId{ 32 });
+    CHECK(firstAbsorption.sequence != secondAbsorption.sequence);
 }
 
 TEST_CASE("BattleEffectCommandSystem drains absorption exactly once at expiry or source death", "[battle][effect][command][absorption]")
@@ -1457,8 +1908,6 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
         .sourceUnitId = 1,
         .remainingFrames = 150,
         .stacks = 2,
-        .potency = 50,
-        .secondaryPotency = 30,
         .appliedSequence = 1,
     });
 
@@ -1471,13 +1920,12 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
     stun.durationFrames = 30;
     stun.quantity = NoStatusQuantity{};
     stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
-    stun.effects = NoStatusEffects{};
     consume.whenDepleted = stun;
     const EffectCommand consumeCommand{
         metadata(39, 3),
         ConsumeStatusEffectCommand{
             .action = consume,
-            .whenDepleted = ApplyStatusEffectCommand{ stun, 0, 0 },
+            .whenDepleted = ApplyStatusEffectCommand{ stun, std::nullopt },
         },
     };
 
@@ -1775,7 +2223,6 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
                 .sourceUnitId = 1,
                 .remainingFrames = 30,
                 .stacks = 1,
-                .potency = 10,
                 .appliedSequence = 1,
             },
         };
@@ -1823,7 +2270,6 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
                 .sourceUnitId = 1,
                 .remainingFrames = 30,
                 .stacks = 1,
-                .potency = 10,
                 .appliedSequence = 1,
             },
         };
@@ -1856,6 +2302,277 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         CHECK(removed.removedDamageModifiers.size() == 1);
         CHECK(state.effectCommands.damageModifiers.empty());
         CHECK(state.units.require(3).status.effects.remainingFrames(BattleStatusKind::Poison) == 30);
+    }
+
+    SECTION("有限數量清除以狀態群組計數而不是以貢獻計數")
+    {
+        auto state = makeState();
+        auto& effects = state.units.require(3).status.effects;
+        effects.statuses = {
+            {
+                .kind = BattleStatusKind::Poison,
+                .sourceUnitId = 1,
+                .remainingFrames = 90,
+                .stacks = 1,
+                .appliedSequence = 1,
+            },
+            {
+                .kind = BattleStatusKind::ColdPoison,
+                .sourceUnitId = 1,
+                .remainingFrames = 30,
+                .stacks = 1,
+                .appliedSequence = 2,
+            },
+        };
+
+        RemoveStatusAction action;
+        action.negativeOnly = true;
+        action.count = 2;
+        action.order = StatusRemovalOrder::Oldest;
+        const EffectCommand cleanse{
+            metadata(70, 3),
+            RemoveStatusEffectCommand{ action },
+        };
+        const auto reduced = BattleEffectCommandSystem{}.reduce(
+            state, cleanse, { .frame = 0 });
+
+        const auto& removed = std::get<BattleStatusRemoveEffectResult>(
+            reduced.entries[0].value);
+        CHECK(removed.status.removedCount == 2);
+        CHECK(std::ranges::contains(
+            removed.status.removedStatuses, BattleStatusKind::Poison));
+        CHECK(std::ranges::contains(
+            removed.status.removedStatuses, BattleStatusKind::ColdPoison));
+        CHECK(effects.statuses.empty());
+    }
+
+    SECTION("來源篩選同時限制狀態貢獻與持續修正")
+    {
+        auto state = makeState();
+        auto& effects = state.units.require(3).status.effects;
+        effects.statuses = {
+            {
+                .kind = BattleStatusKind::Poison,
+                .sourceUnitId = 1,
+                .remainingFrames = 90,
+                .stacks = 1,
+                .appliedSequence = 1,
+            },
+            {
+                .kind = BattleStatusKind::ColdPoison,
+                .sourceUnitId = 2,
+                .remainingFrames = 60,
+                .stacks = 1,
+                .appliedSequence = 2,
+            },
+        };
+
+        auto ownedModifier = damageModifierCommand(
+            3,
+            DamageModifierOperation::PercentAdd,
+            -20,
+            90,
+            EffectStackPolicy::Independent,
+            0,
+            DamageChannel::All);
+        auto otherModifier = damageModifierCommand(
+            3,
+            DamageModifierOperation::PercentAdd,
+            -30,
+            90,
+            EffectStackPolicy::Independent,
+            1,
+            DamageChannel::All);
+        otherModifier.metadata.binding.ownerUnitId = 2;
+        otherModifier.metadata.binding.runtimeInstanceId = 2;
+        BattleEffectCommandSystem system;
+        system.reduce(state, ownedModifier, { .frame = 0 });
+        system.reduce(state, otherModifier, { .frame = 0 });
+
+        RemoveStatusAction action;
+        action.negativeOnly = true;
+        action.source = StatusSourceMatch::EffectOwner;
+        action.count = 2;
+        action.order = StatusRemovalOrder::Oldest;
+        const EffectCommand cleanse{
+            metadata(71, 3),
+            RemoveStatusEffectCommand{ action },
+        };
+        const auto reduced = system.reduce(state, cleanse, { .frame = 0 });
+
+        const auto& removed = std::get<BattleStatusRemoveEffectResult>(
+            reduced.entries[0].value);
+        CHECK(removed.status.removedCount == 2);
+        CHECK(removed.status.removedStatuses
+            == std::vector{ BattleStatusKind::Poison });
+        CHECK(removed.removedDamageModifiers.size() == 1);
+        REQUIRE(effects.statuses.size() == 1);
+        CHECK(effects.statuses.front().sourceUnitId == 2);
+        REQUIRE(state.effectCommands.damageModifiers.size() == 1);
+        CHECK(state.effectCommands.damageModifiers.front().binding.ownerUnitId == 2);
+    }
+
+    SECTION("最早清除依持有者共用時序選出先施加的持續修正")
+    {
+        auto state = makeState();
+        BattleEffectCommandSystem system;
+        system.reduce(
+            state,
+            damageModifierCommand(
+                3,
+                DamageModifierOperation::PercentAdd,
+                -20,
+                90,
+                EffectStackPolicy::Independent,
+                0,
+                DamageChannel::All),
+            { .frame = 0 });
+
+        ApplyStatusAction poison;
+        poison.status = BattleStatusKind::Poison;
+        poison.durationFrames = 90;
+        poison.quantity = SetStatusTriggerCharges{ 1 };
+        poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+        poison.behavior = poisonStatusBehavior(10);
+        system.reduce(
+            state,
+            EffectCommand{
+                metadata(72, 3),
+                ApplyStatusEffectCommand{ poison, std::nullopt },
+            },
+            { .frame = 1 });
+
+        REQUIRE(state.effectCommands.damageModifiers.size() == 1);
+        REQUIRE(state.units.require(3).status.effects.statuses.size() == 1);
+        CHECK(state.effectCommands.damageModifiers.front().sequence == 1);
+        CHECK(state.units.require(3).status.effects.statuses.front().appliedSequence == 1);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 1);
+        CHECK(state.units.require(3).status.effects.statuses.front().negativeEffectSequence == 2);
+
+        RemoveStatusAction action;
+        action.negativeOnly = true;
+        action.count = 1;
+        action.order = StatusRemovalOrder::Oldest;
+        const auto reduced = system.reduce(
+            state,
+            EffectCommand{
+                metadata(73, 3),
+                RemoveStatusEffectCommand{ action },
+            },
+            { .frame = 2 });
+
+        const auto& removed = std::get<BattleStatusRemoveEffectResult>(
+            reduced.entries[0].value);
+        CHECK(removed.status.removedCount == 1);
+        CHECK(removed.removedDamageModifiers.size() == 1);
+        CHECK(state.effectCommands.damageModifiers.empty());
+        CHECK(state.units.require(3).status.effects.has(BattleStatusKind::Poison));
+    }
+
+    SECTION("最新清除依共用時序選擇並以儲存序號移除精確修正")
+    {
+        auto state = makeState();
+        BattleEffectCommandSystem system;
+
+        ApplyStatusAction poison;
+        poison.status = BattleStatusKind::Poison;
+        poison.durationFrames = 90;
+        poison.quantity = SetStatusTriggerCharges{ 1 };
+        poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
+        poison.behavior = poisonStatusBehavior(10);
+        system.reduce(
+            state,
+            EffectCommand{
+                metadata(74, 3),
+                ApplyStatusEffectCommand{ poison, std::nullopt },
+            },
+            { .frame = 0 });
+        system.reduce(
+            state,
+            damageModifierCommand(
+                3,
+                DamageModifierOperation::PercentAdd,
+                -20,
+                90,
+                EffectStackPolicy::Independent,
+                0,
+                DamageChannel::All),
+            { .frame = 1 });
+
+        REQUIRE(state.effectCommands.damageModifiers.size() == 1);
+        REQUIRE(state.units.require(3).status.effects.statuses.size() == 1);
+        CHECK(state.effectCommands.damageModifiers.front().sequence == 1);
+        CHECK(state.units.require(3).status.effects.statuses.front().appliedSequence == 1);
+        CHECK(state.units.require(3).status.effects.statuses.front().negativeEffectSequence == 1);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 2);
+
+        RemoveStatusAction action;
+        action.negativeOnly = true;
+        action.count = 1;
+        action.order = StatusRemovalOrder::Newest;
+        const auto reduced = system.reduce(
+            state,
+            EffectCommand{
+                metadata(75, 3),
+                RemoveStatusEffectCommand{ action },
+            },
+            { .frame = 2 });
+
+        const auto& removed = std::get<BattleStatusRemoveEffectResult>(
+            reduced.entries[0].value);
+        CHECK(removed.status.removedCount == 1);
+        REQUIRE(removed.removedDamageModifiers.size() == 1);
+        CHECK(removed.removedDamageModifiers.front().sequence == 1);
+        CHECK(removed.removedDamageModifiers.front().negativeEffectSequence == 2);
+        CHECK(state.effectCommands.damageModifiers.empty());
+        CHECK(state.units.require(3).status.effects.has(BattleStatusKind::Poison));
+    }
+
+    SECTION("既有計時負面狀態與後套用修正共用持有者時序")
+    {
+        auto state = makeState();
+        auto& effects = state.units.require(3).status.effects;
+        effects.setFrames(BattleStatusKind::Stun, 90, 90, 1);
+
+        BattleEffectCommandSystem system;
+        system.reduce(
+            state,
+            damageModifierCommand(
+                3,
+                DamageModifierOperation::PercentAdd,
+                -20,
+                90,
+                EffectStackPolicy::Independent,
+                0,
+                DamageChannel::All),
+            { .frame = 1 });
+
+        REQUIRE(effects.statuses.size() == 1);
+        REQUIRE(state.effectCommands.damageModifiers.size() == 1);
+        CHECK(effects.statuses.front().negativeEffectSequence == 1);
+        CHECK(state.effectCommands.damageModifiers.front().sequence == 1);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 2);
+
+        RemoveStatusAction action;
+        action.negativeOnly = true;
+        action.count = 1;
+        action.order = StatusRemovalOrder::Newest;
+        const auto reduced = system.reduce(
+            state,
+            EffectCommand{
+                metadata(76, 3),
+                RemoveStatusEffectCommand{ action },
+            },
+            { .frame = 2 });
+
+        const auto& removed = std::get<BattleStatusRemoveEffectResult>(
+            reduced.entries[0].value);
+        CHECK(removed.status.removedCount == 1);
+        REQUIRE(removed.removedDamageModifiers.size() == 1);
+        CHECK(removed.removedDamageModifiers.front().sequence == 1);
+        CHECK(removed.removedDamageModifiers.front().negativeEffectSequence == 2);
+        CHECK(state.effectCommands.damageModifiers.empty());
+        CHECK(effects.has(BattleStatusKind::Stun));
     }
 }
 
@@ -1919,6 +2636,45 @@ TEST_CASE("BattleEffectCommandSystem applies deterministic damage modifier stack
               == BattleDamageModifierApplyOutcome::Replaced);
         CHECK(state.effectCommands.damageModifiers[0].sequence == 2);
 
+    }
+
+    SECTION("刷新跨越正負邊界會配置、清除並重新配置負面時序")
+    {
+        auto state = makeState();
+        BattleEffectCommandSystem system;
+        const auto refresh = [&](int amount, int frame)
+        {
+            return system.reduce(
+                state,
+                damageModifierCommand(
+                    3,
+                    DamageModifierOperation::PercentAdd,
+                    amount,
+                    90,
+                    EffectStackPolicy::Refresh),
+                { .frame = frame });
+        };
+
+        refresh(20, 0);
+        REQUIRE(state.effectCommands.damageModifiers.size() == 1);
+        CHECK_FALSE(state.effectCommands.damageModifiers.front().negative);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 0);
+        CHECK(state.units.require(3).status.effects.nextNegativeEffectSequence == 1);
+
+        refresh(-20, 1);
+        CHECK(state.effectCommands.damageModifiers.front().negative);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 1);
+        CHECK(state.units.require(3).status.effects.nextNegativeEffectSequence == 2);
+
+        refresh(10, 2);
+        CHECK_FALSE(state.effectCommands.damageModifiers.front().negative);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 0);
+        CHECK(state.units.require(3).status.effects.nextNegativeEffectSequence == 2);
+
+        refresh(-30, 3);
+        CHECK(state.effectCommands.damageModifiers.front().negative);
+        CHECK(state.effectCommands.damageModifiers.front().negativeEffectSequence == 2);
+        CHECK(state.units.require(3).status.effects.nextNegativeEffectSequence == 3);
     }
 
     SECTION("保留最強正確處理乘算與承傷上限")

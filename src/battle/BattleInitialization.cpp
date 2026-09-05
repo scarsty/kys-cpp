@@ -668,7 +668,9 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                     effectCommands_,
                     command.metadata,
                     *attribute,
-                    context_.frame);
+                    context_.frame,
+                    &spawn(command.metadata.targetUnitId)
+                         .status.effects.nextNegativeEffectSequence);
             }
             continue;
         }
@@ -683,7 +685,9 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 effectCommands_,
                 command.metadata,
                 *damage,
-                context_.frame);
+                context_.frame,
+                &spawn(command.metadata.targetUnitId)
+                     .status.effects.nextNegativeEffectSequence);
             continue;
         }
 
@@ -832,32 +836,9 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 continue;
             }
 
-            const auto* owner = resourceReadView.findUnit(command.metadata.binding.ownerUnitId);
-            const auto* target = resourceReadView.findUnit(command.metadata.targetUnitId);
-            assert(owner && target);
-            EffectEventContext event;
-            event.event = EffectEvent::BattleInitialized;
-            event.header.frame = context_.frame;
-            event.header.binding = command.metadata.binding;
-            event.header.owner = owner;
-            event.header.battle = resourceReadView;
-            event.payload = InitializationEventData{};
-
             auto initializedStatus = *status;
-            const auto [potency, secondaryPotency] = evaluateStatusRuntimeValues(
-                status->action,
-                [&](const EffectNumber& number)
-                {
-                    return BattleEffectSystem::evaluateNumber(number, event, *target);
-                });
-            initializedStatus.potency = potency;
-            initializedStatus.secondaryPotency = secondaryPotency;
-            initializedStatus.evaluatedDurationFrames = status->action.duration
-                ? std::optional<int>{ BattleEffectSystem::evaluateNumber(
-                    *status->action.duration,
-                    event,
-                    *target) }
-                : std::nullopt;
+            // BattleEffectSystem 的 command emitter 已在套用邊界綁定狀態行為
+            // 與解析持續時間；初始化不得另行降低成匿名數值槽。
 
             auto& targetSpawn = spawn(command.metadata.targetUnitId);
             auto targetStatus = makeBattleStatusUnitState(
@@ -1132,7 +1113,8 @@ void BattleStartInitializationRun::summonClones()
                 effectCommands_,
                 source.sourceUnitId,
                 nextRuntimeUnitId,
-                team);
+                team,
+                cloneSpawn.status.effects.nextNegativeEffectSequence);
 
             result_.roleDeltas.push_back(makeRoleDelta(
                 nextRuntimeUnitId,

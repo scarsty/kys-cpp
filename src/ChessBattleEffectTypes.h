@@ -35,6 +35,19 @@ struct EffectSourceBinding
     bool operator==(const EffectSourceBinding&) const = default;
 };
 
+// Empty means the complete status group.  Runtime command emission resolves
+// the authored relationship into one of these concrete contribution keys so
+// query, consumption, and removal all share the same matching contract.
+struct StatusContributionFilter
+{
+    std::optional<int> holderUnitId;
+    std::optional<int> sourceUnitId;
+    std::optional<EffectSourceBinding> producerBinding;
+    std::optional<std::uint64_t> appliedSequence;
+
+    bool operator==(const StatusContributionFilter&) const = default;
+};
+
 // Battle effects are described by orthogonal event, target, condition and
 // action values. All battle-effect sources use this schema.
 enum class EffectEvent
@@ -56,6 +69,7 @@ enum class EffectEvent
     ShieldBroken,
     UnitDied,
     AllyDied,
+    StatusPersistent,
 };
 
 enum class EffectSelectorKind
@@ -78,6 +92,7 @@ enum class EffectSelectorKind
     UnitsInRadius,
     UnitsInSquare,
     AlliesUsingMartialCategory,
+    StatusHolder,
 };
 
 enum class EffectTeamFilter
@@ -154,48 +169,10 @@ enum class BattleStatusKind
     PoisonExplosion,
     Shadowless,
     NextAttackCritical,
-};
-
-enum class StatusEffectValueKind
-{
-    PoisonCurrentHpDamagePercent,
-    BleedMaxHpDamagePercent,
-    ColdPoisonSpeedReductionPercent,
-    WitheredBoneDamageTakenIncreasePercent,
-    WitheredBoneHealingReductionPercent,
-    NeutralizeForceOriginalTargetShield,
-    SingleHitDamageCap,
-    BattleSpiritSkillDamageIncreasePercent,
-    BattleSpiritDamageReductionPercent,
-    TrueQiPureDamagePerHit,
-    PoisonExplosionDeathPureDamage,
     Count,
 };
 
-inline constexpr std::string_view battleStatusLabel(BattleStatusKind status)
-{
-    switch (status)
-    {
-    case BattleStatusKind::Poison: return "中毒";
-    case BattleStatusKind::Bleed: return "流血";
-    case BattleStatusKind::Stun: return "眩暈";
-    case BattleStatusKind::MpBlocked: return "封內";
-    case BattleStatusKind::ColdPoison: return "寒毒";
-    case BattleStatusKind::WitheredBone: return "枯骨";
-    case BattleStatusKind::SevenStarMark: return "七星";
-    case BattleStatusKind::NeutralizeForce: return "化勁";
-    case BattleStatusKind::Blinded: return "刺目";
-    case BattleStatusKind::NextAttackMiss: return "下一次受到攻擊必定落空";
-    case BattleStatusKind::DamageBlockLayer: return "傷害抵擋";
-    case BattleStatusKind::SingleHitCapLayer: return "下次承傷上限";
-    case BattleStatusKind::BattleSpirit: return "戰意";
-    case BattleStatusKind::TrueQi: return "真氣";
-    case BattleStatusKind::PoisonExplosion: return "毒爆";
-    case BattleStatusKind::Shadowless: return "無影";
-    case BattleStatusKind::NextAttackCritical: return "下一次攻擊必定暴擊";
-    }
-    return {};
-}
+std::string_view battleStatusLabel(BattleStatusKind status);
 
 enum class EffectNumberBase
 {
@@ -210,9 +187,18 @@ enum class EffectNumberBase
     TargetCurrentShield,
     TargetCurrentCooldown,
     FinalHpDamage,
-    SourceStatusEffectValue,
     SourceStatusQuantity,
+    CurrentContributionQuantity,
     StoredStateValue,
+    ApplicationTargetMaxHp,
+    BoundRatio,
+    Count,
+};
+
+enum class StatusNumberScale
+{
+    Once,
+    PerContributionLayer,
 };
 
 enum class EffectRounding
@@ -223,18 +209,29 @@ enum class EffectRounding
     Nearest,
 };
 
+enum class StatusSourceMatch
+{
+    Any,
+    EffectOwner,
+    EffectBinding,
+    CurrentContribution,
+};
+
 struct EffectNumber
 {
     EffectNumberBase base = EffectNumberBase::Constant;
     std::optional<EffectNumberBase> multiplierBase;
     std::optional<BattleStatusKind> status;
-    std::optional<StatusEffectValueKind> statusEffect;
+    StatusSourceMatch statusSource = StatusSourceMatch::Any;
     std::optional<EffectStateSlot> stateSlot;
     int flat = 0;
     int percent = 0;
     EffectRounding rounding = EffectRounding::TowardZero;
     std::optional<int> minimum;
     std::optional<int> maximum;
+    StatusNumberScale statusScale = StatusNumberScale::Once;
+    std::int64_t boundNumerator{};
+    std::int64_t boundDenominator = 1;
 
     bool operator==(const EffectNumber&) const = default;
 };
@@ -272,6 +269,7 @@ struct DamagePerspectiveCondition { DamagePerspective perspective{}; };
 struct DamageKindInCondition { std::vector<std::string> kinds; };
 struct TargetMpWasFullBeforeCastCondition {};
 struct RandomSelectionAvailableCondition {};
+struct TargetIsStatusHolderCondition {};
 
 using EffectCondition = std::variant<
     IsUltimateCondition,
@@ -298,7 +296,8 @@ using EffectCondition = std::variant<
     DamagePerspectiveCondition,
     DamageKindInCondition,
     TargetMpWasFullBeforeCastCondition,
-    RandomSelectionAvailableCondition>;
+    RandomSelectionAvailableCondition,
+    TargetIsStatusHolderCondition>;
 
 enum class BattleAttribute
 {
@@ -387,6 +386,7 @@ enum class DamageModifierOperation
     Multiply,
     IgnoreDefensePercent,
     CapSingleHitAtMaxHpPercent,
+    CapSingleHitAtValue,
     ExecuteBelowMaxHpPercent,
 };
 
@@ -442,6 +442,7 @@ enum class EffectHealKind
     Rescue,
     Regeneration,
     Lifesteal,
+    Count,
 };
 
 enum class EffectHealSourcePolicy
@@ -486,6 +487,14 @@ struct AddStatusLayers
     bool operator==(const AddStatusLayers&) const = default;
 };
 
+struct AddSharedStatusLayers
+{
+    int count{};
+    int targetTotalLimit{};
+
+    bool operator==(const AddSharedStatusLayers&) const = default;
+};
+
 struct SetStatusMarks
 {
     int count{};
@@ -518,6 +527,7 @@ struct SetStatusTriggerCharges
 using StatusQuantityOperation = std::variant<
     NoStatusQuantity,
     AddStatusLayers,
+    AddSharedStatusLayers,
     SetStatusMarks,
     AddDamageBlockCharges,
     SetDamageBlockCharges,
@@ -528,10 +538,10 @@ enum class StatusReapplicationPolicy
     Implicit,
     ExtendDuration,
     KeepLongerDuration,
-    ReplaceDuration,
     RefreshDuration,
     KeepHigherDamage,
-    ReplaceAndReset,
+    ReplaceExistingPoison,
+    Count,
 };
 
 enum class PoisonSameEventMerge
@@ -540,114 +550,7 @@ enum class PoisonSameEventMerge
     SumDamagePercent,
 };
 
-struct NoStatusEffects
-{
-    bool operator==(const NoStatusEffects&) const = default;
-};
-
-struct PoisonStatusEffects
-{
-    EffectNumber currentHpDamagePercent;
-    PoisonSameEventMerge sameEventMerge = PoisonSameEventMerge::None;
-
-    bool operator==(const PoisonStatusEffects&) const = default;
-};
-
-struct BleedStatusEffects
-{
-    EffectNumber maxHpDamagePercent;
-
-    bool operator==(const BleedStatusEffects&) const = default;
-};
-
-struct ColdPoisonStatusEffects
-{
-    bool blocksHealing{};
-    EffectNumber speedReductionPercent;
-
-    bool operator==(const ColdPoisonStatusEffects&) const = default;
-};
-
-struct WitheredBoneStatusEffects
-{
-    EffectNumber damageTakenIncreasePercent;
-    EffectNumber healingReductionPercent;
-
-    bool operator==(const WitheredBoneStatusEffects&) const = default;
-};
-
-struct NeutralizeForceStatusEffects
-{
-    bool preventsCast{};
-    EffectNumber originalTargetShield;
-
-    bool operator==(const NeutralizeForceStatusEffects&) const = default;
-};
-
-struct BlindedStatusEffects
-{
-    bool preventsCast{};
-
-    bool operator==(const BlindedStatusEffects&) const = default;
-};
-
-struct NextIncomingAttackMissStatusEffects
-{
-    bool makesIncomingAttackMiss{};
-
-    bool operator==(const NextIncomingAttackMissStatusEffects&) const = default;
-};
-
-struct DamageBlockStatusEffects
-{
-    bool blocksPositiveNonExecuteDamage{};
-
-    bool operator==(const DamageBlockStatusEffects&) const = default;
-};
-
-struct SingleHitCapStatusEffects
-{
-    EffectNumber damageCap;
-
-    bool operator==(const SingleHitCapStatusEffects&) const = default;
-};
-
-struct BattleSpiritStatusEffects
-{
-    EffectNumber skillDamageIncreasePercent;
-    EffectNumber damageReductionPercent;
-
-    bool operator==(const BattleSpiritStatusEffects&) const = default;
-};
-
-struct TrueQiStatusEffects
-{
-    EffectNumber pureDamagePerHit;
-
-    bool operator==(const TrueQiStatusEffects&) const = default;
-};
-
-struct PoisonExplosionStatusEffects
-{
-    EffectNumber deathPureDamage;
-
-    bool operator==(const PoisonExplosionStatusEffects&) const = default;
-};
-
-using StatusEffectPayload = std::variant<
-    NoStatusEffects,
-    PoisonStatusEffects,
-    BleedStatusEffects,
-    ColdPoisonStatusEffects,
-    WitheredBoneStatusEffects,
-    NeutralizeForceStatusEffects,
-    BlindedStatusEffects,
-    NextIncomingAttackMissStatusEffects,
-    DamageBlockStatusEffects,
-    SingleHitCapStatusEffects,
-    BattleSpiritStatusEffects,
-    TrueQiStatusEffects,
-    PoisonExplosionStatusEffects>;
+struct StatusBehaviorDefinition;
 
 struct ApplyStatusAction
 {
@@ -656,13 +559,11 @@ struct ApplyStatusAction
     std::optional<EffectNumber> duration;
     StatusQuantityOperation quantity;
     StatusReapplicationPolicy reapplication = StatusReapplicationPolicy::Implicit;
-    StatusEffectPayload effects;
-};
+    PoisonSameEventMerge poisonSameEventMerge = PoisonSameEventMerge::None;
+    std::optional<EffectNumber> neutralizeShield;
+    std::shared_ptr<const StatusBehaviorDefinition> behavior;
 
-enum class StatusSourceMatch
-{
-    Any,
-    EffectOwner,
+    bool operator==(const ApplyStatusAction&) const;
 };
 
 struct ConsumeStatusAction
@@ -683,11 +584,37 @@ enum class StatusRemovalOrder
 struct RemoveStatusAction
 {
     std::vector<BattleStatusKind> statuses;
+    StatusSourceMatch source = StatusSourceMatch::Any;
     bool negativeOnly = false;
     bool controlOnly = false;
     bool clearCurrentActionStagger = false;
     int count = 0;
     StatusRemovalOrder order = StatusRemovalOrder::LongestRemaining;
+};
+
+struct SuppressCurrentCastContactsAction
+{
+    std::optional<EffectNumber> originalTargetShield;
+
+    bool operator==(const SuppressCurrentCastContactsAction&) const = default;
+};
+
+struct MakeIncomingAttackMissAction
+{
+    bool operator==(const MakeIncomingAttackMissAction&) const = default;
+};
+
+struct BlockPositiveDamageAction
+{
+    bool operator==(const BlockPositiveDamageAction&) const = default;
+};
+
+struct ConsumeThisStatusAction
+{
+    int quantity = 1;
+    std::optional<ApplyStatusAction> whenDepleted;
+
+    bool operator==(const ConsumeThisStatusAction&) const = default;
 };
 
 enum class BattleDamageKind
@@ -1146,6 +1073,10 @@ using EffectActionValue = std::variant<
     CreateAreaAction,
     ModifyCastAction,
     StateMachineAction,
+    ConsumeThisStatusAction,
+    SuppressCurrentCastContactsAction,
+    MakeIncomingAttackMissAction,
+    BlockPositiveDamageAction,
     std::shared_ptr<ConditionalEffectAction>>;
 
 struct EffectAction
@@ -1181,6 +1112,10 @@ enum class EffectObservationScope
     Owner,
     OwnerTeamEventSource,
     EventTarget,
+    StatusHolderEventSource,
+    StatusHolderEventTarget,
+    StatusSourceEventSource,
+    SourceOwnerTeamEventSource,
 };
 
 enum class EffectCastMatch
@@ -1221,6 +1156,43 @@ struct EffectRule
     std::optional<EffectNumber> repetitionCount;
     std::vector<EffectAction> actions;
 };
+
+struct EffectActivationEvaluationRuntime
+{
+    std::uint64_t castId{};
+    int targetUnitId = -1;
+    int count{};
+
+    bool operator==(const EffectActivationEvaluationRuntime&) const = default;
+};
+
+struct EffectRuleRuntimeState
+{
+    int activationCount{};
+    int eligibleEventCount{};
+    int intervalFramesRemaining{};
+    std::int64_t sharedCooldownUntilFrame = -1;
+    std::vector<EffectActivationEvaluationRuntime> activationEvaluations;
+
+    bool operator==(const EffectRuleRuntimeState&) const = default;
+};
+
+struct StatusBehaviorDefinition
+{
+    std::vector<EffectRule> rules;
+};
+
+inline bool ApplyStatusAction::operator==(const ApplyStatusAction& other) const
+{
+    return status == other.status
+        && durationFrames == other.durationFrames
+        && duration == other.duration
+        && quantity == other.quantity
+        && reapplication == other.reapplication
+        && poisonSameEventMerge == other.poisonSameEventMerge
+        && neutralizeShield == other.neutralizeShield
+        && behavior == other.behavior;
+}
 struct ChessMagicEffectDefinition
 {
     int magicId = -1;

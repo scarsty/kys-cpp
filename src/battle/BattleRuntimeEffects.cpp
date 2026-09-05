@@ -3,6 +3,7 @@
 #include "BattleRuntimeUnits.h"
 #include "BattleAreaEffectSystem.h"
 #include "BattleDamageSystem.h"
+#include "BattleMath.h"
 #include "BattleStatusSystem.h"
 
 #include <algorithm>
@@ -89,9 +90,11 @@ void populateEffectStatusSnapshot(
         result.statusDetails.push_back({
             .state = instance.kind,
             .sourceUnitId = instance.sourceUnitId,
+            .producerBinding = instance.producer
+                ? std::optional{ instance.producer->binding }
+                : std::nullopt,
+            .appliedSequence = instance.appliedSequence,
             .stacks = instance.stacks,
-            .potency = instance.potency,
-            .secondaryPotency = instance.secondaryPotency,
         });
     }
 }
@@ -146,9 +149,12 @@ int areaAttributeDelta(
 
 int areaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed)
 {
-    return std::max(
+    const auto factor = std::max<std::int64_t>(
         0,
-        baseSpeed * (100 + areaAttributeDelta(state, unitId, BattleAttribute::Speed)) / 100);
+        static_cast<std::int64_t>(100)
+            + areaAttributeDelta(state, unitId, BattleAttribute::Speed));
+    return std::max(0, battleSaturatedInt(
+        static_cast<std::int64_t>(baseSpeed) * factor / 100));
 }
 
 int effectAndAreaAdjustedRateAttribute(
@@ -165,10 +171,13 @@ int effectAndAreaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int 
 {
     const auto status = BattleStatusSystem({}).snapshot(
         state.units.require(unitId).statusDamageState());
-    const int statusAdjusted = std::max(
+    const int effectAdjusted = effectAdjustedAttribute(
+        state, unitId, BattleAttribute::Speed, baseSpeed);
+    const auto statusFactor = std::max<std::int64_t>(
         0,
-        effectAdjustedAttribute(state, unitId, BattleAttribute::Speed, baseSpeed)
-            * (100 + status.speedPctDelta) / 100);
+        static_cast<std::int64_t>(100) + status.speedPctDelta);
+    const int statusAdjusted = std::max(0, battleSaturatedInt(
+        static_cast<std::int64_t>(effectAdjusted) * statusFactor / 100));
     return areaAdjustedSpeed(
         state,
         unitId,

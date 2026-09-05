@@ -39,6 +39,7 @@ struct BattleFrameEffectCommandBatch
 {
     std::vector<EffectCommand> commands;
     BattleEffectCommandContext context;
+    std::uint64_t reductionReceiptId{};
 };
 
 template <typename T>
@@ -127,7 +128,8 @@ public:
 
     void queueEffectCommands(
         std::vector<EffectCommand> commands,
-        BattleEffectCommandContext context)
+        BattleEffectCommandContext context,
+        std::uint64_t reductionReceiptId = 0)
     {
         if (commands.empty())
         {
@@ -136,6 +138,7 @@ public:
         effectCommandBatches_.push_back({
             std::move(commands),
             std::move(context),
+            reductionReceiptId,
         });
     }
 

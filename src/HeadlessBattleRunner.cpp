@@ -1,4 +1,5 @@
 #include "HeadlessBattleRunner.h"
+#include "ChessGameContent.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,6 +12,22 @@
 namespace KysChess
 {
 
+struct HeadlessBattleStatusContributionDigest
+{
+    BattleStatusKind kind{};
+    std::optional<Battle::StatusProducerKey> producer;
+    std::optional<Battle::StatusProducerFamilyKey> producerFamily;
+    std::optional<int> familyLocalLimit;
+    std::optional<ChessSha256> behaviorFingerprint;
+    std::vector<EffectRuleRuntimeState> behaviorRuntime;
+    int sourceUnitId = -1;
+    int remainingFrames{};
+    int maximumFrames{};
+    int stacks = 1;
+    std::optional<Battle::BattleStatusEffectOrigin> origin;
+    std::uint64_t appliedSequence{};
+};
+
 struct HeadlessBattleStatusDigest
 {
     int unitId = -1;
@@ -20,7 +37,7 @@ struct HeadlessBattleStatusDigest
     int statusShield{};
     int staggerShield{};
     std::uint64_t nextStatusSequence = 1;
-    std::vector<Battle::BattleTypedStatusInstance> statuses;
+    std::vector<HeadlessBattleStatusContributionDigest> statuses;
 };
 
 struct HeadlessBattleDigestUnit
@@ -286,10 +303,19 @@ struct HeadlessBattleQueuedAttackDigest
 struct HeadlessBattleEffectDamageOriginDigest
 {
     std::uint64_t variantIndex{};
+    std::optional<HeadlessBattleCastProvenanceDigest> cast;
     std::optional<HeadlessBattleAttackProvenanceDigest> attack;
     std::optional<BattleStatusKind> status;
     int statusSourceUnitId = -1;
+    int statusHolderUnitId = -1;
+    int statusQuantity{};
+    std::uint64_t statusContributionSequence{};
+    std::uint32_t producerRuleOrder{};
+    std::uint32_t producerActionOrder{};
+    std::uint32_t behaviorRuleOrder{};
+    std::uint32_t behaviorActionOrder{};
     std::uint64_t ruleId{};
+    std::uint32_t ruleActionOrder{};
     std::optional<EffectSourceBinding> binding;
 };
 
@@ -344,7 +370,27 @@ HeadlessBattleStatusDigest statusDigest(
     result.statusShield = status.statusShield;
     result.staggerShield = status.staggerShield;
     result.nextStatusSequence = status.nextStatusSequence;
-    result.statuses = status.statuses;
+    result.statuses.reserve(status.statuses.size());
+    for (const auto& contribution : status.statuses)
+    {
+        result.statuses.push_back({
+            .kind = contribution.kind,
+            .producer = contribution.producer,
+            .producerFamily = contribution.producerFamily,
+            .familyLocalLimit = contribution.familyLocalLimit,
+            .behaviorFingerprint = contribution.behavior
+                ? std::optional{ statusBehaviorContentFingerprint(
+                    *contribution.behavior) }
+                : std::nullopt,
+            .behaviorRuntime = contribution.behaviorRuntime,
+            .sourceUnitId = contribution.sourceUnitId,
+            .remainingFrames = contribution.remainingFrames,
+            .maximumFrames = contribution.maximumFrames,
+            .stacks = contribution.stacks,
+            .origin = contribution.origin,
+            .appliedSequence = contribution.appliedSequence,
+        });
+    }
     return result;
 }
 
@@ -672,22 +718,43 @@ HeadlessBattleEffectDamageOriginDigest effectDamageOriginDigest(
 {
     HeadlessBattleEffectDamageOriginDigest result;
     result.variantIndex = static_cast<std::uint64_t>(origin.index());
+    if (const auto* attack = effectDamageAttackProvenance(origin))
+    {
+        result.attack = attackProvenanceDigest(*attack);
+    }
+    else if (const auto* cast = effectDamageCastProvenance(origin))
+    {
+        result.cast = castProvenanceDigest(*cast);
+    }
     std::visit(
         [&](const auto& value)
         {
             using Value = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<Value, Battle::EffectAttackDamageOrigin>)
             {
-                result.attack = attackProvenanceDigest(value.provenance);
             }
             else if constexpr (std::is_same_v<Value, Battle::EffectStatusDamageOrigin>)
             {
-                result.status = value.status;
-                result.statusSourceUnitId = value.sourceUnitId;
+                result.status = value.contribution.kind;
+                result.statusSourceUnitId = value.contribution.sourceUnitId;
+                result.statusHolderUnitId = value.contribution.holderUnitId;
+                result.statusQuantity = value.contribution.quantity;
+                result.statusContributionSequence =
+                    value.contribution.appliedSequence;
+                result.producerRuleOrder =
+                    value.contribution.producerRuleOrder;
+                result.producerActionOrder =
+                    value.contribution.producerActionOrder;
+                result.behaviorRuleOrder =
+                    value.contribution.behaviorRuleOrder;
+                result.behaviorActionOrder = value.behaviorActionOrder;
+                result.ruleId = value.contribution.producerRuleId.value;
+                result.binding = value.binding;
             }
             else if constexpr (std::is_same_v<Value, Battle::EffectRuleDamageOrigin>)
             {
                 result.ruleId = value.ruleId.value;
+                result.ruleActionOrder = value.actionOrder;
                 result.binding = value.binding;
             }
         },

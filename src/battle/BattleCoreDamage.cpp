@@ -45,13 +45,12 @@ struct AreaProjectilePresentation
     std::string_view reason;
 };
 
-BattleHealModifierState statusHealModifiers(const BattleRuntimeUnitRecord& record)
+BattleHealModifierState statusHealModifiers(
+    const BattleRuntimeUnitRecord& record,
+    BattleHealKind kind)
 {
     const auto status = BattleStatusSystem({}).snapshot(record.statusDamageState());
-    return {
-        .blocked = status.healingBlocked,
-        .receivedHealPcts = status.receivedHealMultipliersPct,
-    };
+    return battleStatusHealModifiers(status, kind);
 }
 
 BattleLogEvent makeAntiComboTransferLog(int sourceUnitId, int targetUnitId)
@@ -103,7 +102,7 @@ std::vector<BattleFrameRescueUnitSnapshot> makeRescueUnitSnapshots(BattleRuntime
         snapshot.unit.forcePullExecute = unit.forcePullExecuteRemaining() > 0;
         snapshot.unit.forcePullProtectRemaining = unit.forcePullProtectRemaining();
         snapshot.unit.forcePullExecuteRemaining = unit.forcePullExecuteRemaining();
-        snapshot.unit.healModifiers = statusHealModifiers(unit);
+        snapshot.unit.healModifiers = statusHealModifiers(unit, BattleHealKind::Rescue);
         snapshots.push_back(std::move(snapshot));
     }
     return snapshots;
@@ -631,13 +630,13 @@ void applyFrameDamagePresentationStyle(
     presentation.executeTextSize = styleIt->second.executeTextSize;
 }
 
-BattlePresentationColor statusTickDamageTextColor(BattleStatusEventType type)
+BattlePresentationColor statusTickDamageTextColor(BattleDamageKind kind)
 {
-    switch (type)
+    switch (kind)
     {
-    case BattleStatusEventType::PoisonDamage:
+    case BattleDamageKind::Poison:
         return { 0, 200, 0, 255 };
-    case BattleStatusEventType::BleedDamage:
+    case BattleDamageKind::Bleed:
         return { 190, 120, 60, 255 };
     default:
         assert(false);
@@ -767,11 +766,11 @@ void appendAreaProjectileDamageOutput(
     for (int transaction = 0; transaction < output.transactionCount; ++transaction)
     {
         BattleAreaProjectileFollowUp followUp;
-        if (output.provenance)
+        if (output.triggeringAttack)
         {
-            assert(output.provenance->valid());
-            followUp.cast = output.provenance->cast;
-            followUp.sourceAttack = *output.provenance;
+            assert(output.triggeringAttack->valid());
+            followUp.cast = output.triggeringAttack->cast;
+            followUp.sourceAttack = *output.triggeringAttack;
             followUp.expansionWork = state.castLifecycle.reserveDelayedEffectCommand(
                 followUp.cast.castId);
         }
@@ -879,9 +878,13 @@ std::vector<BattleLogTextSegment> formatAppliedStatusLog(
         return formatAppliedStatusLog(event);
     }
 
-    const auto* bleed = transaction.defenderStatus.effects.find(BattleStatusKind::Bleed);
-    const int currentStacks = std::max(event.value, bleed ? bleed->stacks : 0);
-    const int maxStacks = std::max(currentStacks, event.maxValue);
+    const auto bleed = BattleStatusSystem({}).snapshot(transaction.defenderStatus);
+    const int currentStacks = std::max(
+        event.value,
+        bleed.stacks(BattleStatusKind::Bleed));
+    const int maxStacks = std::max(
+        currentStacks,
+        bleed.targetTotalCapacity(BattleStatusKind::Bleed).value_or(event.maxValue));
     return logStatusRange<BattleLogTextTone::Negative>("流血", currentStacks, maxStacks, "層");
 }
 
@@ -1030,17 +1033,23 @@ BattleDamageModifierState runtimeDamageModifierState(
                      .frame = state.movement.frame,
                  }))
         {
-            const int amount = modifier.amount * modifier.stackCount;
+            const int amount = battleSaturatedMultiply(
+                modifier.amount,
+                modifier.stackCount);
             switch (modifier.operation)
             {
             case DamageModifierOperation::FlatAdd:
                 if (perspective == DamageModifierPerspective::Outgoing)
                 {
-                    result.flatDamageIncrease += amount;
+                    result.flatDamageIncrease = battleSaturatedAdd(
+                        result.flatDamageIncrease,
+                        amount);
                 }
                 else
                 {
-                    result.flatDamageReduction -= amount;
+                    result.flatDamageReduction = battleSaturatedInt(
+                        static_cast<std::int64_t>(result.flatDamageReduction)
+                            - amount);
                 }
                 break;
             case DamageModifierOperation::PercentAdd:
@@ -1048,19 +1057,25 @@ BattleDamageModifierState runtimeDamageModifierState(
             {
                 const int percentDelta = modifier.operation
                         == DamageModifierOperation::Multiply
-                    ? amount - 100
+                    ? battleSaturatedAdd(amount, -100)
                     : amount;
                 if (perspective == DamageModifierPerspective::Outgoing)
                 {
-                    result.skillDamagePct += percentDelta;
+                    result.skillDamagePct = battleSaturatedAdd(
+                        result.skillDamagePct,
+                        percentDelta);
                 }
                 else if (percentDelta < 0)
                 {
-                    result.damageReductionPct -= percentDelta;
+                    result.damageReductionPct = battleSaturatedInt(
+                        static_cast<std::int64_t>(result.damageReductionPct)
+                            - percentDelta);
                 }
                 else
                 {
-                    result.damageTakenIncreasePct += percentDelta;
+                    result.damageTakenIncreasePct = battleSaturatedAdd(
+                        result.damageTakenIncreasePct,
+                        percentDelta);
                 }
                 break;
             }
@@ -1149,7 +1164,9 @@ BattleDamageTransactionInput makeFrameDamageTransactionInput(
             0,
             request.defenderUnitId);
         applyLiveStatusToDamageModifier(attacker.statusEffects(), transaction.attackerModifiers);
-        transaction.attackerHealModifiers = statusHealModifiers(attacker);
+        transaction.attackerHealModifiers = statusHealModifiers(
+            attacker,
+            BattleHealKind::OnHit);
     }
     else
     {
@@ -1537,7 +1554,8 @@ void applyRuntimeAntiComboTransfer(
                 deadUnitId,
                 target->id,
                 target->team,
-                comboId);
+                comboId,
+                &targetRecord.status.effects.nextNegativeEffectSequence);
         for (const auto& attributeDelta : antiComboTransfer.coreAttributeDeltas)
         {
             int* value = nullptr;
@@ -1769,11 +1787,17 @@ void queueDamageResolvedEffectCommands(
     BattleEffectCommandContext context{
         .frame = state.movement.frame,
     };
-    if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(
-            &intent.effectOrigin))
+    if (const auto* attack = effectDamageAttackProvenance(intent.effectOrigin))
     {
-        context.cast = attack->provenance.cast;
-        context.attack = attack->provenance;
+        context.cast = attack->cast;
+        context.attack = *attack;
+    }
+    else if (const auto* cast = effectDamageCastProvenance(intent.effectOrigin))
+    {
+        context.cast = *cast;
+    }
+    if (std::holds_alternative<EffectAttackDamageOrigin>(intent.effectOrigin))
+    {
         context.healKind = BattleHealKind::Lifesteal;
     }
 
@@ -1842,10 +1866,14 @@ void queueShieldAndDeathEffectCommands(
             ? state.units.requireCore(transaction.defender.id).team
             : -1,
     };
-    if (intent.provenance.valid())
+    if (const auto* attack = effectDamageAttackProvenance(intent.effectOrigin))
     {
-        context.cast = intent.provenance.cast;
-        context.attack = intent.provenance;
+        context.cast = attack->cast;
+        context.attack = *attack;
+    }
+    else if (const auto* cast = effectDamageCastProvenance(intent.effectOrigin))
+    {
+        context.cast = *cast;
     }
 
     if (defenderBefore.shield > 0
@@ -2027,10 +2055,13 @@ void appendDamageAbsorptionSettlements(
                 false,
                 false,
                 {},
-                EffectRuleDamageOrigin{
-                    absorption.ruleId,
+                makeEffectDamageOrigin(
                     absorption.binding,
-                });
+                    absorption.ruleId,
+                    absorption.authoredActionOrder,
+                    absorption.statusContribution,
+                    absorption.triggeringCast,
+                    absorption.triggeringAttack));
         }
     }
 }
@@ -2359,16 +2390,38 @@ void appendEffectDamageOutput(
         {
             auto request = output.request;
             request.defenderUnitId = targetUnitId;
-            auto provenance = output.provenance.value_or(BattleAttackProvenance{});
+            auto provenance = output.triggeringAttack.value_or(
+                BattleAttackProvenance{});
+            std::optional<BattleDamagePresentationInput> presentation;
+            auto damageOrigin = BattleEffectCommandSystem::damageOrigin(output);
+            if (output.statusContribution)
+            {
+                if (output.action.kind == BattleDamageKind::Poison
+                    || output.action.kind == BattleDamageKind::Bleed)
+                {
+                    BattleDamagePresentationInput statusPresentation;
+                    statusPresentation.segments = battleLogText(
+                        output.action.kind == BattleDamageKind::Poison
+                            ? "中毒"
+                            : "流血",
+                        BattleLogTextTone::SkillName);
+                    applyStatusTickDamagePresentation(
+                        state,
+                        output.action.kind,
+                        targetUnitId,
+                        statusPresentation);
+                    presentation = std::move(statusPresentation);
+                }
+            }
             appendFramePendingDamage(
                 state,
                 pendingDamage,
                 std::move(request),
-                std::nullopt,
+                std::move(presentation),
                 false,
                 false,
                 provenance,
-                EffectRuleDamageOrigin{ output.ruleId, output.source },
+                std::move(damageOrigin),
                 reserveEffectDamageDescendantWork(state, context, provenance));
         }
     }
@@ -2389,12 +2442,13 @@ void appendPoisonEffectLogEvents(
     payload.type = BattleLogEventType::Status;
     payload.sourceUnitId = metadata.binding.ownerUnitId;
     payload.targetUnitId = metadata.targetUnitId;
-    payload.amount = command.potency;
+    const int damagePercent = poisonDamagePercent(command.action.behavior);
+    payload.amount = damagePercent;
     const int triggerCount = lowerStatusQuantity(command.action).stacks;
     payload.secondaryAmount = triggerCount;
     payload.statusId = BattleStatusSemanticId::PoisonPayload;
     payload.segments = battleLogText(
-        std::format("中毒負載{}%（預定{}次）", command.potency, triggerCount),
+        std::format("中毒負載{}%（預定{}次）", damagePercent, triggerCount),
         BattleLogTextTone::Negative);
     logEvents.push_back(std::move(payload));
 
@@ -2407,23 +2461,23 @@ void appendPoisonEffectLogEvents(
     applied.type = BattleLogEventType::Status;
     applied.sourceUnitId = metadata.binding.ownerUnitId;
     applied.targetUnitId = metadata.targetUnitId;
-    applied.amount = command.potency;
+    applied.amount = damagePercent;
     applied.statusId = BattleStatusSemanticId::Poison;
     applied.segments = battleLogText(
-        std::format("中毒{}%", command.potency),
+        std::format("中毒{}%", damagePercent),
         BattleLogTextTone::Negative);
     logEvents.push_back(std::move(applied));
 }
 
 void applyStatusTickDamagePresentation(
     const BattleRuntimeState& state,
-    BattleStatusEventType type,
+    BattleDamageKind kind,
     int targetUnitId,
     BattleDamagePresentationInput& presentation)
 {
     applyFrameDamagePresentationStyle(state, targetUnitId, presentation);
     presentation.enabled = true;
-    presentation.normalDamageColor = statusTickDamageTextColor(type);
+    presentation.normalDamageColor = statusTickDamageTextColor(kind);
     presentation.emphasizedDamageColor = presentation.normalDamageColor;
     if (presentation.normalDamageTextSize <= 0)
     {

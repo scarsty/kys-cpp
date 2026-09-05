@@ -1,6 +1,9 @@
 #include "battle/BattleInitialization.h"
+#include "battle/BattleEffectEventBridge.h"
 #include "battle/BattleRuntimeEffects.h"
 #include "battle/BattleRuntimeSession.h"
+#include "BattleCoreTestHelpers.h"
+#include "ChessGameSessionTestHelpers.h"
 #include "Find.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -11,6 +14,7 @@
 
 using namespace KysChess::Battle;
 using namespace KysChess;
+using namespace KysChess::Battle::Test;
 
 namespace
 {
@@ -304,13 +308,15 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
     auto& preInitializationSource = requireSpawn(spawns, 0);
-    preInitializationSource.status.effects.statuses.push_back({
-        .kind = BattleStatusKind::Poison,
-        .sourceUnitId = 99,
-        .remainingFrames = 60,
-        .stacks = 2,
-        .potency = 7,
-    });
+    preInitializationSource.status.effects.statuses.push_back(
+        boundStatusBehaviorContribution(
+            BattleStatusKind::Poison,
+            poisonStatusBehavior(7),
+            99,
+            9401,
+            2,
+            1,
+            60));
     preInitializationSource.damage.hurtInvincFrames = 12;
     preInitializationSource.damage.deathPreventionUsed = true;
     preInitializationSource.rescue.forcePullExecuteRemaining = 8;
@@ -350,9 +356,7 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     ApplyStatusAction damageBlock;
     damageBlock.status = BattleStatusKind::DamageBlockLayer;
     damageBlock.quantity = SetDamageBlockCharges{ 3 };
-    damageBlock.effects = DamageBlockStatusEffects{
-        .blocksPositiveNonExecuteDamage = true,
-    };
+    damageBlock.behavior = damageBlockStatusBehavior();
 
     ChangeResourceAction shield;
     shield.resource = BattleResource::Shield;
@@ -434,9 +438,205 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     CHECK(sourceStatus.sourceUnitId == 0);
     CHECK(sourceStatus.remainingFrames == 0);
     CHECK(sourceStatus.stacks == 3);
+    CHECK(sourceStatus.familyLocalLimit == 3);
 
     CHECK(output.effectCommands.antiComboInitializationRecords.empty());
     CHECK(output.effectCommands.antiComboAttributeBases.empty());
+}
+
+TEST_CASE("BattleStartInitializer preserves status producer identity for all shipped clone tiers",
+          "[battle][initialization][effect_rule][status][clone][tiers]")
+{
+    const auto content = KysChess::Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    const auto cloneCount = [](const ComboThreshold& threshold) -> std::optional<int>
+    {
+        for (const auto& rule : threshold.rules)
+        {
+            for (const auto& effectAction : rule.actions)
+            {
+                const auto* machine = std::get_if<StateMachineAction>(
+                    &effectAction.value);
+                if (!machine) continue;
+                if (const auto* clones = std::get_if<GenerateClonesAction>(machine))
+                    return clones->count;
+            }
+        }
+        return std::nullopt;
+    };
+    constexpr std::array expectedMemberCounts{ 3, 5, 7 };
+    constexpr std::array expectedCloneCounts{ 1, 2, 3 };
+    const auto shippedCombo = std::ranges::find_if(
+        content->combos(),
+        [&](const ComboDef& combo)
+        {
+            if (combo.thresholds.size() != expectedCloneCounts.size()) return false;
+            for (std::size_t index = 0; index < expectedCloneCounts.size(); ++index)
+            {
+                if (combo.thresholds[index].count != expectedMemberCounts[index]
+                    || cloneCount(combo.thresholds[index])
+                        != expectedCloneCounts[index])
+                {
+                    return false;
+                }
+            }
+            return true;
+        });
+    REQUIRE(shippedCombo != content->combos().end());
+
+    for (std::size_t tier = 0; tier < expectedCloneCounts.size(); ++tier)
+    {
+        CAPTURE(tier);
+        CAPTURE(expectedCloneCounts[tier]);
+        const int memberCount = expectedMemberCounts[tier];
+        BattleRuntimeSetupSeed setup;
+        BattleSetupComboDefinition combo{
+            .id = shippedCombo->id,
+            .name = shippedCombo->name,
+            .memberRoleIds = shippedCombo->memberRoleIds,
+        };
+        for (const auto& threshold : shippedCombo->thresholds)
+        {
+            combo.thresholds.push_back({
+                .count = threshold.count,
+                .rules = threshold.rules,
+            });
+        }
+
+        ApplyStatusAction trueQi;
+        trueQi.status = BattleStatusKind::TrueQi;
+        trueQi.quantity = AddStatusLayers{ .count = 1, .limit = 2 };
+        trueQi.behavior = trueQiStatusBehavior(9);
+        EffectRule inheritedStatusRule;
+        inheritedStatusRule.id = EffectRuleId{ 99001 };
+        inheritedStatusRule.event = EffectEvent::HitBeforeDamage;
+        inheritedStatusRule.selector.kind = EffectSelectorKind::HitTarget;
+        inheritedStatusRule.actions.push_back(EffectAction{ trueQi });
+        for (auto& threshold : combo.thresholds)
+            threshold.rules.push_back(inheritedStatusRule);
+        setup.comboDefinitions.push_back(std::move(combo));
+
+        std::vector<BattleRuntimeUnitSpawn> spawns;
+        for (int index = 0; index < memberCount; ++index)
+        {
+            const int roleId = shippedCombo->memberRoleIds[index];
+            spawns.push_back(runtimeSpawn(runtimeUnit(
+                index, 0, 100, 20, 30, 40)));
+            setup.units.push_back({
+                .unitId = index,
+                .realRoleId = roleId,
+                .team = 0,
+                .star = 1,
+                .cost = 1,
+                .baseMaxHp = 100,
+                .baseAttack = 20,
+                .baseDefence = 30,
+                .baseSpeed = 40,
+            });
+            setup.allyRoster.push_back({
+                .unitId = index,
+                .realRoleId = roleId,
+                .team = 0,
+                .star = 1,
+                .cost = 1,
+                .chessInstanceId = 1000 + index,
+                .sourceOrder = index,
+            });
+            setup.cloneSources.push_back({
+                .sourceUnitId = index,
+                .sourceRealRoleId = roleId,
+                .power = 1000 - index,
+                .star = 1,
+                .chessInstanceId = 1000 + index,
+                .sourceOrder = index,
+            });
+        }
+        setup.cloneCells = {
+            { .x = 10, .y = 10, .walkable = true, .team = 0 },
+            { .x = 11, .y = 10, .walkable = true, .team = 0 },
+            { .x = 12, .y = 10, .walkable = true, .team = 0 },
+        };
+
+        auto output = initializeBattleStartForTest(std::move(spawns), setup);
+        std::vector<int> cloneUnitIds;
+        for (const auto& spawn : output.spawns)
+        {
+            if (spawn.unit.cloneSourceUnitId >= 0)
+                cloneUnitIds.push_back(spawn.unit.id);
+        }
+        REQUIRE(cloneUnitIds.size()
+            == static_cast<std::size_t>(expectedCloneCounts[tier]));
+
+        BattleRuntimeState runtime;
+        runtime.gridTransform = testInitializationContext().gridTransform;
+        for (auto& spawn : output.spawns)
+            appendRuntimeUnit(runtime, std::move(spawn));
+        runtime.effectRules = std::move(output.effectRules);
+        runtime.effectCommands = std::move(output.effectCommands);
+
+        BattleStatusUnitState holder = runtime.units.require(0).statusDamageState();
+        std::set<int> logicalOwners;
+        for (std::size_t cloneIndex = 0; cloneIndex < cloneUnitIds.size(); ++cloneIndex)
+        {
+            const int cloneUnitId = cloneUnitIds[cloneIndex];
+            const BattleCastProvenance cast{
+                .rootCastId = BattleCastId(100 + cloneIndex),
+                .castId = BattleCastId(100 + cloneIndex),
+                .sourceUnitId = cloneUnitId,
+                .magicId = 0,
+                .ultimate = false,
+                .origin = CastOriginKind::Normal,
+                .propagation = CastPropagationPolicy::SourceRules,
+            };
+            const BattleAttackProvenance attack{
+                .cast = cast,
+                .propagation = cast.propagation,
+                .origin = BattleAttackOriginKind::Initial,
+                .attackId = BattleAttackId(100 + cloneIndex),
+                .rootAttack = true,
+                .mainProjectile = true,
+            };
+            const auto dispatched = BattleEffectEventBridge().dispatch(
+                runtime,
+                {
+                    .frame = 1,
+                    .eventOrdinal = 1 + cloneIndex,
+                    .ownerUnitId = cloneUnitId,
+                },
+                EffectEvent::HitBeforeDamage,
+                HitEventData{
+                    .provenance = attack,
+                    .targetUnitId = 0,
+                    .originalTargetUnitId = 0,
+                    .acceptedHit = true,
+                });
+            REQUIRE(dispatched.commands.size() == 1);
+            const auto& command = dispatched.commands.front();
+            CHECK(command.metadata.binding.kind == EffectSourceKind::Combo);
+            CHECK(command.metadata.binding.sourceId == shippedCombo->id);
+            CHECK(command.metadata.binding.ownerUnitId == cloneUnitId);
+            CHECK(command.metadata.ruleId == EffectRuleId{ 99001 });
+            CHECK(command.metadata.authoredActionOrder == 0);
+            holder = BattleEffectCommandSystem::applyStatusCommand(
+                std::move(holder),
+                command.metadata,
+                std::get<ApplyStatusEffectCommand>(command.value),
+                { .frame = 1 },
+                {},
+                false).target;
+            REQUIRE(holder.effects.statuses.back().producerFamily);
+            logicalOwners.insert(
+                holder.effects.statuses.back().producerFamily->logicalOwnerUnitId);
+        }
+
+        CHECK(logicalOwners.size() == cloneUnitIds.size());
+        REQUIRE(holder.effects.statuses.size() == cloneUnitIds.size());
+        for (const auto& contribution : holder.effects.statuses)
+        {
+            CHECK(contribution.stacks == 1);
+            CHECK(contribution.familyLocalLimit == 2);
+        }
+    }
 }
 
 TEST_CASE("BattleStartInitializer records only active anti-combo initialization for chained transfer", "[battle][initialization][effect_rule][anti_combo]")
@@ -657,14 +857,14 @@ TEST_CASE("BattleEffectRuntimeSnapshot_CopiesStableUnitFactsStatusesAndResources
     record.comboFacts.memberComboIds = { 33, 44 };
     record.status.effects.statusShield = 70;
     record.status.effects.staggerShield = 80;
-    record.status.effects.statuses.push_back({
-        .kind = BattleStatusKind::Poison,
-        .sourceUnitId = 2,
-        .remainingFrames = 30,
-        .stacks = 1,
-        .potency = 4,
-        .appliedSequence = 1,
-    });
+    record.status.effects.statuses.push_back(boundStatusBehaviorContribution(
+        BattleStatusKind::Poison,
+        poisonStatusBehavior(4),
+        2,
+        9402,
+        1,
+        1,
+        30));
     record.status.effects.statuses.push_back({
         .kind = BattleStatusKind::SevenStarMark,
         .sourceUnitId = 2,

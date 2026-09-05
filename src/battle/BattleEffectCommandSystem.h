@@ -22,6 +22,7 @@ struct BattleRuntimeState;
 struct BattleAttributeModifierInstance
 {
     std::uint64_t sequence{};
+    std::uint64_t negativeEffectSequence{};
     EffectSourceBinding binding;
     EffectRuleId ruleId;
     std::uint32_t actionOrder{};
@@ -41,6 +42,7 @@ struct BattleAttributeModifierInstance
 struct BattleDamageModifierInstance
 {
     std::uint64_t sequence{};
+    std::uint64_t negativeEffectSequence{};
     EffectSourceBinding binding;
     EffectRuleId ruleId;
     std::uint32_t actionOrder{};
@@ -65,6 +67,10 @@ struct BattleDamageAbsorptionInstance
     EffectSourceBinding binding;
     EffectRuleId ruleId;
     std::uint32_t actionOrder{};
+    std::uint32_t authoredActionOrder{};
+    std::optional<EffectStatusContributionContext> statusContribution;
+    std::optional<BattleCastProvenance> triggeringCast;
+    std::optional<BattleAttackProvenance> triggeringAttack;
     int targetUnitId = -1;
     EffectStateSlot slot{};
     int absorbedPct{};
@@ -237,7 +243,10 @@ struct BattleEffectDamageRequestOutput
     DealDamageAction action;
     EffectSourceBinding source;
     EffectRuleId ruleId;
-    std::optional<BattleAttackProvenance> provenance;
+    std::optional<BattleCastProvenance> triggeringCast;
+    std::optional<BattleAttackProvenance> triggeringAttack;
+    std::optional<EffectStatusContributionContext> statusContribution;
+    std::uint32_t authoredActionOrder{};
     int transactionCount = 1;
     int eventSourceUnitId = -1;
 };
@@ -253,6 +262,8 @@ struct BattleDeferredHpResourceOutput
     BattleDeferredHpResourceReason reason = BattleDeferredHpResourceReason::RequiresDamageSettlement;
 };
 
+struct BattleSkippedEffectResult {};
+
 template<class Command>
 struct BattleRoutedEffectCommand
 {
@@ -260,6 +271,7 @@ struct BattleRoutedEffectCommand
 };
 
 using BattleEffectReductionValue = std::variant<
+    BattleSkippedEffectResult,
     BattleAttributeEffectResult,
     BattleDamageModifierEffectResult,
     BattleDamageAbsorptionEffectResult,
@@ -272,6 +284,8 @@ using BattleEffectReductionValue = std::variant<
     BattleDeferredHpResourceOutput,
     BattleRoutedEffectCommand<ModifyDamageEffectCommand>,
     BattleRoutedEffectCommand<ModifyHealTransactionEffectCommand>,
+    BattleRoutedEffectCommand<SuppressCurrentCastContactsEffectCommand>,
+    BattleRoutedEffectCommand<MakeIncomingAttackMissEffectCommand>,
     BattleRoutedEffectCommand<ModifyAttackEffectCommand>,
     BattleRoutedEffectCommand<ForceMoveEffectCommand>,
     BattleRoutedEffectCommand<ModifyCastEffectCommand>,
@@ -307,6 +321,10 @@ struct BattleEffectCommandContext
 class BattleEffectCommandSystem
 {
 public:
+    static EffectDamageOrigin damageOrigin(
+        const BattleEffectDamageRequestOutput& output);
+    static BattleStatusProducerProvenance statusProducerProvenance(
+        const EffectCommandMetadata& metadata);
     BattleEffectCommandReduction reduce(
         BattleRuntimeState& state,
         std::span<const EffectCommand> commands,
@@ -331,13 +349,15 @@ public:
         BattleEffectCommandRuntimeState& runtime,
         const EffectCommandMetadata& metadata,
         const ModifyAttributeEffectCommand& command,
-        int frame);
+        int frame,
+        std::uint64_t* nextNegativeEffectSequence = nullptr);
 
     static BattleDamageModifierEffectResult applyPersistentDamageModifier(
         BattleEffectCommandRuntimeState& runtime,
         const EffectCommandMetadata& metadata,
         const ModifyDamageEffectCommand& command,
-        int frame);
+        int frame,
+        std::uint64_t* nextNegativeEffectSequence = nullptr);
 
     static BattleStatusApplyResult applyStatusCommand(
         BattleStatusUnitState target,
@@ -359,14 +379,16 @@ public:
         BattleEffectCommandRuntimeState& runtime,
         int sourceUnitId,
         int cloneUnitId,
-        int cloneTeam);
+        int cloneTeam,
+        std::uint64_t& nextNegativeEffectSequence);
 
     static BattleAntiComboTransfer transferAntiComboInitialization(
         BattleEffectCommandRuntimeState& runtime,
         int sourceUnitId,
         int targetUnitId,
         int targetTeam,
-        int comboId);
+        int comboId,
+        std::uint64_t* nextNegativeEffectSequence = nullptr);
 
     // 回傳順序固定為 instance sequence；All channel 可符合任何實際傷害種類。
     static std::vector<BattleDamageModifierInstance> queryDamageModifiers(

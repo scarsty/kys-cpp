@@ -40,10 +40,6 @@ BattleEffectEventHeaderInput nextEffectEventHeader(
     BattleRuntimeState& state,
     int ownerUnitId,
     EffectFormulaInputs formulaInputs = {});
-void insertTrueQiHitDamage(
-    BattleRuntimeState& state,
-    const BattleAttackEvent& event,
-    BattleEffectDispatchResult& dispatched);
 BattleCastProvenance plannedEffectCastProvenance(
     int sourceUnitId,
     int magicId,
@@ -105,7 +101,16 @@ void appendDamageAbsorptionSettlements(
 void reduceEffectCommandBatches(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
-    std::vector<BattlePendingDamageIntent>& pendingDamage);
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::uint64_t reductionReceiptId = 0,
+    BattleEffectCommandReduction* reductionReceipt = nullptr);
+void reduceEffectCommand(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    const EffectCommand& command,
+    const BattleEffectCommandContext& context,
+    BattleEffectCommandReduction* reductionReceipt = nullptr);
 void completeEffectDamageContinuation(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
@@ -241,7 +246,7 @@ BattleCooldownState makeBattleFrameCooldownStateImpl(const BattleRuntimeUnit& un
 
 void applyStatusTickDamagePresentation(
     const BattleRuntimeState& state,
-    BattleStatusEventType type,
+    BattleDamageKind kind,
     int targetUnitId,
     BattleDamagePresentationInput& presentation);
 

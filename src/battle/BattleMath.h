@@ -2,12 +2,47 @@
 
 #include "../Point.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 namespace KysChess::Battle
 {
+
+constexpr int battleSaturatedInt(std::int64_t value)
+{
+    return static_cast<int>(std::clamp<std::int64_t>(
+        value,
+        std::numeric_limits<int>::min(),
+        std::numeric_limits<int>::max()));
+}
+
+constexpr int battleSaturatedAdd(int lhs, int rhs)
+{
+    return battleSaturatedInt(
+        static_cast<std::int64_t>(lhs) + static_cast<std::int64_t>(rhs));
+}
+
+constexpr int battleSaturatedMultiply(int lhs, int rhs)
+{
+    return battleSaturatedInt(
+        static_cast<std::int64_t>(lhs) * static_cast<std::int64_t>(rhs));
+}
+
+constexpr std::int64_t battleSaturatedAdd64(std::int64_t lhs, std::int64_t rhs)
+{
+    if (rhs > 0 && lhs > std::numeric_limits<std::int64_t>::max() - rhs)
+    {
+        return std::numeric_limits<std::int64_t>::max();
+    }
+    if (rhs < 0 && lhs < std::numeric_limits<std::int64_t>::min() - rhs)
+    {
+        return std::numeric_limits<std::int64_t>::min();
+    }
+    return lhs + rhs;
+}
 
 inline constexpr double BattlePi = 0x1.921fb54442d18p+1;
 

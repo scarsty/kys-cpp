@@ -59,7 +59,34 @@ inline const EffectRule& ruleWithEvent(
         if (occurrence == 0) return rule;
         --occurrence;
     }
+    INFO("武功 " << definition.magicId
+        << " 找不到事件 " << static_cast<int>(event)
+        << " 的第 " << occurrence << " 個規則");
     FAIL("找不到指定效果事件");
+}
+
+inline const EffectRule& statusBehaviorRuleWithEvent(
+    const ChessMagicEffectDefinition& definition,
+    BattleStatusKind status,
+    EffectEvent event)
+{
+    for (const auto& producer : definition.rules)
+    {
+        for (const auto& action : producer.actions)
+        {
+            const auto* application = std::get_if<ApplyStatusAction>(&action.value);
+            if (!application || application->status != status || !application->behavior)
+                continue;
+            for (const auto& behaviorRule : application->behavior->rules)
+            {
+                if (behaviorRule.event == event) return behaviorRule;
+            }
+        }
+    }
+    INFO("武功 " << definition.magicId
+        << " 的狀態 " << static_cast<int>(status)
+        << " 找不到事件 " << static_cast<int>(event));
+    FAIL("找不到指定狀態效果事件");
 }
 
 inline EffectRule parseRuleText(std::string_view yaml, std::uint64_t id = 1)
@@ -91,13 +118,16 @@ inline void checkEffectNumberEqual(const EffectNumber& lhs, const EffectNumber& 
     CHECK(lhs.base == rhs.base);
     CHECK(lhs.multiplierBase == rhs.multiplierBase);
     CHECK(lhs.status == rhs.status);
-    CHECK(lhs.statusEffect == rhs.statusEffect);
+    CHECK(lhs.statusSource == rhs.statusSource);
     CHECK(lhs.stateSlot == rhs.stateSlot);
     CHECK(lhs.flat == rhs.flat);
     CHECK(lhs.percent == rhs.percent);
     CHECK(lhs.rounding == rhs.rounding);
     CHECK(lhs.minimum == rhs.minimum);
     CHECK(lhs.maximum == rhs.maximum);
+    CHECK(lhs.statusScale == rhs.statusScale);
+    CHECK(lhs.boundNumerator == rhs.boundNumerator);
+    CHECK(lhs.boundDenominator == rhs.boundDenominator);
 }
 
 inline void checkOptionalEffectNumberEqual(
@@ -175,7 +205,8 @@ inline void checkApplyStatusEqual(const ApplyStatusAction& lhs, const ApplyStatu
     checkOptionalEffectNumberEqual(lhs.duration, rhs.duration);
     CHECK(lhs.quantity == rhs.quantity);
     CHECK(lhs.reapplication == rhs.reapplication);
-    CHECK(lhs.effects == rhs.effects);
+    CHECK(lhs.poisonSameEventMerge == rhs.poisonSameEventMerge);
+    CHECK(statusBehaviorsEquivalent(lhs.behavior, rhs.behavior));
 }
 
 inline void checkAttackPatternEqual(const AttackPattern& lhs, const AttackPattern& rhs)
@@ -383,6 +414,7 @@ inline void checkActionEqual(const EffectAction& lhs, const EffectAction& rhs)
         else if constexpr (std::is_same_v<T, RemoveStatusAction>)
         {
             CHECK(left.statuses == right.statuses);
+            CHECK(left.source == right.source);
             CHECK(left.negativeOnly == right.negativeOnly);
             CHECK(left.controlOnly == right.controlOnly);
             CHECK(left.clearCurrentActionStagger == right.clearCurrentActionStagger);

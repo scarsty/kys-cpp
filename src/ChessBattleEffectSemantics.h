@@ -1,20 +1,75 @@
 #pragma once
 
-#include "ChessBattleEffectTypes.h"
+#include "ChessBattleEffectConstraints.h"
 
+#include <algorithm>
 #include <array>
+#include <cassert>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace KysChess
 {
+
+void forEachEffectNumber(
+    EffectRule& rule,
+    const std::function<void(EffectNumber&)>& visitor);
+void forEachEffectNumber(
+    const EffectRule& rule,
+    const std::function<void(const EffectNumber&)>& visitor);
+void forEachDirectEffectNumber(
+    const EffectRule& rule,
+    const std::function<void(const EffectNumber&)>& visitor);
+bool statusBehaviorsEquivalent(
+    const std::shared_ptr<const StatusBehaviorDefinition>& lhs,
+    const std::shared_ptr<const StatusBehaviorDefinition>& rhs);
+
+struct EffectHealKindCatalogEntry
+{
+    EffectHealKind kind{};
+    std::string_view authorLabel;
+};
+
+inline constexpr std::array effectHealKindCatalog{
+    EffectHealKindCatalogEntry{ EffectHealKind::Direct, "直接" },
+    EffectHealKindCatalogEntry{ EffectHealKind::Team, "隊伍" },
+    EffectHealKindCatalogEntry{ EffectHealKind::Aura, "光環" },
+    EffectHealKindCatalogEntry{ EffectHealKind::OnHit, "命中" },
+    EffectHealKindCatalogEntry{ EffectHealKind::KillReward, "擊殺獎勵" },
+    EffectHealKindCatalogEntry{ EffectHealKind::DeathMedical, "死亡醫療" },
+    EffectHealKindCatalogEntry{ EffectHealKind::Rescue, "救援" },
+    EffectHealKindCatalogEntry{ EffectHealKind::Regeneration, "生命回復" },
+    EffectHealKindCatalogEntry{ EffectHealKind::Lifesteal, "吸血" },
+};
+
+static_assert(effectHealKindCatalog.size()
+    == static_cast<std::size_t>(EffectHealKind::Count));
+static_assert([]
+{
+    for (std::size_t index = 0; index < effectHealKindCatalog.size(); ++index)
+    {
+        if (static_cast<std::size_t>(effectHealKindCatalog[index].kind) != index
+            || effectHealKindCatalog[index].authorLabel.empty()) return false;
+    }
+    return true;
+}());
+
+inline constexpr std::string_view effectHealKindAuthorLabel(EffectHealKind kind)
+{
+    const auto index = static_cast<std::size_t>(kind);
+    assert(index < effectHealKindCatalog.size());
+    return effectHealKindCatalog[index].authorLabel;
+}
 
 enum class StatusQuantityModel
 {
     None,
     Layers,
+    SharedLayers,
     TriggerCharges,
     Marks,
     DamageBlockCharges,
@@ -25,6 +80,7 @@ enum class StatusQuantityFieldId
 {
     AddedLayers,
     LayerLimit,
+    TargetTotalLayerLimit,
     TriggerCharges,
     SetMarks,
     AddedDamageBlocks,
@@ -36,6 +92,7 @@ enum class StatusQuantityFieldId
 enum class StatusQuantityOperationId
 {
     AddLayers,
+    AddSharedLayers,
     SetTriggerCharges,
     SetMarks,
     AddDamageBlocks,
@@ -64,6 +121,8 @@ inline constexpr std::array statusQuantityFieldCatalog{
     StatusQuantityFieldCatalogEntry{
         StatusQuantityFieldId::LayerLimit, "層數上限", "10" },
     StatusQuantityFieldCatalogEntry{
+        StatusQuantityFieldId::TargetTotalLayerLimit, "目標總層數上限", "3" },
+    StatusQuantityFieldCatalogEntry{
         StatusQuantityFieldId::TriggerCharges, "可觸發次數", "1" },
     StatusQuantityFieldCatalogEntry{
         StatusQuantityFieldId::SetMarks, "設定印記層數", "7" },
@@ -80,6 +139,13 @@ inline constexpr std::array statusQuantityOperationCatalog{
         StatusQuantityOperationId::AddLayers,
         StatusQuantityModel::Layers,
         { StatusQuantityFieldId::AddedLayers, StatusQuantityFieldId::LayerLimit },
+        2,
+    },
+    StatusQuantityOperationCatalogEntry{
+        StatusQuantityOperationId::AddSharedLayers,
+        StatusQuantityModel::SharedLayers,
+        { StatusQuantityFieldId::AddedLayers,
+          StatusQuantityFieldId::TargetTotalLayerLimit },
         2,
     },
     StatusQuantityOperationCatalogEntry{
@@ -136,7 +202,7 @@ static_assert([]
         for (std::size_t fieldIndex = 0; fieldIndex < operation.fieldCount; ++fieldIndex)
         {
             const auto id = static_cast<std::size_t>(operation.fields[fieldIndex]);
-            if (id >= seen.size() || seen[id]) return false;
+            if (id >= seen.size()) return false;
             seen[id] = true;
         }
     }
@@ -174,6 +240,8 @@ inline constexpr std::span<const StatusQuantityOperationId> statusQuantityOperat
 {
     static constexpr std::array<StatusQuantityOperationId, 0> none{};
     static constexpr std::array layers{ StatusQuantityOperationId::AddLayers };
+    static constexpr std::array sharedLayers{
+        StatusQuantityOperationId::AddSharedLayers };
     static constexpr std::array triggerCharges{
         StatusQuantityOperationId::SetTriggerCharges };
     static constexpr std::array marks{ StatusQuantityOperationId::SetMarks };
@@ -184,6 +252,7 @@ inline constexpr std::span<const StatusQuantityOperationId> statusQuantityOperat
     switch (model)
     {
     case StatusQuantityModel::Layers: return layers;
+    case StatusQuantityModel::SharedLayers: return sharedLayers;
     case StatusQuantityModel::TriggerCharges: return triggerCharges;
     case StatusQuantityModel::Marks: return marks;
     case StatusQuantityModel::DamageBlockCharges: return damageBlocks;
@@ -194,15 +263,37 @@ inline constexpr std::span<const StatusQuantityOperationId> statusQuantityOperat
     return none;
 }
 
-enum class StatusEffectScope
+// The model views above are intentionally convenient fixed spans for schema
+// and parser iteration.  This inverse agreement check makes the operation
+// catalog authoritative: every catalog entry must occur in exactly one view,
+// and adding an operation without updating that view is a compile-time error.
+static_assert([]
 {
-    None,
-    Persistent,
-    PerLayer,
-    PerTrigger,
-    PerLayerValue,
-    RuntimeOwned,
-};
+    for (const auto& operation : statusQuantityOperationCatalog)
+    {
+        int occurrences{};
+        for (const auto model : {
+                 StatusQuantityModel::None,
+                 StatusQuantityModel::Layers,
+                 StatusQuantityModel::SharedLayers,
+                 StatusQuantityModel::TriggerCharges,
+                 StatusQuantityModel::Marks,
+                 StatusQuantityModel::DamageBlockCharges,
+                 StatusQuantityModel::Internal })
+        {
+            for (const auto candidate : statusQuantityOperations(model))
+            {
+                if (candidate == operation.id)
+                {
+                    if (operation.model != model) return false;
+                    ++occurrences;
+                }
+            }
+        }
+        if (occurrences != 1) return false;
+    }
+    return true;
+}());
 
 enum class StatusDurationModel
 {
@@ -211,30 +302,463 @@ enum class StatusDurationModel
     RuntimeOwned,
 };
 
+struct StatusReapplicationPolicyCatalogEntry
+{
+    StatusReapplicationPolicy policy{};
+    std::string_view authorLabel;
+};
+
+inline constexpr std::array statusReapplicationPolicyCatalog{
+    StatusReapplicationPolicyCatalogEntry{
+        StatusReapplicationPolicy::Implicit, {} },
+    StatusReapplicationPolicyCatalogEntry{
+        StatusReapplicationPolicy::ExtendDuration, "延長持續時間" },
+    StatusReapplicationPolicyCatalogEntry{
+        StatusReapplicationPolicy::KeepLongerDuration, "保留較長持續時間" },
+    StatusReapplicationPolicyCatalogEntry{
+        StatusReapplicationPolicy::RefreshDuration, "刷新持續時間" },
+    StatusReapplicationPolicyCatalogEntry{
+        StatusReapplicationPolicy::KeepHigherDamage, "保留較高傷害" },
+    StatusReapplicationPolicyCatalogEntry{
+        StatusReapplicationPolicy::ReplaceExistingPoison, "取代現有中毒" },
+};
+
+static_assert(statusReapplicationPolicyCatalog.size()
+    == static_cast<std::size_t>(StatusReapplicationPolicy::Count));
+static_assert([]
+{
+    for (std::size_t index = 0;
+         index < statusReapplicationPolicyCatalog.size();
+         ++index)
+    {
+        const auto& entry = statusReapplicationPolicyCatalog[index];
+        if (static_cast<std::size_t>(entry.policy) != index) return false;
+        if (entry.policy == StatusReapplicationPolicy::Implicit)
+        {
+            if (!entry.authorLabel.empty()) return false;
+        }
+        else if (entry.authorLabel.empty()) return false;
+    }
+    return true;
+}());
+
+inline constexpr std::string_view statusReapplicationPolicyLabel(
+    StatusReapplicationPolicy policy)
+{
+    const auto index = static_cast<std::size_t>(policy);
+    assert(index < statusReapplicationPolicyCatalog.size());
+    assert(statusReapplicationPolicyCatalog[index].policy == policy);
+    return statusReapplicationPolicyCatalog[index].authorLabel;
+}
+
 enum class StatusReapplicationModel
 {
     Implicit,
     StunDuration,
-    KeepLongerDuration,
-    RefreshDuration,
+    CatalogKeepLongerDuration,
+    CatalogRefreshDuration,
     PoisonDamage,
+    CatalogReplaceSelected,
+    AuthoredRefreshDuration,
+};
+
+enum class StatusBehaviorClassification
+{
+    Intrinsic,
+    CatalogOwned,
+    Profiled,
+    OpenMarker,
+};
+
+enum class StatusStorageModel
+{
+    ProducerOwnedContributions,
+    SharedLayerDebuff,
+    SelectedDebuffInstance,
+    SharedDurationControl,
+};
+
+enum class StatusBehaviorProfile
+{
+    None,
+    Poison,
+    Bleed,
+    ColdPoison,
+    WitheredBone,
+    SevenStar,
+    NeutralizeForce,
+    Blinded,
+    NextIncomingAttackMiss,
+    DamageBlock,
+    SingleHitCap,
+    BattleSpirit,
+    TrueQi,
+    PoisonExplosion,
+};
+
+enum class StatusNamedNumberFieldId
+{
+    NeutralizeShield,
+    Count,
+};
+
+enum class StatusNamedNumberConstraint
+{
+    Positive,
+};
+
+enum class StatusNamedNumberDescriptionRole
+{
+    NeutralizeShield,
+};
+
+struct StatusNamedNumberFieldCatalogEntry
+{
+    StatusNamedNumberFieldId id{};
+    BattleStatusKind status{};
+    std::string_view label;
+    std::string_view probeValue;
+    bool required{};
+    StatusNamedNumberConstraint constraint{};
+    StatusNamedNumberDescriptionRole descriptionRole{};
+};
+
+inline constexpr std::array statusNamedNumberFieldCatalog{
+    StatusNamedNumberFieldCatalogEntry{
+        .id = StatusNamedNumberFieldId::NeutralizeShield,
+        .status = BattleStatusKind::NeutralizeForce,
+        .label = "化解後護盾",
+        .probeValue = "100",
+        .required = true,
+        .constraint = StatusNamedNumberConstraint::Positive,
+        .descriptionRole = StatusNamedNumberDescriptionRole::NeutralizeShield,
+    },
 };
 
 struct StatusCatalogEntry
 {
     BattleStatusKind status{};
+    std::string_view label;
+    bool negative{};
+    bool control{};
+    StatusStorageModel storage{};
     StatusQuantityModel quantity{};
-    StatusEffectScope effectScope{};
     StatusDurationModel duration{};
     StatusReapplicationModel reapplication{};
+    StatusBehaviorClassification behaviorClassification{};
+    StatusBehaviorProfile behaviorProfile{};
+    std::array<StatusNamedNumberFieldId,
+        statusNamedNumberFieldCatalog.size()> namedNumberFields{};
+    std::size_t namedNumberFieldCount{};
     bool authorable = true;
 };
+
+inline constexpr std::array statusCatalog{
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Poison,
+        .label = "中毒",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::TriggerCharges,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::PoisonDamage,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::Poison,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Bleed,
+        .label = "流血",
+        .negative = true,
+        .storage = StatusStorageModel::SharedLayerDebuff,
+        .quantity = StatusQuantityModel::SharedLayers,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
+        .behaviorProfile = StatusBehaviorProfile::Bleed,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Stun,
+        .label = "眩暈",
+        .negative = true,
+        .control = true,
+        .storage = StatusStorageModel::SharedDurationControl,
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::StunDuration,
+        .behaviorClassification = StatusBehaviorClassification::Intrinsic,
+        .behaviorProfile = StatusBehaviorProfile::None,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::MpBlocked,
+        .label = "封內",
+        .negative = true,
+        .storage = StatusStorageModel::SharedDurationControl,
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::CatalogKeepLongerDuration,
+        .behaviorClassification = StatusBehaviorClassification::Intrinsic,
+        .behaviorProfile = StatusBehaviorProfile::None,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::ColdPoison,
+        .label = "寒毒",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::CatalogRefreshDuration,
+        .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
+        .behaviorProfile = StatusBehaviorProfile::ColdPoison,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::WitheredBone,
+        .label = "枯骨",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::CatalogRefreshDuration,
+        .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
+        .behaviorProfile = StatusBehaviorProfile::WitheredBone,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::SevenStarMark,
+        .label = "七星",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::Marks,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::CatalogReplaceSelected,
+        .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
+        .behaviorProfile = StatusBehaviorProfile::SevenStar,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::NeutralizeForce,
+        .label = "化勁",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::TriggerCharges,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
+        .behaviorProfile = StatusBehaviorProfile::NeutralizeForce,
+        .namedNumberFields = { StatusNamedNumberFieldId::NeutralizeShield },
+        .namedNumberFieldCount = 1,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Blinded,
+        .label = "刺目",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::TriggerCharges,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
+        .behaviorProfile = StatusBehaviorProfile::Blinded,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::NextAttackMiss,
+        .label = "下一次受到攻擊必定落空",
+        .quantity = StatusQuantityModel::TriggerCharges,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::NextIncomingAttackMiss,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::DamageBlockLayer,
+        .label = "傷害抵擋",
+        .quantity = StatusQuantityModel::DamageBlockCharges,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::DamageBlock,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::SingleHitCapLayer,
+        .label = "下次承傷上限",
+        .quantity = StatusQuantityModel::TriggerCharges,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::SingleHitCap,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::BattleSpirit,
+        .label = "戰意",
+        .quantity = StatusQuantityModel::Layers,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::BattleSpirit,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::TrueQi,
+        .label = "真氣",
+        .quantity = StatusQuantityModel::Layers,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::TrueQi,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::PoisonExplosion,
+        .label = "毒爆",
+        .quantity = StatusQuantityModel::Layers,
+        .duration = StatusDurationModel::Forbidden,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Profiled,
+        .behaviorProfile = StatusBehaviorProfile::PoisonExplosion,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Shadowless,
+        .label = "無影",
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::AuthoredRefreshDuration,
+        .behaviorClassification = StatusBehaviorClassification::OpenMarker,
+        .behaviorProfile = StatusBehaviorProfile::None,
+    },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::NextAttackCritical,
+        .label = "下一次攻擊必定暴擊",
+        .quantity = StatusQuantityModel::Internal,
+        .duration = StatusDurationModel::RuntimeOwned,
+        .reapplication = StatusReapplicationModel::Implicit,
+        .behaviorClassification = StatusBehaviorClassification::Intrinsic,
+        .behaviorProfile = StatusBehaviorProfile::None,
+        .authorable = false,
+    },
+};
+
+static_assert(statusCatalog.size()
+    == static_cast<std::size_t>(BattleStatusKind::Count));
+static_assert(statusNamedNumberFieldCatalog.size()
+    == static_cast<std::size_t>(StatusNamedNumberFieldId::Count));
+static_assert([]
+{
+    std::array<int, static_cast<std::size_t>(StatusNamedNumberFieldId::Count)>
+        namedFieldOccurrences{};
+    for (std::size_t index = 0; index < statusCatalog.size(); ++index)
+    {
+        const auto& status = statusCatalog[index];
+        if (static_cast<std::size_t>(status.status) != index
+            || status.label.empty()
+            || (status.control && !status.negative))
+        {
+            return false;
+        }
+        const auto quantityOperations = statusQuantityOperations(status.quantity);
+        const bool expectsQuantityOperations = status.quantity != StatusQuantityModel::None
+            && status.quantity != StatusQuantityModel::Internal;
+        if (quantityOperations.empty() == expectsQuantityOperations) return false;
+        const bool classifiedBehaviorProfile =
+            status.behaviorClassification == StatusBehaviorClassification::Profiled
+            || status.behaviorClassification == StatusBehaviorClassification::CatalogOwned;
+        if (classifiedBehaviorProfile
+            != (status.behaviorProfile != StatusBehaviorProfile::None)) return false;
+        if (status.negative
+            && status.storage == StatusStorageModel::ProducerOwnedContributions)
+            return false;
+        if (status.namedNumberFieldCount > status.namedNumberFields.size())
+            return false;
+        for (std::size_t fieldIndex = 0;
+             fieldIndex < status.namedNumberFieldCount;
+             ++fieldIndex)
+        {
+            const auto id = static_cast<std::size_t>(
+                status.namedNumberFields[fieldIndex]);
+            if (id >= namedFieldOccurrences.size()
+                || statusNamedNumberFieldCatalog[id].id
+                    != status.namedNumberFields[fieldIndex]
+                || statusNamedNumberFieldCatalog[id].status != status.status)
+                return false;
+            ++namedFieldOccurrences[id];
+        }
+        for (const auto operation : quantityOperations)
+        {
+            if (statusQuantityOperationCatalogEntry(operation).model != status.quantity)
+                return false;
+        }
+    }
+    for (const auto occurrences : namedFieldOccurrences)
+        if (occurrences != 1) return false;
+    return true;
+}());
+
+inline constexpr std::span<const StatusCatalogEntry> statusCatalogEntries()
+{
+    return statusCatalog;
+}
+
+inline constexpr const StatusCatalogEntry& statusCatalogEntry(BattleStatusKind status)
+{
+    const auto index = static_cast<std::size_t>(status);
+    assert(index < statusCatalog.size());
+    assert(statusCatalog[index].status == status);
+    return statusCatalog[index];
+}
+
+inline constexpr const StatusNamedNumberFieldCatalogEntry&
+statusNamedNumberFieldCatalogEntry(StatusNamedNumberFieldId id)
+{
+    const auto index = static_cast<std::size_t>(id);
+    assert(index < statusNamedNumberFieldCatalog.size());
+    assert(statusNamedNumberFieldCatalog[index].id == id);
+    return statusNamedNumberFieldCatalog[index];
+}
+
+inline constexpr std::span<const StatusNamedNumberFieldId> statusNamedNumberFields(
+    BattleStatusKind status)
+{
+    const auto& catalog = statusCatalogEntry(status);
+    return { catalog.namedNumberFields.data(), catalog.namedNumberFieldCount };
+}
+
+inline constexpr bool statusHasNamedNumberField(
+    BattleStatusKind status,
+    StatusNamedNumberFieldId field)
+{
+    const auto fields = statusNamedNumberFields(status);
+    return std::find(fields.begin(), fields.end(), field) != fields.end();
+}
+
+inline std::optional<EffectNumber>& statusNamedNumberField(
+    ApplyStatusAction& action,
+    StatusNamedNumberFieldId field)
+{
+    switch (field)
+    {
+    case StatusNamedNumberFieldId::NeutralizeShield:
+        return action.neutralizeShield;
+    case StatusNamedNumberFieldId::Count:
+        break;
+    }
+    assert(false);
+    std::unreachable();
+}
+
+inline const std::optional<EffectNumber>& statusNamedNumberField(
+    const ApplyStatusAction& action,
+    StatusNamedNumberFieldId field)
+{
+    switch (field)
+    {
+    case StatusNamedNumberFieldId::NeutralizeShield:
+        return action.neutralizeShield;
+    case StatusNamedNumberFieldId::Count:
+        break;
+    }
+    assert(false);
+    std::unreachable();
+}
 
 inline constexpr std::string_view statusQuantityCounter(StatusQuantityModel quantity)
 {
     switch (quantity)
     {
     case StatusQuantityModel::Layers: return "層";
+    case StatusQuantityModel::SharedLayers: return "層";
     case StatusQuantityModel::TriggerCharges: return "次";
     case StatusQuantityModel::Marks: return "枚";
     case StatusQuantityModel::DamageBlockCharges: return "次";
@@ -253,6 +777,7 @@ inline constexpr std::string_view statusQuantityObjectSuffix(StatusQuantityModel
     case StatusQuantityModel::Marks: return "印記";
     case StatusQuantityModel::None:
     case StatusQuantityModel::Layers:
+    case StatusQuantityModel::SharedLayers:
     case StatusQuantityModel::DamageBlockCharges:
     case StatusQuantityModel::Internal:
         return {};
@@ -265,310 +790,12 @@ inline constexpr std::string_view statusQuantityMeasure(StatusQuantityModel quan
     switch (quantity)
     {
     case StatusQuantityModel::Layers: return "層數";
+    case StatusQuantityModel::SharedLayers: return "共享層數";
     case StatusQuantityModel::TriggerCharges: return "觸發次數";
     case StatusQuantityModel::Marks: return "印記數量";
     case StatusQuantityModel::DamageBlockCharges: return "抵擋次數";
     case StatusQuantityModel::None:
     case StatusQuantityModel::Internal:
-        return {};
-    }
-    return {};
-}
-
-enum class StatusRuntimeValueSlot
-{
-    Potency,
-    SecondaryPotency,
-};
-
-enum class StatusEffectFieldId
-{
-    PoisonCurrentHpDamagePercent,
-    BleedMaxHpDamagePercent,
-    ColdPoisonBlocksHealing,
-    ColdPoisonSpeedReductionPercent,
-    WitheredBoneDamageTakenIncreasePercent,
-    WitheredBoneHealingReductionPercent,
-    NeutralizeForcePreventsCast,
-    NeutralizeForceOriginalTargetShield,
-    BlindedPreventsCast,
-    NextIncomingAttackMiss,
-    DamageBlockPositiveNonExecuteDamage,
-    SingleHitDamageCap,
-    BattleSpiritSkillDamageIncreasePercent,
-    BattleSpiritDamageReductionPercent,
-    TrueQiPureDamagePerHit,
-    PoisonExplosionDeathPureDamage,
-    Count,
-};
-
-enum class StatusEffectFieldType
-{
-    Number,
-    RequiredTrue,
-};
-
-enum class StatusEffectNumberConstraint
-{
-    None,
-    Positive,
-    Nonnegative,
-    NonnegativeAtMost100,
-    PositiveLayerProduct,
-    NonnegativeLayerProduct,
-};
-
-struct StatusEffectFieldCatalogEntry
-{
-    StatusEffectFieldId id{};
-    BattleStatusKind status{};
-    std::string_view label;
-    std::string_view coveragePath;
-    StatusEffectFieldType type{};
-    std::optional<StatusEffectValueKind> value;
-    std::optional<StatusRuntimeValueSlot> runtimeSlot;
-    StatusEffectNumberConstraint numberConstraint{};
-    std::string_view probeValue;
-};
-
-inline constexpr std::array statusEffectFieldCatalog{
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::PoisonCurrentHpDamagePercent,
-        BattleStatusKind::Poison,
-        "目前生命傷害百分比",
-        "perTrigger.currentHpDamagePercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::PoisonCurrentHpDamagePercent,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::Positive,
-        "7",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::BleedMaxHpDamagePercent,
-        BattleStatusKind::Bleed,
-        "最大生命傷害百分比",
-        "perLayer.maxHpDamagePercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::BleedMaxHpDamagePercent,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::PositiveLayerProduct,
-        "1",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::ColdPoisonBlocksHealing,
-        BattleStatusKind::ColdPoison,
-        "禁止受到治療",
-        "persistent.blocksHealing",
-        StatusEffectFieldType::RequiredTrue,
-        std::nullopt,
-        std::nullopt,
-        StatusEffectNumberConstraint::None,
-        "true",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::ColdPoisonSpeedReductionPercent,
-        BattleStatusKind::ColdPoison,
-        "速度降低百分比",
-        "persistent.speedReductionPercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::ColdPoisonSpeedReductionPercent,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::Nonnegative,
-        "25",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::WitheredBoneDamageTakenIncreasePercent,
-        BattleStatusKind::WitheredBone,
-        "受到傷害增加百分比",
-        "persistent.damageTakenIncreasePercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::WitheredBoneDamageTakenIncreasePercent,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::Nonnegative,
-        "25",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::WitheredBoneHealingReductionPercent,
-        BattleStatusKind::WitheredBone,
-        "受到治療減少百分比",
-        "persistent.healingReductionPercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::WitheredBoneHealingReductionPercent,
-        StatusRuntimeValueSlot::SecondaryPotency,
-        StatusEffectNumberConstraint::NonnegativeAtMost100,
-        "75",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::NeutralizeForcePreventsCast,
-        BattleStatusKind::NeutralizeForce,
-        "阻止本次施放",
-        "perTrigger.preventsCast",
-        StatusEffectFieldType::RequiredTrue,
-        std::nullopt,
-        std::nullopt,
-        StatusEffectNumberConstraint::None,
-        "true",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::NeutralizeForceOriginalTargetShield,
-        BattleStatusKind::NeutralizeForce,
-        "原攻擊目標獲得護盾",
-        "perTrigger.originalTargetShield",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::NeutralizeForceOriginalTargetShield,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::Positive,
-        "每星級: 100",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::BlindedPreventsCast,
-        BattleStatusKind::Blinded,
-        "阻止本次施放",
-        "perTrigger.preventsCast",
-        StatusEffectFieldType::RequiredTrue,
-        std::nullopt,
-        std::nullopt,
-        StatusEffectNumberConstraint::None,
-        "true",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::NextIncomingAttackMiss,
-        BattleStatusKind::NextAttackMiss,
-        "使本次受到攻擊落空",
-        "perTrigger.makesIncomingAttackMiss",
-        StatusEffectFieldType::RequiredTrue,
-        std::nullopt,
-        std::nullopt,
-        StatusEffectNumberConstraint::None,
-        "true",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::DamageBlockPositiveNonExecuteDamage,
-        BattleStatusKind::DamageBlockLayer,
-        "抵擋非處決正傷害",
-        "perTrigger.blocksPositiveNonExecuteDamage",
-        StatusEffectFieldType::RequiredTrue,
-        std::nullopt,
-        std::nullopt,
-        StatusEffectNumberConstraint::None,
-        "true",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::SingleHitDamageCap,
-        BattleStatusKind::SingleHitCapLayer,
-        "傷害上限",
-        "perTrigger.damageCap",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::SingleHitDamageCap,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::Positive,
-        "目標最大生命百分比: 15\n取整: 向零\n最小: 1",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::BattleSpiritSkillDamageIncreasePercent,
-        BattleStatusKind::BattleSpirit,
-        "招式傷害增加百分比",
-        "perLayer.skillDamageIncreasePercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::BattleSpiritSkillDamageIncreasePercent,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::NonnegativeLayerProduct,
-        "5",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::BattleSpiritDamageReductionPercent,
-        BattleStatusKind::BattleSpirit,
-        "傷害減免百分比",
-        "perLayer.damageReductionPercent",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::BattleSpiritDamageReductionPercent,
-        StatusRuntimeValueSlot::SecondaryPotency,
-        StatusEffectNumberConstraint::NonnegativeLayerProduct,
-        "1",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::TrueQiPureDamagePerHit,
-        BattleStatusKind::TrueQi,
-        "命中附加純粹傷害",
-        "perLayer.pureDamagePerHit",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::TrueQiPureDamagePerHit,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::PositiveLayerProduct,
-        "9",
-    },
-    StatusEffectFieldCatalogEntry{
-        StatusEffectFieldId::PoisonExplosionDeathPureDamage,
-        BattleStatusKind::PoisonExplosion,
-        "死亡爆炸純粹傷害",
-        "perLayerValue.deathPureDamage",
-        StatusEffectFieldType::Number,
-        StatusEffectValueKind::PoisonExplosionDeathPureDamage,
-        StatusRuntimeValueSlot::Potency,
-        StatusEffectNumberConstraint::PositiveLayerProduct,
-        "每星級: 60",
-    },
-};
-
-static_assert(statusEffectFieldCatalog.size()
-    == static_cast<std::size_t>(StatusEffectFieldId::Count));
-static_assert([]
-{
-    std::array<bool, static_cast<std::size_t>(StatusEffectValueKind::Count)> seenValues{};
-    for (std::size_t index = 0; index < statusEffectFieldCatalog.size(); ++index)
-    {
-        const auto& field = statusEffectFieldCatalog[index];
-        if (static_cast<std::size_t>(field.id) != index
-            || field.label.empty()
-            || field.coveragePath.empty())
-            return false;
-        if (field.type == StatusEffectFieldType::Number)
-        {
-            if (!field.value || !field.runtimeSlot
-                || field.numberConstraint == StatusEffectNumberConstraint::None)
-                return false;
-            const auto valueIndex = static_cast<std::size_t>(*field.value);
-            if (valueIndex >= seenValues.size() || seenValues[valueIndex]) return false;
-            seenValues[valueIndex] = true;
-        }
-        else if (field.value || field.runtimeSlot
-                 || field.numberConstraint != StatusEffectNumberConstraint::None)
-        {
-            return false;
-        }
-    }
-    for (const bool seen : seenValues)
-        if (!seen) return false;
-    return true;
-}());
-
-inline constexpr std::span<const StatusEffectFieldCatalogEntry>
-statusEffectFieldCatalogEntries()
-{
-    return statusEffectFieldCatalog;
-}
-
-inline constexpr const StatusEffectFieldCatalogEntry& statusEffectFieldCatalogEntry(
-    StatusEffectFieldId id)
-{
-    return statusEffectFieldCatalog[static_cast<std::size_t>(id)];
-}
-
-inline constexpr std::string_view statusEffectFieldLabel(StatusEffectFieldId id)
-{
-    return statusEffectFieldCatalogEntry(id).label;
-}
-
-inline constexpr std::string_view statusEffectScopeLabel(StatusEffectScope scope)
-{
-    switch (scope)
-    {
-    case StatusEffectScope::Persistent: return "持續生效";
-    case StatusEffectScope::PerLayer: return "每層生效";
-    case StatusEffectScope::PerTrigger: return "每次觸發";
-    case StatusEffectScope::PerLayerValue: return "每層提供數值";
-    case StatusEffectScope::None:
-    case StatusEffectScope::RuntimeOwned:
         return {};
     }
     return {};
@@ -581,116 +808,35 @@ struct LoweredStatusQuantity
     std::optional<int> stackLimit;
 };
 
-std::optional<int> effectiveConstantEffectNumberValue(const EffectNumber& number);
-std::span<const StatusCatalogEntry> statusCatalogEntries();
-const StatusCatalogEntry& statusCatalogEntry(BattleStatusKind status);
+inline constexpr int CanonicalPoisonIntervalFrames = 30;
+
+struct CanonicalPoisonDamageCapability
+{
+    const EffectRule* rule = nullptr;
+    const DealDamageAction* damage = nullptr;
+    const ConsumeThisStatusAction* consume = nullptr;
+};
+
+std::optional<int> effectiveConstantEffectNumberValue(
+    const EffectNumber& number,
+    int contributionQuantity = 1);
+std::int64_t roundEffectRatio(
+    std::int64_t numerator,
+    std::int64_t denominator,
+    EffectRounding rounding);
+std::optional<CanonicalPoisonDamageCapability> canonicalPoisonDamageCapability(
+    const StatusBehaviorDefinition& behavior);
 bool statusReapplicationPolicyAllowed(
     BattleStatusKind status,
     StatusReapplicationPolicy policy);
 bool statusReapplicationPolicyRequired(BattleStatusKind status);
-bool matchesSevenStarLifecycleProducer(const EffectRule& rule);
-bool matchesSevenStarLifecycleConsumer(const EffectRule& rule);
-bool matchesPoisonExplosionLifecycleProducer(const EffectRule& rule);
-bool matchesPoisonExplosionLifecycleConsumer(const EffectRule& rule);
-std::string_view statusEffectValueLabel(StatusEffectValueKind value);
-bool statusEffectValueBelongsToStatus(
-    StatusEffectValueKind value,
-    BattleStatusKind status);
-StatusRuntimeValueSlot statusEffectRuntimeValueSlot(StatusEffectValueKind value);
-std::optional<BattleStatusKind> statusEffectPayloadStatus(
-    const StatusEffectPayload& payload);
+bool statusBehaviorIsCatalogOwned(BattleStatusKind status);
+std::shared_ptr<const StatusBehaviorDefinition> makeCatalogOwnedStatusBehavior(
+    const ApplyStatusAction& action);
 LoweredStatusQuantity lowerStatusQuantity(const ApplyStatusAction& action);
 EffectStackPolicy lowerStatusReapplication(const ApplyStatusAction& action);
 bool battleAttributeUsesPercentagePoints(BattleAttribute attribute);
 bool attributeModifierIsNegative(AttributeOperation operation, int amount);
 bool hasOrdinaryAttackModification(const ModifyAttackAction& action);
-
-template <typename>
-inline constexpr bool unsupportedStatusEffectPayload = false;
-
-template <typename NumberVisitor, typename BooleanVisitor>
-void forEachStatusEffectField(
-    const StatusEffectPayload& payload,
-    NumberVisitor&& numberVisitor,
-    BooleanVisitor&& booleanVisitor)
-{
-    std::visit([&](const auto& effects)
-    {
-        using T = std::decay_t<decltype(effects)>;
-        if constexpr (std::is_same_v<T, PoisonStatusEffects>)
-            numberVisitor(StatusEffectFieldId::PoisonCurrentHpDamagePercent,
-                effects.currentHpDamagePercent);
-        else if constexpr (std::is_same_v<T, BleedStatusEffects>)
-            numberVisitor(StatusEffectFieldId::BleedMaxHpDamagePercent,
-                effects.maxHpDamagePercent);
-        else if constexpr (std::is_same_v<T, ColdPoisonStatusEffects>)
-        {
-            booleanVisitor(StatusEffectFieldId::ColdPoisonBlocksHealing,
-                effects.blocksHealing);
-            numberVisitor(StatusEffectFieldId::ColdPoisonSpeedReductionPercent,
-                effects.speedReductionPercent);
-        }
-        else if constexpr (std::is_same_v<T, WitheredBoneStatusEffects>)
-        {
-            numberVisitor(StatusEffectFieldId::WitheredBoneDamageTakenIncreasePercent,
-                effects.damageTakenIncreasePercent);
-            numberVisitor(StatusEffectFieldId::WitheredBoneHealingReductionPercent,
-                effects.healingReductionPercent);
-        }
-        else if constexpr (std::is_same_v<T, NeutralizeForceStatusEffects>)
-        {
-            booleanVisitor(StatusEffectFieldId::NeutralizeForcePreventsCast,
-                effects.preventsCast);
-            numberVisitor(StatusEffectFieldId::NeutralizeForceOriginalTargetShield,
-                effects.originalTargetShield);
-        }
-        else if constexpr (std::is_same_v<T, BlindedStatusEffects>)
-            booleanVisitor(StatusEffectFieldId::BlindedPreventsCast,
-                effects.preventsCast);
-        else if constexpr (std::is_same_v<T, NextIncomingAttackMissStatusEffects>)
-            booleanVisitor(StatusEffectFieldId::NextIncomingAttackMiss,
-                effects.makesIncomingAttackMiss);
-        else if constexpr (std::is_same_v<T, DamageBlockStatusEffects>)
-            booleanVisitor(StatusEffectFieldId::DamageBlockPositiveNonExecuteDamage,
-                effects.blocksPositiveNonExecuteDamage);
-        else if constexpr (std::is_same_v<T, SingleHitCapStatusEffects>)
-            numberVisitor(StatusEffectFieldId::SingleHitDamageCap, effects.damageCap);
-        else if constexpr (std::is_same_v<T, BattleSpiritStatusEffects>)
-        {
-            numberVisitor(StatusEffectFieldId::BattleSpiritSkillDamageIncreasePercent,
-                effects.skillDamageIncreasePercent);
-            numberVisitor(StatusEffectFieldId::BattleSpiritDamageReductionPercent,
-                effects.damageReductionPercent);
-        }
-        else if constexpr (std::is_same_v<T, TrueQiStatusEffects>)
-            numberVisitor(StatusEffectFieldId::TrueQiPureDamagePerHit,
-                effects.pureDamagePerHit);
-        else if constexpr (std::is_same_v<T, PoisonExplosionStatusEffects>)
-            numberVisitor(StatusEffectFieldId::PoisonExplosionDeathPureDamage,
-                effects.deathPureDamage);
-        else if constexpr (std::is_same_v<T, NoStatusEffects>)
-        {
-        }
-        else
-        {
-            static_assert(unsupportedStatusEffectPayload<T>,
-                "新的狀態效果 payload 必須加入共享欄位走訪器");
-        }
-    }, payload);
-}
-
-template <typename Visitor>
-void forEachStatusEffectNumber(
-    const StatusEffectPayload& payload,
-    Visitor&& visitor)
-{
-    forEachStatusEffectField(
-        payload,
-        [&](StatusEffectFieldId, const EffectNumber& number)
-        {
-            visitor(number);
-        },
-        [](StatusEffectFieldId, bool) {});
-}
 
 }  // namespace KysChess

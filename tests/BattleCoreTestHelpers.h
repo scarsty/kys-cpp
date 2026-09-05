@@ -37,6 +37,265 @@
 namespace KysChess::Battle::Test
 {
 
+inline std::shared_ptr<const StatusBehaviorDefinition> periodicDamageBehavior(
+    BattleDamageKind kind,
+    EffectNumber amount,
+    int intervalFrames,
+    bool consumeStatus = false)
+{
+    DealDamageAction damage;
+    damage.amount = amount;
+    damage.kind = kind;
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.event = EffectEvent::FrameAdvanced;
+    rule.observation = EffectObservationScope::StatusHolderEventSource;
+    rule.selector.kind = EffectSelectorKind::StatusHolder;
+    rule.intervalFrames = intervalFrames;
+    rule.actions.push_back(EffectAction{ damage });
+    if (consumeStatus)
+    {
+        rule.actions.push_back(EffectAction{ ConsumeThisStatusAction{} });
+    }
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
+}
+
+inline std::vector<EffectRuleRuntimeState> initialStatusBehaviorRuntime(
+    const std::shared_ptr<const StatusBehaviorDefinition>& behavior)
+{
+    std::vector<EffectRuleRuntimeState> result;
+    if (!behavior) return result;
+    result.reserve(behavior->rules.size());
+    for (const auto& rule : behavior->rules)
+    {
+        result.push_back({ .intervalFramesRemaining = rule.intervalFrames });
+    }
+    return result;
+}
+
+inline BattleStatusContribution boundStatusBehaviorContribution(
+    BattleStatusKind kind,
+    std::shared_ptr<const StatusBehaviorDefinition> behavior,
+    int sourceUnitId,
+    int sourceId,
+    int stacks = 1,
+    std::uint64_t appliedSequence = 1,
+    int remainingFrames = 120,
+    std::uint32_t producerRuleOrder = 0)
+{
+    assert(behavior);
+    const EffectSourceBinding binding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = sourceId,
+        .ownerUnitId = sourceUnitId,
+    };
+    const EffectRuleId ruleId{ static_cast<std::uint64_t>(sourceId) };
+    auto behaviorRuntime = initialStatusBehaviorRuntime(behavior);
+    return {
+        .kind = kind,
+        .producer = StatusProducerKey{ binding, ruleId, 0 },
+        .producerFamily = StatusProducerFamilyKey{
+            binding.kind,
+            binding.sourceId,
+            binding.ownerUnitId,
+            ruleId,
+            0,
+        },
+        .behavior = std::move(behavior),
+        .behaviorRuntime = std::move(behaviorRuntime),
+        .sourceUnitId = sourceUnitId,
+        .remainingFrames = remainingFrames,
+        .maximumFrames = remainingFrames,
+        .stacks = stacks,
+        .origin = BattleStatusEffectOrigin{ binding, ruleId, producerRuleOrder },
+        .appliedSequence = appliedSequence,
+    };
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> poisonStatusBehavior(
+    int currentHpDamagePercent,
+    int intervalFrames = 30)
+{
+    EffectNumber amount;
+    amount.base = EffectNumberBase::TargetCurrentHp;
+    amount.percent = currentHpDamagePercent;
+    amount.minimum = 1;
+    return periodicDamageBehavior(
+        BattleDamageKind::Poison,
+        amount,
+        intervalFrames,
+        true);
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> bleedStatusBehavior(
+    int maxHpDamagePercent = 1,
+    int intervalFrames = 10)
+{
+    EffectNumber amount;
+    amount.base = EffectNumberBase::TargetMaxHp;
+    amount.percent = maxHpDamagePercent;
+    amount.minimum = 1;
+    amount.statusScale = StatusNumberScale::PerContributionLayer;
+    return periodicDamageBehavior(
+        BattleDamageKind::Bleed,
+        amount,
+        intervalFrames);
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> trueQiStatusBehavior(
+    int pureDamagePerLayer)
+{
+    DealDamageAction damage;
+    damage.amount.flat = pureDamagePerLayer;
+    damage.amount.statusScale = StatusNumberScale::PerContributionLayer;
+    damage.kind = BattleDamageKind::Pure;
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.event = EffectEvent::HitBeforeDamage;
+    rule.observation = EffectObservationScope::StatusHolderEventSource;
+    rule.selector.kind = EffectSelectorKind::HitTarget;
+    rule.actions.push_back(EffectAction{ damage });
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> sevenStarStatusBehavior()
+{
+    ModifyDamageAction ignoreDefense;
+    ignoreDefense.stage = DamageModifierStage::BeforeDefense;
+    ignoreDefense.channel = DamageChannel::Skill;
+    ignoreDefense.amount.flat = 50;
+    ignoreDefense.operation = DamageModifierOperation::IgnoreDefensePercent;
+
+    ApplyStatusAction stun;
+    stun.status = BattleStatusKind::Stun;
+    stun.durationFrames = 30;
+    stun.quantity = NoStatusQuantity{};
+    stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+
+    ConsumeThisStatusAction consume;
+    consume.quantity = 1;
+    consume.whenDepleted = std::move(stun);
+
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.event = EffectEvent::HitBeforeDamage;
+    rule.observation = EffectObservationScope::SourceOwnerTeamEventSource;
+    rule.selector.kind = EffectSelectorKind::HitTarget;
+    rule.conditions.push_back(TargetIsStatusHolderCondition{});
+    rule.actions = { EffectAction{ ignoreDefense }, EffectAction{ consume } };
+
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> persistentStatusBehavior(
+    std::vector<EffectAction> actions)
+{
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.event = EffectEvent::StatusPersistent;
+    rule.observation = EffectObservationScope::StatusHolderEventSource;
+    rule.selector.kind = EffectSelectorKind::StatusHolder;
+    rule.actions = std::move(actions);
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> attackSuppressionStatusBehavior(
+    BattleStatusKind kind,
+    int originalTargetShield = 0)
+{
+    EffectRule rule;
+    rule.id = EffectRuleId{ 1 };
+    rule.event = EffectEvent::HitBeforeDamage;
+    rule.selector.kind = EffectSelectorKind::StatusHolder;
+    if (kind == BattleStatusKind::NextAttackMiss)
+    {
+        rule.observation = EffectObservationScope::StatusHolderEventTarget;
+        rule.actions.push_back(EffectAction{ MakeIncomingAttackMissAction{} });
+    }
+    else
+    {
+        assert(kind == BattleStatusKind::NeutralizeForce
+            || kind == BattleStatusKind::Blinded);
+        rule.observation = EffectObservationScope::StatusHolderEventSource;
+        SuppressCurrentCastContactsAction suppress;
+        if (kind == BattleStatusKind::NeutralizeForce)
+        {
+            EffectNumber shield;
+            shield.flat = originalTargetShield;
+            suppress.originalTargetShield = shield;
+        }
+        rule.actions.push_back(EffectAction{ suppress });
+    }
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules.push_back(std::move(rule));
+    return behavior;
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> witheredBoneStatusBehavior(
+    int damageTakenPercent,
+    int receivedHealingReductionPercent)
+{
+    ModifyDamageAction damage;
+    damage.perspective = DamageModifierPerspective::Incoming;
+    damage.stage = DamageModifierStage::Final;
+    damage.channel = DamageChannel::All;
+    damage.amount.flat = damageTakenPercent;
+    damage.operation = DamageModifierOperation::PercentAdd;
+    ModifyHealTransactionAction healing;
+    healing.operation = HealModifierOperation::MultiplyReceived;
+    healing.kinds = {
+        "直接", "隊伍", "光環", "命中", "擊殺獎勵",
+        "死亡醫療", "救援", "生命回復", "吸血",
+    };
+    healing.percent = 100 - receivedHealingReductionPercent;
+    return persistentStatusBehavior({ EffectAction{ damage }, EffectAction{ healing } });
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> battleSpiritStatusBehavior(
+    int skillDamagePercentPerLayer,
+    int damageReductionPercentPerLayer)
+{
+    ModifyDamageAction outgoing;
+    outgoing.perspective = DamageModifierPerspective::Outgoing;
+    outgoing.stage = DamageModifierStage::BeforeDefense;
+    outgoing.channel = DamageChannel::Skill;
+    outgoing.amount.flat = skillDamagePercentPerLayer;
+    outgoing.amount.statusScale = StatusNumberScale::PerContributionLayer;
+    outgoing.operation = DamageModifierOperation::PercentAdd;
+    ModifyDamageAction incoming;
+    incoming.perspective = DamageModifierPerspective::Incoming;
+    incoming.stage = DamageModifierStage::BeforeDefense;
+    incoming.channel = DamageChannel::All;
+    incoming.amount.flat = -damageReductionPercentPerLayer;
+    incoming.amount.statusScale = StatusNumberScale::PerContributionLayer;
+    incoming.operation = DamageModifierOperation::PercentAdd;
+    return persistentStatusBehavior({ EffectAction{ outgoing }, EffectAction{ incoming } });
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> damageBlockStatusBehavior()
+{
+    return persistentStatusBehavior({ EffectAction{ BlockPositiveDamageAction{} } });
+}
+
+inline std::shared_ptr<const StatusBehaviorDefinition> singleHitCapStatusBehavior(int cap)
+{
+    ModifyDamageAction action;
+    action.perspective = DamageModifierPerspective::Incoming;
+    action.stage = DamageModifierStage::Final;
+    action.channel = DamageChannel::All;
+    action.amount.flat = cap;
+    action.operation = DamageModifierOperation::CapSingleHitAtValue;
+    return persistentStatusBehavior({ EffectAction{ action } });
+}
+
 inline BattleAttackPayload ordinaryProjectilePayload()
 {
     return {
@@ -147,7 +406,8 @@ inline BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 inline void appendTrackedAttack(
     BattleRuntimeState& state,
     BattleAttackInstance attack,
-    std::optional<int> syntheticParentRuntimeAttackId = std::nullopt)
+    std::optional<int> syntheticParentRuntimeAttackId = std::nullopt,
+    bool ultimate = false)
 {
     assert(attack.id >= 0);
     assert(attack.state.attackSourceUnitId >= 0);
@@ -157,6 +417,8 @@ inline void appendTrackedAttack(
     const auto cast = state.castLifecycle.beginRootCast({
         .sourceUnitId = attack.state.attackSourceUnitId,
         .magicId = attack.state.skillId,
+        .ultimate = ultimate,
+        .origin = ultimate ? CastOriginKind::Ultimate : CastOriginKind::Normal,
     });
     state.effectIntegration.casts.emplace(
         cast.provenance.castId,
@@ -268,7 +530,10 @@ struct HitDamageFrameState
     BattleRuntimeState state;
 };
 
-inline HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
+inline HitDamageFrameState hitDamageFrameState(
+    int resolvedBaseDamage,
+    int defenderHp,
+    bool ultimate = false)
 {
     HitDamageFrameState frame;
     auto& state = frame.state;
@@ -294,7 +559,7 @@ inline HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defen
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.position = { 100, 100, 0 };
     projectile.state.velocity = { 5, 0, 0 };
-    appendTrackedAttack(state, std::move(projectile));
+    appendTrackedAttack(state, std::move(projectile), std::nullopt, ultimate);
 
     seedRuntimeUnits(state, {
         runtimeUnitSnapshot(0, 0, 80, { 100, 100, 0 }),
@@ -330,15 +595,33 @@ inline void addAttackSuppressionStatus(
     BattleRuntimeState& state,
     int unitId,
     BattleStatusKind kind,
-    int potency = 0)
+    int potency = 0,
+    int stacks = 1)
 {
     auto& effects = state.units.require(unitId).status.effects;
+    const EffectSourceBinding binding{
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 700 + static_cast<int>(kind),
+        .ownerUnitId = unitId,
+        .sourceTeam = state.units.requireCore(unitId).team,
+    };
+    const EffectRuleId ruleId{ static_cast<std::uint64_t>(700 + static_cast<int>(kind)) };
+    const auto behavior = attackSuppressionStatusBehavior(kind, potency);
     effects.statuses.push_back({
         .kind = kind,
+        .producer = StatusProducerKey{ .binding = binding, .ruleId = ruleId },
+        .producerFamily = StatusProducerFamilyKey{
+            .sourceKind = binding.kind,
+            .sourceId = binding.sourceId,
+            .logicalOwnerUnitId = binding.ownerUnitId,
+            .ruleId = ruleId,
+        },
+        .behavior = behavior,
+        .behaviorRuntime = initialStatusBehaviorRuntime(behavior),
         .sourceUnitId = unitId,
         .remainingFrames = 120,
-        .stacks = 1,
-        .potency = potency,
+        .stacks = stacks,
+        .origin = BattleStatusEffectOrigin{ binding, ruleId, 0 },
         .appliedSequence = effects.nextStatusSequence++,
     });
 }

@@ -172,16 +172,34 @@ TEST_CASE("content fingerprint follows semantic rules but not the release label"
     auto& changedModifier = std::get<ModifyAttributeAction>(
         changedEffectData.magicEffects.front().rules.front().actions.front().value);
     changedModifier.amount.flat++;
+    auto unfilteredStatusData = syntheticContentData(Difficulty::Normal);
+    auto& unfilteredStatusNumber = std::get<ModifyAttributeAction>(
+        unfilteredStatusData.magicEffects.front().rules.front().actions.front().value)
+        .amount;
+    unfilteredStatusNumber.base = EffectNumberBase::SourceStatusQuantity;
+    unfilteredStatusNumber.status = BattleStatusKind::TrueQi;
+    unfilteredStatusNumber.percent = 100;
+    unfilteredStatusNumber.flat = 0;
+    auto ownerFilteredStatusData = unfilteredStatusData;
+    std::get<ModifyAttributeAction>(
+        ownerFilteredStatusData.magicEffects.front().rules.front().actions.front().value)
+        .amount.statusSource = StatusSourceMatch::EffectOwner;
     const ChessGameContent first(syntheticContentData(Difficulty::Normal), "1.2.3");
     const ChessGameContent relabeled(syntheticContentData(Difficulty::Normal), "2.0.0");
     const ChessGameContent changed(std::move(changedData), "1.2.3");
     const ChessGameContent renamedEffect(std::move(renamedEffectData), "1.2.3");
     const ChessGameContent changedEffect(std::move(changedEffectData), "1.2.3");
+    const ChessGameContent unfilteredStatus(
+        std::move(unfilteredStatusData), "1.2.3");
+    const ChessGameContent ownerFilteredStatus(
+        std::move(ownerFilteredStatusData), "1.2.3");
 
     CHECK(first.contentFingerprint() == relabeled.contentFingerprint());
     CHECK(first.contentFingerprint() == renamedEffect.contentFingerprint());
     CHECK(first.contentFingerprint() != changed.contentFingerprint());
     CHECK(first.contentFingerprint() != changedEffect.contentFingerprint());
+    CHECK(unfilteredStatus.contentFingerprint()
+        != ownerFilteredStatus.contentFingerprint());
 }
 
 TEST_CASE("game version loader reads release configuration", "[chess][content][version]")

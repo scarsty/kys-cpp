@@ -2,16 +2,21 @@
 
 #include "../ChessBattleEffectSemantics.h"
 #include "../ChessBattleEffectValidation.h"
+#include "BattleEffectCommandSystem.h"
 #include "BattleRuntimeRandom.h"
+#include "BattleStatusSystem.h"
 #include "BattleUnitValues.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <format>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 
 namespace KysChess::Battle
@@ -43,6 +48,122 @@ bool effectSourceRuleOrderLess(
         : lhsOrder < rhsOrder;
 }
 
+EffectDamageOrigin makeEffectDamageOrigin(
+    EffectSourceBinding binding,
+    EffectRuleId ruleId,
+    std::uint32_t authoredActionOrder,
+    std::optional<EffectStatusContributionContext> statusContribution,
+    std::optional<BattleCastProvenance> triggeringCast,
+    std::optional<BattleAttackProvenance> triggeringAttack)
+{
+    if (statusContribution)
+    {
+        return EffectStatusDamageOrigin{
+            .binding = std::move(binding),
+            .contribution = std::move(*statusContribution),
+            .behaviorActionOrder = authoredActionOrder,
+            .triggeringCast = std::move(triggeringCast),
+            .triggeringAttack = std::move(triggeringAttack),
+        };
+    }
+    return EffectRuleDamageOrigin{
+        .ruleId = ruleId,
+        .binding = std::move(binding),
+        .actionOrder = authoredActionOrder,
+        .triggeringCast = std::move(triggeringCast),
+        .triggeringAttack = std::move(triggeringAttack),
+    };
+}
+
+const BattleAttackProvenance* effectDamageAttackProvenance(
+    const EffectDamageOrigin& origin)
+{
+    if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
+    {
+        return &attack->provenance;
+    }
+    if (const auto* status = std::get_if<EffectStatusDamageOrigin>(&origin))
+    {
+        return status->triggeringAttack ? &*status->triggeringAttack : nullptr;
+    }
+    if (const auto* rule = std::get_if<EffectRuleDamageOrigin>(&origin))
+    {
+        return rule->triggeringAttack ? &*rule->triggeringAttack : nullptr;
+    }
+    return nullptr;
+}
+
+const BattleCastProvenance* effectDamageCastProvenance(
+    const EffectDamageOrigin& origin)
+{
+    if (const auto* attack = effectDamageAttackProvenance(origin))
+    {
+        return &attack->cast;
+    }
+    if (const auto* status = std::get_if<EffectStatusDamageOrigin>(&origin))
+    {
+        return status->triggeringCast ? &*status->triggeringCast : nullptr;
+    }
+    if (const auto* rule = std::get_if<EffectRuleDamageOrigin>(&origin))
+    {
+        return rule->triggeringCast ? &*rule->triggeringCast : nullptr;
+    }
+    return nullptr;
+}
+
+EffectExecutionOrderKey effectExecutionOrderKey(
+    const EffectCommandMetadata& metadata)
+{
+    auto result = EffectExecutionOrderKey{
+        .sourcePrecedence = effectSourcePrecedence(metadata.binding.kind),
+        .producerRuleOrder = metadata.ruleOrder,
+        .lane = metadata.executionLane,
+        .producerActionOrder = metadata.producerActionOrder,
+        .behaviorRuleOrder = metadata.behaviorRuleOrder,
+        .contributionSequence = metadata.statusContribution
+            ? metadata.statusContribution->appliedSequence
+            : std::uint64_t{},
+        .actionOrder = metadata.actionOrder,
+        .targetOrder = metadata.targetOrder,
+        .commandOrdinal = metadata.commandOrdinal,
+    };
+    if (metadata.statusContribution)
+    {
+        result = statusBehaviorExecutionOrderKey(
+            metadata.binding,
+            metadata.ruleOrder,
+            metadata.producerActionOrder,
+            metadata.behaviorRuleOrder,
+            metadata.statusContribution->holderUnitId,
+            metadata.statusContribution->appliedSequence,
+            metadata.actionOrder);
+        result.targetOrder = metadata.targetOrder;
+        result.commandOrdinal = metadata.commandOrdinal;
+    }
+    return result;
+}
+
+EffectExecutionOrderKey statusBehaviorExecutionOrderKey(
+    const EffectSourceBinding& binding,
+    std::uint32_t producerRuleOrder,
+    std::uint32_t producerActionOrder,
+    std::uint32_t behaviorRuleOrder,
+    int holderUnitId,
+    std::uint64_t contributionSequence,
+    std::uint32_t actionOrder)
+{
+    return {
+        .sourcePrecedence = effectSourcePrecedence(binding.kind),
+        .producerRuleOrder = producerRuleOrder,
+        .lane = EffectExecutionLane::StatusBehavior,
+        .producerActionOrder = producerActionOrder,
+        .behaviorRuleOrder = behaviorRuleOrder,
+        .holderUnitId = holderUnitId,
+        .contributionSequence = contributionSequence,
+        .actionOrder = actionOrder,
+    };
+}
+
 namespace
 {
 
@@ -54,6 +175,34 @@ struct Overloaded : Ts...
 
 template<class... Ts>
 Overloaded(Ts...) -> Overloaded<Ts...>;
+
+void appendDispatchResult(BattleEffectDispatchResult& destination,
+                          BattleEffectDispatchResult source)
+{
+    std::uint64_t nextCommandOrdinal{};
+    for (const auto& command : destination.commands)
+    {
+        assert(command.metadata.commandOrdinal
+            < std::numeric_limits<std::uint64_t>::max());
+        nextCommandOrdinal = std::max(
+            nextCommandOrdinal,
+            command.metadata.commandOrdinal + 1);
+    }
+    for (auto& command : source.commands)
+    {
+        assert(command.metadata.commandOrdinal
+            <= std::numeric_limits<std::uint64_t>::max() - nextCommandOrdinal);
+        command.metadata.commandOrdinal += nextCommandOrdinal;
+    }
+    destination.activations.insert(
+        destination.activations.end(),
+        std::make_move_iterator(source.activations.begin()),
+        std::make_move_iterator(source.activations.end()));
+    destination.commands.insert(
+        destination.commands.end(),
+        std::make_move_iterator(source.commands.begin()),
+        std::make_move_iterator(source.commands.end()));
+}
 
 EffectRuleRuntimeKey runtimeKey(const EffectSourceBinding& binding, EffectRuleId ruleId)
 {
@@ -91,29 +240,24 @@ std::vector<const BoundEffectRule*> orderedBoundRules(
     return ordered;
 }
 
-EffectSharedCooldownKey sharedCooldownKey(
-    const EffectSourceBinding& binding,
-    EffectRuleId ruleId)
+int& activationEvaluation(
+    EffectRuleRuntimeState& runtime,
+    BattleCastId castId,
+    int targetUnitId)
 {
-    return {
-        .sourceKind = binding.kind,
-        .sourceId = binding.sourceId,
-        .sourceTeam = binding.sourceTeam,
-        .sourceInstanceId = binding.runtimeInstanceId,
-        .ruleId = ruleId,
-    };
-}
-
-EffectActivationScopeKey activationScopeKey(const EffectSourceBinding& binding,
-                                             EffectRuleId ruleId,
-                                             BattleCastId castId,
-                                             int targetUnitId)
-{
-    return {
-        .rule = runtimeKey(binding, ruleId),
-        .castId = castId,
+    const auto found = std::ranges::find_if(
+        runtime.activationEvaluations,
+        [&](const auto& entry)
+        {
+            return entry.castId == castId.value()
+                && entry.targetUnitId == targetUnitId;
+        });
+    if (found != runtime.activationEvaluations.end()) return found->count;
+    runtime.activationEvaluations.push_back({
+        .castId = castId.value(),
         .targetUnitId = targetUnitId,
-    };
+    });
+    return runtime.activationEvaluations.back().count;
 }
 
 EffectStateKey stateKey(const EffectSourceBinding& binding,
@@ -182,38 +326,6 @@ std::int64_t saturatingAdd(std::int64_t lhs, std::int64_t rhs)
     return lhs + rhs;
 }
 
-std::int64_t roundRatio(
-    std::int64_t numerator,
-    std::int64_t denominator,
-    EffectRounding rounding)
-{
-    assert(denominator > 0);
-    std::int64_t quotient = numerator / denominator;
-    const std::int64_t remainder = numerator % denominator;
-    if (remainder == 0)
-    {
-        return quotient;
-    }
-
-    switch (rounding)
-    {
-    case EffectRounding::TowardZero:
-        return quotient;
-    case EffectRounding::Floor:
-        return numerator < 0 ? quotient - 1 : quotient;
-    case EffectRounding::Ceil:
-        return numerator > 0 ? quotient + 1 : quotient;
-    case EffectRounding::Nearest:
-        if (std::abs(remainder) * 2 >= denominator)
-        {
-            quotient += numerator > 0 ? 1 : -1;
-        }
-        return quotient;
-    }
-    assert(false);
-    return quotient;
-}
-
 int clampToInt(std::int64_t value)
 {
     return static_cast<int>(std::clamp(
@@ -224,43 +336,39 @@ int clampToInt(std::int64_t value)
 
 const BattleCastProvenance* castProvenance(const EffectEventContext& context)
 {
-    const auto fromOrigin = [](const EffectDamageOrigin& origin) -> const BattleCastProvenance*
-    {
-        if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
-        {
-            return &attack->provenance.cast;
-        }
-        return nullptr;
-    };
     return std::visit(Overloaded{
         [](const CastPlanEventData& data) { return &data.provenance; },
         [](const CastCommitEventData& data) { return &data.provenance; },
         [](const AttackEventData& data) { return &data.provenance.cast; },
         [](const HitEventData& data) { return &data.provenance.cast; },
         [](const CastAggregateEventData& data) { return &data.provenance; },
-        [&](const DamageResultEventData& data) { return fromOrigin(data.origin); },
-        [&](const ShieldBreakEventData& data) { return fromOrigin(data.cause); },
-        [&](const DeathEventData& data) { return fromOrigin(data.cause); },
+        [&](const DamageResultEventData& data) {
+            return effectDamageCastProvenance(data.origin);
+        },
+        [&](const ShieldBreakEventData& data) {
+            return effectDamageCastProvenance(data.cause);
+        },
+        [&](const DeathEventData& data) {
+            return effectDamageCastProvenance(data.cause);
+        },
         [](const auto&) -> const BattleCastProvenance* { return nullptr; },
     }, context.payload);
 }
 
 const BattleAttackProvenance* attackProvenance(const EffectEventContext& context)
 {
-    const auto fromOrigin = [](const EffectDamageOrigin& origin) -> const BattleAttackProvenance*
-    {
-        if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
-        {
-            return &attack->provenance;
-        }
-        return nullptr;
-    };
     return std::visit(Overloaded{
         [](const AttackEventData& data) { return &data.provenance; },
         [](const HitEventData& data) { return &data.provenance; },
-        [&](const DamageResultEventData& data) { return fromOrigin(data.origin); },
-        [&](const ShieldBreakEventData& data) { return fromOrigin(data.cause); },
-        [&](const DeathEventData& data) { return fromOrigin(data.cause); },
+        [&](const DamageResultEventData& data) {
+            return effectDamageAttackProvenance(data.origin);
+        },
+        [&](const ShieldBreakEventData& data) {
+            return effectDamageAttackProvenance(data.cause);
+        },
+        [&](const DeathEventData& data) {
+            return effectDamageAttackProvenance(data.cause);
+        },
         [](const auto&) -> const BattleAttackProvenance* { return nullptr; },
     }, context.payload);
 }
@@ -682,19 +790,8 @@ bool matchesDamageKindLabel(BattleDamageKind kind, std::string_view label)
 
 bool matchesHealKindLabel(BattleHealKind kind, std::string_view label)
 {
-    switch (kind)
-    {
-    case BattleHealKind::Direct: return label == "直接" || label == "Direct";
-    case BattleHealKind::Team: return label == "隊伍" || label == "Team";
-    case BattleHealKind::Aura: return label == "光環" || label == "Aura";
-    case BattleHealKind::OnHit: return label == "命中" || label == "OnHit";
-    case BattleHealKind::KillReward: return label == "擊殺" || label == "KillReward";
-    case BattleHealKind::DeathMedical: return label == "死亡醫療" || label == "DeathMedical";
-    case BattleHealKind::Rescue: return label == "救援" || label == "Rescue";
-    case BattleHealKind::Regeneration: return label == "再生" || label == "Regeneration";
-    case BattleHealKind::Lifesteal: return label == "吸血" || label == "Lifesteal";
-    }
-    return false;
+    assert(kind != BattleHealKind::Count);
+    return label == effectHealKindAuthorLabel(kind);
 }
 
 bool conditionSatisfied(const EffectCondition& condition,
@@ -861,6 +958,11 @@ bool conditionSatisfied(const EffectCondition& condition,
             return target.maxMp > 0 && target.mp >= target.maxMp;
         },
         [&](const RandomSelectionAvailableCondition&) { return selectionAvailable; },
+        [&](const TargetIsStatusHolderCondition&)
+        {
+            return context.header.statusContribution
+                && target.id == context.header.statusContribution->holderUnitId;
+        },
     }, condition);
 }
 
@@ -933,6 +1035,26 @@ bool ruleObservesEvent(const BoundEffectRule& bound,
         const auto* target = transactionTargetSnapshot(context);
         return target && target->id == bound.binding.ownerUnitId;
     }
+    case EffectObservationScope::StatusHolderEventSource:
+        return context.header.statusContribution
+            && (context.event == EffectEvent::FrameAdvanced
+                || sourceUnitId(context)
+                    == context.header.statusContribution->holderUnitId);
+    case EffectObservationScope::StatusHolderEventTarget:
+    {
+        const auto* target = transactionTargetSnapshot(context);
+        return context.header.statusContribution
+            && target
+            && target->id == context.header.statusContribution->holderUnitId;
+    }
+    case EffectObservationScope::StatusSourceEventSource:
+        return context.header.statusContribution
+            && sourceUnitId(context) == context.header.statusContribution->sourceUnitId;
+    case EffectObservationScope::SourceOwnerTeamEventSource:
+    {
+        const auto* source = sourceSnapshot(context);
+        return source && source->team == bound.binding.sourceTeam;
+    }
     }
     assert(false);
     return false;
@@ -948,7 +1070,9 @@ void rewriteObservedOwner(const BoundEffectRule& bound,
     const auto* owner = context.header.battle.findUnit(bound.binding.ownerUnitId);
     if (!owner)
     {
-        throw std::logic_error("觀察規則的效果擁有者不存在");
+        throw std::logic_error(std::format(
+            "觀察規則的效果擁有者 {} 不存在",
+            bound.binding.ownerUnitId));
     }
     context.header.owner = owner;
 }
@@ -1007,6 +1131,22 @@ void rewriteScopedRuleContext(const BoundEffectRule& bound,
         if (auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
         {
             rewriteBorrowedAttack(attack->provenance, bound);
+            return;
+        }
+        if (auto* status = std::get_if<EffectStatusDamageOrigin>(&origin))
+        {
+            if (status->triggeringAttack)
+                rewriteBorrowedAttack(*status->triggeringAttack, bound);
+            if (status->triggeringCast)
+                rewriteBorrowedCast(*status->triggeringCast, bound);
+            return;
+        }
+        if (auto* rule = std::get_if<EffectRuleDamageOrigin>(&origin))
+        {
+            if (rule->triggeringAttack)
+                rewriteBorrowedAttack(*rule->triggeringAttack, bound);
+            if (rule->triggeringCast)
+                rewriteBorrowedCast(*rule->triggeringCast, bound);
         }
     };
     std::visit(Overloaded{
@@ -1156,7 +1296,15 @@ std::optional<BorrowedRuleActionCategory> borrowedActionCategory(
         [](const ModifyHealTransactionAction&) { return std::optional{ BorrowedRuleActionCategory::HealTransactionModifier }; },
         [](const ApplyStatusAction&) { return std::optional{ BorrowedRuleActionCategory::Status }; },
         [](const ConsumeStatusAction&) { return std::optional{ BorrowedRuleActionCategory::Status }; },
+        [](const ConsumeThisStatusAction&)
+            -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
         [](const RemoveStatusAction&) { return std::optional{ BorrowedRuleActionCategory::Status }; },
+        [](const SuppressCurrentCastContactsAction&)
+            -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+        [](const MakeIncomingAttackMissAction&)
+            -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+        [](const BlockPositiveDamageAction&)
+            -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
         [](const DealDamageAction&) { return std::optional{ BorrowedRuleActionCategory::Damage }; },
         [](const ModifyAttackAction&) { return std::optional{ BorrowedRuleActionCategory::Attack }; },
         [](const ForceMoveAction&) { return std::optional{ BorrowedRuleActionCategory::ForcedMovement }; },
@@ -1320,9 +1468,29 @@ bool requiresExactRuntimePhaseQuery(const EffectRule& rule)
     });
 }
 
+std::uint64_t authoredActionLeafCount(const EffectAction& action)
+{
+    const auto* conditional = std::get_if<std::shared_ptr<ConditionalEffectAction>>(
+        &action.value);
+    if (!conditional) return 1;
+    assert(*conditional);
+    const auto branchCount = [](const std::vector<EffectAction>& actions)
+    {
+        return std::accumulate(
+            actions.begin(), actions.end(), std::uint64_t{},
+            [](std::uint64_t count, const EffectAction& nested)
+            {
+                return saturatingAdd(count, authoredActionLeafCount(nested));
+            });
+    };
+    return saturatingAdd(
+        branchCount((*conditional)->whenTrue),
+        branchCount((*conditional)->whenFalse));
+}
+
 std::int64_t percentOf(std::int64_t value, int percent)
 {
-    return roundRatio(
+    return roundEffectRatio(
         saturatingMultiply(value, percent),
         100,
         EffectRounding::TowardZero);
@@ -1355,19 +1523,120 @@ struct CommandEmitter
         return BattleEffectSystem::evaluateNumber(number, stateContext, target);
     }
 
-    std::pair<int, int> evaluateStatusEffects(
-        const ApplyStatusAction& action,
+    std::pair<std::int64_t, std::int64_t> applicationBaseRatio(
+        const EffectNumber& number,
+        EffectNumberBase base,
         const EffectUnitSnapshot& target) const
     {
-        return evaluateStatusRuntimeValues(action, [&](const EffectNumber& number)
+        assert(statusNumberBindingPhase(base)
+            == StatusNumberBindingPhase::ApplicationBound);
+        switch (applicationBaseBindingKind(base))
         {
-            return evaluate(number, target);
-        });
+        case ApplicationBaseBindingKind::SourceStar:
+            return { context.header.owner->star, 1 };
+        case ApplicationBaseBindingKind::SourceAttack:
+            return { context.header.owner->attack, 1 };
+        case ApplicationBaseBindingKind::SourceMaxHp:
+            return { context.header.owner->maxHp, 1 };
+        case ApplicationBaseBindingKind::SourceMissingHpRatio:
+            assert(context.header.owner->maxHp > 0);
+            return {
+                std::clamp(
+                    context.header.owner->maxHp - context.header.owner->hp,
+                    0,
+                    context.header.owner->maxHp),
+                context.header.owner->maxHp,
+            };
+        case ApplicationBaseBindingKind::SourceCurrentMpRatio:
+            assert(context.header.owner->maxMp > 0);
+            return {
+                std::clamp(context.header.owner->mp, 0, context.header.owner->maxMp),
+                context.header.owner->maxMp,
+            };
+        case ApplicationBaseBindingKind::SourceStatusQuantity:
+        {
+            assert(number.status);
+            return {
+                context.header.owner->stackCount(
+                    *number.status,
+                    resolveStatusContributionFilter(
+                        number.statusSource,
+                        bound.binding,
+                        context.header.statusContribution)),
+                1,
+            };
+        }
+        case ApplicationBaseBindingKind::StoredStateValue:
+            assert(number.stateSlot);
+            return {
+                store.stateValue(
+                    bound.binding,
+                    *number.stateSlot,
+                    stateScopeId(*number.stateSlot, context)),
+                1,
+            };
+        case ApplicationBaseBindingKind::ApplicationTargetMaxHp:
+            return { target.maxHp, 1 };
+        case ApplicationBaseBindingKind::None:
+            break;
+        }
+        std::unreachable();
+    }
+
+    void bindStatusNumber(
+        EffectNumber& number,
+        const EffectUnitSnapshot& target) const
+    {
+        const bool bindBase = statusNumberBindingPhase(number.base)
+            == StatusNumberBindingPhase::ApplicationBound;
+        const bool bindMultiplier = number.multiplierBase
+            && statusNumberBindingPhase(*number.multiplierBase)
+                == StatusNumberBindingPhase::ApplicationBound;
+        if (!bindBase && !bindMultiplier) return;
+
+        if (bindBase && bindMultiplier)
+        {
+            const auto lhs = applicationBaseRatio(number, number.base, target);
+            const auto rhs = applicationBaseRatio(number, *number.multiplierBase, target);
+            number.base = EffectNumberBase::BoundRatio;
+            number.multiplierBase.reset();
+            number.boundNumerator = saturatingMultiply(lhs.first, rhs.first);
+            number.boundDenominator = saturatingMultiply(lhs.second, rhs.second);
+        }
+        else
+        {
+            const auto base = bindBase ? number.base : *number.multiplierBase;
+            const auto captured = applicationBaseRatio(number, base, target);
+            if (bindBase)
+                number.base = EffectNumberBase::BoundRatio;
+            else
+                number.multiplierBase = EffectNumberBase::BoundRatio;
+            number.boundNumerator = captured.first;
+            number.boundDenominator = captured.second;
+        }
+
+    }
+
+    std::shared_ptr<const StatusBehaviorDefinition> bindStatusBehavior(
+        const std::shared_ptr<const StatusBehaviorDefinition>& source,
+        const EffectUnitSnapshot& target) const
+    {
+        if (!source) return {};
+        auto result = std::make_shared<StatusBehaviorDefinition>(*source);
+        for (auto& rule : result->rules)
+        {
+            forEachEffectNumber(rule, [&](EffectNumber& number)
+            {
+                bindStatusNumber(number, target);
+            });
+        }
+        return result;
     }
 
     void emit(const EffectAction& effectAction,
               const EffectUnitSnapshot& target,
               std::uint32_t actionOrder,
+              std::uint32_t authoredActionOrder,
               std::uint32_t targetOrder)
     {
         if (const auto* conditional = std::get_if<std::shared_ptr<ConditionalEffectAction>>(
@@ -1381,9 +1650,34 @@ struct CommandEmitter
                 (*conditional)->conditions, context, target, true)
                 ? (*conditional)->whenTrue
                 : (*conditional)->whenFalse;
+            std::uint64_t nestedOffset = &branch == &(*conditional)->whenTrue
+                ? 0
+                : std::accumulate(
+                    (*conditional)->whenTrue.begin(),
+                    (*conditional)->whenTrue.end(),
+                    std::uint64_t{},
+                    [](std::uint64_t count, const EffectAction& nested)
+                    {
+                        return saturatingAdd(
+                            count,
+                            authoredActionLeafCount(nested));
+                    });
             for (const auto& nested : branch)
             {
-                emit(nested, target, actionOrder, targetOrder);
+                assert(nestedOffset <= std::numeric_limits<std::uint32_t>::max());
+                assert(static_cast<std::uint64_t>(actionOrder) + nestedOffset
+                    <= std::numeric_limits<std::uint32_t>::max());
+                assert(static_cast<std::uint64_t>(authoredActionOrder) + nestedOffset
+                    <= std::numeric_limits<std::uint32_t>::max());
+                emit(
+                    nested,
+                    target,
+                    actionOrder + static_cast<std::uint32_t>(nestedOffset),
+                    authoredActionOrder + static_cast<std::uint32_t>(nestedOffset),
+                    targetOrder);
+                nestedOffset = saturatingAdd(
+                    nestedOffset,
+                    authoredActionLeafCount(nested));
             }
             return;
         }
@@ -1393,12 +1687,24 @@ struct CommandEmitter
             .ruleId = bound.rule.id,
             .event = context.event,
             .ruleOrder = bound.order,
+            .authoredActionOrder = authoredActionOrder,
             .actionOrder = actionOrder,
             .targetOrder = targetOrder,
             .commandOrdinal = nextCommandOrdinal++,
             .targetUnitId = target.id,
             .eventSourceUnitId = sourceUnitId(context).value_or(-1),
         };
+        if (context.header.statusContribution)
+        {
+            metadata.ruleId = context.header.statusContribution->producerRuleId;
+            metadata.ruleOrder = context.header.statusContribution->producerRuleOrder;
+            metadata.executionLane = EffectExecutionLane::StatusBehavior;
+            metadata.producerActionOrder =
+                context.header.statusContribution->producerActionOrder;
+            metadata.behaviorRuleOrder =
+                context.header.statusContribution->behaviorRuleOrder;
+            metadata.statusContribution = context.header.statusContribution;
+        }
 
         std::visit(Overloaded{
             [&](const ModifyAttributeAction& action)
@@ -1432,11 +1738,10 @@ struct CommandEmitter
             },
             [&](const ApplyStatusAction& action)
             {
-                const auto [potency, secondaryPotency] = evaluateStatusEffects(action, target);
+                auto boundAction = action;
+                boundAction.behavior = bindStatusBehavior(action.behavior, target);
                 commands.push_back({ metadata, ApplyStatusEffectCommand{
-                    action,
-                    potency,
-                    secondaryPotency,
+                    std::move(boundAction),
                     action.duration
                         ? std::optional<int>{ evaluate(*action.duration, target) }
                         : std::nullopt,
@@ -1447,12 +1752,12 @@ struct CommandEmitter
                 std::optional<ApplyStatusEffectCommand> whenDepleted;
                 if (action.whenDepleted)
                 {
-                    const auto [potency, secondaryPotency] = evaluateStatusEffects(
-                        *action.whenDepleted, target);
+                    auto boundAction = *action.whenDepleted;
+                    boundAction.behavior = bindStatusBehavior(
+                        action.whenDepleted->behavior,
+                        target);
                     whenDepleted = ApplyStatusEffectCommand{
-                        *action.whenDepleted,
-                        potency,
-                        secondaryPotency,
+                        std::move(boundAction),
                         action.whenDepleted->duration
                             ? std::optional<int>{ evaluate(*action.whenDepleted->duration, target) }
                             : std::nullopt,
@@ -1463,9 +1768,49 @@ struct CommandEmitter
                     std::move(whenDepleted),
                 } });
             },
+            [&](const ConsumeThisStatusAction& action)
+            {
+                assert(context.header.statusContribution);
+                std::optional<ApplyStatusEffectCommand> whenDepleted;
+                if (action.whenDepleted)
+                {
+                    auto boundAction = *action.whenDepleted;
+                    boundAction.behavior = bindStatusBehavior(
+                        action.whenDepleted->behavior,
+                        target);
+                    whenDepleted = ApplyStatusEffectCommand{
+                        std::move(boundAction),
+                        action.whenDepleted->duration
+                            ? std::optional<int>{ evaluate(*action.whenDepleted->duration, target) }
+                            : std::nullopt,
+                    };
+                }
+                commands.push_back({ metadata, ConsumeThisStatusEffectCommand{
+                    action,
+                    std::move(whenDepleted),
+                } });
+            },
             [&](const RemoveStatusAction& action)
             {
                 commands.push_back({ metadata, RemoveStatusEffectCommand{ action } });
+            },
+            [&](const SuppressCurrentCastContactsAction& action)
+            {
+                assert(context.header.statusContribution);
+                commands.push_back({ metadata, SuppressCurrentCastContactsEffectCommand{
+                    .originalTargetShield = action.originalTargetShield
+                        ? evaluate(*action.originalTargetShield, target)
+                        : 0,
+                } });
+            },
+            [&](const MakeIncomingAttackMissAction&)
+            {
+                assert(context.header.statusContribution);
+                commands.push_back({ metadata, MakeIncomingAttackMissEffectCommand{} });
+            },
+            [&](const BlockPositiveDamageAction&)
+            {
+                throw std::logic_error("抵擋非處決正傷害只能在已綁定的狀態行為中執行");
             },
             [&](const DealDamageAction& action)
             {
@@ -1707,6 +2052,39 @@ struct CommandEmitter
 
 }  // namespace
 
+bool effectHealKindMatchesLabels(
+    BattleHealKind kind,
+    std::span<const std::string> labels)
+{
+    return std::ranges::any_of(labels, [&](const auto& label)
+    {
+        return matchesHealKindLabel(kind, label);
+    });
+}
+
+StatusContributionFilter resolveStatusContributionFilter(
+    StatusSourceMatch match,
+    const EffectSourceBinding& binding,
+    const std::optional<EffectStatusContributionContext>& contribution)
+{
+    switch (match)
+    {
+    case StatusSourceMatch::Any:
+        return {};
+    case StatusSourceMatch::EffectOwner:
+        return { .sourceUnitId = binding.ownerUnitId };
+    case StatusSourceMatch::EffectBinding:
+        return { .producerBinding = binding };
+    case StatusSourceMatch::CurrentContribution:
+        assert(contribution);
+        return {
+            .holderUnitId = contribution->holderUnitId,
+            .appliedSequence = contribution->appliedSequence,
+        };
+    }
+    std::unreachable();
+}
+
 bool EffectUnitSnapshot::hasState(BattleStatusKind state) const
 {
     return stackCount(state) > 0;
@@ -1723,16 +2101,26 @@ bool EffectUnitSnapshot::hasStateFromSource(BattleStatusKind state,
     });
 }
 
-int EffectUnitSnapshot::stackCount(BattleStatusKind stack) const
+int EffectUnitSnapshot::stackCount(
+    BattleStatusKind stack,
+    const StatusContributionFilter& filter) const
 {
-    return std::accumulate(
-        statusDetails.begin(),
-        statusDetails.end(),
-        0,
-        [&](int total, const EffectStatusSnapshot& status)
-        {
-            return status.state == stack ? total + status.stacks : total;
-        });
+    std::int64_t total{};
+    for (const auto& status : statusDetails)
+    {
+        if (status.state != stack
+            || (filter.holderUnitId && id != *filter.holderUnitId)
+            || (filter.sourceUnitId
+                && status.sourceUnitId != *filter.sourceUnitId)
+            || (filter.producerBinding
+                && status.producerBinding != filter.producerBinding)
+            || (filter.appliedSequence
+                && status.appliedSequence != *filter.appliedSequence)) continue;
+        total = std::min<std::int64_t>(
+            std::numeric_limits<int>::max(),
+            total + status.stacks);
+    }
+    return static_cast<int>(total);
 }
 
 bool EffectUnitSnapshot::usesMagic(int magicId) const
@@ -1775,8 +2163,6 @@ void BattleEffectRuleStore::clear()
         indices.clear();
     }
     runtimeByRule_.clear();
-    sharedCooldownUntilFrame_.clear();
-    activationEvaluations_.clear();
     stateValues_.clear();
     blinkAttackWeakestTargetByOwner_.clear();
     nextRuntimeInstanceId_ = 1;
@@ -1789,10 +2175,13 @@ std::uint32_t BattleEffectRuleStore::allocateRuleOrder()
     return nextRuleOrder_++;
 }
 
-std::size_t BattleEffectRuleStore::append(EffectSourceBinding binding, const EffectRule& rule)
+std::size_t BattleEffectRuleStore::append(
+    EffectSourceBinding binding,
+    const EffectRule& rule,
+    EffectRuleAuthoringContext context)
 {
     std::string validationError;
-    if (!validateEffectRule(rule, validationError))
+    if (!validateEffectRule(rule, validationError, context))
     {
         throw std::invalid_argument(validationError);
     }
@@ -1970,11 +2359,14 @@ void BattleEffectRuleStore::removeCastScopedRules(BattleCastId castId)
             removedInstances.insert(bound.binding.runtimeInstanceId);
         }
     }
-    std::erase_if(activationEvaluations_, [&](const auto& entry)
+    for (auto& [key, runtime] : runtimeByRule_)
     {
-        return entry.first.castId == castId
-            || removedInstances.contains(entry.first.rule.sourceInstanceId);
-    });
+        if (removedInstances.contains(key.sourceInstanceId)) continue;
+        std::erase_if(runtime.activationEvaluations, [&](const auto& entry)
+        {
+            return entry.castId == castId.value();
+        });
+    }
     std::erase_if(stateValues_, [&](const auto& entry)
     {
         return entry.first.scopeId == castId.value()
@@ -2036,9 +2428,18 @@ int BattleEffectRuleStore::activationEvaluationCount(const EffectSourceBinding& 
                                                       BattleCastId castId,
                                                       int targetUnitId) const
 {
-    const auto it = activationEvaluations_.find(
-        activationScopeKey(binding, ruleId, castId, targetUnitId));
-    return it != activationEvaluations_.end() ? it->second : 0;
+    const auto runtime = runtimeByRule_.find(runtimeKey(binding, ruleId));
+    if (runtime == runtimeByRule_.end()) return 0;
+    const auto found = std::ranges::find_if(
+        runtime->second.activationEvaluations,
+        [&](const auto& entry)
+        {
+            return entry.castId == castId.value()
+                && entry.targetUnitId == targetUnitId;
+        });
+    return found != runtime->second.activationEvaluations.end()
+        ? found->count
+        : 0;
 }
 
 bool BattleEffectRuleStore::canActivateRuntimeRule(
@@ -2069,10 +2470,7 @@ bool BattleEffectRuleStore::canActivateRuntimeRule(
     {
         return true;
     }
-    const auto cooldown = sharedCooldownUntilFrame_.find(
-        sharedCooldownKey(binding, ruleId));
-    return cooldown == sharedCooldownUntilFrame_.end()
-        || frame >= cooldown->second;
+    return frame >= runtimeIt->second.sharedCooldownUntilFrame;
 }
 
 bool BattleEffectRuleStore::tryActivateRuntimeRule(
@@ -2113,7 +2511,7 @@ void BattleEffectRuleStore::recordRuntimeRuleActivation(
     assert(bound != rules_.end());
     if (bound->rule.sharedCooldownFrames > 0)
     {
-        sharedCooldownUntilFrame_[sharedCooldownKey(binding, ruleId)] =
+        runtime.sharedCooldownUntilFrame =
             static_cast<std::int64_t>(frame) + bound->rule.sharedCooldownFrames;
     }
 }
@@ -2201,85 +2599,88 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
                                        const EffectEventContext& context,
                                        const EffectUnitSnapshot& target)
 {
-    if (const auto constant = effectiveConstantEffectNumberValue(number))
-    {
-        return *constant;
-    }
-
     auto baseValue = [&](EffectNumberBase base) -> std::int64_t
     {
-        switch (base)
+        switch (effectNumberEvaluationKind(base))
         {
-        case EffectNumberBase::Constant: return 0;
-        case EffectNumberBase::SourceStar: return context.header.owner->star;
-        case EffectNumberBase::SourceAttack: return context.header.owner->attack;
-        case EffectNumberBase::SourceMaxHp: return context.header.owner->maxHp;
-        case EffectNumberBase::SourceMissingHpRatio:
+        case EffectNumberEvaluationKind::Constant: return 0;
+        case EffectNumberEvaluationKind::SourceStar: return context.header.owner->star;
+        case EffectNumberEvaluationKind::SourceAttack: return context.header.owner->attack;
+        case EffectNumberEvaluationKind::SourceMaxHp: return context.header.owner->maxHp;
+        case EffectNumberEvaluationKind::SourceMissingHpRatio:
             assert(context.header.owner->maxHp > 0);
             return std::clamp(
                 context.header.owner->maxHp - context.header.owner->hp,
                 0,
                 context.header.owner->maxHp);
-        case EffectNumberBase::SourceCurrentMpRatio:
+        case EffectNumberEvaluationKind::SourceCurrentMpRatio:
             assert(context.header.owner->maxMp > 0);
             return std::clamp(
                 context.header.owner->mp,
                 0,
                 context.header.owner->maxMp);
-        case EffectNumberBase::TargetMaxHp: return target.maxHp;
-        case EffectNumberBase::TargetCurrentHp: return target.hp;
-        case EffectNumberBase::TargetCurrentShield: return target.shield;
-        case EffectNumberBase::TargetCurrentCooldown: return target.activeCooldown;
-        case EffectNumberBase::FinalHpDamage:
+        case EffectNumberEvaluationKind::TargetMaxHp: return target.maxHp;
+        case EffectNumberEvaluationKind::TargetCurrentHp: return target.hp;
+        case EffectNumberEvaluationKind::TargetCurrentShield: return target.shield;
+        case EffectNumberEvaluationKind::TargetCurrentCooldown: return target.activeCooldown;
+        case EffectNumberEvaluationKind::FinalHpDamage:
             if (const auto value = finalHpDamage(context))
             {
                 return *value;
             }
             throw std::logic_error("實際生命傷害公式需要 DamageResolved payload");
-        case EffectNumberBase::SourceStatusEffectValue:
+        case EffectNumberEvaluationKind::SourceStatusQuantity:
         {
             assert(number.status);
-            assert(number.statusEffect);
-            const auto status = std::ranges::find(
-                context.header.owner->statusDetails,
+            return context.header.owner->stackCount(
                 *number.status,
-                &EffectStatusSnapshot::state);
-            if (status == context.header.owner->statusDetails.end()) return 0;
-            return statusEffectRuntimeValueSlot(*number.statusEffect)
-                    == StatusRuntimeValueSlot::Potency
-                ? status->potency
-                : status->secondaryPotency;
+                resolveStatusContributionFilter(
+                    number.statusSource,
+                    context.header.binding,
+                    context.header.statusContribution));
         }
-        case EffectNumberBase::SourceStatusQuantity:
-            assert(number.status);
-            return context.header.owner->stackCount(*number.status);
-        case EffectNumberBase::StoredStateValue:
+        case EffectNumberEvaluationKind::CurrentContributionQuantity:
+            assert(context.header.statusContribution);
+            assert(context.header.statusContribution->quantity > 0);
+            return context.header.statusContribution->quantity;
+        case EffectNumberEvaluationKind::StoredStateValue:
             if (context.header.formulaInputs.storedStateValue)
             {
                 return *context.header.formulaInputs.storedStateValue;
             }
             throw std::logic_error("狀態槽公式缺少 typed input");
+        case EffectNumberEvaluationKind::ApplicationTargetMaxHp:
+            return target.maxHp;
+        case EffectNumberEvaluationKind::BoundRatio:
+            return number.boundNumerator;
+        case EffectNumberEvaluationKind::Count:
+            break;
         }
         throw std::logic_error("未知 EffectNumberBase");
     };
 
     const auto baseDenominator = [&](EffectNumberBase base) -> std::int64_t
     {
-        if (base == EffectNumberBase::SourceMissingHpRatio)
+        const auto evaluation = effectNumberEvaluationKind(base);
+        if (evaluation == EffectNumberEvaluationKind::SourceMissingHpRatio)
         {
             assert(context.header.owner->maxHp > 0);
             return context.header.owner->maxHp;
         }
-        if (base == EffectNumberBase::SourceCurrentMpRatio)
+        if (evaluation == EffectNumberEvaluationKind::SourceCurrentMpRatio)
         {
             assert(context.header.owner->maxMp > 0);
             return context.header.owner->maxMp;
         }
+        if (evaluation == EffectNumberEvaluationKind::BoundRatio)
+        {
+            assert(number.boundDenominator > 0);
+            return number.boundDenominator;
+        }
         return 1;
     };
 
-    std::int64_t value{};
-    value = baseValue(number.base);
+    std::int64_t value = baseValue(number.base);
     auto denominator = baseDenominator(number.base);
     if (number.multiplierBase)
     {
@@ -2288,11 +2689,30 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
             denominator,
             baseDenominator(*number.multiplierBase));
     }
-    value = roundRatio(
-        saturatingMultiply(value, number.percent),
-        saturatingMultiply(denominator, 100),
-        number.rounding);
-    value = saturatingAdd(value, number.flat);
+    const auto percentageDenominator = saturatingMultiply(denominator, 100);
+    if (number.statusScale == StatusNumberScale::PerContributionLayer)
+    {
+        assert(context.header.statusContribution);
+        assert(context.header.statusContribution->quantity > 0);
+        const auto percentageNumerator = saturatingMultiply(value, number.percent);
+        const auto flatNumerator = saturatingMultiply(
+            number.flat,
+            percentageDenominator);
+        value = roundEffectRatio(
+            saturatingMultiply(
+                saturatingAdd(percentageNumerator, flatNumerator),
+                context.header.statusContribution->quantity),
+            percentageDenominator,
+            number.rounding);
+    }
+    else
+    {
+        value = roundEffectRatio(
+            saturatingMultiply(value, number.percent),
+            percentageDenominator,
+            number.rounding);
+        value = saturatingAdd(value, number.flat);
+    }
     if (number.minimum)
     {
         value = std::max(value, static_cast<std::int64_t>(*number.minimum));
@@ -2343,6 +2763,11 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
     {
     case EffectSelectorKind::Self:
         addDirect(context.header.owner);
+        break;
+    case EffectSelectorKind::StatusHolder:
+        assert(context.header.statusContribution);
+        addDirect(context.header.battle.findUnit(
+            context.header.statusContribution->holderUnitId));
         break;
     case EffectSelectorKind::SourceUnit:
         addDirect(sourceSnapshot(context));
@@ -2513,20 +2938,114 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
 namespace
 {
 
+EffectNumber& canonicalPoisonDamageNumber(StatusBehaviorDefinition& behavior)
+{
+    const auto capability = canonicalPoisonDamageCapability(behavior);
+    assert(capability && capability->damage);
+    const auto* canonicalNumber = &capability->damage->amount;
+    for (auto& rule : behavior.rules)
+    {
+        for (auto& action : rule.actions)
+        {
+            auto* damage = std::get_if<DealDamageAction>(&action.value);
+            if (damage && &damage->amount == canonicalNumber)
+                return damage->amount;
+        }
+    }
+    std::unreachable();
+}
+
+void normalizeNestedStatusBehaviorIdentity(EffectAction& action);
+
+void normalizeStatusBehaviorIdentity(StatusBehaviorDefinition& behavior)
+{
+    for (std::size_t ruleIndex = 0; ruleIndex < behavior.rules.size(); ++ruleIndex)
+    {
+        auto& rule = behavior.rules[ruleIndex];
+        rule.id = EffectRuleId{ ruleIndex + 1 };
+        for (auto& action : rule.actions)
+            normalizeNestedStatusBehaviorIdentity(action);
+    }
+}
+
+void normalizeNestedApplicationBehavior(ApplyStatusAction& application)
+{
+    if (!application.behavior) return;
+    auto normalized = std::make_shared<StatusBehaviorDefinition>(
+        *application.behavior);
+    normalizeStatusBehaviorIdentity(*normalized);
+    application.behavior = std::move(normalized);
+}
+
+void normalizeNestedStatusBehaviorIdentity(EffectAction& action)
+{
+    std::visit(
+        [](auto& typed)
+        {
+            using T = std::decay_t<decltype(typed)>;
+            if constexpr (std::is_same_v<T, ApplyStatusAction>)
+            {
+                normalizeNestedApplicationBehavior(typed);
+            }
+            else if constexpr (std::is_same_v<T, ConsumeStatusAction>
+                || std::is_same_v<T, ConsumeThisStatusAction>)
+            {
+                if (typed.whenDepleted)
+                    normalizeNestedApplicationBehavior(*typed.whenDepleted);
+            }
+            else if constexpr (std::is_same_v<T,
+                std::shared_ptr<ConditionalEffectAction>>)
+            {
+                assert(typed);
+                auto normalized = std::make_shared<ConditionalEffectAction>(*typed);
+                for (auto& nested : normalized->whenTrue)
+                    normalizeNestedStatusBehaviorIdentity(nested);
+                for (auto& nested : normalized->whenFalse)
+                    normalizeNestedStatusBehaviorIdentity(nested);
+                typed = std::move(normalized);
+            }
+        },
+        action.value);
+}
+
+std::shared_ptr<const StatusBehaviorDefinition> normalizedPoisonMergeBehavior(
+    const StatusBehaviorDefinition& behavior)
+{
+    auto normalized = std::make_shared<StatusBehaviorDefinition>(behavior);
+    normalizeStatusBehaviorIdentity(*normalized);
+    canonicalPoisonDamageNumber(*normalized).percent = 0;
+    return normalized;
+}
+
+bool poisonMergeBehaviorsEquivalent(
+    const StatusBehaviorDefinition& lhs,
+    const StatusBehaviorDefinition& rhs)
+{
+    return statusBehaviorsEquivalent(
+        normalizedPoisonMergeBehavior(lhs),
+        normalizedPoisonMergeBehavior(rhs));
+}
+
+bool sumsSameEventPoisonDamage(const ApplyStatusEffectCommand& command)
+{
+    return command.action.status == BattleStatusKind::Poison
+        && command.action.poisonSameEventMerge
+            == PoisonSameEventMerge::SumDamagePercent;
+}
+
 void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
 {
-    const auto sumsPoisonDamage = [](const ApplyStatusEffectCommand& command)
+    std::ranges::stable_sort(commands, [](const auto& lhs, const auto& rhs)
     {
-        const auto* poison = std::get_if<PoisonStatusEffects>(&command.action.effects);
-        return poison
-            && poison->sameEventMerge == PoisonSameEventMerge::SumDamagePercent;
-    };
+        return effectExecutionOrderKey(lhs.metadata)
+            < effectExecutionOrderKey(rhs.metadata);
+    });
     std::vector<EffectCommand> aggregated;
     aggregated.reserve(commands.size());
     for (auto& command : commands)
     {
         auto* status = std::get_if<ApplyStatusEffectCommand>(&command.value);
-        if (!status || !sumsPoisonDamage(*status))
+        if (!status || !sumsSameEventPoisonDamage(*status))
         {
             aggregated.push_back(std::move(command));
             continue;
@@ -2534,16 +3053,21 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
 
         assert(status->action.status == BattleStatusKind::Poison);
         assert(status->action.reapplication == StatusReapplicationPolicy::KeepHigherDamage);
-        const auto sameAggregate = [&](EffectCommand& candidate)
+        const auto sameAggregateTarget = [&](EffectCommand& candidate)
         {
             const auto* existing = std::get_if<ApplyStatusEffectCommand>(&candidate.value);
             return existing
-                && sumsPoisonDamage(*existing)
+                && sumsSameEventPoisonDamage(*existing)
                 && candidate.metadata.targetUnitId == command.metadata.targetUnitId
-                && candidate.metadata.binding.ownerUnitId == command.metadata.binding.ownerUnitId;
+                && candidate.metadata.binding.ownerUnitId == command.metadata.binding.ownerUnitId
+                && existing->action.behavior
+                && status->action.behavior
+                && poisonMergeBehaviorsEquivalent(
+                    *existing->action.behavior,
+                    *status->action.behavior);
         };
         const auto existingCommand = std::find_if(
-            aggregated.begin(), aggregated.end(), sameAggregate);
+            aggregated.begin(), aggregated.end(), sameAggregateTarget);
         if (existingCommand == aggregated.end())
         {
             aggregated.push_back(std::move(command));
@@ -2551,11 +3075,17 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
         }
 
         auto& existing = std::get<ApplyStatusEffectCommand>(existingCommand->value);
-        const auto combinedPotency = static_cast<std::int64_t>(existing.potency)
-            + status->potency;
-        existing.potency = static_cast<int>(std::min<std::int64_t>(
-            combinedPotency,
-            std::numeric_limits<int>::max()));
+        assert(existing.action.behavior);
+        assert(status->action.behavior);
+        auto combinedBehavior = std::make_shared<StatusBehaviorDefinition>(
+            *existing.action.behavior);
+        auto& existingDamage = canonicalPoisonDamageNumber(*combinedBehavior);
+        auto addedBehavior = *status->action.behavior;
+        const auto& addedDamage = canonicalPoisonDamageNumber(addedBehavior);
+        existingDamage.percent = clampToInt(saturatingAdd(
+            existingDamage.percent,
+            addedDamage.percent));
+        existing.action.behavior = std::move(combinedBehavior);
         const int existingDuration = existing.evaluatedDurationFrames.value_or(
             existing.action.durationFrames);
         const int addedDuration = status->evaluatedDurationFrames.value_or(
@@ -2569,16 +3099,43 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
     for (auto& command : aggregated)
     {
         if (auto* status = std::get_if<ApplyStatusEffectCommand>(&command.value);
-            status && sumsPoisonDamage(*status))
+            status && sumsSameEventPoisonDamage(*status))
         {
-            std::get<PoisonStatusEffects>(status->action.effects).sameEventMerge
-                = PoisonSameEventMerge::None;
+            status->action.poisonSameEventMerge = PoisonSameEventMerge::None;
         }
     }
     commands = std::move(aggregated);
 }
 
 }  // namespace
+
+void BattleEffectSystem::finalizeEventDispatch(
+    BattleEffectRuleStore& store,
+    const EffectEventContext& context,
+    BattleEffectDispatchResult& result) const
+{
+    if (context.event == EffectEvent::CastSettled)
+    {
+        const auto* cast = castProvenance(context);
+        assert(cast);
+        for (auto& [key, runtime] : store.runtimeByRule_)
+        {
+            static_cast<void>(key);
+            std::erase_if(runtime.activationEvaluations, [&](const auto& entry)
+            {
+                return entry.castId == cast->castId.value();
+            });
+        }
+    }
+    aggregateEventPoisonDamagePercent(result.commands);
+    std::ranges::stable_sort(result.commands, [](const auto& lhs, const auto& rhs)
+    {
+        return effectExecutionOrderKey(lhs.metadata)
+            < effectExecutionOrderKey(rhs.metadata);
+    });
+    for (std::uint64_t ordinal = 0; ordinal < result.commands.size(); ++ordinal)
+        result.commands[ordinal].metadata.commandOrdinal = ordinal;
+}
 
 std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRules(
     const BattleEffectRuleStore& store,
@@ -2655,7 +3212,8 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
     BattleEffectRuleStore& store,
     const EffectEventContext& context,
     BattleRuntimeRandom& random,
-    std::span<const std::size_t> ruleIndices) const
+    std::span<const std::size_t> ruleIndices,
+    bool finalizeEvent) const
 {
     if (!eventPayloadMatches(context))
     {
@@ -2701,10 +3259,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
         }
         if (bound.rule.sharedCooldownFrames > 0)
         {
-            const auto cooldown = store.sharedCooldownUntilFrame_.find(
-                sharedCooldownKey(bound.binding, bound.rule.id));
-            if (cooldown != store.sharedCooldownUntilFrame_.end()
-                && context.header.frame < cooldown->second)
+            if (context.header.frame < runtime.sharedCooldownUntilFrame)
             {
                 continue;
             }
@@ -2771,11 +3326,10 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
                 {
                 case EffectActivationScope::PerCastPerTarget:
                 {
-                    auto& evaluationCount = store.activationEvaluations_[activationScopeKey(
-                        bound.binding,
-                        bound.rule.id,
+                    auto& evaluationCount = activationEvaluation(
+                        runtime,
                         cast->castId,
-                        target->id)];
+                        target->id);
                     if (evaluationCount >= bound.rule.activationLimit->maxEvaluations)
                     {
                         continue;
@@ -2807,10 +3361,9 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
         ++runtime.activationCount;
         if (bound.rule.sharedCooldownFrames > 0)
         {
-            store.sharedCooldownUntilFrame_[sharedCooldownKey(
-                bound.binding,
-                bound.rule.id)] = static_cast<std::int64_t>(context.header.frame)
-                    + bound.rule.sharedCooldownFrames;
+            runtime.sharedCooldownUntilFrame =
+                static_cast<std::int64_t>(context.header.frame)
+                + bound.rule.sharedCooldownFrames;
         }
         EffectRuleActivation activation{
             .binding = bound.binding,
@@ -2834,41 +3387,635 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
             ? emitter.evaluate(*bound.rule.repetitionCount, *ruleContext->header.owner)
             : 1;
         assert(repetitionCount > 0);
-        const auto emittedActionCount = static_cast<std::uint64_t>(repetitionCount)
-            * bound.rule.actions.size();
+        const auto authoredLeafCount = std::accumulate(
+            bound.rule.actions.begin(),
+            bound.rule.actions.end(),
+            std::uint64_t{},
+            [](std::uint64_t count, const EffectAction& action)
+            {
+                return saturatingAdd(count, authoredActionLeafCount(action));
+            });
+        const auto emittedActionCount = saturatingMultiply(
+            static_cast<std::uint64_t>(repetitionCount),
+            authoredLeafCount);
         assert(emittedActionCount <= std::numeric_limits<std::uint32_t>::max());
         for (int repetition = 0; repetition < repetitionCount; ++repetition)
         {
-            for (std::uint32_t actionIndex = 0;
-                 actionIndex < static_cast<std::uint32_t>(bound.rule.actions.size());
-                 ++actionIndex)
+            std::uint64_t authoredActionOffset{};
+            for (const auto& action : bound.rule.actions)
             {
                 const auto actionOrder = static_cast<std::uint32_t>(repetition)
-                    * static_cast<std::uint32_t>(bound.rule.actions.size())
-                    + actionIndex;
+                    * static_cast<std::uint32_t>(authoredLeafCount)
+                    + static_cast<std::uint32_t>(authoredActionOffset);
                 for (std::uint32_t targetOrder = 0;
                      targetOrder < static_cast<std::uint32_t>(activationTargets.size());
                      ++targetOrder)
                 {
-                    emitter.emit(bound.rule.actions[actionIndex],
+                    emitter.emit(action,
                                  *activationTargets[targetOrder],
                                  actionOrder,
+                                 static_cast<std::uint32_t>(authoredActionOffset),
                                  targetOrder);
                 }
+                authoredActionOffset = saturatingAdd(
+                    authoredActionOffset,
+                    authoredActionLeafCount(action));
             }
         }
     }
-    if (context.event == EffectEvent::CastSettled)
+    if (finalizeEvent) finalizeEventDispatch(store, context, result);
+    return result;
+}
+
+BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
+    BattleEffectRuleStore& store,
+    const EffectEventContext& context,
+    BattleRuntimeRandom& random,
+    std::span<const ActiveStatusBehaviorView> behaviors,
+    StatusBehaviorDispatchFilter filter,
+    bool includeAllFrameOwners,
+    const StatusBehaviorDispatchLiveness* reducerLiveness) const
+{
+    assert(!includeAllFrameOwners || context.event == EffectEvent::FrameAdvanced);
+    assert(!reducerLiveness
+        || (reducerLiveness->contributionQuantity
+            && reducerLiveness->reduceRuleCommands));
+    const auto actionContains = [&]<typename Action>(
+                                    const auto& self,
+                                    const EffectAction& action) -> bool
     {
-        const auto* cast = castProvenance(context);
-        assert(cast);
-        std::erase_if(store.activationEvaluations_, [&](const auto& entry)
+        if (std::holds_alternative<Action>(action.value))
+            return true;
+        const auto* conditional = std::get_if<std::shared_ptr<ConditionalEffectAction>>(
+            &action.value);
+        if (!conditional) return false;
+        assert(*conditional);
+        const auto contains = [&](const std::vector<EffectAction>& actions)
         {
-            return entry.first.castId == cast->castId;
+            return std::ranges::any_of(actions, [&](const auto& nested)
+            {
+                return self.template operator()<Action>(self, nested);
+            });
+        };
+        return contains((*conditional)->whenTrue)
+            || contains((*conditional)->whenFalse);
+    };
+    struct PendingRule
+    {
+        std::optional<std::size_t> configuredRuleIndex;
+        const ActiveStatusBehaviorView* behavior = nullptr;
+        std::uint32_t behaviorRuleOrder{};
+        EffectExecutionOrderKey order;
+        std::optional<BattleEffectDispatchResult> precomputed;
+    };
+    std::vector<PendingRule> pendingRules;
+    const auto addConfiguredRule = [&](std::size_t ruleIndex)
+    {
+        if (ruleIndex >= store.rules_.size())
+            throw std::out_of_range("效果規則索引超出範圍");
+        const auto& bound = store.rules_[ruleIndex];
+        if (bound.rule.event != context.event) return;
+        if (context.event == EffectEvent::FrameAdvanced
+            && includeAllFrameOwners)
+        {
+            const auto* owner = context.header.battle.findUnit(
+                bound.binding.ownerUnitId);
+            if (!owner || !owner->alive) return;
+        }
+        pendingRules.push_back({
+            .configuredRuleIndex = ruleIndex,
+            .order = {
+                .sourcePrecedence = effectSourcePrecedence(bound.binding.kind),
+                .producerRuleOrder = bound.order,
+                .lane = EffectExecutionLane::Configured,
+            },
+        });
+    };
+    const auto& configuredIndices =
+        store.ruleIndicesByEvent_[static_cast<std::size_t>(context.event)];
+    for (const auto ruleIndex : configuredIndices) addConfiguredRule(ruleIndex);
+
+    for (const auto& behavior : behaviors)
+    {
+        if (!behavior.behavior || behavior.quantity <= 0) continue;
+        if (context.event == EffectEvent::FrameAdvanced)
+        {
+            const auto* holder = context.header.battle.findUnit(
+                behavior.holderUnitId);
+            if (!holder || !holder->alive) continue;
+        }
+        assert(behavior.runtime);
+        assert(behavior.runtime->size() == behavior.behavior->rules.size());
+        for (std::uint32_t ruleOrder = 0;
+             ruleOrder < behavior.behavior->rules.size();
+             ++ruleOrder)
+        {
+            const auto& rule = behavior.behavior->rules[ruleOrder];
+            if (rule.event != context.event || rule.event == EffectEvent::StatusPersistent)
+                continue;
+            const bool suppressesOutgoingCast = std::ranges::any_of(
+                rule.actions,
+                [&](const auto& action)
+                {
+                    return actionContains.template operator()<
+                        SuppressCurrentCastContactsAction>(actionContains, action);
+                });
+            const bool makesIncomingAttackMiss = std::ranges::any_of(
+                rule.actions,
+                [&](const auto& action)
+                {
+                    return actionContains.template operator()<
+                        MakeIncomingAttackMissAction>(actionContains, action);
+                });
+            const bool attackInterceptor = suppressesOutgoingCast
+                || makesIncomingAttackMiss;
+            if ((filter == StatusBehaviorDispatchFilter::AttackInterceptorsOnly
+                    && !attackInterceptor)
+                || (filter == StatusBehaviorDispatchFilter::OutgoingCastSuppressorsOnly
+                    && !suppressesOutgoingCast)
+                || (filter == StatusBehaviorDispatchFilter::IncomingAttackMissOnly
+                    && !makesIncomingAttackMiss)
+                || (filter == StatusBehaviorDispatchFilter::ExcludeAttackInterceptors
+                    && attackInterceptor))
+                continue;
+
+            pendingRules.push_back({
+                .behavior = &behavior,
+                .behaviorRuleOrder = ruleOrder,
+                .order = statusBehaviorExecutionOrderKey(
+                    behavior.binding,
+                    behavior.producerRuleOrder,
+                    behavior.producerActionOrder,
+                    ruleOrder,
+                    behavior.holderUnitId,
+                    behavior.appliedSequence,
+                    0),
+            });
+        }
+    }
+    std::ranges::stable_sort(pendingRules, {}, &PendingRule::order);
+
+    const auto isPoisonMergePreflightRule = [&](const PendingRule& pending)
+    {
+        if (!pending.configuredRuleIndex) return false;
+        const auto& rule = store.rules_[*pending.configuredRuleIndex].rule;
+        if (rule.actions.size() != 1) return false;
+        const auto* application = std::get_if<ApplyStatusAction>(
+            &rule.actions.front().value);
+        return application
+            && application->status == BattleStatusKind::Poison
+            && application->poisonSameEventMerge
+                == PoisonSameEventMerge::SumDamagePercent;
+    };
+    std::vector<EffectCommand> poisonMergeCommands;
+    for (auto& pending : pendingRules)
+    {
+        if (!isPoisonMergePreflightRule(pending)) continue;
+        const std::array ruleIndices{ *pending.configuredRuleIndex };
+        pending.precomputed = dispatchRuleIndices(
+            store,
+            context,
+            random,
+            ruleIndices,
+            false);
+        poisonMergeCommands.insert(
+            poisonMergeCommands.end(),
+            std::make_move_iterator(pending.precomputed->commands.begin()),
+            std::make_move_iterator(pending.precomputed->commands.end()));
+        pending.precomputed->commands.clear();
+    }
+    aggregateEventPoisonDamagePercent(poisonMergeCommands);
+    for (auto& command : poisonMergeCommands)
+    {
+        const auto pending = std::ranges::find_if(pendingRules, [&](const auto& candidate)
+        {
+            if (!candidate.configuredRuleIndex) return false;
+            const auto& bound = store.rules_[*candidate.configuredRuleIndex];
+            return bound.binding == command.metadata.binding
+                && bound.rule.id == command.metadata.ruleId;
+        });
+        assert(pending != pendingRules.end());
+        assert(pending->precomputed);
+        pending->precomputed->commands.push_back(std::move(command));
+    }
+
+    struct HolderLiveness
+    {
+        int holderUnitId = -1;
+        BattleStatusUnitState unit;
+        bool hasShield = false;
+    };
+    std::vector<HolderLiveness> liveness;
+    for (const auto& behavior : behaviors)
+    {
+        if (!behavior.holderEffects) continue;
+        if (std::ranges::find(
+                liveness,
+                behavior.holderUnitId,
+                &HolderLiveness::holderUnitId) != liveness.end()) continue;
+        const auto* snapshot = context.header.battle.findUnit(behavior.holderUnitId);
+        assert(snapshot);
+        liveness.push_back({
+            .holderUnitId = behavior.holderUnitId,
+            .unit = {
+                .id = behavior.holderUnitId,
+                .alive = snapshot->alive,
+                .hp = snapshot->hp,
+                .maxHp = snapshot->maxHp,
+                .attack = snapshot->attack,
+                .invincible = snapshot->invincible ? 1 : 0,
+                .effects = *behavior.holderEffects,
+            },
+            .hasShield = snapshot->shield > 0,
         });
     }
-    aggregateEventPoisonDamagePercent(result.commands);
+
+    const auto holderLiveness = [&](int holderUnitId) -> HolderLiveness*
+    {
+        const auto found = std::ranges::find(
+            liveness,
+            holderUnitId,
+            &HolderLiveness::holderUnitId);
+        return found == liveness.end() ? nullptr : &*found;
+    };
+
+    struct DetachedContributionLiveness
+    {
+        int holderUnitId = -1;
+        std::uint64_t appliedSequence{};
+        BattleStatusKind kind{};
+        int quantity{};
+    };
+    // Direct unit callers may omit a full holder snapshot. Keep enough
+    // contribution state for the same snapshot-plus-liveness contract.
+    std::vector<DetachedContributionLiveness> detachedContributions;
+    for (const auto& behavior : behaviors)
+    {
+        if (holderLiveness(behavior.holderUnitId)) continue;
+        if (std::ranges::find_if(detachedContributions, [&](const auto& candidate)
+            {
+                return candidate.holderUnitId == behavior.holderUnitId
+                    && candidate.appliedSequence == behavior.appliedSequence;
+            }) != detachedContributions.end()) continue;
+        detachedContributions.push_back({
+            .holderUnitId = behavior.holderUnitId,
+            .appliedSequence = behavior.appliedSequence,
+            .kind = behavior.kind,
+            .quantity = behavior.quantity,
+        });
+    }
+    const auto currentContributionQuantity = [&](
+        const ActiveStatusBehaviorView& behavior) -> std::optional<int>
+    {
+        const auto dispatchQuantity = [&](std::optional<int> liveQuantity)
+            -> std::optional<int>
+        {
+            if (!liveQuantity) return std::nullopt;
+            // A shared-layer group that survives remains the same active rule
+            // view.  Layers added earlier in this dispatch affect subsequent
+            // dispatches, while a tick already snapshotted for this dispatch
+            // uses its starting quantity and source.  This preserves the clock
+            // advance without letting newly applied layers act retroactively.
+            if (statusCatalogEntry(behavior.kind).storage
+                == StatusStorageModel::SharedLayerDebuff)
+            {
+                return behavior.quantity;
+            }
+            return liveQuantity;
+        };
+        if (reducerLiveness)
+        {
+            return dispatchQuantity(reducerLiveness->contributionQuantity(
+                behavior.holderUnitId,
+                behavior.appliedSequence,
+                behavior.kind));
+        }
+        if (const auto* holder = holderLiveness(behavior.holderUnitId))
+        {
+            const auto found = std::ranges::find(
+                holder->unit.effects.statuses,
+                behavior.appliedSequence,
+                &BattleStatusContribution::appliedSequence);
+            if (found == holder->unit.effects.statuses.end()
+                || found->kind != behavior.kind) return std::nullopt;
+            return dispatchQuantity(found->stacks);
+        }
+        const auto found = std::ranges::find_if(detachedContributions, [&](const auto& candidate)
+        {
+            return candidate.holderUnitId == behavior.holderUnitId
+                && candidate.appliedSequence == behavior.appliedSequence
+                && candidate.kind == behavior.kind;
+        });
+        if (found == detachedContributions.end() || found->quantity <= 0)
+            return std::nullopt;
+        return dispatchQuantity(found->quantity);
+    };
+
+    const auto applyLivenessStatus = [&](
+        int targetUnitId,
+        const EffectCommandMetadata& metadata,
+        const ApplyStatusEffectCommand& application)
+    {
+        auto* holder = holderLiveness(targetUnitId);
+        if (!holder) return;
+        auto applicationMetadata = metadata;
+        applicationMetadata.targetUnitId = targetUnitId;
+        const BattleEffectCommandContext commandContext{
+            .frame = context.header.frame,
+        };
+        auto applied = BattleEffectCommandSystem::applyStatusCommand(
+            holder->unit,
+            applicationMetadata,
+            application,
+            commandContext,
+            {},
+            holder->hasShield);
+        holder->unit = std::move(applied.target);
+    };
+
+    const auto updateLiveness = [&](const EffectCommand& command)
+    {
+        if (const auto* consumeThis = std::get_if<ConsumeThisStatusEffectCommand>(
+                &command.value))
+        {
+            assert(command.metadata.statusContribution);
+            const auto& contribution = *command.metadata.statusContribution;
+            if (auto* holder = holderLiveness(contribution.holderUnitId))
+            {
+                BattleStatusUnitState unit;
+                unit.id = contribution.holderUnitId;
+                unit.alive = true;
+                unit.effects = holder->unit.effects;
+                auto consumed = BattleStatusSystem({}).consume(
+                    std::move(unit),
+                    {
+                        .kind = contribution.kind,
+                        .stacks = consumeThis->action.quantity,
+                        .filter = {
+                            .holderUnitId = contribution.holderUnitId,
+                            .appliedSequence = contribution.appliedSequence,
+                        },
+                    });
+                const bool depleted = consumed.consumed
+                    && consumed.remainingStacks == 0;
+                holder->unit.effects = std::move(consumed.target.effects);
+                if (depleted && consumeThis->whenDepleted)
+                {
+                    applyLivenessStatus(
+                        command.metadata.targetUnitId,
+                        command.metadata,
+                        *consumeThis->whenDepleted);
+                }
+            }
+            else
+            {
+                const auto found = std::ranges::find_if(
+                    detachedContributions,
+                    [&](const auto& candidate)
+                    {
+                        return candidate.holderUnitId == contribution.holderUnitId
+                            && candidate.appliedSequence == contribution.appliedSequence
+                            && candidate.kind == contribution.kind;
+                    });
+                assert(found != detachedContributions.end());
+                found->quantity = std::max(
+                    0,
+                    found->quantity - consumeThis->action.quantity);
+            }
+            return;
+        }
+        if (const auto* consume = std::get_if<ConsumeStatusEffectCommand>(
+                &command.value))
+        {
+            if (auto* holder = holderLiveness(command.metadata.targetUnitId))
+            {
+                BattleStatusUnitState unit;
+                unit.id = holder->holderUnitId;
+                unit.alive = true;
+                unit.effects = holder->unit.effects;
+                BattleStatusConsumeRequest request{
+                    .kind = consume->action.status,
+                    .stacks = consume->action.quantity,
+                    .filter = resolveStatusContributionFilter(
+                        consume->action.source,
+                        command.metadata.binding,
+                        command.metadata.statusContribution),
+                };
+                auto consumed = BattleStatusSystem({}).consume(
+                    std::move(unit), request);
+                const bool depleted = consumed.consumed
+                    && consumed.remainingStacks == 0;
+                holder->unit.effects = std::move(consumed.target.effects);
+                if (depleted && consume->whenDepleted)
+                {
+                    applyLivenessStatus(
+                        command.metadata.targetUnitId,
+                        command.metadata,
+                        *consume->whenDepleted);
+                }
+            }
+            return;
+        }
+        if (const auto* removal = std::get_if<RemoveStatusEffectCommand>(
+                &command.value))
+        {
+            if (auto* holder = holderLiveness(command.metadata.targetUnitId))
+            {
+                BattleStatusUnitState unit;
+                unit.id = holder->holderUnitId;
+                unit.alive = true;
+                unit.effects = holder->unit.effects;
+                BattleStatusRemoveRequest request{
+                    .statuses = removal->action.statuses,
+                    .filter = resolveStatusContributionFilter(
+                        removal->action.source,
+                        command.metadata.binding,
+                        command.metadata.statusContribution),
+                    .negativeOnly = removal->action.negativeOnly,
+                    .controlOnly = removal->action.controlOnly,
+                    .clearCurrentActionStagger = removal->action.clearCurrentActionStagger,
+                    .count = removal->action.count,
+                    .order = removal->action.order,
+                };
+                auto removed = BattleStatusSystem({}).remove(
+                    std::move(unit), request);
+                holder->unit.effects = std::move(removed.target.effects);
+            }
+            return;
+        }
+        if (const auto* application = std::get_if<ApplyStatusEffectCommand>(
+                &command.value))
+        {
+            applyLivenessStatus(
+                command.metadata.targetUnitId,
+                command.metadata,
+                *application);
+        }
+    };
+
+    BattleEffectDispatchResult result;
+    std::size_t nextPendingRule{};
+    while (nextPendingRule < pendingRules.size())
+    {
+        auto pending = std::move(pendingRules[nextPendingRule++]);
+        BattleEffectDispatchResult dispatched;
+        if (pending.precomputed)
+        {
+            dispatched = std::move(*pending.precomputed);
+        }
+        else if (pending.configuredRuleIndex)
+        {
+            const std::array ruleIndices{ *pending.configuredRuleIndex };
+            auto configuredContext = context;
+            if (context.event == EffectEvent::FrameAdvanced
+                && includeAllFrameOwners)
+            {
+                const auto& bound = store.rules_[*pending.configuredRuleIndex];
+                const auto* owner = context.header.battle.findUnit(
+                    bound.binding.ownerUnitId);
+                assert(owner && owner->alive);
+                configuredContext.header.owner = owner;
+            }
+            dispatched = dispatchRuleIndices(
+                store,
+                configuredContext,
+                random,
+                ruleIndices,
+                false);
+        }
+        else
+        {
+            assert(pending.behavior);
+            const auto& behavior = *pending.behavior;
+            const auto currentQuantity = currentContributionQuantity(behavior);
+            if (!currentQuantity) continue;
+            const auto ruleOrder = pending.behaviorRuleOrder;
+            const auto& rule = behavior.behavior->rules[ruleOrder];
+
+            BattleEffectRuleStore activeStore;
+            const auto index = activeStore.append(
+                behavior.binding,
+                rule,
+                isIntrinsicEffectRuleId(rule.id)
+                    ? EffectRuleAuthoringContext::RuntimeIntrinsicStatusBehavior
+                    : EffectRuleAuthoringContext::StatusBehavior);
+            assert(index == 0);
+            activeStore.rules_.front().order = behavior.producerRuleOrder;
+            activeStore.runtimeByRule_.begin()->second = (*behavior.runtime)[ruleOrder];
+
+            auto statusContext = context;
+            statusContext.header.statusContribution = EffectStatusContributionContext{
+                .holderUnitId = behavior.holderUnitId,
+                .sourceUnitId = behavior.sourceUnitId,
+                .kind = behavior.kind,
+                .quantity = *currentQuantity,
+                .appliedSequence = behavior.appliedSequence,
+                .producerRuleId = behavior.producerRuleId,
+                .producerRuleOrder = behavior.producerRuleOrder,
+                .producerActionOrder = behavior.producerActionOrder,
+                .behaviorRuleOrder = ruleOrder,
+            };
+            dispatched = dispatchRuleIndices(
+                activeStore,
+                statusContext,
+                random,
+                std::array<std::size_t, 1>{ 0 },
+                false);
+            auto statusRuntime = activeStore.runtimeByRule_.begin()->second;
+            if (context.event == EffectEvent::CastSettled)
+            {
+                const auto* cast = castProvenance(context);
+                assert(cast);
+                std::erase_if(statusRuntime.activationEvaluations, [&](const auto& entry)
+                {
+                    return entry.castId == cast->castId.value();
+                });
+            }
+            (*behavior.runtime)[ruleOrder] = std::move(statusRuntime);
+        }
+
+        const bool resolvesInterceptor = std::ranges::any_of(
+            dispatched.commands,
+            [](const EffectCommand& command)
+            {
+                return std::holds_alternative<SuppressCurrentCastContactsEffectCommand>(
+                        command.value)
+                    || std::holds_alternative<MakeIncomingAttackMissEffectCommand>(
+                        command.value);
+            });
+        if (reducerLiveness)
+        {
+            reducerLiveness->reduceRuleCommands(dispatched.commands);
+        }
+        else
+        {
+            for (const auto& command : dispatched.commands) updateLiveness(command);
+        }
+
+        std::vector<std::size_t> addedRuleIndices;
+        for (const auto& command : dispatched.commands)
+        {
+            const auto* stateMachine = std::get_if<StateMachineEffectCommand>(
+                &command.value);
+            if (!stateMachine) continue;
+            const auto* borrow = std::get_if<BorrowEffectRulesAction>(
+                &stateMachine->action);
+            if (!borrow) continue;
+            const auto* cast = castProvenance(context);
+            if (!cast)
+                throw std::logic_error("借用效果規則需要 cast provenance");
+            assert(borrow->propagation == CastPropagationPolicy::BorrowedUltimateRules);
+            auto added = store.bindBorrowedUltimateRules(
+                cast->castId,
+                context.header.owner->id,
+                context.header.owner->team,
+                stateMachine->selectedSourceUnitIds,
+                borrow->filter,
+                borrow->propagation);
+            addedRuleIndices.insert(
+                addedRuleIndices.end(),
+                added.begin(),
+                added.end());
+        }
+        appendDispatchResult(result, std::move(dispatched));
+        if ((filter == StatusBehaviorDispatchFilter::AttackInterceptorsOnly
+                || filter == StatusBehaviorDispatchFilter::IncomingAttackMissOnly)
+            && resolvesInterceptor)
+            break;
+
+        if (!addedRuleIndices.empty())
+        {
+            for (const auto ruleIndex : addedRuleIndices)
+                addConfiguredRule(ruleIndex);
+            std::stable_sort(
+                pendingRules.begin() + static_cast<std::ptrdiff_t>(nextPendingRule),
+                pendingRules.end(),
+                [](const auto& lhs, const auto& rhs)
+                {
+                    return lhs.order < rhs.order;
+                });
+        }
+    }
+    finalizeEventDispatch(store, context, result);
     return result;
+}
+
+BattleEffectDispatchResult BattleEffectSystem::dispatchStatusBehaviors(
+    const EffectEventContext& context,
+    BattleRuntimeRandom& random,
+    std::span<const ActiveStatusBehaviorView> behaviors,
+    StatusBehaviorDispatchFilter filter,
+    const StatusBehaviorDispatchLiveness* reducerLiveness) const
+{
+    BattleEffectRuleStore emptyStore;
+    return dispatchMerged(
+        emptyStore,
+        context,
+        random,
+        behaviors,
+        filter,
+        false,
+        reducerLiveness);
 }
 
 }  // namespace KysChess::Battle

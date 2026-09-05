@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented design and migration record. This document remains normative for the status/buff authoring model described here. It complements [chess-effect-authoring-implementation-plan.md](chess-effect-authoring-implementation-plan.md); it does not replace that document's work on content validation, event capabilities, named mechanisms, timing intents, or non-status macros.
+Historical implementation and migration record. The current status-contribution runtime and canonical generic nested `效果` authoring surface are specified by [chess-status-contributions-and-composable-behaviors-design.md](chess-status-contributions-and-composable-behaviors-design.md), which supersedes this document wherever the two disagree. In particular, the status-specific payload examples retained below (such as `每層生效`, `每次觸發`, and named status-effect fields) explain the migration that was later replaced; they are not valid current authoring forms.
+
+This document still records the motivation and intermediate semantic-YAML/description work. It complements [chess-effect-authoring-implementation-plan.md](chess-effect-authoring-implementation-plan.md); it does not replace that document's work on content validation, event capabilities, named mechanisms, timing intents, or non-status macros.
 
 The design intentionally drops backward compatibility as an end-state guarantee. Authoritative top-level `config/chess_*.yaml` content and parser surfaces migrate in coordinated phase slices; a small old-form slice may remain only when a later phase has not yet introduced its replacement consumer, and is deleted in that later phase. Removed forms are rejected after their migration slice. Copied Android/build-output configs are not migration targets.
 

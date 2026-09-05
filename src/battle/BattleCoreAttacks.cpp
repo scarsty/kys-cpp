@@ -490,7 +490,9 @@ void applyAreaAttackSpawnModifiers(
 
 bool consumeTypedAttackSuppression(
     BattleRuntimeState& state,
-    const BattleAttackEvent& event)
+    BattleFrameContext& frame,
+    const BattleAttackEvent& event,
+    std::span<const EffectCommand> commands)
 {
     assert(event.provenance.valid());
     if (state.attacks.contactsSuppressed(event.attackId))
@@ -498,102 +500,118 @@ bool consumeTypedAttackSuppression(
         return true;
     }
 
-    auto& attacker = state.units.require(event.sourceUnitId);
-    const auto attackerStatus = BattleStatusSystem({}).snapshot(
-        attacker.statusDamageState());
-    bool sourceSuppressed{};
-    int neutralizeShield{};
-    for (const auto kind : {
-             BattleStatusKind::Blinded,
-             BattleStatusKind::NeutralizeForce,
-         })
+    const auto liveContribution = [&](const EffectCommand& command)
+        -> BattleStatusContribution*
     {
-        if (!attackerStatus.has(kind))
-        {
-            continue;
-        }
+        assert(command.metadata.statusContribution);
+        const auto& context = *command.metadata.statusContribution;
+        auto& holder = state.units.require(context.holderUnitId);
+        auto live = std::ranges::find(
+            holder.status.effects.statuses,
+            context.appliedSequence,
+            &BattleStatusContribution::appliedSequence);
+        if (live == holder.status.effects.statuses.end()
+            || live->kind != context.kind
+            || live->stacks <= 0
+            || live->stacks != context.quantity)
+            return nullptr;
+        return &*live;
+    };
+
+    const auto consume = [&](const EffectCommand& command)
+    {
+        assert(command.metadata.statusContribution);
+        const auto& context = *command.metadata.statusContribution;
+        auto& holder = state.units.require(context.holderUnitId);
         auto consumed = BattleStatusSystem({}).consume(
-            attacker.statusDamageState(),
-            { .kind = kind });
+            holder.statusDamageState(),
+            {
+                .kind = context.kind,
+                .stacks = 1,
+                .filter = {
+                    .holderUnitId = context.holderUnitId,
+                    .appliedSequence = context.appliedSequence,
+                },
+            });
         assert(consumed.consumed);
-        attacker.writeStatusDamageResult(consumed.target);
-        sourceSuppressed = true;
-        if (kind == BattleStatusKind::NeutralizeForce)
-        {
-            neutralizeShield = consumed.consumedStatus.potency;
-        }
-    }
-    if (sourceSuppressed)
+        holder.writeStatusDamageResult(consumed.target);
+    };
+
+    bool suppressed{};
+    for (const auto& command : commands)
     {
-        state.attacks.suppressContactsForCast(event.provenance.cast.castId);
-        if (neutralizeShield > 0)
+        const auto* suppress = std::get_if<SuppressCurrentCastContactsEffectCommand>(
+            &command.value);
+        if (!suppress || !liveContribution(command)) continue;
+
+        if (!suppressed)
+        {
+            state.attacks.suppressContactsForCast(event.provenance.cast.castId);
+            suppressed = true;
+        }
+        if (suppress->originalTargetShield > 0)
         {
             int shieldTargetUnitId = OptionalPreferredTargetUnitId;
             const auto cast = state.effectIntegration.casts.find(
                 event.provenance.cast.castId);
             if (cast != state.effectIntegration.casts.end())
-            {
                 shieldTargetUnitId = cast->second.originalTargetUnitId;
-            }
             if (shieldTargetUnitId < 0)
-            {
                 shieldTargetUnitId = event.preferredTargetUnitId;
-            }
             if (shieldTargetUnitId < 0)
-            {
                 shieldTargetUnitId = event.unitId;
-            }
+
             ChangeResourceAction grantShield;
             grantShield.resource = BattleResource::Shield;
             grantShield.kind = ResourceChangeKind::Grant;
-            grantShield.amount.flat = neutralizeShield;
+            grantShield.amount.flat = suppress->originalTargetShield;
+            auto grantShieldMetadata = command.metadata;
+            grantShieldMetadata.targetUnitId = shieldTargetUnitId;
             const EffectCommand grantShieldCommand{
-                EffectCommandMetadata{
-                    .targetUnitId = shieldTargetUnitId,
-                },
+                std::move(grantShieldMetadata),
                 ChangeResourceEffectCommand{
                     .action = std::move(grantShield),
-                    .amount = neutralizeShield,
+                    .amount = suppress->originalTargetShield,
                 },
             };
-            BattleEffectCommandSystem().reduce(
+            CoreDetail::reduceEffectCommand(
                 state,
+                frame,
+                frame.currentFrameDamage(),
                 grantShieldCommand,
-                { .frame = state.movement.frame });
+                {
+                    .frame = state.movement.frame,
+                    .cast = event.provenance.cast,
+                    .attack = event.provenance,
+                });
         }
+        consume(command);
+    }
+    if (suppressed) return true;
+
+    for (const auto& command : commands)
+    {
+        if (!std::holds_alternative<MakeIncomingAttackMissEffectCommand>(
+                command.value)
+            || !liveContribution(command))
+            continue;
+        consume(command);
         return true;
     }
-
-    auto& defender = state.units.require(event.unitId);
-    const auto defenderStatus = BattleStatusSystem({}).snapshot(
-        defender.statusDamageState());
-    const auto nextAttackMiss = std::ranges::find_if(
-        defenderStatus.statuses,
-        [](const auto& instance)
-        {
-            return instance.kind == BattleStatusKind::NextAttackMiss;
-        });
-    if (nextAttackMiss == defenderStatus.statuses.end())
-    {
-        return false;
-    }
-    auto consumed = BattleStatusSystem({}).consume(
-        defender.statusDamageState(),
-        { .kind = BattleStatusKind::NextAttackMiss });
-    assert(consumed.consumed);
-    defender.writeStatusDamageResult(consumed.target);
-    return true;
+    return false;
 }
 
 int currentHitIgnoreDefensePct(
     const BattleRuntimeState& state,
     const BattleAttackEvent& event,
-    std::span<const EffectCommand> commands)
+    std::span<const BattleEffectReductionEntry> reductions)
 {
     int result{};
-    for (const auto& command : commands)
+    for (const auto& reduction : reductions)
     {
-        const auto* damage = std::get_if<ModifyDamageEffectCommand>(&command.value);
+        const auto* routed = std::get_if<
+            BattleRoutedEffectCommand<ModifyDamageEffectCommand>>(&reduction.value);
+        const auto* damage = routed ? &routed->command : nullptr;
         if (!damage
             || damage->action.durationFrames != 0
             || damage->action.stack != EffectStackPolicy::Independent
@@ -605,7 +623,7 @@ int currentHitIgnoreDefensePct(
         {
             continue;
         }
-        result += damage->amount;
+        result = battleSaturatedAdd(result, damage->amount);
     }
     for (const auto& modifier : BattleEffectCommandSystem::queryDamageModifiers(
              state,
@@ -620,7 +638,9 @@ int currentHitIgnoreDefensePct(
     {
         if (modifier.operation == DamageModifierOperation::IgnoreDefensePercent)
         {
-            result += modifier.amount * modifier.stackCount;
+            result = battleSaturatedAdd(
+                result,
+                battleSaturatedMultiply(modifier.amount, modifier.stackCount));
         }
     }
     return std::clamp(result, 0, 100);
@@ -666,13 +686,15 @@ void appendHitDamageModifier(
 void collectHitDamageModifiers(
     const BattleRuntimeState& state,
     const BattleAttackEvent& event,
-    std::span<const EffectCommand> commands,
+    std::span<const BattleEffectReductionEntry> reductions,
     BattleHitResolutionInput& input)
 {
     const DamageChannel channel = CoreDetail::effectDamageChannel(event.damageKind);
-    for (const auto& command : commands)
+    for (const auto& reduction : reductions)
     {
-        const auto* modifier = std::get_if<ModifyDamageEffectCommand>(&command.value);
+        const auto* routed = std::get_if<
+            BattleRoutedEffectCommand<ModifyDamageEffectCommand>>(&reduction.value);
+        const auto* modifier = routed ? &routed->command : nullptr;
         if (!modifier
             || modifier->action.durationFrames != 0
             || modifier->action.stack != EffectStackPolicy::Independent
@@ -1035,7 +1057,29 @@ void resolveTypedHitEvent(
         return;
     }
     assert(event.provenance.valid());
-    if (consumeTypedAttackSuppression(state, event))
+    const auto hitEvent = makeHitEffectEvent(
+        state,
+        event,
+        EffectEvent::HitBeforeDamage);
+    auto suppressors = BattleEffectEventBridge().dispatchActiveStatusBehaviors(
+        state,
+        hitEvent,
+        StatusBehaviorDispatchFilter::OutgoingCastSuppressorsOnly);
+    if (consumeTypedAttackSuppression(state, frame, event, suppressors.commands))
+    {
+        settleTypedHit(
+            state,
+            frame,
+            event,
+            false,
+            BattleHitContinuation::Normal);
+        return;
+    }
+    auto incomingMiss = BattleEffectEventBridge().dispatchActiveStatusBehaviors(
+        state,
+        hitEvent,
+        StatusBehaviorDispatchFilter::IncomingAttackMissOnly);
+    if (consumeTypedAttackSuppression(state, frame, event, incomingMiss.commands))
     {
         settleTypedHit(
             state,
@@ -1060,13 +1104,10 @@ void resolveTypedHitEvent(
         && consumeNextAttackCritical(state, event.sourceUnitId);
     state.castLifecycle.recordHit(event.provenance, event.unitId);
 
-    std::vector<EffectCommand> hitEffectCommands;
+    constexpr std::uint64_t HitReductionReceiptId = 1;
+    BattleEffectCommandReduction hitEffectReduction;
     const auto reduceDispatched = [&](BattleEffectDispatchResult dispatched)
     {
-        hitEffectCommands.insert(
-            hitEffectCommands.end(),
-            dispatched.commands.begin(),
-            dispatched.commands.end());
         BattleEffectCommandContext context{
             .frame = state.movement.frame,
             .effectPosition = event.position,
@@ -1074,8 +1115,16 @@ void resolveTypedHitEvent(
         };
         context.cast = event.provenance.cast;
         context.attack = event.provenance;
-        frame.queueEffectCommands(std::move(dispatched.commands), std::move(context));
-        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        frame.queueEffectCommands(
+            std::move(dispatched.commands),
+            std::move(context),
+            HitReductionReceiptId);
+        CoreDetail::reduceEffectCommandBatches(
+            state,
+            frame,
+            frame.currentFrameDamage(),
+            HitReductionReceiptId,
+            &hitEffectReduction);
     };
 
     RuntimeMainHitPolicies mainHitPolicies;
@@ -1092,25 +1141,20 @@ void resolveTypedHitEvent(
         mainHitPolicies = runtimeMainHitPolicies(exactMatches);
         reduceDispatched(BattleEffectEventBridge().dispatch(state, owned));
     }
-    const auto hitEvent = makeHitEffectEvent(
-        state,
-        event,
-        EffectEvent::HitBeforeDamage);
     auto hitDispatched = BattleEffectEventBridge().dispatch(state, hitEvent);
-    CoreDetail::insertTrueQiHitDamage(state, event, hitDispatched);
     reduceDispatched(std::move(hitDispatched));
 
     const int ignoreDefensePct = currentHitIgnoreDefensePct(
         state,
         event,
-        hitEffectCommands);
+        hitEffectReduction.entries);
     auto input = makeHitResolutionInput(
         state,
         event,
         ignoreDefensePct,
         mainHitPolicies);
     input.forceCritical = forceCritical;
-    collectHitDamageModifiers(state, event, hitEffectCommands, input);
+    collectHitDamageModifiers(state, event, hitEffectReduction.entries, input);
     auto result = BattleHitResolver().resolve(input, state.random);
     const auto continuation = result.reflection
         ? BattleHitContinuation::Reflected
@@ -1166,74 +1210,6 @@ void resolveTypedHitEvent(
 
 namespace CoreDetail
 {
-
-void insertTrueQiHitDamage(
-    BattleRuntimeState& state,
-    const BattleAttackEvent& event,
-    BattleEffectDispatchResult& dispatched)
-{
-    const auto& statuses = state.units.require(event.sourceUnitId).status.effects.statuses;
-    const auto* trueQi = state.units.require(event.sourceUnitId)
-        .status.effects.find(BattleStatusKind::TrueQi);
-    if (!trueQi || trueQi->stacks <= 0 || trueQi->potency <= 0) return;
-    assert(std::ranges::count(
-        statuses, BattleStatusKind::TrueQi, &BattleTypedStatusInstance::kind) == 1);
-    assert(trueQi->origin);
-    const auto& origin = trueQi->origin.value();
-    assert(!isIntrinsicEffectRuleId(origin.ruleId));
-    assert(origin.ruleOrder < std::numeric_limits<std::uint32_t>::max());
-
-    const EffectRuleId intrinsicRuleId = intrinsicStatusEffectRuleId(
-        origin.ruleId);
-    assert(std::ranges::none_of(state.effectRules.rules(), [&](const auto& bound)
-    {
-        return bound.binding == origin.binding
-            && bound.rule.id == intrinsicRuleId;
-    }));
-
-    const long long evaluatedAmount = static_cast<long long>(trueQi->potency)
-        * trueQi->stacks;
-    assert(evaluatedAmount <= std::numeric_limits<int>::max());
-    const int amount = static_cast<int>(evaluatedAmount);
-
-    DealDamageAction action;
-    action.amount.flat = amount;
-    action.kind = BattleDamageKind::Pure;
-    EffectCommand intrinsic{
-        .metadata = {
-            .binding = origin.binding,
-            .ruleId = intrinsicRuleId,
-            .event = EffectEvent::HitBeforeDamage,
-            .ruleOrder = origin.ruleOrder + 1,
-            .actionOrder = 0,
-            .targetOrder = 0,
-            .targetUnitId = event.unitId,
-            .eventSourceUnitId = event.sourceUnitId,
-        },
-        .value = DealDamageEffectCommand{
-            .action = std::move(action),
-            .amount = amount,
-        },
-    };
-    const auto laterCommand = std::ranges::find_if(dispatched.commands, [&](const auto& candidate)
-    {
-        return !effectSourceRuleOrderLess(
-            candidate.metadata.binding.kind,
-            candidate.metadata.ruleOrder,
-            intrinsic.metadata.binding.kind,
-            intrinsic.metadata.ruleOrder);
-    });
-    dispatched.commands.insert(laterCommand, std::move(intrinsic));
-    for (std::uint64_t ordinal = 0; ordinal < dispatched.commands.size(); ++ordinal)
-    {
-        dispatched.commands[ordinal].metadata.commandOrdinal = ordinal;
-    }
-    dispatched.activations.push_back({
-        origin.binding,
-        intrinsicRuleId,
-        { event.unitId },
-    });
-}
 
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,

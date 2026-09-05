@@ -289,7 +289,6 @@ EffectDescriptionDocument buildEffectDescriptionDocument(
         }
         section->blocks.push_back(std::move(block));
     }
-    linkStatusLifecycles(result);
     for (auto& section : result.sections)
         for (auto& block : section.blocks)
         {

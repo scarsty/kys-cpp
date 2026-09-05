@@ -1,5 +1,6 @@
 #include "BattleHealSystem.h"
 
+#include "BattleEffectCommandSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleRuntimeEffects.h"
 #include "BattleRuntimeUnits.h"
@@ -76,24 +77,6 @@ void validateSnapshot(const BattleHealUnitSnapshot& unit)
     assert(unit.hp <= unit.maxHp);
 }
 
-bool matchesHealKindLabel(BattleHealKind kind, std::string_view label)
-{
-    switch (kind)
-    {
-    case BattleHealKind::Direct: return label == "直接" || label == "Direct";
-    case BattleHealKind::Team: return label == "隊伍" || label == "Team";
-    case BattleHealKind::Aura: return label == "光環" || label == "Aura";
-    case BattleHealKind::OnHit: return label == "命中" || label == "OnHit";
-    case BattleHealKind::KillReward: return label == "擊殺" || label == "KillReward";
-    case BattleHealKind::DeathMedical: return label == "死亡醫療" || label == "DeathMedical";
-    case BattleHealKind::Rescue: return label == "救援" || label == "Rescue";
-    case BattleHealKind::Regeneration: return label == "再生" || label == "Regeneration";
-    case BattleHealKind::Lifesteal: return label == "吸血" || label == "Lifesteal";
-    }
-    assert(false);
-    return false;
-}
-
 BattleEffectEventHeaderInput nextHealEffectHeader(BattleRuntimeState& state, int ownerUnitId)
 {
     return {
@@ -101,6 +84,28 @@ BattleEffectEventHeaderInput nextHealEffectHeader(BattleRuntimeState& state, int
         .eventOrdinal = state.effectIntegration.nextEventOrdinal++,
         .ownerUnitId = ownerUnitId,
     };
+}
+
+BattleEffectCommandContext healEffectCommandContext(
+    BattleRuntimeState& state,
+    const BattleHealRequest& request)
+{
+    const auto& target = state.units.requireCore(request.targetUnitId);
+    BattleEffectCommandContext context{
+        .frame = state.movement.frame,
+        .effectPosition = target.motion.position,
+        .healKind = request.kind,
+        .healSourcePolicy = request.sourcePolicy,
+        .areaTargetTeamDomain = target.team,
+    };
+    if (request.castId)
+    {
+        const BattleCastId castId{ *request.castId };
+        assert(castId.valid());
+        assert(state.castLifecycle.containsCast(castId));
+        context.cast = state.castLifecycle.runtime(castId).provenance;
+    }
+    return context;
 }
 
 void appendAttemptedEffectModifiers(
@@ -111,11 +116,6 @@ void appendAttemptedEffectModifiers(
     int calculatedAmount,
     BattleHealModifierState& modifiers)
 {
-    if (state.effectRules.rules().empty())
-    {
-        return;
-    }
-
     HealRequestEventData payload{
         .transactionId = request.id,
         .kind = request.kind,
@@ -131,25 +131,36 @@ void appendAttemptedEffectModifiers(
         nextHealEffectHeader(state, request.targetUnitId),
         EffectEvent::HealAttempted,
         std::move(payload));
+    const auto commandContext = healEffectCommandContext(state, request);
     for (const auto& command : dispatched.commands)
     {
-        const auto* heal = std::get_if<ModifyHealTransactionEffectCommand>(&command.value);
-        assert(heal);
+        auto reduction = BattleEffectCommandSystem().reduce(
+            state,
+            command,
+            commandContext);
+        assert(reduction.entries.size() == 1);
+        const auto& reduced = reduction.entries.front().value;
+        const auto* routed = std::get_if<
+            BattleRoutedEffectCommand<ModifyHealTransactionEffectCommand>>(&reduced);
+        if (!routed)
+        {
+            assert(std::holds_alternative<BattleSkippedEffectResult>(reduced)
+                || std::holds_alternative<BattleStatusConsumeEffectResult>(reduced));
+            continue;
+        }
+        const auto& heal = routed->command;
         if (command.metadata.targetUnitId != request.targetUnitId
-            || !std::ranges::any_of(heal->action.kinds, [&](const std::string& label)
-            {
-                return matchesHealKindLabel(request.kind, label);
-            }))
+            || !effectHealKindMatchesLabels(request.kind, heal.action.kinds))
         {
             continue;
         }
-        switch (heal->action.operation)
+        switch (heal.action.operation)
         {
         case HealModifierOperation::Block:
             modifiers.blocked = true;
             break;
         case HealModifierOperation::MultiplyReceived:
-            modifiers.receivedHealPcts.push_back(heal->action.percent);
+            modifiers.receivedHealPcts.push_back(heal.action.percent);
             break;
         }
     }
@@ -162,7 +173,7 @@ void queueAppliedEffectCommands(
     const EffectUnitSnapshot& targetBefore,
     EffectUnitSnapshot targetAfter)
 {
-    if (result.appliedAmount <= 0 || state.effectRules.rules().empty())
+    if (result.appliedAmount <= 0)
     {
         return;
     }
@@ -191,21 +202,7 @@ void queueAppliedEffectCommands(
         return;
     }
 
-    const auto& target = state.units.requireCore(result.request.targetUnitId);
-    BattleEffectCommandContext context{
-        .frame = state.movement.frame,
-        .effectPosition = target.motion.position,
-        .healKind = result.request.kind,
-        .healSourcePolicy = result.request.sourcePolicy,
-        .areaTargetTeamDomain = target.team,
-    };
-    if (result.request.castId)
-    {
-        const BattleCastId castId{ *result.request.castId };
-        assert(castId.valid());
-        assert(state.castLifecycle.containsCast(castId));
-        context.cast = state.castLifecycle.runtime(castId).provenance;
-    }
+    auto context = healEffectCommandContext(state, result.request);
     state.effectIntegration.queuedCommandBatches.push_back({
         .commands = std::move(dispatched.commands),
         .context = std::move(context),
@@ -282,6 +279,22 @@ void appendRuntimeHealEvents(
 }
 
 }  // namespace
+
+BattleHealModifierState battleStatusHealModifiers(
+    const BattleStatusQuerySnapshot& status,
+    BattleHealKind kind)
+{
+    BattleHealModifierState result;
+    for (const auto& modifier : status.healTransactionModifiers)
+    {
+        if (!effectHealKindMatchesLabels(kind, modifier.kinds)) continue;
+        if (modifier.operation == HealModifierOperation::Block)
+            result.blocked = true;
+        else
+            result.receivedHealPcts.push_back(modifier.percent);
+    }
+    return result;
+}
 
 BattleHealAmount targetMaxHpHealAmount(int flat, int percent, int minimum)
 {
@@ -399,13 +412,14 @@ BattleHealResult BattleHealSystem::commit(
     const auto target = healSnapshot(targetUnit);
 
     auto effectiveModifiers = modifiers;
-    const auto statusModifiers = BattleStatusSystem({}).snapshot(
+    const auto status = BattleStatusSystem({}).snapshot(
         targetRecord.statusDamageState());
-    effectiveModifiers.blocked = effectiveModifiers.blocked || statusModifiers.healingBlocked;
+    const auto statusModifiers = battleStatusHealModifiers(status, request.kind);
+    effectiveModifiers.blocked = effectiveModifiers.blocked || statusModifiers.blocked;
     effectiveModifiers.receivedHealPcts.insert(
         effectiveModifiers.receivedHealPcts.end(),
-        statusModifiers.receivedHealMultipliersPct.begin(),
-        statusModifiers.receivedHealMultipliersPct.end());
+        statusModifiers.receivedHealPcts.begin(),
+        statusModifiers.receivedHealPcts.end());
 
     auto result = resolveHeal(request, source, target, effectiveModifiers);
     targetUnit.vitals.hp = result.hpAfter;

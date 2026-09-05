@@ -70,6 +70,7 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.scriptedDamageTriggersDefenseEffects = state.scriptedDamageTriggersDefenseEffects;
     event.scriptedStunFrames = state.scriptedStunFrames;
     event.scriptedBleedStacks = state.scriptedBleedStacks;
+    event.scriptedBleedProducer = state.scriptedBleedProducer;
     event.executeCanHitInvincible = state.executeCanHitInvincible;
     event.track = state.track;
     event.through = state.through;

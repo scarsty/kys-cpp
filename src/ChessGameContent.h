@@ -18,6 +18,9 @@
 namespace KysChess
 {
 
+ChessSha256 statusBehaviorContentFingerprint(
+    const StatusBehaviorDefinition& behavior);
+
 struct ChessRoleDefinition : RoleSave
 {
 };

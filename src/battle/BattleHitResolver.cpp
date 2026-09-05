@@ -116,6 +116,7 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     request.initial.scriptedDamage = command.prototype.scriptedDamage;
     request.initial.scriptedStunFrames = command.prototype.scriptedStunFrames;
     request.initial.scriptedBleedStacks = command.prototype.scriptedBleedStacks;
+    request.initial.scriptedBleedProducer = command.prototype.scriptedBleedProducer;
     request.initial.strengthPct = command.prototype.strengthPct
         * std::max(1, command.damagePct)
         / 100;
@@ -288,6 +289,27 @@ std::int64_t effectiveModifierAmount(const BattleHitDamageModifier& modifier)
     return static_cast<std::int64_t>(modifier.amount) * modifier.stackCount;
 }
 
+void accumulateModifierAmount(
+    std::int64_t& total,
+    const BattleHitDamageModifier& modifier)
+{
+    total = battleSaturatedAdd64(total, effectiveModifierAmount(modifier));
+}
+
+BattleFixed addIntegerSaturated(BattleFixed value, std::int64_t amount)
+{
+    constexpr std::int64_t maximumRaw =
+        static_cast<std::int64_t>(std::numeric_limits<int>::max()) * BattleFixed::Scale;
+    constexpr std::int64_t minimumRaw =
+        static_cast<std::int64_t>(std::numeric_limits<int>::min()) * BattleFixed::Scale;
+    const std::int64_t delta =
+        static_cast<std::int64_t>(battleSaturatedInt(amount)) * BattleFixed::Scale;
+    return BattleFixed::fromRaw(std::clamp(
+        battleSaturatedAdd64(value.raw(), delta),
+        minimumRaw,
+        maximumRaw));
+}
+
 void applyDamageReductionPct(
     BattleFixed& damage,
     int reductionPct,
@@ -306,6 +328,42 @@ void applyDamageReductionPct(
     remainingDamageBasisPoints = cappedRemaining;
 }
 
+void applySignedPercentDelta(
+    BattleFixed& damage,
+    std::int64_t percentDelta,
+    int& remainingDamageBasisPoints)
+{
+    if (percentDelta < 0)
+    {
+        const int reductionPct = percentDelta <= -100
+            ? 100
+            : static_cast<int>(-percentDelta);
+        applyDamageReductionPct(
+            damage,
+            reductionPct,
+            remainingDamageBasisPoints);
+    }
+    else if (percentDelta > 0)
+    {
+        damage = damage.scaledPercentSaturated(
+            static_cast<std::int64_t>(100)
+            + battleSaturatedInt(percentDelta));
+    }
+}
+
+BattleFixed applyMultiplyModifier(
+    BattleFixed damage,
+    const BattleHitDamageModifier& modifier)
+{
+    assert(modifier.amount >= 0);
+    assert(modifier.stackCount >= 0);
+    for (int stack = 0; stack < modifier.stackCount; ++stack)
+    {
+        damage = damage.scaledPercentSaturated(modifier.amount);
+    }
+    return damage;
+}
+
 BattleFixed applyOutgoingBeforeCriticalModifiers(
     BattleFixed damage,
     std::span<const BattleHitDamageModifier> modifiers,
@@ -315,10 +373,7 @@ BattleFixed applyOutgoingBeforeCriticalModifiers(
     {
         if (modifier.operation == DamageModifierOperation::Multiply)
         {
-            for (int stack = 0; stack < modifier.stackCount; ++stack)
-            {
-                damage = damage.scaled(modifier.amount, 100);
-            }
+            damage = applyMultiplyModifier(damage, modifier);
         }
     }
 
@@ -328,34 +383,22 @@ BattleFixed applyOutgoingBeforeCriticalModifiers(
     {
         if (modifier.operation == DamageModifierOperation::PercentAdd)
         {
-            percent += effectiveModifierAmount(modifier);
+            accumulateModifierAmount(percent, modifier);
         }
         else if (modifier.operation == DamageModifierOperation::FlatAdd)
         {
-            flat += effectiveModifierAmount(modifier);
+            accumulateModifierAmount(flat, modifier);
         }
     }
-    if (percent < 0)
-    {
-        applyDamageReductionPct(
-            damage,
-            static_cast<int>(std::min<std::int64_t>(-percent, 100)),
-            remainingDamageBasisPoints);
-    }
-    else if (percent > 0)
-    {
-        damage = damage.scaled(static_cast<int>(100 + percent), 100);
-    }
-    damage += BattleFixed::fromInteger(static_cast<int>(std::clamp<std::int64_t>(
-        flat,
-        std::numeric_limits<int>::min(),
-        std::numeric_limits<int>::max())));
+    applySignedPercentDelta(damage, percent, remainingDamageBasisPoints);
+    damage = addIntegerSaturated(damage, flat);
     return damage;
 }
 
 BattleFixed applyOutgoingAfterCriticalModifiers(
     BattleFixed damage,
-    std::span<const BattleHitDamageModifier> modifiers)
+    std::span<const BattleHitDamageModifier> modifiers,
+    int& remainingDamageBasisPoints)
 {
     for (const auto& modifier : modifiers)
     {
@@ -363,22 +406,20 @@ BattleFixed applyOutgoingAfterCriticalModifiers(
         {
             continue;
         }
-        for (int stack = 0; stack < modifier.stackCount; ++stack)
-        {
-            damage = damage.scaled(modifier.amount, 100);
-        }
+        damage = applyMultiplyModifier(damage, modifier);
     }
     for (const auto& modifier : modifiers)
     {
         if (modifier.operation == DamageModifierOperation::PercentAdd)
         {
-            damage = damage.scaled(
-                static_cast<int>(100 + effectiveModifierAmount(modifier)),
-                100);
+            applySignedPercentDelta(
+                damage,
+                effectiveModifierAmount(modifier),
+                remainingDamageBasisPoints);
         }
         else if (modifier.operation == DamageModifierOperation::FlatAdd)
         {
-            damage += BattleFixed::fromInteger(static_cast<int>(effectiveModifierAmount(modifier)));
+            damage = addIntegerSaturated(damage, effectiveModifierAmount(modifier));
         }
     }
     return damage;
@@ -395,28 +436,15 @@ BattleFixed applyIncomingBaseModifiers(
     {
         if (modifier.operation == DamageModifierOperation::FlatAdd)
         {
-            flat += effectiveModifierAmount(modifier);
+            accumulateModifierAmount(flat, modifier);
         }
         else if (modifier.operation == DamageModifierOperation::PercentAdd)
         {
-            percent += effectiveModifierAmount(modifier);
+            accumulateModifierAmount(percent, modifier);
         }
     }
-    damage += BattleFixed::fromInteger(static_cast<int>(std::clamp<std::int64_t>(
-        flat,
-        std::numeric_limits<int>::min(),
-        std::numeric_limits<int>::max())));
-    if (percent < 0)
-    {
-        applyDamageReductionPct(
-            damage,
-            static_cast<int>(std::min<std::int64_t>(-percent, 100)),
-            remainingDamageBasisPoints);
-    }
-    else if (percent > 0)
-    {
-        damage = damage.scaled(static_cast<int>(100 + percent), 100);
-    }
+    damage = addIntegerSaturated(damage, flat);
+    applySignedPercentDelta(damage, percent, remainingDamageBasisPoints);
     return damage;
 }
 
@@ -431,26 +459,13 @@ BattleFixed applyIncomingAfterBaseModifiers(
         switch (modifier.operation)
         {
         case DamageModifierOperation::FlatAdd:
-            damage += BattleFixed::fromInteger(static_cast<int>(amount));
+            damage = addIntegerSaturated(damage, amount);
             break;
         case DamageModifierOperation::PercentAdd:
-            if (amount < 0)
-            {
-                applyDamageReductionPct(
-                    damage,
-                    static_cast<int>(std::min<std::int64_t>(-amount, 100)),
-                    remainingDamageBasisPoints);
-            }
-            else if (amount > 0)
-            {
-                damage = damage.scaled(static_cast<int>(100 + amount), 100);
-            }
+            applySignedPercentDelta(damage, amount, remainingDamageBasisPoints);
             break;
         case DamageModifierOperation::Multiply:
-            for (int stack = 0; stack < modifier.stackCount; ++stack)
-            {
-                damage = damage.scaled(modifier.amount, 100);
-            }
+            damage = applyMultiplyModifier(damage, modifier);
             break;
         case DamageModifierOperation::IgnoreDefensePercent:
         case DamageModifierOperation::CapSingleHitAtMaxHpPercent:
@@ -714,6 +729,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             request.bleedMaxStacks = input.attackEvent.scriptedBleedStacks > 0
                 ? input.sharedBleedMaxStacks
                 : 0;
+            request.bleedProducer = input.attackEvent.scriptedBleedProducer;
             result.commands.push_back(acceptedHitCommand(
                 input.attackEvent.provenance,
                 input.attacker.id,
@@ -813,7 +829,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     shapedDamage = applyOutgoingAfterCriticalModifiers(
         shapedDamage,
-        input.damageModifiers.outgoingAfterCritical);
+        input.damageModifiers.outgoingAfterCritical,
+        remainingDamageBasisPoints);
 
     if (input.attackEvent.provenance.mainProjectile)
     {

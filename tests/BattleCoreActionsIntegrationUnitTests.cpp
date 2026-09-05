@@ -1448,7 +1448,7 @@ TEST_CASE("BattleFrameRunner_TypedSpiralBleedCarriesCastLineageAndWork", "[battl
     spiralRule.selector.kind = EffectSelectorKind::Self;
     spiralRule.actions = { EffectAction{ EffectActionValue{ spiral } } };
     const EffectSourceBinding spiralBinding{
-        .kind = EffectSourceKind::Magic,
+        .kind = EffectSourceKind::Combo,
         .sourceId = 301,
         .ownerUnitId = 0,
         .sourceTeam = 0,
@@ -1479,6 +1479,68 @@ TEST_CASE("BattleFrameRunner_TypedSpiralBleedCarriesCastLineageAndWork", "[battl
     CHECK(spiralIt->provenance.sharedHitGroupId > 0);
     CHECK(spiralIt->castWork.valid());
     CHECK(state.effectRules.activationCount(spiralBinding, { 1 }) == 1);
+
+    for (int frame = 0;
+         frame < 40
+            && !state.units.require(1).status.effects.has(BattleStatusKind::Bleed);
+         ++frame)
+    {
+        runBattleFrame(state);
+    }
+
+    const auto* bleed = state.units.require(1).status.effects.find(
+        BattleStatusKind::Bleed);
+    REQUIRE(bleed);
+    REQUIRE(bleed->producer);
+    REQUIRE(bleed->producerFamily);
+    REQUIRE(bleed->origin);
+    CHECK(bleed->sourceUnitId == 0);
+    CHECK(bleed->producer->binding == spiralBinding);
+    CHECK(bleed->producer->ruleId == EffectRuleId{ 1 });
+    CHECK(bleed->producer->actionOrder == 0);
+    CHECK(bleed->producerFamily->sourceKind == EffectSourceKind::Combo);
+    CHECK(bleed->producerFamily->sourceId == spiralBinding.sourceId);
+    CHECK(bleed->producerFamily->logicalOwnerUnitId == 0);
+    CHECK(bleed->producerFamily->ruleId == EffectRuleId{ 1 });
+    CHECK(bleed->origin->binding == spiralBinding);
+    CHECK(bleed->origin->ruleId == EffectRuleId{ 1 });
+
+    // A normal authored application must join the native 鴛鴦刀 packet rather
+    // than creating a second bleed storage path or private ceiling.
+    REQUIRE(bleed->targetTotalLimit);
+    const int scriptedLayers = bleed->stacks;
+    const int authoredCeiling = *bleed->targetTotalLimit + 2;
+    ApplyStatusAction authoredBleed;
+    authoredBleed.status = BattleStatusKind::Bleed;
+    authoredBleed.quantity = AddSharedStatusLayers{ 1, authoredCeiling };
+    authoredBleed.behavior = makeCatalogOwnedStatusBehavior(authoredBleed);
+    EffectCommandMetadata authoredMetadata;
+    authoredMetadata.binding = {
+        .kind = EffectSourceKind::Equipment,
+        .sourceId = 9901,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    authoredMetadata.ruleId = EffectRuleId{ 9901 };
+    authoredMetadata.event = EffectEvent::HitBeforeDamage;
+    authoredMetadata.targetUnitId = 1;
+    BattleEffectCommandSystem{}.reduce(
+        state,
+        EffectCommand{
+            authoredMetadata,
+            ApplyStatusEffectCommand{ authoredBleed, std::nullopt },
+        },
+        { .frame = state.movement.frame });
+
+    const auto& joinedEffects = state.units.require(1).status.effects;
+    CHECK(std::ranges::count(joinedEffects.statuses,
+        BattleStatusKind::Bleed,
+        &BattleStatusContribution::kind) == 1);
+    const auto* joinedBleed = joinedEffects.find(BattleStatusKind::Bleed);
+    REQUIRE(joinedBleed);
+    CHECK(joinedBleed->stacks == scriptedLayers + 1);
+    CHECK(joinedBleed->targetTotalLimit == authoredCeiling);
+    CHECK(joinedBleed->producer->binding == authoredMetadata.binding);
 }
 
 
@@ -1911,4 +1973,3 @@ TEST_CASE("BattleFrameRunner_AutoUltimatePreservesConfiguredAttackAreaOperationW
     CHECK(state.nextFrame.queuedAttacks()[0].initial.operationType
           == BattleOperationType::Melee);
 }
-
