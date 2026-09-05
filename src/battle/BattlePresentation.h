@@ -216,6 +216,7 @@ enum class BattleAreaVisualStyle : std::uint8_t
 {
     Sand,
     ProtectiveWard,
+    Fire,
 };
 
 struct BattleAreaPresentation
@@ -229,6 +230,7 @@ struct BattleAreaPresentation
     BattleAreaVisualStyle style{};
     int createdFrame{};
     int expiresFrameExclusive{};
+    int pulseIntervalFrames{};
 };
 
 struct BattleFrameRumbleEvent

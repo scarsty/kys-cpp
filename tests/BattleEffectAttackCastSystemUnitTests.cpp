@@ -1,4 +1,5 @@
 #include "battle/BattleEffectAttackCastSystem.h"
+#include "ChessBattleEffectTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -104,6 +105,28 @@ void checkVelocity(const Pointf& velocity, double x, double y)
 }
 
 }  // namespace
+
+TEST_CASE("BattleEffectAttackCastSystem applies configured scissors projectile sweep",
+          "[battle][effect][attack_cast][projectile_sweep]")
+{
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
+    const auto& scissors = KysChess::Test::definitionWithId(definitions, 75);
+    REQUIRE(scissors.rules.size() == 1);
+    const auto& rule = KysChess::Test::ruleWithEvent(scissors, EffectEvent::AttackCommitted);
+    const auto& action = std::get<ModifyAttackAction>(rule.actions.front().value);
+    auto input = castInput();
+    BattleCastResult cast;
+    cast.attackSpawnRequests.push_back(baseAttack());
+    const std::array commands{ attackCommand(action) };
+    BattleEffectAttackApplyState state;
+    BattleEffectAttackCastSystem().applyAttackCommands(input, cast, commands, state);
+    REQUIRE(cast.attackSpawnRequests.size() == 1);
+    const auto& payload = cast.attackSpawnRequests.front().initial;
+    CHECK(payload.projectileClearRadiusPct == 150);
+    CHECK(payload.through);
+    CHECK(payload.strengthPct == 100);
+}
 
 TEST_CASE("BattleEffectAttackCastSystem expands Wuhu Shanxing into one shared-hit group",
           "[battle][effect][attack_cast]")

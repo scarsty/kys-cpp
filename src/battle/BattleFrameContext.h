@@ -68,6 +68,7 @@ const BattleUnitMotion& motionSnapshotForUnit(
 
 enum class BattleSemanticCueFamily : std::uint8_t
 {
+    SwordIntent,
     Positive,
     Protection,
     Poison,
@@ -93,6 +94,7 @@ inline int semanticCuePriority(BattleSemanticCueFamily family)
     case BattleSemanticCueFamily::Bleed: return 70;
     case BattleSemanticCueFamily::Curse: return 60;
     case BattleSemanticCueFamily::Positive: return 50;
+    case BattleSemanticCueFamily::SwordIntent: return 55;
     case BattleSemanticCueFamily::Cleanse: return 40;
     }
     assert(false);

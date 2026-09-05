@@ -487,6 +487,11 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             hpDamage = std::max(hpDamage, result.defender.vitals.hp);
         }
 
+        if (input.redirectHpDamage && !result.executed)
+        {
+            result.redirectedHpDamage = hpDamage;
+            hpDamage = 0;
+        }
         auto taken = applyDamageTaken(result.defender, hpDamage, input.request.triggersDefenseEffects);
         result.defender = taken.defender;
         result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.vitals.hp);

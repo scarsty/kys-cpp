@@ -66,6 +66,7 @@ struct BattleAttackPayload
     int projectileCancelDamage = 0;
     int projectileCancelWeaken = 0;
     int projectilePressurePct = 100;
+    int projectileClearRadiusPct = 0;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     int roleAttackEchoActType = -1;
     int strengthPct = 100;
@@ -301,6 +302,7 @@ struct BattleAttackState
     void cancelAllForBattleEnd(BattleCastLifecycle& castLifecycle);
 
 private:
+    void clearProjectilesAlongPaths(const BattleRuntimeUnits& units);
     int allocateAttackId();
     const BattleRuntimeUnit* selectTarget(
         const BattleRuntimeUnits& units,

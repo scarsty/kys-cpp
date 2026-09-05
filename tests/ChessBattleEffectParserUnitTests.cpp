@@ -15,6 +15,33 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("ChessBattleEffects_ReviewedUltimateDurationsAndPersonalProtection", "[battle][effects][ultimate]")
+{
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
+    const auto& sword = ruleWithEvent(definitionWithId(definitions, 47), EffectEvent::AttackCommitted);
+    const auto& guaranteedHit = std::get<ModifyAttributeAction>(sword.actions.front().value);
+    CHECK(guaranteedHit.attribute == BattleAttribute::GuaranteedHit);
+    CHECK(guaranteedHit.durationFrames == 15);
+    const auto& plum = definitionWithId(definitions, 14);
+    const auto& block = std::get<ModifyAttributeAction>(
+        ruleWithEvent(plum, EffectEvent::AttackCommitted).actions.front().value);
+    CHECK(block.amount.flat == 2);
+    CHECK(block.stackLimit == 6);
+    const auto& seal = std::get<ApplyStatusAction>(
+        ruleWithEvent(plum, EffectEvent::MainProjectileBeforeDamage).actions.front().value);
+    CHECK(seal.status == BattleStatusKind::MpBlocked);
+    CHECK(seal.durationFrames == 60);
+    const auto& guardian = definitionWithId(definitions, 96);
+    const auto& protection = std::get<ModifyAttributeAction>(
+        ruleWithEvent(guardian, EffectEvent::AttackCommitted).actions.front().value);
+    const auto& aura = std::get<CreateAreaAction>(
+        ruleWithEvent(guardian, EffectEvent::AttackCommitted, 1).actions.front().value);
+    CHECK(protection.attribute == BattleAttribute::DamageReduction);
+    CHECK(protection.amount.flat == 40);
+    CHECK(protection.durationFrames == aura.durationFrames);
+}
+
 TEST_CASE("ChessBattleEffects_ShorthandTimingsNormalizeToCanonicalRules",
           "[battle][effects][schema][shorthand]")
 {
@@ -668,13 +695,18 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
     CHECK(qingnang.name == "青囊奇術");
     CHECK(qingnangRule.selector.kind == EffectSelectorKind::LowestHpAllies);
     CHECK(qingnangRule.selector.count == 1);
-    REQUIRE(qingnangRule.actions.size() == 1);
+    REQUIRE(qingnangRule.actions.size() == 4);
     const auto* qingnangHeal = std::get_if<ChangeResourceAction>(&qingnangRule.actions[0].value);
     REQUIRE(qingnangHeal != nullptr);
     CHECK(qingnangHeal->resource == BattleResource::Hp);
     CHECK(qingnangHeal->kind == ResourceChangeKind::Restore);
     CHECK(qingnangHeal->amount.base == EffectNumberBase::TargetMaxHp);
     CHECK(qingnangHeal->amount.percent == 7);
+    CHECK(std::get<RemoveStatusAction>(qingnangRule.actions[1].value).statuses == std::vector{BattleStatusKind::Poison});
+    CHECK(std::get<RemoveStatusAction>(qingnangRule.actions[2].value).statuses == std::vector{BattleStatusKind::Bleed});
+    const auto& qingnangShield = std::get<ChangeResourceAction>(qingnangRule.actions[3].value);
+    CHECK(qingnangShield.resource == BattleResource::Shield);
+    CHECK(qingnangShield.amount.flat == 120);
 
     const auto& shenzhao = definitionWithId(definitions, 94);
     const auto& shenzhaoPlan = ruleWithEvent(shenzhao, EffectEvent::CastPlanned);

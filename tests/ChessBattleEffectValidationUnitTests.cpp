@@ -17,6 +17,22 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("ChessBattleEffects_ProjectileSweepRequiresAtLeastHitRadius",
+          "[battle][effects][schema][projectile_sweep]")
+{
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
+    auto rule = ruleWithEvent(definitionWithId(definitions, 75), EffectEvent::AttackCommitted);
+    auto& action = std::get<ModifyAttackAction>(rule.actions.front().value);
+    for (const int radius : { -1, 1, 99, 0, 100, 150, 200 })
+    {
+        CAPTURE(radius);
+        action.projectileClearRadiusPct = radius;
+        std::string error;
+        CHECK(validateEffectRule(rule, error) == (radius == 0 || radius >= 100));
+    }
+}
+
 TEST_CASE("ChessBattleEffects_DescriptorOwnedProbesReachEveryAuthorVariantAndField",
           "[battle][effects][schema][descriptor][probe]")
 {
@@ -289,8 +305,8 @@ TEST_CASE("ChessBattleEffects_RealUltimateSchemaValidatesAllDefinitions", "[batt
             }
         }
     }
-    CHECK(ruleCount == 76);
-    CHECK(attackCommitRuleCount == 41);
+    CHECK(ruleCount == 78);
+    CHECK(attackCommitRuleCount == 44);
     CHECK(ultimateCommitRuleCount == 1);
     CHECK(ruleWithEvent(
         definitionWithId(definitions, 98),

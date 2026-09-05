@@ -12,6 +12,40 @@ using namespace KysChess::Battle;
 using namespace KysChess;
 using namespace KysChess::Battle::Test;
 
+TEST_CASE("BattleDamageSystem_RedirectsOnlyHpDamageAfterProtection", "[battle][damage][ultimate]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 0;
+    input.request.defenderUnitId = 1;
+    input.request.baseDamage = 100;
+    input.request.preResolvedDamage = true;
+    input.attacker.id = 0;
+    input.attacker.alive = true;
+    input.attacker.vitals = {100, 100, 0, 0};
+    input.defender.id = 1;
+    input.defender.alive = true;
+    input.defender.vitals = {100, 100, 0, 0};
+    input.defenderStatus.id = 1;
+    input.redirectHpDamage = true;
+    SECTION("先消耗護盾")
+    {
+        input.defender.shield = 30;
+        const auto result = BattleDamageSystem().resolveTransaction(input);
+        CHECK(result.shieldAbsorbed == 30);
+        CHECK(result.redirectedHpDamage == 70);
+        CHECK(result.finalHpDamage == 0);
+        CHECK(result.defender.vitals.hp == 100);
+        CHECK_FALSE(result.killed);
+    }
+    SECTION("無敵不轉移傷害")
+    {
+        input.defender.invincible = 10;
+        const auto result = BattleDamageSystem().resolveTransaction(input);
+        CHECK(result.redirectedHpDamage == 0);
+        CHECK(result.finalHpDamage == 0);
+    }
+}
+
 namespace
 {
 

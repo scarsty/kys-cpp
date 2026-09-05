@@ -93,6 +93,9 @@ bool modifierMatchesPhase(const AreaModifier& modifier, BattleAreaQueryPhase pha
         return phase == BattleAreaQueryPhase::OutgoingDamage;
     case AreaModifierKind::AttackSpawn:
         return phase == BattleAreaQueryPhase::AttackSpawn;
+    case AreaModifierKind::PeriodicDamage:
+    case AreaModifierKind::DamageRedirect:
+        return false;
     case AreaModifierKind::ForcedMoveImmunity:
         return phase == BattleAreaQueryPhase::ForcedMovement;
     }
@@ -133,6 +136,8 @@ std::uint64_t modifierKey(const AreaModifier& modifier)
     case AreaModifierKind::OutgoingDamage:
         return kind << 32 | static_cast<std::uint64_t>(modifier.damageChannel);
     case AreaModifierKind::AttackSpawn:
+    case AreaModifierKind::PeriodicDamage:
+    case AreaModifierKind::DamageRedirect:
     case AreaModifierKind::ForcedMoveImmunity:
         return kind << 32;
     }
@@ -172,6 +177,8 @@ bool stronger(const AreaModifier& candidate, const AreaModifier& current)
             current.projectilePressurePct ? percentStrength(*current.projectilePressurePct) : 0);
         return candidateStrength > currentStrength;
     }
+    case AreaModifierKind::PeriodicDamage:
+    case AreaModifierKind::DamageRedirect:
     case AreaModifierKind::ForcedMoveImmunity:
         return false;
     }
@@ -211,6 +218,31 @@ std::optional<int> finishPercent(const PercentAccumulator& accumulator)
 }
 
 }  // namespace
+
+std::optional<BattleAreaDamageRedirect> BattleAreaEffectSystem::damageRedirect(
+    const BattleAreaEffectState& state,
+    const BattleGridTransform& gridTransform,
+    const BattleRuntimeUnits& units,
+    int unitId,
+    int frame)
+{
+    std::optional<BattleAreaDamageRedirect> result;
+    const auto& target = units.requireCore(unitId);
+    for (const auto ref : areasContainingUnit(state, gridTransform, units, unitId, frame))
+    {
+        const auto& area = *ref.area;
+        const auto& guardian = units.requireCore(area.source.ownerUnitId);
+        if (!guardian.alive || guardian.id == unitId || guardian.team != target.team)
+            continue;
+        for (const auto& modifier : area.modifiers)
+        {
+            if (modifier.kind == AreaModifierKind::DamageRedirect
+                && (!result || modifier.percent > result->reductionPct))
+                result = BattleAreaDamageRedirect{guardian.id, modifier.percent};
+        }
+    }
+    return result;
+}
 
 BattleAreaCreateResult BattleAreaEffectSystem::create(
     BattleAreaEffectState& state,

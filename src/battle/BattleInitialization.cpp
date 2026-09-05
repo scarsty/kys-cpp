@@ -735,6 +735,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         case BattleAttribute::Attack: return unit.stats.attack;
         case BattleAttribute::Defence: return unit.stats.defence;
         case BattleAttribute::Speed: return unit.stats.speed;
+        case BattleAttribute::GuaranteedHit:
         case BattleAttribute::CriticalChance:
         case BattleAttribute::CriticalDamage:
         case BattleAttribute::DodgeChance:

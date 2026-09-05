@@ -9,6 +9,7 @@
 #include "BattleMath.h"
 #include "BattleMovementPhysics.h"
 #include "BattleProjectileEvents.h"
+#include "BattlePresentationVisuals.h"
 #include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
 #include "BattleStatusSystem.h"
@@ -1573,6 +1574,7 @@ void applyRuntimeAntiComboTransfer(
             case BattleAttribute::Speed:
                 value = &targetRecord.core.stats.speed;
                 break;
+            case BattleAttribute::GuaranteedHit:
             case BattleAttribute::CriticalChance:
             case BattleAttribute::CriticalDamage:
             case BattleAttribute::DodgeChance:
@@ -1757,6 +1759,8 @@ bool applyFramePendingHitReactions(
         && applyFrameExecuteReaction(state, frame, intent, request, presentation);
     if (!executed
         && intent.canTriggerDefenderBlock
+        && (request.attackerUnitId == OptionalDamageAttackerUnitId
+            || effectAdjustedAttribute(state, request.attackerUnitId, BattleAttribute::GuaranteedHit, 0, request.defenderUnitId) <= 0)
         && applyFrameDefenderBlockCommands(state, frame, request))
     {
         return false;
@@ -2141,8 +2145,33 @@ void applyDamageAndLifecycle(
                 state,
                 state.units.require(request.attackerUnitId));
         }
-        auto transaction = BattleDamageSystem().resolveTransaction(
-            makeFrameDamageTransactionInput(state, request));
+        const auto redirect = request.redirected ? std::nullopt
+            : BattleAreaEffectSystem::damageRedirect(state.areas, state.gridTransform,
+                state.units, request.defenderUnitId, state.movement.frame);
+        auto transactionInput = makeFrameDamageTransactionInput(state, request);
+        transactionInput.redirectHpDamage = redirect.has_value();
+        if (request.redirected) transactionInput.liveOutgoingDamagePctDelta = 0;
+        auto transaction = BattleDamageSystem().resolveTransaction(transactionInput);
+        if (transaction.redirectedHpDamage > 0)
+        {
+            BattleDamageRequest redirected;
+            redirected.attackerUnitId = request.attackerUnitId;
+            redirected.defenderUnitId = redirect->guardianUnitId;
+            redirected.baseDamage = static_cast<int>(
+                static_cast<std::int64_t>(transaction.redirectedHpDamage)
+                * (100 - redirect->reductionPct) / 100);
+            redirected.damageKind = request.damageKind;
+            redirected.preResolvedDamage = true;
+            redirected.redirected = true;
+            // 承傷沿用攻擊者記帳，但不是另一次攻擊，不重複觸發命中規則。
+            appendFramePendingDamage(state, pendingDamage, redirected, presentation,
+                0, false, {}, EffectEnvironmentDamageOrigin{});
+            auto guardCue = roleEffectEvent(redirect->guardianUnitId, -1, 12);
+            guardCue.visualPath = BattleCueGuardianVisualPath;
+            frame.visualEvents.push_back(std::move(guardCue));
+            appendStatusEventLog(frame.logEvents, redirect->guardianUnitId,
+                request.defenderUnitId, "護衛承傷");
+        }
         BattleEffectCommandSystem::accumulateDamageAbsorptions(
             state,
             transaction.absorptionReceipts);

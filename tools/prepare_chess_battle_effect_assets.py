@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import math
 import re
 import shutil
 import zipfile
@@ -22,6 +23,21 @@ PRESENTATION_CONSTANTS = ROOT / "src" / "BattleScenePresentationConstants.h"
 AREA_SIZE = 512
 AREA_FRAME_COUNT = 16
 CUE_FRAME_COUNT = 15
+FIRE_FRAME_COUNT = 20
+SHORT_CUE_FRAME_COUNT = 12
+EXPECTED_GROUPS = {
+    "cue-positive": (CUE_FRAME_COUNT, True),
+    "cue-negative": (CUE_FRAME_COUNT, True),
+    "cue-bleed": (CUE_FRAME_COUNT, True),
+    "cue-control": (CUE_FRAME_COUNT, True),
+    "cue-cleanse": (CUE_FRAME_COUNT, True),
+    "area-sand": (AREA_FRAME_COUNT, False),
+    "area-ward": (AREA_FRAME_COUNT, False),
+    "area-fire": (FIRE_FRAME_COUNT, False),
+    "cue-sword": (SHORT_CUE_FRAME_COUNT, True),
+    "cue-guardian": (SHORT_CUE_FRAME_COUNT, True),
+    "cue-fire": (SHORT_CUE_FRAME_COUNT, True),
+}
 
 ROLE_STATUS_EFT_Z_OFFSET_MATCH = re.search(
     r"ROLE_STATUS_EFT_Z_OFFSET\s*=\s*([0-9.]+)f",
@@ -42,6 +58,8 @@ def reset_directory(path: Path) -> None:
 
 
 def black_composite_to_rgba(image: Image.Image) -> Image.Image:
+    background = Image.new("RGBA", image.size, (0, 0, 0, 255))
+    image = Image.alpha_composite(background, image.convert("RGBA"))
     image = image.convert("RGB").resize((AREA_SIZE, AREA_SIZE), Image.Resampling.LANCZOS)
     rgb = np.asarray(image, dtype=np.float32)
     maximum = rgb.max(axis=2)
@@ -112,8 +130,11 @@ def save_webp(image: Image.Image, path: Path) -> None:
     image.save(path, "WEBP", quality=88, method=4)
 
 
-def prepare_area(master_name: str, output_name: str, ward: bool) -> None:
+def prepare_area(master_name: str, output_name: str, ward: bool,
+                 frame_count: int = AREA_FRAME_COUNT, inset: float = 1.0) -> None:
     source = black_composite_to_rgba(Image.open(SOURCE_ROOT / master_name))
+    if inset != 1.0:
+        source = centered_scale(source, inset)
     base = stationary_radial_base(source)
     accent = accent_layer(source, base, 0.78 if ward else 0.72)
     output = RUNTIME_ROOT / output_name
@@ -121,8 +142,8 @@ def prepare_area(master_name: str, output_name: str, ward: bool) -> None:
 
     if ward:
         blue, gold = split_ward_accents(accent)
-    for frame in range(AREA_FRAME_COUNT):
-        phase = 360.0 * frame / AREA_FRAME_COUNT
+    for frame in range(frame_count):
+        phase = 360.0 * frame / frame_count
         composed = base.copy()
         if ward:
             composed = Image.alpha_composite(
@@ -150,10 +171,10 @@ def parse_offsets(index_text: str) -> dict[int, tuple[int, int]]:
     return offsets
 
 
-def sampled_indices(frame_count: int) -> list[int]:
-    if frame_count == CUE_FRAME_COUNT:
+def sampled_indices(frame_count: int, output_count: int = CUE_FRAME_COUNT) -> list[int]:
+    if frame_count == output_count:
         return list(range(frame_count))
-    return [round(index * (frame_count - 1) / (CUE_FRAME_COUNT - 1)) for index in range(CUE_FRAME_COUNT)]
+    return [round(index * (frame_count - 1) / (output_count - 1)) for index in range(output_count)]
 
 
 def neutralize_cue_frame(image: Image.Image, scale: float) -> Image.Image:
@@ -194,6 +215,7 @@ def prepare_cue(
     output_name: str,
     scale: float = 0.5,
     anchor_y_adjustment: int = 0,
+    frame_count: int = CUE_FRAME_COUNT,
 ) -> None:
     archive_path = eft_root / f"eft{eft_id:03}.zip"
     output = RUNTIME_ROOT / output_name
@@ -206,7 +228,7 @@ def prepare_cue(
         )
         offsets = parse_offsets(archive.read("index.txt").decode("utf-8"))
         frames: list[tuple[Image.Image, int, int]] = []
-        for source_index in sampled_indices(len(frame_names)):
+        for source_index in sampled_indices(len(frame_names), frame_count):
             image = Image.open(io.BytesIO(archive.read(frame_names[source_index])))
             dx, dy = offsets[source_index]
             frames.append((
@@ -224,17 +246,34 @@ def prepare_cue(
         (output / "index.txt").write_text("\n".join(index_lines) + "\n", encoding="utf-8")
 
 
+def centered_scale(image: Image.Image, scale: float) -> Image.Image:
+    size = round(image.width * scale)
+    resized = image.resize((size, size), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    offset = (image.width - size) // 2
+    canvas.alpha_composite(resized, (offset, offset))
+    return canvas
+
+
+def prepare_master_cue(master_name: str, output_name: str) -> None:
+    source = black_composite_to_rgba(Image.open(SOURCE_ROOT / master_name))
+    source = source.resize((192, 192), Image.Resampling.LANCZOS)
+    output = RUNTIME_ROOT / output_name
+    reset_directory(output)
+    indices = []
+    for frame in range(SHORT_CUE_FRAME_COUNT):
+        t = frame / (SHORT_CUE_FRAME_COUNT - 1)
+        image = centered_scale(source, 0.55 + 0.30 * t)
+        image = image.rotate(-18.0 * t, Image.Resampling.BICUBIC)
+        envelope = math.sin(math.pi * (frame + 0.5) / SHORT_CUE_FRAME_COUNT) ** 1.4
+        image.putalpha(image.getchannel("A").point(lambda alpha: round(alpha * envelope)))
+        save_webp(image, output / f"{frame}.webp")
+        indices.append(f"{frame}: 96, 96")
+    (output / "index.txt").write_text("\n".join(indices) + "\n", encoding="utf-8")
+
+
 def validate_outputs() -> None:
-    expected = {
-        "cue-positive": (CUE_FRAME_COUNT, True),
-        "cue-negative": (CUE_FRAME_COUNT, True),
-        "cue-bleed": (CUE_FRAME_COUNT, True),
-        "cue-control": (CUE_FRAME_COUNT, True),
-        "cue-cleanse": (CUE_FRAME_COUNT, True),
-        "area-sand": (AREA_FRAME_COUNT, False),
-        "area-ward": (AREA_FRAME_COUNT, False),
-    }
-    for name, (frame_count, requires_offsets) in expected.items():
+    for name, (frame_count, requires_offsets) in EXPECTED_GROUPS.items():
         directory = RUNTIME_ROOT / name
         frames = sorted(directory.glob("*.webp"), key=lambda path: int(path.stem))
         if len(frames) != frame_count:
@@ -274,22 +313,30 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--eft-root", type=Path, default=DEFAULT_EFT_ROOT)
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--group", action="append", choices=EXPECTED_GROUPS,
+                        help="Only rebuild the selected group; repeat for multiple groups.")
     args = parser.parse_args()
 
     if not args.validate_only:
         RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
-        prepare_cue(args.eft_root, 100, "cue-positive")
-        prepare_cue(args.eft_root, 65, "cue-negative")
-        prepare_cue(args.eft_root, 35, "cue-bleed", scale=1.0)
-        prepare_cue(
-            args.eft_root,
-            98,
-            "cue-control",
-            anchor_y_adjustment=-ROLE_STATUS_EFT_Z_OFFSET,
-        )
-        prepare_cue(args.eft_root, 101, "cue-cleanse")
-        prepare_area("area_sand.png", "area-sand", ward=False)
-        prepare_area("area_ward.png", "area-ward", ward=True)
+        generators = {
+            "cue-positive": lambda: prepare_cue(args.eft_root, 100, "cue-positive"),
+            "cue-negative": lambda: prepare_cue(args.eft_root, 65, "cue-negative"),
+            "cue-bleed": lambda: prepare_cue(args.eft_root, 35, "cue-bleed", scale=1.0),
+            "cue-control": lambda: prepare_cue(args.eft_root, 98, "cue-control",
+                anchor_y_adjustment=-ROLE_STATUS_EFT_Z_OFFSET),
+            "cue-cleanse": lambda: prepare_cue(args.eft_root, 101, "cue-cleanse"),
+            "area-sand": lambda: prepare_area("area_sand.png", "area-sand", ward=False),
+            "area-ward": lambda: prepare_area("area_ward.png", "area-ward", ward=True),
+            "area-fire": lambda: prepare_area("area_fire.png", "area-fire", ward=False,
+                frame_count=FIRE_FRAME_COUNT, inset=0.84),
+            "cue-sword": lambda: prepare_cue(args.eft_root, 100, "cue-sword",
+                frame_count=SHORT_CUE_FRAME_COUNT),
+            "cue-guardian": lambda: prepare_master_cue("guardian_qi.png", "cue-guardian"),
+            "cue-fire": lambda: prepare_master_cue("area_fire.png", "cue-fire"),
+        }
+        for name in args.group or generators:
+            generators[name]()
     validate_outputs()
 
 

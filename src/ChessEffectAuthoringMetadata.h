@@ -367,6 +367,7 @@ static constexpr std::array battleAttributeLabels{
     authorLabel("速度", BattleAttribute::Speed),
     authorLabel("暴擊率", BattleAttribute::CriticalChance),
     authorLabel("暴擊傷害", BattleAttribute::CriticalDamage),
+    authorLabel("必中", BattleAttribute::GuaranteedHit),
     authorLabel("閃避率", BattleAttribute::DodgeChance),
     authorLabel("格擋率", BattleAttribute::BlockChance),
     authorLabel("傷害減免", BattleAttribute::DamageReduction),
@@ -427,6 +428,8 @@ static constexpr std::array areaModifierKindLabels{
     authorLabel("造成傷害修正", AreaModifierKind::OutgoingDamage),
     authorLabel("攻擊生成修正", AreaModifierKind::AttackSpawn),
     authorLabel("強制移動免疫", AreaModifierKind::ForcedMoveImmunity),
+    authorLabel("週期傷害", AreaModifierKind::PeriodicDamage),
+    authorLabel("傷害轉移", AreaModifierKind::DamageRedirect),
 };
 static constexpr AuthorEnumDescriptor areaModifierKindEnum{
     "AreaModifierKind", areaModifierKindLabels,
@@ -1554,6 +1557,13 @@ static constexpr PayloadDescriptor attackRuntimeBehaviorPayload{
 
 static constexpr std::array areaModifierFields{
     PayloadFieldDescriptor{
+        "間隔幀數", false, PayloadNodeShape::Integer, "20", R"(類型: 週期傷害
+關係: 敵方
+數值: 40
+間隔幀數: 20
+重疊方式: 相加)",
+    },
+    PayloadFieldDescriptor{
         "類型", true, PayloadNodeShape::String, "強制移動免疫", {},
         PayloadSchemaReference::None, &areaModifierKindEnum,
     },
@@ -2008,6 +2018,7 @@ static constexpr std::array modifyAttackFields{
     PayloadFieldDescriptor{ "貫穿", false, PayloadNodeShape::Boolean, "true" },
     PayloadFieldDescriptor{ "追蹤", false, PayloadNodeShape::Boolean, "true" },
     PayloadFieldDescriptor{ "視為主彈道", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "清除彈道半徑百分比", false, PayloadNodeShape::Integer, "150" },
     PayloadFieldDescriptor{ "同目標命中上限", false, PayloadNodeShape::Integer, "1" },
     PayloadFieldDescriptor{
         "目標政策", false, PayloadNodeShape::String, "選擇目標", {},

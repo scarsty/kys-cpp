@@ -509,6 +509,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
     CoreDetail::reduceCommandsBeforeAttacks(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
     CoreDetail::advanceAttacksAndResolveHits(state, frame);
+    CoreDetail::appendAreaDamagePulses(state, frame);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
     CoreDetail::applyDamageAndLifecycle(state, frame);
     state.nextFrame.recycleDamage(frame.drainCurrentFrameDamage());

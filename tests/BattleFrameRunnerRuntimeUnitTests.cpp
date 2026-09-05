@@ -578,6 +578,39 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     CHECK(semanticCueEvents(runBattleFrame(openingState)).empty());
 }
 
+TEST_CASE("BattleFrameRunner_GuaranteedHitCuesEachRecipientAndRefresh", "[battle][ultimate][effect_cue]")
+{
+    auto state = runtimeFrameState();
+    ModifyAttributeAction buff;
+    buff.attribute = BattleAttribute::GuaranteedHit;
+    buff.operation = AttributeOperation::Override;
+    buff.durationFrames = 100;
+    buff.stack = EffectStackPolicy::Refresh;
+    const auto apply = [&] {
+        for (int id : {0, 1})
+            queueEffectCommandBatch(state, {
+                EffectCommand{cueEffectMetadata(state, EffectEvent::AttackCommitted, id),
+                    ModifyAttributeEffectCommand{buff, 1}},
+            });
+        return runBattleFrame(state);
+    };
+    for (int repeat = 0; repeat < 2; ++repeat)
+    {
+        const auto frame = apply();
+        const auto cues = semanticCueEvents(frame);
+        REQUIRE(cues.size() == 2);
+        for (const auto* cue : cues)
+        {
+            CHECK(cue->durationFrames == 12);
+            CHECK(cue->visualPath == BattleCueSwordVisualPath);
+            CHECK(cue->color.r == 160);
+            CHECK(cue->color.g == 225);
+            CHECK(cue->color.b == 255);
+        }
+        CHECK(cues[0]->targetUnitId != cues[1]->targetUnitId);
+    }
+}
+
 TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][frame_runner][runtime][effect_cue]")
 {
     SECTION("只有第一層會顯示提示")

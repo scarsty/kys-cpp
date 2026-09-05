@@ -113,3 +113,19 @@ TEST_CASE("BattleAreaPresentation_FadesInAndOutAcrossExclusiveLifetime", "[battl
     CHECK(battleAreaVisualAlpha(area, 29) == 27);
     CHECK(battleAreaVisualAlpha(area, 30) == 0);
 }
+
+TEST_CASE("BattleAreaPresentation_FirePulseFollowsConfiguredDamageInterval", "[battle][presentation][ultimate]")
+{
+    BattleAreaPresentation area;
+    area.style = BattleAreaVisualStyle::Fire;
+    area.createdFrame = 10;
+    area.expiresFrameExclusive = 130;
+    area.pulseIntervalFrames = 20;
+    CHECK(battleAreaVisualPath(area.style) == std::string_view(BattleAreaFireVisualPath));
+    CHECK(battleAreaVisualAlpha(area, 30) == 180);
+    CHECK(battleAreaVisualAlpha(area, 36) == 110);
+    area.pulseIntervalFrames = 30;
+    CHECK(battleAreaVisualAlpha(area, 30) == 110);
+    CHECK(battleAreaVisualAlpha(area, 40) == 180);
+    CHECK(battleAreaVisualAlpha(area, 130) == 0);
+}

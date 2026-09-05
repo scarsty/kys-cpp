@@ -144,9 +144,21 @@ struct BattleAreaAttackSpawnModifiers
     std::optional<int> projectilePressurePct;
 };
 
+struct BattleAreaDamageRedirect
+{
+    int guardianUnitId{};
+    int reductionPct{};
+};
+
 class BattleAreaEffectSystem
 {
 public:
+    static std::optional<BattleAreaDamageRedirect> damageRedirect(
+        const BattleAreaEffectState& state,
+        const BattleGridTransform& gridTransform,
+        const BattleRuntimeUnits& units,
+        int unitId,
+        int frame);
     static BattleAreaCreateResult create(
         BattleAreaEffectState& state,
         BattleAreaCreateRequest request);

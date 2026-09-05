@@ -1378,6 +1378,8 @@ bool validateActionPayload(
                 if (typed.pattern.projectileCount <= 0) return reject("攻擊彈道數量必須為正數");
                 if (typed.pattern.intervalFrames < 0) return reject("攻擊間隔幀數不可為負數");
                 if (typed.strengthPct < 0 || typed.sameTargetHitLimit < 0) return reject("攻擊倍率與同目標上限不可為負數");
+                if (typed.projectileClearRadiusPct != 0 && typed.projectileClearRadiusPct < 100)
+                    return reject("清除彈道半徑百分比須為零或至少100");
                 if (typed.source)
                 {
                     if (!validateSelectorSchema(*typed.source, error)
@@ -1443,7 +1445,19 @@ bool validateActionPayload(
                     && (typed.squareSideTiles <= 0 || typed.squareSideTiles % 2 == 0))
                     return reject("棋格方形區域邊長必須是正奇數");
                 for (const auto& modifier : typed.modifiers)
+                {
                     if (!validateEffectNumberAtEvent(modifier.amount, event, context, error)) return false;
+                    if (modifier.kind == AreaModifierKind::PeriodicDamage
+                        && (modifier.intervalFrames <= 0 || !effectNumberCannotBeNegative(modifier.amount)
+                            || modifier.relation != EffectTeamFilter::Enemy || modifier.overlap != AreaOverlapPolicy::Add))
+                        return reject("週期傷害需要非負數值、正間隔、敵方關係與相加重疊");
+                    if (modifier.kind == AreaModifierKind::DamageRedirect
+                        && (modifier.percent < 0 || modifier.percent > 100
+                            || modifier.relation != EffectTeamFilter::Ally || modifier.overlap != AreaOverlapPolicy::KeepStrongest
+                            || typed.anchor != AreaAnchor::FollowSourceUnit
+                            || typed.sourceDeath != AreaSourceDeathPolicy::RemoveImmediately))
+                        return reject("傷害轉移需要 0 至 100 減傷、友方取最強、跟隨來源且來源死亡立即移除");
+                }
             }
             else if constexpr (std::is_same_v<T, ModifyCastAction>)
             {

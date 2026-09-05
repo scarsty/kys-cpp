@@ -320,6 +320,8 @@ struct BattleDamageRequest
     int bleedMaxStacks = 0;
     std::optional<BattleStatusProducerProvenance> bleedProducer;
     bool triggersDefenseEffects = true;
+    // 轉移傷害已結算原目標減傷，不可再次轉移或重算攻擊加成。
+    bool redirected = false;
 };
 
 struct BattleUnitDelta
@@ -336,6 +338,7 @@ struct BattleUnitDelta
 
 struct BattleDamageTransactionInput
 {
+    bool redirectHpDamage = false;
     BattleDamageRequest request;
     BattleDamageUnitState attacker;
     BattleDamageUnitState defender;
@@ -363,6 +366,7 @@ struct BattleDamageTransactionResult
     std::vector<BattleResolvedHealTransaction> resolvedHeals;
     int resolvedDamageBeforeDefense = 0;
     int finalHpDamage = 0;
+    int redirectedHpDamage{};
     int finalMpDamage = 0;
     int cooldownDelta = 0;
     int shieldAbsorbed = 0;

@@ -88,6 +88,7 @@ void reduceCommandsBeforeMovement(
     BattleRuntimeState& state,
     BattleFrameContext& frame);
 void reduceCommandsBeforeAttacks(BattleRuntimeState& state, BattleFrameContext& frame);
+void appendAreaDamagePulses(BattleRuntimeState& state, BattleFrameContext& frame);
 void reduceCommandsAfterAttackHits(BattleRuntimeState& state, BattleFrameContext& frame);
 void reduceCommandsAfterDamageLifecycle(BattleRuntimeState& state, BattleFrameContext& frame);
 void completeCastCommitBarriers(

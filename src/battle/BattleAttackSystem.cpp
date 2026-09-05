@@ -275,6 +275,8 @@ BattleAttackEvent BattleAttackState::spawn(
     assert(request.initial.bounceChancePct >= 0 && request.initial.bounceChancePct <= 100);
     assert(request.initial.bounceRollPct >= 0 && request.initial.bounceRollPct < 100);
     assert(request.initial.projectilePressurePct >= 0);
+    assert(request.initial.projectileClearRadiusPct == 0
+        || request.initial.projectileClearRadiusPct >= 100);
     assert(request.provenance.valid());
     assert(request.castWork.valid());
     assert(request.castWork.castId == request.provenance.cast.castId);
@@ -353,6 +355,14 @@ void BattleAttackState::tick(
 
         ++attack.frame;
         moveAttack(attack);
+    }
+
+    // Resolve sweeping interception after all movement, before any unit contact.
+    clearProjectilesAlongPaths(units);
+
+    for (size_t i = 0; i < initialAttackCount; ++i)
+    {
+        auto& attack = attacks[i];
         events.push_back(makeAttackEvent(BattleAttackEventType::Moved, attack));
 
         const auto* target = selectTarget(units, attack);
@@ -526,6 +536,44 @@ BattleHitSettlementResult BattleAttackState::settleHit(
         attacks.push_back(std::move(*spawnedBounce));
     }
     return result;
+}
+
+void BattleAttackState::clearProjectilesAlongPaths(const BattleRuntimeUnits& units)
+{
+    std::set<size_t> cleared;
+    for (const auto& sweep : attacks)
+    {
+        if (sweep.noHurt || sweep.state.projectileClearRadiusPct == 0
+            || sweep.state.delivery != BattleAttackDelivery::projectile())
+        {
+            continue;
+        }
+        const int team = units.requireCore(sweep.state.attackSourceUnitId).team;
+        const double radius = hitRadius * sweep.state.projectileClearRadiusPct / 100.0;
+        for (size_t i = 0; i < attacks.size(); ++i)
+        {
+            const auto& target = attacks[i];
+            if (target.noHurt || target.state.delivery != BattleAttackDelivery::projectile()
+                || units.requireCore(target.state.attackSourceUnitId).team == team)
+            {
+                continue;
+            }
+            if (battleSegmentsWithinRadius(
+                    sweep.previousPosition, sweep.state.position,
+                    target.previousPosition, target.state.position, radius, true))
+            {
+                cleared.insert(i);
+            }
+        }
+    }
+    // Collect first so opposing sweeps cancel each other independently of spawn order.
+    for (const size_t i : cleared)
+    {
+        auto& target = attacks[i];
+        target.noHurt = true;
+        target.frame = target.state.totalFrame;
+        target.scheduledFinishReason = AttackFinishReason::ProjectileCancelled;
+    }
 }
 
 void BattleAttackState::applyProjectileCancelDamage(const BattleAttackEvent& event)

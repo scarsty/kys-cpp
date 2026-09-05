@@ -301,6 +301,7 @@ bool matchesConditionalAttackBranch(
         && !action.tracking
         && action.mainProjectile == mainProjectile
         && action.sameTargetHitLimit == 0
+        && action.projectileClearRadiusPct == 0
         && action.targets == AttackTargetPolicy::SameTarget
         && action.propagation == CastPropagationPolicy::SuppressUltimateRules
         && action.addToBaseAttack

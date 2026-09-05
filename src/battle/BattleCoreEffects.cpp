@@ -78,6 +78,11 @@ BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
     event.durationFrames = 15;
     switch (cue.family)
     {
+    case BattleSemanticCueFamily::SwordIntent:
+        event.visualPath = BattleCueSwordVisualPath;
+        event.color = {160, 225, 255, 255};
+        event.durationFrames = 12;
+        break;
     case BattleSemanticCueFamily::Positive:
         event.visualPath = BattleCuePositiveVisualPath;
         event.color = { 255, 204, 96, 220 };
@@ -735,10 +740,14 @@ void reduceEffectCommandImpl(
         }
         else if (modifierApplicationShouldCue(
                      attribute->outcome,
-                     attribute->modifier.stackCount))
+                     attribute->modifier.stackCount)
+            || (attribute->modifier.attribute == BattleAttribute::GuaranteedHit
+                && attribute->outcome == BattleModifierApplyOutcome::Refreshed))
         {
             const auto family = attribute->modifier.negative
                 ? BattleSemanticCueFamily::Curse
+                : attribute->modifier.attribute == BattleAttribute::GuaranteedHit
+                    ? BattleSemanticCueFamily::SwordIntent
                 : (isProtectionAttribute(attribute->modifier.attribute)
                     ? BattleSemanticCueFamily::Protection
                     : BattleSemanticCueFamily::Positive);
@@ -1219,6 +1228,40 @@ std::optional<BattleAreaVisualStyle> areaVisualStyle(const BattleAreaEffect& are
 
 namespace CoreDetail
 {
+void appendAreaDamagePulses(BattleRuntimeState& state, BattleFrameContext& frame)
+{
+    const int currentFrame = state.movement.frame;
+    for (const auto& area : state.areas.areas)
+    {
+        if (!BattleAreaEffectSystem::activeAt(area, currentFrame)) continue;
+        for (const auto& modifier : area.modifiers)
+        {
+            if (modifier.kind != AreaModifierKind::PeriodicDamage) continue;
+            const int age = currentFrame - area.createdFrame;
+            if (age <= 0 || age % modifier.intervalFrames != 0) continue;
+            auto pulse = roleEffectEvent(area.source.ownerUnitId, -1, 12);
+            pulse.visualPath = BattleCueFireVisualPath;
+            pulse.color = {255, 255, 255, 230};
+            frame.visualEvents.push_back(std::move(pulse));
+            for (const auto& unit : state.units.all())
+            {
+                if (!unit.core.alive || unit.core.team == area.sourceTeam
+                    || !BattleAreaEffectSystem::containsUnit(area, state.gridTransform,
+                        state.units, unit.id(), currentFrame)) continue;
+                BattleDamageRequest damage;
+                damage.attackerUnitId = area.source.ownerUnitId;
+                damage.defenderUnitId = unit.id();
+                damage.baseDamage = modifier.amount.flat;
+                damage.damageKind = BattleDamageKind::Effect;
+                damage.triggersDefenseEffects = false;
+                appendFramePendingDamage(state, frame.currentFrameDamage(), damage,
+                    std::nullopt, 0, false, {}, makeEffectDamageOrigin(area.source,
+                        area.mergeKey.ruleId, 0, std::nullopt, std::nullopt, std::nullopt));
+            }
+        }
+    }
+}
+
 
 void reduceEffectCommand(
     BattleRuntimeState& state,
@@ -1435,6 +1478,8 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
         {
             continue;
         }
+        const auto pulse = std::ranges::find(area.modifiers,
+            AreaModifierKind::PeriodicDamage, &AreaModifier::kind);
         presentationFrame.areas.push_back({
             .areaId = area.id.value,
             .sourceUnitId = area.source.ownerUnitId,
@@ -1445,6 +1490,7 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
             .style = *style,
             .createdFrame = area.createdFrame,
             .expiresFrameExclusive = area.expiresFrameExclusive,
+            .pulseIntervalFrames = pulse == area.modifiers.end() ? 0 : pulse->intervalFrames,
         });
     }
     presentationFrame.gameplayEvents.reserve(

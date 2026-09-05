@@ -1184,7 +1184,8 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
         if (!parseAttribute(attribute.as<std::string>(), out.attribute, error)) return false;
     }
     if (payload["數值"] && !parseEffectNumberNode(payload["數值"], out.amount, error)) return false;
-    if (!optionalInt(payload, "百分比", out.percent, error)) return false;
+    if (!optionalInt(payload, "百分比", out.percent, error)
+        || !optionalInt(payload, "間隔幀數", out.intervalFrames, error)) return false;
     if (const auto damageKind = payload["傷害種類"])
     {
         if (!parseDamageChannel(damageKind.as<std::string>(), out.damageChannel, error)) return false;
@@ -1241,7 +1242,35 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
         error = std::format("區域修正「{}」不接受「{}」欄位", type, field);
         return true;
     };
-    if (out.kind == AreaModifierKind::Attribute)
+    if (out.kind != AreaModifierKind::PeriodicDamage && payload["間隔幀數"])
+    {
+        error = "只有週期傷害可指定間隔幀數";
+        return false;
+    }
+    if (out.kind == AreaModifierKind::PeriodicDamage
+        || out.kind == AreaModifierKind::DamageRedirect)
+    {
+        if (unexpected(payload["屬性"] || payload["傷害種類"] || payload["追蹤"]
+                || payload["彈速百分比"] || payload["彈道壓制百分比"] || payload["阻擋方向"], "其他修正")) return false;
+        if (out.kind == AreaModifierKind::PeriodicDamage)
+        {
+            if (!payload["數值"] || out.intervalFrames <= 0
+                || payload["百分比"] || out.relation != EffectTeamFilter::Enemy
+                || out.overlap != AreaOverlapPolicy::Add)
+            {
+                error = "週期傷害需要數值、正間隔幀數、敵方關係與相加重疊方式";
+                return false;
+            }
+        }
+        else if (!payload["百分比"] || out.percent < 0 || out.percent > 100
+            || payload["數值"] || out.relation != EffectTeamFilter::Ally
+            || out.overlap != AreaOverlapPolicy::KeepStrongest)
+        {
+            error = "傷害轉移需要 0 至 100 的減傷百分比、友方關係與保留最強重疊方式";
+            return false;
+        }
+    }
+    else if (out.kind == AreaModifierKind::Attribute)
     {
         if (!payload["屬性"] || !payload["數值"])
         {
@@ -1664,6 +1693,7 @@ bool parseActionPayload(
             || !optionalBool(node, "追蹤", action.tracking, error)
             || !optionalBool(node, "視為主彈道", action.mainProjectile, error)
             || !optionalInt(node, "同目標命中上限", action.sameTargetHitLimit, error)
+            || !optionalInt(node, "清除彈道半徑百分比", action.projectileClearRadiusPct, error)
             || !optionalBool(node, "追加至基礎攻擊", action.addToBaseAttack, error)
             || !parsePropagation(node["傳播政策"], action.propagation, error)) return false;
         if (node["攻擊來源"])

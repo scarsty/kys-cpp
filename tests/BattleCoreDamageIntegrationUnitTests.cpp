@@ -23,6 +23,103 @@ using namespace KysChess::Battle::Test;
 using namespace KysChess;
 using namespace BattlePresentationTest;
 
+namespace
+{
+BattleRuntimeState auraBattleState()
+{
+    BattleRuntimeState state;
+    state.gridTransform = {SceneTileWidth, 64};
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, {100, 100, 0}),
+        unit(1, 0, {120, 100, 0}),
+        unit(2, 1, {140, 100, 0}),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 1000, {100, 100, 0}),
+        runtimeUnitSnapshot(1, 0, 1000, {120, 100, 0}),
+        runtimeUnitSnapshot(2, 1, 1000, {140, 100, 0}),
+    });
+    for (int id = 0; id < 3; ++id)
+        state.units.require(id).status = statusRuntimeSnapshot(id, 1000);
+    return state;
+}
+
+BattleAreaCreateRequest auraRequest(AreaModifier modifier)
+{
+    auto request = fixedCircleAreaRequest(0, 0, {1}, {100, 100, 0}, 0, 60);
+    request.anchor = {BattleAreaAnchorKind::FollowSourceUnit, {}, 0};
+    request.sourceDeath = AreaSourceDeathPolicy::RemoveImmediately;
+    request.modifiers = {modifier};
+    return request;
+}
+}
+
+TEST_CASE("BattleFrameRunner_AuraPulsesUseElapsedFramesAndRespectImmunity", "[battle][area][ultimate]")
+{
+    auto state = auraBattleState();
+    auto request = auraRequest({.kind = AreaModifierKind::PeriodicDamage,
+        .relation = EffectTeamFilter::Enemy, .amount = {.flat = 45},
+        .intervalFrames = 20, .overlap = AreaOverlapPolicy::Add});
+    BattleAreaEffectSystem::create(state.areas, request);
+    for (int i = 0; i < 19; ++i) runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == 1000);
+    runBattleFrame(state);
+    const int afterPulse = state.units.requireCore(2).vitals.hp;
+    CHECK(afterPulse < 1000);
+    CHECK(state.units.requireCore(0).vitals.hp == 1000);
+    CHECK(state.units.requireCore(1).vitals.hp == 1000);
+    for (int i = 0; i < 19; ++i) runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == afterPulse);
+    state.units.requireCore(2).invincible = 10;
+    runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == afterPulse);
+    for (int i = 0; i < 20; ++i) runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == afterPulse);
+    CHECK(state.areas.areas.empty());
+}
+
+TEST_CASE("BattleFrameRunner_GuardianReducesTransferredDamageWithoutRecursion", "[battle][area][ultimate]")
+{
+    auto state = auraBattleState();
+    addTypedAttributeModifier(state, 0, BattleAttribute::DamageReduction,
+        AttributeOperation::PercentagePointAdd, 40);
+    auto request = auraRequest({.kind = AreaModifierKind::DamageRedirect,
+        .relation = EffectTeamFilter::Ally, .percent = 40});
+    BattleAreaEffectSystem::create(state.areas, request);
+    request.source.ownerUnitId = 1;
+    request.anchor.sourceUnitId = 1;
+    BattleAreaEffectSystem::create(state.areas, request);
+    BattleDamageRequest damage;
+    damage.attackerUnitId = 2;
+    damage.defenderUnitId = 1;
+    damage.baseDamage = 100;
+    damage.preResolvedDamage = true;
+    state.nextFrame.queueDamage({.request = damage});
+    runBattleFrame(state);
+    CHECK(state.units.requireCore(1).vitals.hp == 1000);
+    CHECK(state.units.requireCore(0).vitals.hp == 940);
+}
+
+TEST_CASE("BattleFrameRunner_GuardianPersonalReductionProtectsDirectHits", "[battle][area][ultimate]")
+{
+    auto state = auraBattleState();
+    addTypedAttributeModifier(state, 0, BattleAttribute::DamageReduction,
+        AttributeOperation::PercentagePointAdd, 40);
+    auto request = auraRequest({.kind = AreaModifierKind::DamageRedirect,
+        .relation = EffectTeamFilter::Ally, .percent = 40});
+    BattleAreaEffectSystem::create(state.areas, request);
+    BattleDamageRequest damage;
+    damage.attackerUnitId = 2;
+    damage.defenderUnitId = 0;
+    damage.baseDamage = 100;
+    damage.damageKind = BattleDamageKind::Pure;
+    state.nextFrame.queueDamage({.request = damage});
+    runBattleFrame(state);
+    CHECK(state.units.requireCore(0).vitals.hp == 940);
+    CHECK(state.units.requireCore(1).vitals.hp == 1000);
+}
+
 TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -252,6 +349,43 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
         {
             return BattleLogTest::textOf(event) == "格擋了本次攻擊";
         }));
+    }
+}
+
+TEST_CASE("BattleFrameRunner_GuaranteedHitOnlyBypassesDodgeAndBlock", "[battle][core][ultimate]")
+{
+    auto frame = hitDamageFrameState(30, 100);
+    auto& state = frame.state;
+    addTypedAttributeModifier(state, 0, BattleAttribute::GuaranteedHit,
+        AttributeOperation::Override, 1);
+    addTypedAttributeModifier(state, 1, BattleAttribute::DodgeChance,
+        AttributeOperation::PercentagePointAdd, 100);
+    addTypedAttributeModifier(state, 1, BattleAttribute::BlockChance,
+        AttributeOperation::PercentagePointAdd, 100);
+    SECTION("無視閃避與格擋")
+    {
+        runBattleFrame(state);
+        CHECK(state.units.requireCore(1).vitals.hp < 100);
+    }
+    SECTION("無敵仍有效")
+    {
+        state.units.requireCore(1).invincible = 10;
+        runBattleFrame(state);
+        CHECK(state.units.requireCore(1).vitals.hp == 100);
+    }
+    SECTION("互搏抵擋仍有效")
+    {
+        state.units.require(1).damage.dualWieldBlocksRemaining = 1;
+        runBattleFrame(state);
+        CHECK(state.units.requireCore(1).vitals.hp == 100);
+        CHECK(state.units.require(1).damage.dualWieldBlocksRemaining == 0);
+    }
+    SECTION("護盾仍有效")
+    {
+        state.units.requireCore(1).shield = 1000;
+        runBattleFrame(state);
+        CHECK(state.units.requireCore(1).vitals.hp == 100);
+        CHECK(state.units.requireCore(1).shield < 1000);
     }
 }
 

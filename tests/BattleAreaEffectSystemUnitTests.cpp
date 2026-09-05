@@ -11,6 +11,42 @@ using namespace KysChess;
 using namespace KysChess::Battle;
 using namespace KysChess::Battle::Test;
 
+TEST_CASE("BattleAreaEffectSystem_GuardianUsesRangeLifetimeAndStrongestReduction", "[battle][area][ultimate]")
+{
+    const BattleGridTransform transform{10.0, 64};
+    const Pointf center{100, 100, 0};
+    auto units = runtimeRecords({
+        runtimeUnitSnapshot(0, 0, 100, center),
+        runtimeUnitSnapshot(1, 0, 100, {110, 100, 0}),
+        runtimeUnitSnapshot(2, 1, 100, center),
+        runtimeUnitSnapshot(3, 0, 100, {500, 100, 0}),
+        runtimeUnitSnapshot(4, 0, 100, center),
+    });
+    BattleAreaEffectState state;
+    auto request = fixedCircleAreaRequest(0, 0, {1}, center, 10, 100);
+    request.modifiers = {{.kind = AreaModifierKind::DamageRedirect,
+        .relation = EffectTeamFilter::Ally, .percent = 40}};
+    BattleAreaEffectSystem::create(state, request);
+    const auto redirect = [&](int id, int frame = 20) {
+        return BattleAreaEffectSystem::damageRedirect(state, transform, units, id, frame);
+    };
+    REQUIRE(redirect(1));
+    CHECK(redirect(1)->guardianUnitId == 0);
+    CHECK(redirect(1)->reductionPct == 40);
+    CHECK_FALSE(redirect(0));
+    CHECK_FALSE(redirect(2));
+    CHECK_FALSE(redirect(3));
+    CHECK_FALSE(redirect(1, 110));
+    request.source.ownerUnitId = 4;
+    request.modifiers.front().percent = 60;
+    BattleAreaEffectSystem::create(state, request);
+    CHECK(redirect(1)->guardianUnitId == 4);
+    units.requireCore(4).alive = false;
+    CHECK(redirect(1)->guardianUnitId == 0);
+    units.requireCore(0).alive = false;
+    CHECK_FALSE(redirect(1));
+}
+
 TEST_CASE("BattleAreaEffectSystem_RefreshReplaceAndIndependentMergesHaveStableIds", "[battle][area]")
 {
     BattleAreaEffectState state;

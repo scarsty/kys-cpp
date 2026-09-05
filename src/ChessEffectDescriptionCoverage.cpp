@@ -964,6 +964,8 @@ void appendActionCoverage(
                 scalarField("mainProjectile", typed.mainProjectile, defaults.mainProjectile);
                 scalarField("sameTargetHitLimit", typed.sameTargetHitLimit,
                     defaults.sameTargetHitLimit);
+                scalarField("projectileClearRadiusPct", typed.projectileClearRadiusPct,
+                    defaults.projectileClearRadiusPct);
                 scalarField("targets", typed.targets, defaults.targets);
                 scalarField("propagation", typed.propagation, defaults.propagation);
                 scalarField("addToBaseAttack", typed.addToBaseAttack, defaults.addToBaseAttack);
@@ -1099,6 +1101,7 @@ void appendActionCoverage(
                                 : DescriptionFieldDisposition::SchemaDefault,
                             value ? descriptionAuditValue(*value) : "absent");
                     };
+                    modifierScalar("intervalFrames", modifier.intervalFrames, defaults.intervalFrames);
                     modifierRequired("kind", modifier.kind);
                     modifierRequired("relation", modifier.relation);
                     if (modifier.kind == AreaModifierKind::Attribute)

@@ -517,6 +517,7 @@ std::string attributeLabel(BattleAttribute attribute, bool compact)
     case BattleAttribute::Speed: return "速度";
     case BattleAttribute::CriticalChance: return compact ? "暴擊" : "暴擊率";
     case BattleAttribute::CriticalDamage: return "暴擊傷害";
+    case BattleAttribute::GuaranteedHit: return "必中（無視閃避與格擋）";
     case BattleAttribute::DodgeChance: return compact ? "閃避" : "閃避率";
     case BattleAttribute::BlockChance: return compact ? "格擋" : "格擋率";
     case BattleAttribute::DamageReduction: return "傷害減免";
@@ -1000,7 +1001,10 @@ std::string renderDescriptionActionArgument(
                         : std::format("{}增加{}%", attribute, amount);
                     break;
                 case AttributeOperation::Override:
-                    result = std::format("{}改為{}{}", attribute, amount, attributeUnit);
+                    result = typed.attribute == BattleAttribute::GuaranteedHit
+                        && constantAmount == 1 && !detailed
+                        ? "獲得必中（無視閃避與格擋，仍受無敵與護盾限制）"
+                        : std::format("{}改為{}{}", attribute, amount, attributeUnit);
                     break;
                 case AttributeOperation::Multiply:
                     result = typed.amount.base == EffectNumberBase::Constant
@@ -1493,6 +1497,7 @@ std::string renderDescriptionActionArgument(
                 if (typed.through) result += std::format("{}{}", qualifierSeparator, *typed.through ? "貫穿" : "不貫穿");
                 if (typed.tracking) result += std::format("{}{}", qualifierSeparator, *typed.tracking ? "追蹤" : "不追蹤");
                 if (typed.sameTargetHitLimit > 0) result += std::format("{}同目標{}次", qualifierSeparator, typed.sameTargetHitLimit);
+                if (typed.projectileClearRadiusPct > 0) result += std::format("{}沿途清除所有敵方彈道（含絕招，偵測半徑為命中半徑{}%）", qualifierSeparator, typed.projectileClearRadiusPct);
                 if (typed.pattern.intervalFrames > 0) result += std::format("{}間隔{}幀", qualifierSeparator, typed.pattern.intervalFrames);
                 if (typed.propagation == CastPropagationPolicy::SourceHitRulesOnly)
                     result += std::format("{}{}", qualifierSeparator,
@@ -1666,6 +1671,17 @@ std::string renderDescriptionActionArgument(
                                     amount),
                             });
                         }
+                        else if (modifier.kind == AreaModifierKind::PeriodicDamage)
+                        {
+                            modifierLabels.push_back({modifier.relation,
+                                std::format("每{}幀受到{}效果傷害", modifier.intervalFrames,
+                                    descriptionNumberLabel(modifier.amount, style))});
+                        }
+                        else if (modifier.kind == AreaModifierKind::DamageRedirect)
+                        {
+                            modifierLabels.push_back({modifier.relation,
+                                std::format("傷害由來源承擔，轉移減傷{}%（不含來源自身，不連鎖）", modifier.percent)});
+                        }
                         else if (modifier.kind == AreaModifierKind::OutgoingDamage)
                         {
                             modifierLabels.push_back({
@@ -1806,6 +1822,15 @@ std::string renderDescriptionActionArgument(
                             relationLabel(modifier.relation),
                             attributeLabel(modifier.attribute, compact),
                             amount);
+                    }
+                    else if (modifier.kind == AreaModifierKind::PeriodicDamage)
+                    {
+                        result += std::format("區域內敵方每{}幀受到{}效果傷害", modifier.intervalFrames,
+                            descriptionNumberLabel(modifier.amount, style));
+                    }
+                    else if (modifier.kind == AreaModifierKind::DamageRedirect)
+                    {
+                        result += std::format("區域內其他友方的傷害由來源承擔，轉移減傷{}%（不連鎖）", modifier.percent);
                     }
                     else if (modifier.kind == AreaModifierKind::OutgoingDamage)
                     {

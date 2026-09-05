@@ -795,6 +795,118 @@ TEST_CASE("BattleAttackSystem_TrackingProjectileStopsSteeringAfterFirstThroughHi
     CHECK(world.attacks[0].state.velocity.y == Catch::Approx(0.0f));
 }
 
+TEST_CASE("BattleAttackSystem_ProjectileSweepClearsEveryEnemyBeforeContact",
+          "[battle][attack][unit][projectile_sweep]")
+{
+    auto world = attackWorld();
+    world.hitRadius = 10;
+    const auto units = runtimeUnits({ unit(1, 0, 50, 0), unit(2, 1, 75, 0) });
+    auto sweep = attack(10, 1, 0, 0);
+    sweep.state.velocity = { 100, 0, 0 };
+    sweep.state.through = true;
+    sweep.state.projectileClearRadiusPct = 150;
+    world.addAttack(std::move(sweep));
+
+    for (int id = 11; id <= 14; ++id)
+    {
+        auto target = attack(id, 2, 20 * (id - 10), 0);
+        target.state.projectileCancelDamage = 10000;
+        target.state.ignoreProjectileCancel = true;
+        if (id == 12)
+        {
+            target.state.position = { 50, -100, 0 };
+            target.state.velocity = { 0, 200, 0 };
+        }
+        if (id == 13) target.state.payloadClass = BattleProjectilePayloadClass::scriptedControl();
+        if (id == 14) target.state.payloadClass = BattleProjectilePayloadClass::scriptedDamage();
+        BattlePendingAttackProvenance pending;
+        pending.cast.ultimate = id == 12;
+        world.addAttack(std::move(target), pending);
+    }
+    auto friendly = attack(15, 1, 50, 0);
+    world.addAttack(std::move(friendly));
+    auto outside = attack(16, 2, 50, 16);
+    world.addAttack(std::move(outside));
+    auto contact = attack(17, 2, 50, 0);
+    contact.state.delivery = BattleAttackDelivery::contact();
+    world.addAttack(std::move(contact));
+    auto effect = attack(18, 2, 50, 0);
+    effect.state.delivery = BattleAttackDelivery::effect();
+    world.addAttack(std::move(effect));
+
+    const auto events = world.tick(units);
+    CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+    CHECK_FALSE(world.attacks.front().noHurt);
+    for (int id = 11; id <= 14; ++id)
+    {
+        CHECK_FALSE(hasEvent(events, BattleAttackEventType::Hit, id, 1));
+        CHECK(hasEvent(events, BattleAttackEventType::Expired, id));
+        const auto& cleared = world.attacks[id - 10];
+        CHECK(cleared.noHurt);
+        CHECK(cleared.scheduledFinishReason == AttackFinishReason::ProjectileCancelled);
+        CHECK_FALSE(cleared.pendingContact);
+    }
+    CHECK_FALSE(world.attacks[5].noHurt);
+    CHECK_FALSE(world.attacks[6].noHurt);
+    CHECK(hasEvent(events, BattleAttackEventType::Hit, 17, 1));
+    CHECK(hasEvent(events, BattleAttackEventType::Hit, 18, 1));
+    world.completeFinished(world.lifecycle);
+    for (int i = 1; i <= 4; ++i)
+    {
+        CHECK(world.attacks[i].finishReason == AttackFinishReason::ProjectileCancelled);
+        CHECK_FALSE(world.attacks[i].castWork.valid());
+    }
+    world.eraseFinished();
+    CHECK(std::ranges::none_of(world.attacks, [](const auto& value)
+    {
+        return value.id >= 11 && value.id <= 14;
+    }));
+}
+
+TEST_CASE("BattleAttackSystem_ProjectileSweepRadiusAndContinuedTravel",
+          "[battle][attack][unit][projectile_sweep]")
+{
+    int radiusPct = 100;
+    SECTION("same hit radius") {}
+    SECTION("larger hit radius") { radiusPct = 150; }
+    auto world = attackWorld();
+    world.hitRadius = 10;
+    const auto units = runtimeUnits({ unit(1, 0, -500, 0), unit(2, 1, 500, 0) });
+    auto sweep = attack(10, 1, 0, 0);
+    sweep.state.velocity = { 100, 0, 0 };
+    sweep.state.projectileClearRadiusPct = radiusPct;
+    world.addAttack(std::move(sweep));
+    world.addAttack(attack(11, 2, 50, radiusPct / 10.0));
+    world.addAttack(attack(12, 2, 50, radiusPct / 10.0 + 1));
+    world.addAttack(attack(13, 2, 175, 0));
+    const auto first = world.tick(units);
+    CHECK(hasEvent(first, BattleAttackEventType::Expired, 11));
+    CHECK_FALSE(hasEvent(first, BattleAttackEventType::Expired, 12));
+    CHECK_FALSE(hasEvent(first, BattleAttackEventType::Expired, 13));
+    world.pruneFinished(world.lifecycle);
+    const auto second = world.tick(units);
+    CHECK(hasEvent(second, BattleAttackEventType::Expired, 13));
+    CHECK_FALSE(world.attacks.front().noHurt);
+}
+
+TEST_CASE("BattleAttackSystem_OpposingProjectileSweepsClearEachOther",
+          "[battle][attack][unit][projectile_sweep]")
+{
+    auto world = attackWorld();
+    const auto units = runtimeUnits({ unit(1, 0, -500, 0), unit(2, 1, 500, 0) });
+    for (int id = 1; id <= 2; ++id)
+    {
+        auto sweep = attack(id, id, 0, 0);
+        sweep.state.projectileClearRadiusPct = 100;
+        world.addAttack(std::move(sweep));
+    }
+    const auto events = world.tick(units);
+    CHECK(hasEvent(events, BattleAttackEventType::Expired, 1));
+    CHECK(hasEvent(events, BattleAttackEventType::Expired, 2));
+    world.pruneFinished(world.lifecycle);
+    CHECK(world.attacks.empty());
+}
+
 TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle][attack][unit]")
 {
     auto world = attackWorld();

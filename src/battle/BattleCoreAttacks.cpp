@@ -1090,6 +1090,7 @@ void resolveTypedHitEvent(
         return;
     }
     if (event.scriptedDamage <= 0
+        && effectAdjustedAttribute(state, event.sourceUnitId, BattleAttribute::GuaranteedHit, 0, event.unitId) <= 0
         && tryResolveDodgeHit(state, event, frame.logEvents, frame.visualEvents))
     {
         settleTypedHit(

@@ -1177,14 +1177,35 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
         CHECK(mutatedText.find("9%") != std::string::npos);
     }
 
-    const auto& scissorsRule = ruleWithEvent(definitionWithId(definitions, 75), EffectEvent::MainProjectileBeforeDamage);
+    const auto& scissorsRule = ruleWithEvent(definitionWithId(definitions, 75), EffectEvent::AttackCommitted);
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
         const auto text = descriptionText(std::span<const EffectRule>{&(scissorsRule), 1}, style, {});
+        CHECK(text.find("沿途清除所有敵方彈道") != std::string::npos);
+        CHECK(text.find("150%") != std::string::npos);
+        CHECK(text.find("貫穿") != std::string::npos);
+        CHECK(text.find("護盾") == std::string::npos);
+    }
+    const auto shieldRule = parseRuleText(R"(
+時機: 主彈命中
+目標: 命中目標
+動作:
+  - 資源變更:
+      資源: 護盾
+      方式: 移除
+      數值:
+        基準: 目標目前護盾
+        乘數基準: 來源星級
+        百分比: 20
+        取整: 向零
+)");
+    for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
+    {
+        const auto text = descriptionText(std::span<const EffectRule>{&(shieldRule), 1}, style, {});
         CHECK(text.find("目標目前護盾的20%×星級") != std::string::npos);
     }
     CHECK(descriptionText(
-        std::span<const EffectRule>{&(scissorsRule), 1},
+        std::span<const EffectRule>{&(shieldRule), 1},
         EffectDescriptionStyle::Full,
         {}).ends_with("移除目標目前護盾的20%×星級"));
 
@@ -1210,7 +1231,7 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
     CHECK(cooldownFull.find("目標目前冷卻的30%目前冷卻")
         == std::string::npos);
 
-    auto reversedShieldRule = scissorsRule;
+    auto reversedShieldRule = shieldRule;
     auto& reversedShield = std::get<ChangeResourceAction>(
         reversedShieldRule.actions[0].value);
     reversedShield.amount.base = EffectNumberBase::SourceStar;

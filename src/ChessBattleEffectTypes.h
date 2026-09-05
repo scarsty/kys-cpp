@@ -324,6 +324,7 @@ enum class BattleAttribute
     OutgoingCooldownExtensionPercent,
     IncomingCooldownExtensionChance,
     IncomingCooldownExtensionPercent,
+    GuaranteedHit,
 };
 
 
@@ -760,6 +761,7 @@ struct ModifyAttackAction
     std::optional<bool> tracking;
     bool mainProjectile = true;
     int sameTargetHitLimit = 0;
+    int projectileClearRadiusPct = 0;
     AttackTargetPolicy targets = AttackTargetPolicy::Preserve;
     CastPropagationPolicy propagation = CastPropagationPolicy::SourceRules;
     bool addToBaseAttack = false;
@@ -831,6 +833,8 @@ enum class AreaModifierKind
     OutgoingDamage,
     AttackSpawn,
     ForcedMoveImmunity,
+    PeriodicDamage,
+    DamageRedirect,
 };
 
 enum class AreaOverlapPolicy
@@ -847,6 +851,7 @@ struct AreaModifier
     BattleAttribute attribute{};
     EffectNumber amount;
     int percent = 0;
+    int intervalFrames{};
     DamageChannel damageChannel = DamageChannel::All;
     std::optional<bool> tracking;
     std::optional<int> speedPct;

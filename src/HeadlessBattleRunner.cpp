@@ -209,6 +209,7 @@ struct HeadlessBattleAttackPayloadDigest
     int projectileCancelDamage{};
     int projectileCancelWeaken{};
     int projectilePressurePct = 100;
+    int projectileClearRadiusPct{};
     Battle::BattleAttackCastSubrequestKind castSubrequestKind
         = Battle::BattleAttackCastSubrequestKind::None;
     int roleAttackEchoActType = -1;
@@ -601,6 +602,7 @@ HeadlessBattleAttackPayloadDigest attackPayloadDigest(
         payload.projectileCancelDamage,
         payload.projectileCancelWeaken,
         payload.projectilePressurePct,
+        payload.projectileClearRadiusPct,
         payload.castSubrequestKind,
         payload.roleAttackEchoActType,
         payload.strengthPct,

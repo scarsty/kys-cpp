@@ -1359,7 +1359,8 @@ BattleAreaEffectResult createArea(
     request.modifiers = command.action.modifiers;
     for (std::size_t i = 0; i < request.modifiers.size(); ++i)
     {
-        if (request.modifiers[i].kind != AreaModifierKind::Attribute)
+        if (request.modifiers[i].kind != AreaModifierKind::Attribute
+            && request.modifiers[i].kind != AreaModifierKind::PeriodicDamage)
         {
             continue;
         }

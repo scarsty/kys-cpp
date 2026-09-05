@@ -416,6 +416,8 @@ void applyAttackPayload(
     {
         attack.request.initial.track = *action.tracking;
     }
+    attack.request.initial.projectileClearRadiusPct = std::max(
+        attack.request.initial.projectileClearRadiusPct, action.projectileClearRadiusPct);
     attack.request.provenance.propagation = action.propagation;
     attack.request.provenance.origin = origin;
     attack.request.provenance.parentAttackId = parentAttackId;

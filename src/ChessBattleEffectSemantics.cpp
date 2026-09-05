@@ -385,6 +385,7 @@ bool battleAttributeUsesPercentagePoints(BattleAttribute attribute)
 {
     switch (attribute)
     {
+    case BattleAttribute::GuaranteedHit:
     case BattleAttribute::MaxHp:
     case BattleAttribute::Attack:
     case BattleAttribute::Defence:
