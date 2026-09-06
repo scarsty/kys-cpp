@@ -33,6 +33,7 @@ if ([string]::IsNullOrWhiteSpace($gameTarget))
     $gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
 }
 Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
+Sync-GameConfig -ProjectDir $paths.ProjectDir -GameDir $gameTarget
 Write-WasmAssetManifest `
     -ProjectDir $paths.ProjectDir `
     -WasmDir $paths.WasmDir `

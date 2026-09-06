@@ -534,6 +534,9 @@
     <ClInclude Include="ChessMenuFormatting.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="ChessTalentUi.h">
+      <Filter>ui</Filter>
+    </ClInclude>
     <ClInclude Include="ChessSystemSettingsMenu.h">
       <Filter>ui</Filter>
     </ClInclude>

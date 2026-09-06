@@ -872,7 +872,7 @@ bool requiredString(const Node& node, std::string_view key, std::string& value, 
     }
     try
     {
-        value = field.as<std::string>();
+        value = field.template as<std::string>();
         return true;
     }
     catch (const YAML::Exception& ex)
@@ -889,7 +889,7 @@ bool optionalInt(const Node& node, std::string_view key, int& value, std::string
     if (!field) return true;
     try
     {
-        value = field.as<int>();
+        value = field.template as<int>();
         return true;
     }
     catch (const YAML::Exception& ex)
@@ -952,7 +952,7 @@ bool optionalBool(const Node& node, std::string_view key, bool& value, std::stri
     if (!field) return true;
     try
     {
-        value = field.as<bool>();
+        value = field.template as<bool>();
         return true;
     }
     catch (const YAML::Exception& ex)
@@ -972,7 +972,7 @@ bool optionalBool(const Node& node,
     if (!field) return true;
     try
     {
-        value = field.as<bool>();
+        value = field.template as<bool>();
         return true;
     }
     catch (const YAML::Exception& ex)

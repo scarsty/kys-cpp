@@ -262,6 +262,9 @@ public:
 
     virtual void draw() {}    //如何画本节点
 
+    // 可在所有根節點繪製完成後補畫的最上層內容，例如場景 HUD 提示。
+    virtual void drawTopmostOverlay() {}
+
     virtual void dealEvent(EngineEvent& e) {}    //处理事件，会一直执行，相当于主循环体
 
     virtual void dealEvent2(EngineEvent& e) {}    //处理事件，执行模式和动画模式都会被执行，可用于制动

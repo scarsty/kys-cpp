@@ -36,6 +36,10 @@ void RunNode::drawAll()
     {
         root_[i]->drawSelfChilds();
     }
+    for (int i = begin_base; i < root_.size(); i++)
+    {
+        root_[i]->drawTopmostOverlay();
+    }
 }
 
 bool RunNode::runOwnerExitRequested()

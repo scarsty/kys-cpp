@@ -864,7 +864,7 @@ bool parseResourceMetadata(
     }
     if (const auto healKind = node["治療種類"])
     {
-        const auto label = healKind.as<std::string>();
+        const auto label = healKind.template as<std::string>();
         const auto parsed = parseLabel<EffectHealKind>(label, healKindEnum);
         if (!parsed)
         {
@@ -875,7 +875,7 @@ bool parseResourceMetadata(
     }
     if (const auto sourcePolicy = node["來源政策"])
     {
-        const auto label = sourcePolicy.as<std::string>();
+        const auto label = sourcePolicy.template as<std::string>();
         const auto parsed = parseLabel<EffectHealSourcePolicy>(label, healSourcePolicyEnum);
         if (!parsed)
         {
@@ -903,7 +903,7 @@ bool parseAttributeModifierQualifiers(
     }
     if (const auto scope = node["疊加範圍"])
     {
-        const auto label = scope.as<std::string>();
+        const auto label = scope.template as<std::string>();
         const auto parsed = parseLabel<EffectStackScope>(label, stackScopeEnum);
         if (!parsed)
         {
@@ -1065,7 +1065,7 @@ bool parseAttackPatternFields(const Node& node, AttackPattern& pattern, std::str
 {
     if (const auto style = node["樣式"])
     {
-        const auto label = style.as<std::string>();
+        const auto label = style.template as<std::string>();
         const auto parsed = parseLabel<AttackPatternKind>(label, attackPatternKindEnum);
         if (!parsed)
         {

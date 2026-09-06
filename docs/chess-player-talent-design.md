@@ -14,7 +14,7 @@
 - JSONL 的 `new` 與 MCP 的 `new_game` 接受 `talent`：`divine_arms`、`late_bloomer`、`gambler`、`backbone`。省略時採用難度配置預設值；不合法的難度／天賦組合會拒絕。
 - 觀察包含 `talent`、`talent_name`、`talent_description`、`talent_has_legendary_shop`、`legendary_shop_unlocked`、`shop_guarantees` 及下一次基本／天賦裝備獎勵。棋子實例包含 `luck_stacks` 與 `luck_chance_percent`；戰報記錄賭運成功、失敗及實際絕招提交。
 - 賭運經營抽取使用獨立 `TalentManagement` 隨機流；每場戰鬥從局種子、已完成關卡及穩定戰鬥識別衍生獨立判定種子。天賦戰鬥隨機狀態與使用狀態納入戰鬥摘要。
-- 圖片放在既有遊戲資源根目錄下的 `resource/chess-talents/`。本機為 `work/game-dev/resource/chess-talents/`，與其他美術資源一樣不納入 Git。`divine-arms.png`、`gambler.png` 使用獨立修正版；`talent-atlas.png` 只使用右上晚成、右下中堅。
+- 圖片放在既有遊戲資源根目錄下的 `resource/chess-talents/`。本機為 `work/game-dev/resource/chess-talents/`，與其他美術資源一樣不納入 Git。檔名依 `ChessTalentId` 使用 `0`～`3`，即 `0.webp`／`0.png` 為神兵、`1.webp`／`1.png` 為晚成、`2.webp`／`2.png` 為賭徒、`3.webp`／`3.png` 為中堅；載入時優先使用 WebP，並以 PNG 作為 fallback。每個檔案應是其實際副檔名所宣告的格式，不能把 JPEG 內容改名為 PNG。
 - 舊存檔及重播必須重新建立；不提供缺少天賦欄位或舊配置結構的相容路徑。
 
 ## 目標

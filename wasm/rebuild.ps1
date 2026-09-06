@@ -25,6 +25,7 @@ if ([string]::IsNullOrWhiteSpace($gameTarget))
   $gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
 }
 Ensure-PathExists -Path $gameTarget -Message "Game assets not found at $gameTarget"
+Sync-GameConfig -ProjectDir $paths.ProjectDir -GameDir $gameTarget
 Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
 
 Write-WasmAssetManifest `

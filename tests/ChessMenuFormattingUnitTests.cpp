@@ -1,5 +1,6 @@
 #include "ChessMenuFormatting.h"
 #include "ChessGameSession.h"
+#include "ChessTalentUi.h"
 #include "ChessUiCommon.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -67,6 +68,143 @@ TEST_CASE("panel text fitting chooses the largest complete readable layout",
 
     const auto tooLarge = layoutPanelText(rows, 80, fitted.baseFontSize + 1);
     CHECK(tooLarge.height > 68);
+}
+
+TEST_CASE("talent presentation exposes an equipment reward table and descriptive mechanics",
+          "[chess][menu-formatting][talent]")
+{
+    BalanceConfig balance;
+    balance.talents.clear();
+    balance.playerEquipmentRewards = {{11, 2, 2, 4, 1}, {3, 2, 2, 4, 1}};
+    balance.talentEquipmentRewards[ChessTalentId::DivineArms] = {
+        {15, 4, 6, 6, 2},
+        {7, 3, 4, 6, 2},
+    };
+    balance.legendaryShop = {9, 27};
+
+    ChessTalentDefinition divineArms;
+    divineArms.description = "神兵說明來自設定";
+    divineArms.legendaryShop = true;
+    balance.talents.emplace(ChessTalentId::DivineArms, divineArms);
+
+    ChessTalentDefinition lateBloomer;
+    lateBloomer.description = "晚成說明來自設定";
+    lateBloomer.amplifiedGrowthPercent = 73;
+    balance.talents.emplace(ChessTalentId::LateBloomer, lateBloomer);
+
+    ChessTalentDefinition gambler;
+    gambler.description = "賭徒說明來自設定";
+    gambler.openingBans = 8;
+    gambler.banMinTier = 1;
+    gambler.banMaxTier = 4;
+    gambler.luckLastFight = 19;
+    gambler.luckMinTier = 2;
+    gambler.luckMaxTier = 5;
+    gambler.luckPerRefresh = 3;
+    gambler.luckChancePerStack = 11;
+    gambler.luckChanceCap = 79;
+    gambler.luckSurvivalHp = 2;
+    gambler.luckInvincibleFrames = 121;
+    balance.talents.emplace(ChessTalentId::Gambler, gambler);
+
+    ChessTalentDefinition backbone;
+    backbone.description = "中堅說明來自設定";
+    backbone.targetTier = 4;
+    backbone.mpPerExtraStar = 12;
+    backbone.extraStarCap = 6;
+    backbone.guaranteeStar = 2;
+    backbone.guaranteeCount = 2;
+    balance.talents.emplace(ChessTalentId::Backbone, backbone);
+
+    const auto fact = [](const ChessTalentPresentation& presentation,
+                         const std::string& category,
+                         const std::string& label) -> const ChessTalentFactRow& {
+        const auto found = std::ranges::find_if(presentation.facts, [&](const auto& row) {
+            return row.category == category && row.label == label;
+        });
+        REQUIRE(found != presentation.facts.end());
+        return *found;
+    };
+
+    const auto divinePresentation = buildChessTalentPresentation(balance, ChessTalentId::DivineArms);
+    CHECK(divinePresentation.description.contains("神兵說明來自設定"));
+    CHECK(divinePresentation.description.contains("\n神兵商店：第9關後開放，每件27金。"));
+    REQUIRE(divinePresentation.facts.size() == 5);
+    CHECK(divinePresentation.facts[0].category == "基本");
+    CHECK(divinePresentation.facts[0].label == "第3關");
+    CHECK(divinePresentation.facts[0].value == "1～2階｜2選項");
+    CHECK(divinePresentation.facts[0].kind == ChessTalentFactKind::Equipment);
+    CHECK(divinePresentation.facts[1].category == "天賦額外");
+    CHECK(divinePresentation.facts[1].label == "第7關");
+    CHECK(divinePresentation.facts[1].value == "2～3階｜4選項");
+    CHECK(divinePresentation.facts[1].kind == ChessTalentFactKind::TalentEquipment);
+    CHECK(divinePresentation.facts[2].category == "神兵商店");
+    CHECK(divinePresentation.facts[2].label == "第9關後");
+    CHECK(divinePresentation.facts[2].value == "每件27金");
+    CHECK(divinePresentation.facts[2].kind == ChessTalentFactKind::Shop);
+    CHECK(divinePresentation.facts[3].label == "第11關");
+    CHECK(divinePresentation.facts[4].label == "第15關");
+    CHECK_FALSE(divinePresentation.description.contains("追加4金"));
+    CHECK_FALSE(divinePresentation.description.contains("神兵商店：不可用"));
+    CHECK(chessTalentPresentationUsesEquipmentTable(divinePresentation));
+
+    const auto latePresentation = buildChessTalentPresentation(balance, ChessTalentId::LateBloomer);
+    CHECK(latePresentation.description.contains("晚成說明來自設定"));
+    REQUIRE(latePresentation.facts.size() == 5);
+    CHECK(fact(latePresentation, "一般基準", "加成").value
+        == "0%（勝場成長不受星級倍率放大）");
+    CHECK(fact(latePresentation, "晚成", "加成").value
+        == "73%（勝場成長會併入星級倍率）");
+    CHECK(fact(latePresentation, "每多1星", "星級倍率").value
+        == "生命 +80%、攻擊 +80%、防禦 +50%、武功 +50%、輕功 +25%");
+    CHECK(chessTalentPresentationUsesEquipmentTable(latePresentation) == false);
+    CHECK_FALSE(latePresentation.description.contains("神兵商店"));
+
+    const auto gamblerPresentation = buildChessTalentPresentation(balance, ChessTalentId::Gambler);
+    REQUIRE(gamblerPresentation.facts.size() == 4);
+    CHECK(fact(gamblerPresentation, "開局", "額外禁棋").value == "8枚（1～4費）");
+    CHECK(fact(gamblerPresentation, "賭運", "取得方式").value
+        == "第1～19關付費刷新；隨機選2～5費場上棋子 +3層");
+    CHECK(fact(gamblerPresentation, "賭運", "觸發機率").value == "每層 +11%，最高79%");
+    CHECK(fact(gamblerPresentation, "致命傷害", "成功效果").value == "保留2生命，無敵121幀");
+    CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(gamblerPresentation));
+
+    const auto backbonePresentation = buildChessTalentPresentation(balance, ChessTalentId::Backbone);
+    REQUIRE(backbonePresentation.facts.size() == 4);
+    CHECK(fact(backbonePresentation, "開場內力", "適用對象").value
+        == "4費棋子；只計算其他友軍的額外星級");
+    CHECK(fact(backbonePresentation, "開場內力", "計算方式").value
+        == "其他友軍每多1星 +12，最多計6星，最高 +72");
+    CHECK(fact(backbonePresentation, "定向增援", "觸發時機").value
+        == "4費棋子由1星升至2星時，商店保證2枚同名棋子");
+    CHECK(fact(backbonePresentation, "定向增援", "升至3星").value
+        == "升至3星後取消尚未使用的保證棋子");
+    CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(backbonePresentation));
+    CHECK(chessTalentDescription(balance, ChessTalentId::Backbone).contains("每多1星 +12"));
+}
+
+TEST_CASE("talent fact tables fit the selector and header hover at hard-mode widths",
+          "[chess][menu-formatting][talent][layout]")
+{
+    BalanceConfig balance;
+    REQUIRE(loadBalanceConfig(
+        "config/chess_balance_hard.yaml",
+        "config/chess_challenge.yaml",
+        {},
+        {},
+        balance));
+
+    for (const auto id : kChessTalentIds)
+    {
+        const auto presentation = buildChessTalentPresentation(balance, id);
+        const auto selector = measureChessTalentFactTable(presentation, 775, 290, 16, 12);
+        CHECK(selector.height <= 290);
+        CHECK(selector.fontSize >= 12);
+
+        const auto header = measureChessTalentFactTable(presentation, 656, 560, 14, 11);
+        CHECK(header.height <= 560);
+        CHECK(header.fontSize >= 11);
+    }
 }
 
 TEST_CASE("chess menu labels align stars and prices by measured display width", "[chess][menu-formatting]")

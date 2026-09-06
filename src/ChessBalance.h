@@ -2,9 +2,12 @@
 
 #include "ChessDiagnostics.h"
 #include "ChessTalent.h"
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <format>
 #include <map>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -139,25 +142,272 @@ struct BalanceConfig
     std::vector<ChallengeDef> challenges;
 };
 
-inline std::string chessTalentDescription(const BalanceConfig& balance, ChessTalentId id)
+enum class ChessTalentFactKind
+{
+    Equipment,
+    TalentEquipment,
+    Shop,
+    Mechanic,
+};
+
+struct ChessTalentFactRow
+{
+    std::string category;
+    std::string label;
+    std::string value;
+    ChessTalentFactKind kind{};
+    int fight{};
+};
+
+struct ChessTalentPresentation
+{
+    std::string description;
+    std::vector<ChessTalentFactRow> facts;
+};
+
+inline std::string formatChessTalentPercent(double ratio)
+{
+    auto result = std::format("{:.2f}", ratio * 100.0);
+    while (!result.empty() && result.back() == '0')
+    {
+        result.pop_back();
+    }
+    if (!result.empty() && result.back() == '.')
+    {
+        result.pop_back();
+    }
+    result += '%';
+    return result;
+}
+
+inline void appendChessTalentEquipmentFacts(
+    std::vector<ChessTalentFactRow>& facts,
+    const std::string& category,
+    const std::vector<BalanceConfig::PlayerEquipmentReward>& rewards,
+    ChessTalentFactKind kind)
+{
+    if (rewards.empty())
+    {
+        facts.push_back({
+            category,
+            "—",
+            "無配置",
+            kind,
+            std::numeric_limits<int>::max(),
+        });
+        return;
+    }
+
+    for (const auto& reward : rewards)
+    {
+        facts.push_back({
+            category,
+            std::format("第{}關", reward.fight),
+            std::format(
+                "{}～{}階｜{}選項",
+                reward.minTier,
+                reward.maxTier,
+                reward.choices),
+            kind,
+            reward.fight,
+        });
+    }
+}
+
+inline ChessTalentPresentation buildChessTalentPresentation(
+    const BalanceConfig& balance,
+    ChessTalentId id)
 {
     const auto& talent = balance.talent(id);
-    std::string description = talent.details(id);
-    const auto schedule = [&](const char* name, const auto& rewards) {
-        std::string text = std::format("\n{}（{}次）：", name, rewards.size());
-        for (std::size_t i = 0; i < rewards.size(); ++i)
-        {
-            if (i) text += "、";
-            text += std::format("第{}關 {}～{}階", rewards[i].fight, rewards[i].minTier, rewards[i].maxTier);
-        }
-        return text;
+    ChessTalentPresentation result{
+        .description = talent.description,
     };
-    description += schedule("基本裝備", balance.playerEquipmentRewards);
-    if (const auto extra = balance.talentEquipmentRewards.find(id); extra != balance.talentEquipmentRewards.end())
-        description += schedule("天賦額外裝備", extra->second);
-    description += talent.legendaryShop
-        ? std::format("\n第{}關後神兵商店，每件{}金。", balance.legendaryShop.unlockFight, balance.legendaryShop.price)
-        : "\n此天賦無神兵商店。";
+    const auto appendDescriptionLine = [&result](std::string text) {
+        if (!result.description.empty())
+        {
+            result.description += '\n';
+        }
+        result.description += std::move(text);
+    };
+    const auto appendMechanic = [&result](
+        std::string category,
+        std::string label,
+        std::string value) {
+        result.facts.push_back({
+            std::move(category),
+            std::move(label),
+            std::move(value),
+            ChessTalentFactKind::Mechanic,
+        });
+    };
+    if (id == ChessTalentId::DivineArms)
+    {
+        appendChessTalentEquipmentFacts(
+            result.facts,
+            "基本",
+            balance.playerEquipmentRewards,
+            ChessTalentFactKind::Equipment);
+
+        const auto extra = balance.talentEquipmentRewards.find(id);
+        if (extra == balance.talentEquipmentRewards.end())
+        {
+            appendChessTalentEquipmentFacts(
+                result.facts,
+                "天賦額外",
+                std::vector<BalanceConfig::PlayerEquipmentReward>{},
+                ChessTalentFactKind::TalentEquipment);
+        }
+        else
+        {
+            appendChessTalentEquipmentFacts(
+                result.facts,
+                "天賦額外",
+                extra->second,
+                ChessTalentFactKind::TalentEquipment);
+        }
+        if (talent.legendaryShop)
+        {
+            const auto shopUnlock = balance.legendaryShop.unlockFight > 0
+                ? std::format("第{}關後開放", balance.legendaryShop.unlockFight)
+                : "目前未開放";
+            appendDescriptionLine(std::format(
+                "神兵商店：{}，每件{}金。",
+                shopUnlock,
+                balance.legendaryShop.price));
+            result.facts.push_back({
+                "神兵商店",
+                balance.legendaryShop.unlockFight > 0
+                    ? std::format("第{}關後", balance.legendaryShop.unlockFight)
+                    : "—",
+                std::format("每件{}金", balance.legendaryShop.price),
+                ChessTalentFactKind::Shop,
+                balance.legendaryShop.unlockFight > 0
+                    ? balance.legendaryShop.unlockFight
+                    : std::numeric_limits<int>::max(),
+            });
+        }
+        std::stable_sort(
+            result.facts.begin(),
+            result.facts.end(),
+            [](const auto& left, const auto& right) { return left.fight < right.fight; });
+    }
+
+    switch (id)
+    {
+    case ChessTalentId::DivineArms:
+        break;
+    case ChessTalentId::LateBloomer:
+        appendMechanic(
+            "勝場成長",
+            "每場基礎",
+            std::format(
+                "生命 +{}、攻擊 +{}、防禦 +{}、兵器 +{}、輕功 +{}",
+                balance.fightWinGrowthHP,
+                balance.fightWinGrowthAtk,
+                balance.fightWinGrowthDef,
+                balance.fightWinGrowthWeapon,
+                balance.fightWinGrowthSpeed));
+        appendMechanic(
+            "一般基準",
+            "加成",
+            "0%（勝場成長不受星級倍率放大）");
+        appendMechanic(
+            "晚成",
+            "加成",
+            std::format(
+                "{}%（勝場成長會併入星級倍率）",
+                talent.amplifiedGrowthPercent));
+        appendMechanic(
+            "每多1星",
+            "星級倍率",
+            std::format(
+                "生命 +{}、攻擊 +{}、防禦 +{}、武功 +{}、輕功 +{}",
+                formatChessTalentPercent(balance.starHPMult),
+                formatChessTalentPercent(balance.starAtkMult),
+                formatChessTalentPercent(balance.starDefMult),
+                formatChessTalentPercent(balance.starMartialMult),
+                formatChessTalentPercent(balance.starSpdMult)));
+        appendMechanic(
+            "計算方式",
+            "放大部分",
+            "勝場成長 × 晚成比例 × 每星倍率 ×（星數−1）；1星不放大，2星放大1次，3星放大2次。小數按實際計算取整。");
+        break;
+    case ChessTalentId::Gambler:
+        appendMechanic(
+            "開局",
+            "額外禁棋",
+            std::format(
+                "{}枚（{}～{}費）",
+                talent.openingBans,
+                talent.banMinTier,
+                talent.banMaxTier));
+        appendMechanic(
+            "賭運",
+            "取得方式",
+            std::format(
+                "第1～{}關付費刷新；隨機選{}～{}費場上棋子 +{}層",
+                talent.luckLastFight,
+                talent.luckMinTier,
+                talent.luckMaxTier,
+                talent.luckPerRefresh));
+        appendMechanic(
+            "賭運",
+            "觸發機率",
+            std::format(
+                "每層 +{}%，最高{}%",
+                talent.luckChancePerStack,
+                talent.luckChanceCap));
+        appendMechanic(
+            "致命傷害",
+            "成功效果",
+            std::format(
+                "保留{}生命，無敵{}幀",
+                talent.luckSurvivalHp,
+                talent.luckInvincibleFrames));
+        break;
+    case ChessTalentId::Backbone:
+        appendMechanic(
+            "開場內力",
+            "適用對象",
+            std::format(
+                "{}費棋子；只計算其他友軍的額外星級",
+                talent.targetTier));
+        appendMechanic(
+            "開場內力",
+            "計算方式",
+            std::format(
+                "其他友軍每多1星 +{}，最多計{}星，最高 +{}",
+                talent.mpPerExtraStar,
+                talent.extraStarCap,
+                talent.mpPerExtraStar * talent.extraStarCap));
+        appendMechanic(
+            "定向增援",
+            "觸發時機",
+            std::format(
+                "{}費棋子由1星升至2星時，商店保證{}枚同名棋子",
+                talent.targetTier,
+                talent.guaranteeCount));
+        appendMechanic(
+            "定向增援",
+            "升至3星",
+            "升至3星後取消尚未使用的保證棋子");
+        break;
+    }
+    return result;
+}
+
+inline std::string chessTalentDescription(const BalanceConfig& balance, ChessTalentId id)
+{
+    const auto presentation = buildChessTalentPresentation(balance, id);
+    std::string description = presentation.description;
+    for (const auto& fact : presentation.facts)
+    {
+        if (fact.kind == ChessTalentFactKind::Shop)
+        {
+            continue;
+        }
+        description += std::format("\n{}｜{}：{}", fact.category, fact.label, fact.value);
+    }
     return description;
 }
 

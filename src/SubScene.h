@@ -4,6 +4,8 @@
 #include "Save.h"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace KysChess
 {
@@ -14,6 +16,34 @@ class SubScene : public Scene
 {
 private:
     SubScene();
+
+    enum class ChessHeaderSegmentKind
+    {
+        Standard,
+        Talent,
+    };
+
+    struct ChessHeaderDetail
+    {
+        std::string label;
+        std::string value;
+        Color valueColor{235, 226, 208, 255};
+    };
+
+    struct ChessHeaderSegment
+    {
+        int x{};
+        int end{};
+        std::string title;
+        Color color{};
+        std::vector<ChessHeaderDetail> details;
+        ChessHeaderSegmentKind kind{};
+    };
+
+    std::vector<ChessHeaderSegment> chess_header_segments_;
+
+    void drawChessHeaderTooltip();
+
 public:
     SubScene(int id);
     virtual ~SubScene();
@@ -50,6 +80,7 @@ public:
     void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
     virtual void draw() override;
+    virtual void drawTopmostOverlay() override;
     virtual void dealEvent(EngineEvent& e) override;
     PointerResult onPointerEvent(const PointerEvent& event) override;
     virtual void backRun() override;

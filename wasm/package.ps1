@@ -30,6 +30,7 @@ foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $buildDir)
 }
 
 Ensure-PathExists -Path $gameDir -Message "Game assets not found at $gameDir"
+Sync-GameConfig -ProjectDir $paths.ProjectDir -GameDir $gameDir
 
 & powershell -ExecutionPolicy Bypass -File (Join-Path $paths.ProjectDir 'tools\GenerateAppIcons.ps1') -Target Wasm
 if ($LASTEXITCODE -ne 0)

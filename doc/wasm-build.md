@@ -12,6 +12,7 @@ The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key d
 - **Threading**: Uses `-pthread` with `PROXY_TO_PTHREAD` — `main()` runs on a real worker thread, enabling standard `std::this_thread::sleep_for`.
 - **Filesystem**: Uses WasmFS with fetch backend (on-demand asset loading from HTTP) and OPFS backend (persistent saves).
 - **Game assets**: Served as static files and fetched on demand via WasmFS fetch backend — no monolithic `.data` file.
+- **Configuration**: `rebuild.ps1`, `build.ps1`, and `package.ps1` synchronize the complete top-level `config/` directory into the selected game directory before generating the manifest. New YAML files are therefore included automatically.
 
 ## Prerequisites
 

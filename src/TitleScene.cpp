@@ -17,6 +17,7 @@
 #include "DrawableOnCall.h"
 #include "ExternalJsonFileTransfer.h"
 #include "ChessUiCommon.h"
+#include "ChessTalentUi.h"
 #include "SuperMenuText.h"
 #include "Video.h"
 #include "Weather.h"
@@ -24,6 +25,7 @@
 #include "ChessApplicationSessionHost.h"
 #include "ChessGameContent.h"
 #include "ChessModHook.h"
+#include "TextureManager.h"
 #include "filefunc.h"
 #include "ImGuiLayer.h"
 #include "strfunc.h"
@@ -142,69 +144,69 @@ public:
     explicit TalentDescriptionOverlay(const KysChess::BalanceConfig& balance)
         : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); }), balance_(balance)
     {
-        auto* engine = Engine::getInstance();
-        atlas_ = engine->loadImage(GameUtil::PATH() + "resource/chess-talents/talent-atlas.png");
-        divineArms_ = engine->loadImage(GameUtil::PATH() + "resource/chess-talents/divine-arms.png");
-        gambler_ = engine->loadImage(GameUtil::PATH() + "resource/chess-talents/gambler.png");
     }
-    ~TalentDescriptionOverlay() override
-    {
-        Engine::destroyTexture(atlas_);
-        Engine::destroyTexture(divineArms_);
-        Engine::destroyTexture(gambler_);
-    }
+    ~TalentDescriptionOverlay() override = default;
 private:
     const KysChess::BalanceConfig& balance_;
-    Texture* atlas_{};
-    Texture* divineArms_{};
-    Texture* gambler_{};
 
     void drawPanel()
     {
         using namespace KysChess;
         auto* engine = Engine::getInstance();
         auto* font = Font::getInstance();
-        const int index = std::clamp(getItemIndex(), 0, static_cast<int>(balance_.availableTalents.size()) - 1);
+        assert(!balance_.availableTalents.empty());
+        const int index = std::clamp(
+            getItemIndex(),
+            0,
+            static_cast<int>(balance_.availableTalents.size()) - 1);
         const auto id = balance_.availableTalents[index];
-        const auto& talent = balance_.talent(id);
-        engine->fillRoundedRect({20, 23, 25, 245}, 385, 105, 825, 550, 12);
-        engine->drawRoundedRect({190, 156, 88, 255}, 385, 105, 825, 550, 12);
-        Texture* texture = id == ChessTalentId::DivineArms ? divineArms_
-            : id == ChessTalentId::Gambler ? gambler_ : atlas_;
-        int w{}, h{};
-        Engine::getTextureSize(texture, w, h);
-        Rect source{0, 0, w, h};
-        if (texture == atlas_)
+        const auto presentation = buildChessTalentPresentation(balance_, id);
+
+        constexpr int panelX = 385;
+        constexpr int panelY = 62;
+        constexpr int panelW = 825;
+        constexpr int panelH = 620;
+        constexpr int imageX = panelX + 25;
+        constexpr int imageY = panelY + 30;
+        constexpr int imageSize = 240;
+        constexpr int infoX = panelX + 295;
+        constexpr int infoW = panelW - 320;
+        constexpr int tableX = panelX + 25;
+        constexpr int tableY = panelY + 290;
+        const int navigationY = panelY + panelH - 30;
+
+        engine->fillRoundedRect({12, 19, 25, 245}, panelX, panelY, panelW, panelH, 12);
+        engine->drawRoundedRect({205, 170, 95, 255}, panelX, panelY, panelW, panelH, 12);
+        auto* texture = TextureManager::getInstance()->getTexture("chess-talents", static_cast<int>(id));
+        TextureManager::getInstance()->renderTexture(texture, imageX, imageY, {}, imageSize, imageSize);
+        font->draw(chessTalentName(id), 34, infoX, panelY + 35, {255, 225, 145, 255});
+
+        constexpr int descriptionFontSize = 21;
+        const int descriptionUnits = displayTextUnitsForPixelWidth(descriptionFontSize, infoW);
+        int descriptionY = panelY + 85;
+        for (const auto& line : wrapChessTalentDescription(presentation.description, descriptionUnits))
         {
-            const int quadrant = static_cast<int>(id);
-            source = {(quadrant % 2) * w / 2 + 5, (quadrant / 2) * h / 2 + 5, w / 2 - 10, h / 2 - 10};
+            font->draw(line, descriptionFontSize, infoX, descriptionY, {235, 226, 208, 255});
+            descriptionY += descriptionFontSize + 6;
         }
-        Rect destination{410, 130, 270, 270};
-        engine->renderTexture(texture, &source, &destination);
-        font->draw(chessTalentName(id), 36, 710, 130, {255, 220, 140, 255});
-        int y = 187;
-        for (const auto& line : wrapDisplayText(talent.description, 40))
+
+        if (!presentation.facts.empty())
         {
-            font->draw(line, 22, 710, y, {235, 226, 208, 255});
-            y += 29;
+            drawChessTalentFactTable(
+                presentation,
+                tableX,
+                tableY,
+                panelW - 50,
+                navigationY - tableY - 16,
+                16,
+                12);
         }
-        std::string budget = std::format("基本裝備獎勵 {} 次", balance_.playerEquipmentRewards.size());
-        const auto extra = balance_.talentEquipmentRewards.find(id);
-        if (extra != balance_.talentEquipmentRewards.end()) budget += std::format("，天賦額外 {} 次", extra->second.size());
-        font->draw(budget, 20, 710, 315, {237, 201, 116, 255});
-        font->draw(talent.legendaryShop
-            ? std::format("第 {} 關後神兵商店：每件 {} 金", balance_.legendaryShop.unlockFight, balance_.legendaryShop.price)
-            : "無神兵商店", 20, 710, 347, {218, 191, 147, 255});
-        y = 423;
-        auto details = chessTalentDescription(balance_, id);
-        const auto newline = details.find('\n');
-        if (newline != std::string::npos) details.erase(0, newline + 1);
-        for (const auto& line : wrapDisplayText(details, 84))
-        {
-            font->draw(line, 18, 410, y, {225, 229, 225, 255});
-            y += 22;
-        }
-        font->draw("上下切換查看天賦 · 確認開始棋局 · 取消返回難度", 18, 410, 622, {166, 166, 162, 255});
+        font->draw(
+            "上下切換查看天賦 · 確認開始棋局 · 取消返回難度",
+            18,
+            tableX,
+            navigationY,
+            {175, 180, 185, 255});
     }
 };
 

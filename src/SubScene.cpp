@@ -3,8 +3,10 @@
 #include "BattleScene.h"
 #include "ChessApplicationSessionHost.h"
 #include "ChessGameSession.h"
+#include "ChessMenuFormatting.h"
 #include "ChessModHook.h"
 #include "ChessPresentationHelpers.h"
+#include "ChessTalentUi.h"
 #include "ChessUiCommon.h"
 #include "Console.h"
 #include "Event.h"
@@ -16,7 +18,11 @@
 #include "UI.h"
 #include "Weather.h"
 #include <algorithm>
+#include <cassert>
 #include <format>
+#include <string>
+#include <utility>
+#include <vector>
 
 SubScene::SubScene()
 {
@@ -217,35 +223,284 @@ void SubScene::draw()
 
         engine->fillColor({0, 0, 0, 180}, 0, 0, w, 32);
 
-        auto seg = [&](const std::string& s, Color c) {
+        chess_header_segments_.clear();
+
+        auto seg = [&](
+            const std::string& s,
+            Color c,
+            std::string title,
+            std::vector<ChessHeaderDetail> details,
+            ChessHeaderSegmentKind kind = ChessHeaderSegmentKind::Standard) {
+            const int segmentX = x;
             font->draw(s, fs, x, y, c);
             x += fs * Font::getTextDrawSize(s) / 2 + 12;
+            chess_header_segments_.push_back({
+                segmentX,
+                x,
+                std::move(title),
+                c,
+                std::move(details),
+                kind,
+            });
         };
 
         const bool boss = cfg.bossInterval > 0 && (observation.fight + 1) % cfg.bossInterval == 0;
-        seg(std::format("第{}關{}", observation.fight + 1, boss ? "(Boss)" : ""), {255, 200, 100, 255});
-        seg(std::format("${}", observation.money), {255, 215, 0, 255});
-        seg(std::format("Lv{} {}/{}", observation.level + 1, observation.experience, observation.experienceForNextLevel), {100, 200, 255, 255});
+        const int currentFight = observation.fight + 1;
+        seg(
+            std::format("第{}關{}", currentFight, boss ? "(Boss)" : ""),
+            {255, 200, 100, 255},
+            "關卡詳情",
+            {
+                {
+                    "進度：",
+                    std::format("第{} / {} 關", currentFight, cfg.totalFights),
+                    {255, 200, 100, 255},
+                },
+                {
+                    "本關：",
+                    boss ? "Boss 戰" : "一般戰",
+                    {255, 180, 100, 255},
+                },
+                {
+                    "戰鬥金幣：",
+                    std::format("+${}", observation.projectedBaseVictoryGold),
+                    {255, 215, 0, 255},
+                },
+                {
+                    "利息／總收入：",
+                    std::format("+${} ／ +${}",
+                    observation.interestGold,
+                    observation.projectedVictoryIncome),
+                    {255, 215, 0, 255},
+                },
+                {
+                    "戰鬥經驗：",
+                    std::format("{} 點", boss ? cfg.bossBattleExp : cfg.battleExp),
+                    {100, 200, 255, 255},
+                },
+            });
+
+        std::vector<ChessHeaderDetail> goldDetails{
+            {
+                "目前：",
+                std::format("${}", observation.money),
+                {255, 215, 0, 255},
+            },
+        };
+        if (cfg.interestPercent <= 0)
+        {
+            goldDetails.push_back({"利息：", "無", {255, 180, 100, 255}});
+        }
+        else
+        {
+            goldDetails.push_back({
+                "利息：",
+                std::format("+${}（{}%）", observation.interestGold, cfg.interestPercent),
+                {255, 215, 0, 255},
+            });
+            goldDetails.push_back({
+                "上限：",
+                std::format("+${}", observation.maximumInterestGold),
+                {255, 215, 0, 255},
+            });
+            if (observation.nextInterestThreshold)
+            {
+                goldDetails.push_back({
+                    "下一級：",
+                    std::format(
+                        "存款達 ${}（還需 ${}）",
+                        *observation.nextInterestThreshold,
+                        std::max(0, *observation.nextInterestThreshold - observation.money)),
+                    {255, 215, 0, 255},
+                });
+            }
+            else
+            {
+                goldDetails.push_back({"利息：", "已達上限", {255, 215, 0, 255}});
+            }
+        }
+        goldDetails.push_back({
+            "勝利後：",
+            std::format("+${}", observation.projectedVictoryIncome),
+            {255, 215, 0, 255},
+        });
+        seg(
+            std::format("${}", observation.money),
+            {255, 215, 0, 255},
+            "金幣與利息",
+            std::move(goldDetails));
+
+        std::vector<ChessHeaderDetail> levelDetails{
+            {
+                "等級：",
+                std::format("Lv{}", observation.level + 1),
+                {100, 200, 255, 255},
+            },
+            {
+                "經驗：",
+                std::format("{}/{}", observation.experience, observation.experienceForNextLevel),
+                {100, 200, 255, 255},
+            },
+        };
+        if (observation.level < cfg.maxLevel)
+        {
+            levelDetails.push_back({
+                "升級：",
+                std::format(
+                    "還需 {} 點",
+                    std::max(0, observation.experienceForNextLevel - observation.experience)),
+                {100, 200, 255, 255},
+            });
+        }
+        else
+        {
+            levelDetails.push_back({"升級：", "已達最高等級", {100, 200, 255, 255}});
+        }
+        levelDetails.push_back({
+            "出戰上限：",
+            std::format("{} 人", observation.maximumDeployment),
+            {100, 255, 100, 255},
+        });
+        levelDetails.push_back({
+            "購買經驗：",
+            std::format("${} → +{} 點", cfg.buyExpCost, cfg.buyExpAmount),
+            {255, 215, 0, 255},
+        });
+        seg(
+            std::format("Lv{} {}/{}", observation.level + 1, observation.experience, observation.experienceForNextLevel),
+            {100, 200, 255, 255},
+            "等級與經驗",
+            std::move(levelDetails));
+
         const int deployed = static_cast<int>(std::ranges::count_if(
             observation.roster,
             [](const ChessSessionPiece& piece) { return piece.deployed; }));
-        seg(std::format("出戰{}/{}", deployed, observation.maximumDeployment), {100, 255, 100, 255});
-        seg(std::format("背包{}/{}", observation.roster.size() - deployed, cfg.benchSize), {200, 180, 255, 255});
-        const char* diffName = chessDifficultyDisplayName(session.content().difficulty());
-        seg(std::format("[{}]", diffName), {255, 150, 150, 255});
-        const int talentX = x;
-        seg(std::format("天賦：{}", observation.talentName), {230, 205, 130, 255});
-        const auto talentPointer = PointerInput::instance().logicalPointerUiPosition();
-        if (talentPointer.x >= talentX && talentPointer.x < x && talentPointer.y < 32)
-        {
-            const auto lines = wrapDisplayText(observation.talentDescription, 72);
-            engine->fillRoundedRect({15, 18, 22, 245}, std::min(talentX, w - 690), 37, 680,
-                static_cast<int>(lines.size()) * 25 + 20, 8);
-            int textY = 47;
-            for (const auto& line : lines)
+        const int benchCount = static_cast<int>(observation.roster.size()) - deployed;
+        const auto rosterDetails = [&](bool deployedGroup, Color fallbackColor) {
+            std::vector<ChessHeaderDetail> details;
+            for (const auto& piece : observation.roster)
             {
-                font->draw(line, 18, std::min(talentX, w - 690) + 12, textY, {240, 226, 198, 255});
-                textY += 25;
+                if (piece.deployed != deployedGroup)
+                {
+                    continue;
+                }
+                const auto* role = session.content().role(piece.roleId);
+                assert(role);
+                const Color starColor = piece.star >= 3
+                    ? Color{255, 215, 0, 255}
+                    : piece.star == 2
+                        ? Color{100, 255, 150, 255}
+                        : fallbackColor;
+                details.push_back({
+                    details.empty() ? "棋子：" : "　　　",
+                    std::format("{} {}", role->Name, chessStars(piece.star)),
+                    starColor,
+                });
+            }
+            if (details.empty())
+            {
+                details.push_back({"棋子：", "無", {170, 170, 170, 255}});
+            }
+            return details;
+        };
+        seg(
+            std::format("出戰{}/{}", deployed, observation.maximumDeployment),
+            {100, 255, 100, 255},
+            "出戰編制",
+            rosterDetails(true, {180, 255, 180, 255}));
+
+        seg(
+            std::format("背包{}/{}", benchCount, cfg.benchSize),
+            {200, 180, 255, 255},
+            "背包容量",
+            rosterDetails(false, {200, 180, 255, 255}));
+
+        const char* diffName = chessDifficultyDisplayName(session.content().difficulty());
+        std::vector<ChessHeaderDetail> difficultyDetails{
+            {
+                "主線：",
+                cfg.bossInterval > 0
+                    ? std::format("{} 關｜每 {} 關 Boss", cfg.totalFights, cfg.bossInterval)
+                    : std::format("{} 關｜無 Boss", cfg.totalFights),
+                {255, 150, 150, 255},
+            },
+            {
+                "金幣獎勵：",
+                std::format(
+                    "基礎 ${}｜成長 ${}｜Boss +${}",
+                    cfg.rewardBase,
+                    cfg.rewardGrowth,
+                    cfg.bossRewardBonus),
+                {255, 215, 0, 255},
+            },
+            {
+                "戰鬥經驗：",
+                std::format("一般 {}｜Boss {}", cfg.battleExp, cfg.bossBattleExp),
+                {100, 200, 255, 255},
+            },
+            {
+                "商店：",
+                std::format("{} 格｜背包 {} 格", cfg.shopSlotCount, cfg.benchSize),
+                {200, 180, 255, 255},
+            },
+        };
+        if (cfg.banBaseCount > 0 || cfg.banCountPerLevel > 0 || !cfg.banUnlocks.empty())
+        {
+            difficultyDetails.push_back({
+                "禁棋：",
+                std::format(
+                    "{} / {}｜開局 {}｜每升級 +{}｜{} 段解鎖",
+                    observation.bans.size(),
+                    observation.maximumBanCount,
+                    cfg.banBaseCount,
+                    cfg.banCountPerLevel,
+                    cfg.banUnlocks.size()),
+                {255, 150, 150, 255},
+            });
+        }
+        else
+        {
+            difficultyDetails.push_back({"禁棋：", "未啟用", {255, 150, 150, 255}});
+        }
+        seg(
+            std::format("[{}]", diffName),
+            {255, 150, 150, 255},
+            "難度規則",
+            std::move(difficultyDetails));
+
+        seg(
+            std::format("天賦：{}", observation.talentName),
+            {230, 205, 130, 255},
+            std::format("天賦：{}", observation.talentName),
+            {},
+            ChessHeaderSegmentKind::Talent);
+
+        // Obtained neigong icons (right-aligned)
+        const auto& obtained = session.state().obtainedNeigongIds;
+        const auto& pool = session.content().neigong();
+        int iconX = w - 10;
+        for (auto i = obtained.rbegin(); i != obtained.rend(); ++i)
+        {
+            for (auto& ng : pool)
+            {
+                if (ng.magicId == *i)
+                {
+                    iconX -= 22;
+                    TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4,
+                        TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 0.35, 0.35 });
+                    chess_header_segments_.push_back({
+                        iconX,
+                        iconX + 22,
+                        ng.name,
+                        {255, 235, 135, 255},
+                        {
+                            {"狀態：", "已獲得", {255, 235, 135, 255}},
+                            {"層級：", std::format("{}階", ng.tier), {255, 235, 135, 255}},
+                        },
+                        ChessHeaderSegmentKind::Standard,
+                    });
+                    break;
+                }
             }
         }
 
@@ -282,22 +537,161 @@ void SubScene::draw()
             }
         }
 
-        // Obtained neigong icons (right-aligned)
-        const auto& obtained = session.state().obtainedNeigongIds;
-        const auto& pool = session.content().neigong();
-        int iconX = w - 10;
-        for (auto i = obtained.rbegin(); i != obtained.rend(); ++i)
-            for (auto& ng : pool)
-                if (ng.magicId == *i)
-                {
-                    iconX -= 22;
-                    TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4,
-                        TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 0.35, 0.35 });
-                    break;
-                }
     }
 
     //LOG("%g\n", t0.getElapsedTime());
+}
+
+void SubScene::drawTopmostOverlay()
+{
+    if (visible_ && submap_id_ == 53)
+    {
+        drawChessHeaderTooltip();
+    }
+}
+
+void SubScene::drawChessHeaderTooltip()
+{
+    using namespace KysChess;
+    const auto& session = applicationChessSession();
+    const auto observation = session.observe();
+    const auto& cfg = session.content().balance();
+    auto* engine = Engine::getInstance();
+    auto* font = Font::getInstance();
+    const int w = engine->getUIWidth();
+    const int h = engine->getUIHeight();
+    const auto pointer = PointerInput::instance().logicalPointerUiPosition();
+    const ChessHeaderSegment* hoveredSegment = nullptr;
+    for (const auto& segment : chess_header_segments_)
+    {
+        if (pointer.x >= segment.x && pointer.x < segment.end && pointer.y < 32)
+        {
+            hoveredSegment = &segment;
+            break;
+        }
+    }
+    if (!hoveredSegment)
+    {
+        return;
+    }
+
+    const auto drawTooltipFrame = [&](int popupX, int popupY, int popupWidth, int popupHeight) {
+        engine->fillRoundedRect({11, 18, 27, 248}, popupX, popupY, popupWidth, popupHeight, 9);
+        engine->drawRoundedRect({105, 135, 165, 235}, popupX, popupY, popupWidth, popupHeight, 9);
+    };
+    if (hoveredSegment->kind == ChessHeaderSegmentKind::Talent)
+    {
+        const auto presentation = buildChessTalentPresentation(cfg, observation.talent);
+        const int popupWidth = std::min(680, w - 20);
+        const int popupX = std::clamp(hoveredSegment->x, 10, w - popupWidth - 10);
+        constexpr int popupY = 37;
+        constexpr int descriptionFontSize = 17;
+        const auto descriptionLines = wrapChessTalentDescription(
+            presentation.description,
+            displayTextUnitsForPixelWidth(descriptionFontSize, popupWidth - 24));
+        const int descriptionHeight = static_cast<int>(descriptionLines.size()) * (descriptionFontSize + 4);
+        const int tableY = popupY + 42 + descriptionHeight + 8;
+        const bool hasFactTable = !presentation.facts.empty();
+        const int tableHeight = h - tableY - 12;
+        const auto tableMetrics = hasFactTable
+            ? measureChessTalentFactTable(
+                presentation,
+                popupWidth - 24,
+                tableHeight,
+                14,
+                11)
+            : ChessTalentFactTableMetrics{};
+        const int popupHeight = hasFactTable
+            ? tableY - popupY + tableMetrics.height + 10
+            : 42 + descriptionHeight + 10;
+
+        drawTooltipFrame(popupX, popupY, popupWidth, popupHeight);
+        font->draw(
+            hoveredSegment->title,
+            21,
+            popupX + 12,
+            popupY + 9,
+            {255, 225, 145, 255});
+        int descriptionY = popupY + 37;
+        for (const auto& line : descriptionLines)
+        {
+            font->draw(line, descriptionFontSize, popupX + 12, descriptionY, {235, 226, 208, 255});
+            descriptionY += descriptionFontSize + 4;
+        }
+        if (hasFactTable)
+        {
+            drawChessTalentFactTable(
+                presentation,
+                popupX + 12,
+                tableY,
+                popupWidth - 24,
+                tableHeight,
+                14,
+                11);
+        }
+        return;
+    }
+
+    constexpr int popupWidthLimit = 560;
+    constexpr int popupY = 37;
+    constexpr int titleFontSize = 21;
+    constexpr int bodyFontSize = 17;
+    constexpr int lineSpacing = 4;
+    const int popupWidth = std::min(popupWidthLimit, w - 20);
+    const int popupX = std::clamp(hoveredSegment->x, 10, w - popupWidth - 10);
+    struct TooltipLine
+    {
+        std::string text;
+        std::string label;
+        Color valueColor{};
+    };
+    std::vector<TooltipLine> lines;
+    for (const auto& detail : hoveredSegment->details)
+    {
+        const auto text = detail.label + detail.value;
+        const auto wrapped = wrapDisplayText(
+            text,
+            displayTextUnitsForPixelWidth(bodyFontSize, popupWidth - 24));
+        for (const auto& line : wrapped)
+        {
+            const bool startsWithLabel = !detail.value.empty()
+                && line.rfind(detail.label, 0) == 0
+                && line.size() > detail.label.size();
+            lines.push_back({
+                line,
+                startsWithLabel ? detail.label : std::string{},
+                detail.valueColor,
+            });
+        }
+    }
+    const int popupHeight = 42 + static_cast<int>(lines.size()) * (bodyFontSize + lineSpacing) + 10;
+
+    drawTooltipFrame(popupX, popupY, popupWidth, popupHeight);
+    font->draw(
+        hoveredSegment->title,
+        titleFontSize,
+        popupX + 12,
+        popupY + 9,
+        hoveredSegment->color);
+    int lineY = popupY + 38;
+    for (const auto& line : lines)
+    {
+        if (!line.label.empty())
+        {
+            font->draw(line.label, bodyFontSize, popupX + 12, lineY, {235, 226, 208, 255});
+            font->draw(
+                line.text.substr(line.label.size()),
+                bodyFontSize,
+                popupX + 12 + bodyFontSize * Font::getTextDrawSize(line.label) / 2,
+                lineY,
+                line.valueColor);
+        }
+        else
+        {
+            font->draw(line.text, bodyFontSize, popupX + 12, lineY, {235, 226, 208, 255});
+        }
+        lineY += bodyFontSize + lineSpacing;
+    }
 }
 
 void SubScene::dealEvent(EngineEvent& e)

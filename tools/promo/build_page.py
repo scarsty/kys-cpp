@@ -45,6 +45,8 @@ BALANCE_FILES = {
     "hb": "chess_balance_hard.yaml",
 }
 
+SIMPLIFIED_TO_TRADITIONAL = OpenCC("s2t")
+
 def data_uri(mime: str, raw: bytes) -> str:
     return "data:" + mime + ";base64," + base64.b64encode(raw).decode()
 
@@ -126,7 +128,8 @@ def load_yaml(config_dir: Path, name: str):
 def dig(data, dotted: str):
     cur = data
     for part in dotted.split("."):
-        cur = cur[part]
+        key = part if part in cur else SIMPLIFIED_TO_TRADITIONAL.convert(part)
+        cur = cur[key]
     if isinstance(cur, list):
         return "、".join(str(x) for x in cur)
     return str(cur)
@@ -174,7 +177,7 @@ def main() -> None:
             (counts["neigong"], "種內功"),
             (counts["equip"], "件裝備"),
             (counts["challenge"], "關遠征挑戰"),
-            (f'{balances["nb"]["进度"]["总关卡数"]}~{balances["hb"]["进度"]["总关卡数"]}', "關主線棋局"),
+            (f'{balances["nb"]["進度"]["總關卡數"]}~{balances["hb"]["進度"]["總關卡數"]}', "關主線棋局"),
     ]
 
     html = TEMPLATE.read_text(encoding="utf-8")

@@ -312,6 +312,7 @@
     <ClInclude Include="ChessGuiBattleFlow.h" />
     <ClInclude Include="ChessGuiSessionAdapter.h" />
     <ClInclude Include="ChessMenuFormatting.h" />
+    <ClInclude Include="ChessTalentUi.h" />
     <ClInclude Include="ChessSystemSettingsMenu.h" />
     <ClInclude Include="ChemistryEngine.h" />
     <ClInclude Include="Console.h" />
