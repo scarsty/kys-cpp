@@ -539,7 +539,8 @@ void renderPlayerActionGroups(
     std::span<const DescriptionActionGroup> groups,
     EffectEvent event,
     EffectDescriptionStyle style,
-    int indent)
+    int indent,
+    const EffectDescriptionPresentationContext& context)
 {
     for (const auto& group : groups)
     {
@@ -550,8 +551,10 @@ void renderPlayerActionGroups(
                 projectedActions.push_back(&action);
         }
         if (projectedActions.empty()) continue;
+        const bool playerCardCompact = style == EffectDescriptionStyle::Compact
+            && context.compactPolicy == EffectDescriptionCompactPolicy::PlayerCard;
         if (style == EffectDescriptionStyle::Compact
-            && !group.sequential
+            && (playerCardCompact || !group.sequential)
             && projectedActions.size() > 1
             && std::ranges::all_of(projectedActions, [](const DescriptionAction* action)
             {
@@ -566,16 +569,19 @@ void renderPlayerActionGroups(
                     *descriptionEffectAction(*action),
                     style,
                     event,
-                    true);
+                    true,
+                    context);
                 if (rows.size() != 1)
                 {
                     singleRowPhrases = false;
                     break;
                 }
-                if (!combined.empty()) combined += "、";
+                if (!combined.empty())
+                    combined += group.sequential ? "；" : "、";
                 combined += rows.front().text;
             }
-            if (singleRowPhrases && displayTextWidth(combined) <= 72)
+            if (singleRowPhrases
+                && (playerCardCompact || displayTextWidth(combined) <= 72))
             {
                 appendSemanticRow(
                     rendered,
@@ -607,7 +613,8 @@ void renderPlayerActionGroups(
                     *leaf,
                     style,
                     event,
-                    true);
+                    true,
+                    context);
                 assert(!rows.empty());
                 for (std::size_t rowIndex = 0; rowIndex < rows.size(); ++rowIndex)
                 {
@@ -633,7 +640,7 @@ void renderPlayerActionGroups(
                 indent,
                 actionBreak);
             renderPlayerActionGroups(
-                rendered, branch.whenTrue, event, style, indent + 1);
+                rendered, branch.whenTrue, event, style, indent + 1, context);
             if (!branch.whenFalse.empty())
             {
                 appendSemanticRow(
@@ -645,7 +652,7 @@ void renderPlayerActionGroups(
                     indent,
                     EffectDescriptionSemanticBreak::Branch);
                 renderPlayerActionGroups(
-                    rendered, branch.whenFalse, event, style, indent + 1);
+                    rendered, branch.whenFalse, event, style, indent + 1, context);
             }
         }
     }
@@ -1405,7 +1412,8 @@ void renderGenericPlayerBlock(
             action,
             style,
             trigger.event,
-            true);
+            true,
+            context);
         assert(!actionRows.empty());
         int actionIndent = 0;
         auto text = std::move(actionRows.front().text);
@@ -1462,7 +1470,8 @@ void renderGenericPlayerBlock(
             block.actions,
             trigger.event,
             style,
-            hasActionLead ? 1 : 0);
+            hasActionLead ? 1 : 0,
+            context);
     }
 
     for (auto text : ruleQualifierDescriptions(qualifiers, style, trigger.event))
@@ -1540,6 +1549,386 @@ void renderPlayerBlock(
         renderGenericPlayerBlock(rendered, block, style, kind, context);
 }
 
+bool playerCardBlockProjectionIsComplete(const EffectDescriptionBlock& block)
+{
+    return std::ranges::all_of(block.trigger,
+        [](const EffectDescriptionFact& fact)
+        {
+            return isProjected(fact.projection, EffectDescriptionStyle::Compact);
+        })
+        && std::ranges::all_of(block.targets,
+            [](const EffectDescriptionFact& fact)
+            {
+                return isProjected(fact.projection, EffectDescriptionStyle::Compact);
+            })
+        && std::ranges::all_of(block.conditions,
+            [](const EffectDescriptionFact& fact)
+            {
+                return isProjected(fact.projection, EffectDescriptionStyle::Compact);
+            })
+        && allActionsProjected(block.actions, EffectDescriptionStyle::Compact)
+        && playerCoverageProjectionIsComplete(
+            block,
+            EffectDescriptionStyle::Compact);
+}
+
+const DescriptionBranch* singleDescriptionBranch(
+    const EffectDescriptionBlock& block)
+{
+    if (block.actions.size() != 1
+        || block.actions.front().actions.size() != 1)
+        return nullptr;
+    const auto* branch = std::get_if<std::shared_ptr<DescriptionBranch>>(
+        &block.actions.front().actions.front().value);
+    return branch && *branch ? branch->get() : nullptr;
+}
+
+const EffectAction* singleDescriptionLeaf(const DescriptionActionGroup& group)
+{
+    return group.actions.size() == 1
+        ? descriptionEffectAction(group.actions.front())
+        : nullptr;
+}
+
+bool isConstantAmount(const EffectNumber& amount, int value)
+{
+    EffectNumber expected;
+    expected.flat = value;
+    return amount == expected;
+}
+
+const ChangeResourceAction* matchingResourceAction(
+    const DescriptionActionGroup& group,
+    BattleResource resource,
+    ResourceChangeKind kind,
+    int amount)
+{
+    const auto* action = singleDescriptionLeaf(group);
+    if (!action) return nullptr;
+    const auto* resourceAction = std::get_if<ChangeResourceAction>(&action->value);
+    if (!resourceAction
+        || resourceAction->resource != resource
+        || resourceAction->kind != kind
+        || !isConstantAmount(resourceAction->amount, amount)
+        || resourceAction->transferDestination
+        || resourceAction->healKind != EffectHealKind::Direct
+        || resourceAction->healSourcePolicy != EffectHealSourcePolicy::RequireAlive)
+        return nullptr;
+    return resourceAction;
+}
+
+const DescriptionBranch* matchingSanqingBranch(
+    const EffectDescriptionBlock& block)
+{
+    const auto* branch = singleDescriptionBranch(block);
+    if (!branch
+        || branch->conditions.size() != 1
+        || !isProjected(
+            branch->conditions.front().projection,
+            EffectDescriptionStyle::Compact)
+        || branch->whenTrue.size() != 1
+        || branch->whenFalse.size() != 1)
+        return nullptr;
+    const auto* condition = std::get_if<DescriptionConditionFact>(
+        &branch->conditions.front().value);
+    if (!condition
+        || !std::holds_alternative<TargetMpWasFullBeforeCastCondition>(
+            condition->condition))
+        return nullptr;
+    if (!matchingResourceAction(
+            branch->whenTrue.front(),
+            BattleResource::Shield,
+            ResourceChangeKind::Grant,
+            160)
+        || !matchingResourceAction(
+            branch->whenFalse.front(),
+            BattleResource::Mp,
+            ResourceChangeKind::Restore,
+            20))
+        return nullptr;
+    return branch;
+}
+
+bool matchesSanqingBlock(
+    const EffectDescriptionBlock& block,
+    const EffectSelector& selector)
+{
+    const auto& trigger = descriptionTrigger(block);
+    return block.archetype == DescriptionArchetype::Generic
+        && playerCardBlockProjectionIsComplete(block)
+        && trigger.event == EffectEvent::AttackCommitted
+        && trigger.observation == EffectObservationScope::Owner
+        && trigger.castMatch == EffectCastMatch::BoundMagic
+        && descriptionTarget(block).selector == selector
+        && descriptionConditions(block).empty()
+        && hasDefaultRuleQualifiers(ruleQualifiers(block))
+        && matchingSanqingBranch(block);
+}
+
+std::optional<RenderedEffectDescription> renderPlayerCardSanqing(
+    const EffectDescriptionDocument& document)
+{
+    if (document.sections.size() != 1) return std::nullopt;
+    const auto& blocks = document.sections.front().blocks;
+    if (blocks.size() != 2) return std::nullopt;
+
+    const EffectSelector ownerSelector{};
+    const EffectSelector allySelector{
+        .kind = EffectSelectorKind::LowestMpAllies,
+        .count = 2,
+        .excludeOwner = true,
+    };
+    const auto owner = std::ranges::find_if(
+        blocks,
+        [&](const EffectDescriptionBlock& block)
+        {
+            return descriptionTarget(block).selector == ownerSelector;
+        });
+    const auto allies = std::ranges::find_if(
+        blocks,
+        [&](const EffectDescriptionBlock& block)
+        {
+            return descriptionTarget(block).selector == allySelector;
+        });
+    if (owner == blocks.end()
+        || allies == blocks.end()
+        || owner == allies
+        || !matchesSanqingBlock(*owner, ownerSelector)
+        || !matchesSanqingBlock(*allies, allySelector))
+        return std::nullopt;
+
+    RenderedEffectDescription result;
+    RenderedEffectDescriptionSection section;
+    RenderedEffectDescriptionBlock block;
+    appendSemanticHeadingRow(
+        block,
+        EffectDescriptionStyle::Compact,
+        "自身及內力最低的2名友軍（不含自身）：",
+        0,
+        EffectDescriptionSemanticBreak::Block);
+    appendSemanticRow(
+        block,
+        EffectDescriptionStyle::Compact,
+        "施放前滿內力→護盾160；否則內力+20",
+        1,
+        EffectDescriptionSemanticBreak::Branch);
+    section.blocks.push_back(std::move(block));
+    result.sections.push_back(std::move(section));
+    return result;
+}
+
+template<typename Action>
+const Action* singleStateMachineAction(const EffectDescriptionBlock& block)
+{
+    const auto* action = block.actions.size() == 1
+        && block.actions.front().actions.size() == 1
+        ? descriptionEffectAction(block.actions.front().actions.front())
+        : nullptr;
+    if (!action) return nullptr;
+    const auto* machine = std::get_if<StateMachineAction>(&action->value);
+    return machine ? std::get_if<Action>(machine) : nullptr;
+}
+
+bool matchesMemoryBlockBase(
+    const EffectDescriptionBlock& block,
+    EffectEvent event,
+    const EffectSelector& selector)
+{
+    const auto& trigger = descriptionTrigger(block);
+    return block.archetype == DescriptionArchetype::Generic
+        && playerCardBlockProjectionIsComplete(block)
+        && trigger.event == event
+        && trigger.observation == EffectObservationScope::Owner
+        && trigger.castMatch == EffectCastMatch::BoundMagic
+        && descriptionTarget(block).selector == selector
+        && hasDefaultRuleQualifiers(ruleQualifiers(block));
+}
+
+const EffectDescriptionBlock* blockForEvent(
+    const EffectDescriptionDocument& document,
+    EffectEvent event)
+{
+    const EffectDescriptionBlock* result = nullptr;
+    for (const auto& section : document.sections)
+    {
+        if (section.event != event) continue;
+        if (result || section.blocks.size() != 1) return nullptr;
+        result = &section.blocks.front();
+    }
+    return result;
+}
+
+std::optional<RenderedEffectDescription> renderPlayerCardDamageMemory(
+    const EffectDescriptionDocument& document)
+{
+    const EffectSelector self{};
+    const EffectSelector hitTarget{
+        .kind = EffectSelectorKind::HitTarget,
+    };
+    const auto* recordBlock = blockForEvent(document, EffectEvent::DamageResolved);
+    const auto* commitBlock = blockForEvent(document, EffectEvent::AttackCommitted);
+    const auto* hitBlock = blockForEvent(
+        document,
+        EffectEvent::MainProjectileBeforeDamage);
+    const auto* settledBlock = blockForEvent(document, EffectEvent::CastSettled);
+
+    const auto matchesRecord = [&](const EffectDescriptionBlock* block,
+                                   EffectStateSlot slot,
+                                   DamagePerspective perspective)
+    {
+        if (!block
+            || !matchesMemoryBlockBase(
+                *block,
+                EffectEvent::DamageResolved,
+                self)
+            || descriptionConditions(*block).size() != 2)
+            return false;
+        const auto conditions = descriptionConditions(*block);
+        bool hasExpectedPerspective{};
+        bool hasAttackOrigin{};
+        for (const auto* condition : conditions)
+        {
+            if (const auto* damagePerspective =
+                    std::get_if<DamagePerspectiveCondition>(condition))
+            {
+                hasExpectedPerspective = damagePerspective->perspective == perspective;
+            }
+            else if (std::holds_alternative<DamageOriginIsAttackCondition>(*condition))
+            {
+                hasAttackOrigin = true;
+            }
+        }
+        if (!hasExpectedPerspective || !hasAttackOrigin)
+            return false;
+        const auto* record = singleStateMachineAction<RecordMaximumDamageAction>(*block);
+        return record
+            && record->slot == slot
+            && record->channel == DamageChannel::Skill;
+    };
+    const auto matchesTransfer = [&](const EffectDescriptionBlock* block)
+    {
+        if (!block
+            || !matchesMemoryBlockBase(
+                *block,
+                EffectEvent::AttackCommitted,
+                self)
+            || !descriptionConditions(*block).empty())
+            return false;
+        const auto* transfer = singleStateMachineAction<TransferStateValueAction>(*block);
+        return transfer
+            && transfer->sourceSlot == EffectStateSlot::MaximumSkillHpDamage
+            && transfer->destinationSlot == EffectStateSlot::CastMaximumHpDamage;
+    };
+    const auto matchesConsume = [&](const EffectDescriptionBlock* block,
+                                    bool* clearAfterConsume)
+    {
+        if (!block
+            || !matchesMemoryBlockBase(
+                *block,
+                EffectEvent::MainProjectileBeforeDamage,
+                hitTarget)
+            || !descriptionConditions(*block).empty())
+            return false;
+        const auto* consume = singleStateMachineAction<ConsumeRecordedMaximumAction>(*block);
+        if (!consume
+            || consume->slot != EffectStateSlot::CastMaximumHpDamage
+            || consume->destination != StateValueDestination::DamageAmount
+            || consume->percent != 100)
+            return false;
+        *clearAfterConsume = consume->clearAfterConsume;
+        return true;
+    };
+    const auto matchesShieldRecord = [&](const EffectDescriptionBlock* block)
+    {
+        return matchesRecord(
+            block,
+            EffectStateSlot::CastMaximumHpDamage,
+            DamagePerspective::Dealt);
+    };
+    const auto matchesShieldConsume = [&](const EffectDescriptionBlock* block)
+    {
+        if (!block
+            || !matchesMemoryBlockBase(
+                *block,
+                EffectEvent::CastSettled,
+                self)
+            || !descriptionConditions(*block).empty())
+            return false;
+        const auto* consume = singleStateMachineAction<ConsumeRecordedMaximumAction>(*block);
+        return consume
+            && consume->slot == EffectStateSlot::CastMaximumHpDamage
+            && consume->destination == StateValueDestination::ShieldAmount
+            && consume->percent == 100
+            && consume->clearAfterConsume;
+    };
+
+    bool clearAfterConsume{};
+    const bool taiji = document.sections.size() == 3
+        && matchesRecord(
+            recordBlock,
+            EffectStateSlot::MaximumSkillHpDamage,
+            DamagePerspective::Received)
+        && matchesTransfer(commitBlock)
+        && matchesConsume(hitBlock, &clearAfterConsume)
+        && !settledBlock;
+    const bool ironPalm = document.sections.size() == 2
+        && matchesShieldRecord(recordBlock)
+        && matchesShieldConsume(settledBlock)
+        && !commitBlock
+        && !hitBlock;
+    if (!taiji && !ironPalm) return std::nullopt;
+
+    RenderedEffectDescription result;
+    for (const auto& sourceSection : document.sections)
+    {
+        RenderedEffectDescriptionSection section;
+        RenderedEffectDescriptionBlock block;
+        if (sourceSection.event == EffectEvent::DamageResolved)
+        {
+            appendSemanticRow(
+                block,
+                EffectDescriptionStyle::Compact,
+                taiji
+                    ? "承受招式傷害後記錄最大單次招式生命傷害；初始0"
+                    : "造成招式傷害後記錄本次施放最高單次招式生命傷害；初始0");
+        }
+        else if (sourceSection.event == EffectEvent::AttackCommitted)
+        {
+            appendSemanticRow(
+                block,
+                EffectDescriptionStyle::Compact,
+                "施放時帶入本次施放記錄；原記錄清空");
+        }
+        else if (sourceSection.event == EffectEvent::MainProjectileBeforeDamage)
+        {
+            appendSemanticRow(
+                block,
+                EffectDescriptionStyle::Compact,
+                clearAfterConsume
+                    ? "主彈命中：消耗記錄值並附加100%純粹傷害；命中後清除記錄"
+                    : "主彈命中：讀取記錄值並附加100%純粹傷害；保留記錄");
+        }
+        else
+        {
+            appendSemanticRow(
+                block,
+                EffectDescriptionStyle::Compact,
+                "施放結算完成時消耗記錄值並獲得100%護盾；清除記錄");
+        }
+        section.blocks.push_back(std::move(block));
+        result.sections.push_back(std::move(section));
+    }
+    return result;
+}
+
+std::optional<RenderedEffectDescription> renderPlayerCardDocument(
+    const EffectDescriptionDocument& document)
+{
+    if (const auto sanqing = renderPlayerCardSanqing(document))
+        return sanqing;
+    return renderPlayerCardDamageMemory(document);
+}
+
 }  // namespace EffectDescriptionDetail
 
 using namespace EffectDescriptionDetail;
@@ -1554,6 +1943,13 @@ RenderedEffectDescription renderEffectDescription(
         && !effectiveContext.enclosingDefaultEvent)
     {
         effectiveContext.enclosingDefaultEvent = EffectEvent::AttackCommitted;
+    }
+    if (style == EffectDescriptionStyle::Compact
+        && effectiveContext.compactPolicy
+            == EffectDescriptionCompactPolicy::PlayerCard)
+    {
+        if (const auto playerCard = renderPlayerCardDocument(document))
+            return *playerCard;
     }
     RenderedEffectDescription result;
     for (const auto& section : document.sections)

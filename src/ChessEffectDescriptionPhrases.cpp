@@ -540,6 +540,22 @@ std::string attributeLabel(BattleAttribute attribute, bool compact)
     return {};
 }
 
+std::string attackPatternLabel(
+    const AttackPattern& pattern,
+    bool compact)
+{
+    switch (pattern.kind)
+    {
+    case AttackPatternKind::Preserve: return compact ? "原彈道" : "沿用彈道樣式";
+    case AttackPatternKind::Fan: return "扇形";
+    case AttackPatternKind::Flanks: return "側翼";
+    case AttackPatternKind::SamePointSequence: return "同落點延遲";
+    case AttackPatternKind::MultiTarget: return "多目標";
+    case AttackPatternKind::EchoNearestOthers: return "殘影";
+    }
+    std::unreachable();
+}
+
 std::string joinedDescriptionLabels(
     std::span<const std::string> labels,
     bool compact)
@@ -786,11 +802,13 @@ bool usesStackingOutgoingSkillDamagePhrase(const ModifyDamageAction& action)
 std::string renderDescriptionActionArgument(
     const EffectActionValue& action,
     EffectDescriptionStyle style,
-    std::span<const DescriptionQualifier> suppressed = {});
+    std::span<const DescriptionQualifier> suppressed = {},
+    const EffectDescriptionPresentationContext& context = {});
 
 std::optional<std::string> renderCanonicalPoisonApplication(
     const ApplyStatusAction& application,
-    EffectDescriptionStyle style)
+    EffectDescriptionStyle style,
+    const EffectDescriptionPresentationContext& context)
 {
     if (application.status != BattleStatusKind::Poison
         || !application.behavior)
@@ -814,21 +832,34 @@ std::optional<std::string> renderCanonicalPoisonApplication(
         : descriptionNumberLabel(poisonDamage->amount, style);
     if (poisonDamage->amount.minimum > 0)
     {
-        damage += compact
-            ? std::format("、最低{}", *poisonDamage->amount.minimum)
-            : std::format("（最低{}點）", *poisonDamage->amount.minimum);
+        if (context.compactPolicy != EffectDescriptionCompactPolicy::PlayerCard)
+        {
+            damage += compact
+                ? std::format("、最低{}", *poisonDamage->amount.minimum)
+                : std::format("（最低{}點）", *poisonDamage->amount.minimum);
+        }
     }
     const auto duration = application.duration
         ? descriptionNumberLabel(*application.duration, style)
         : std::to_string(application.durationFrames);
 
     std::string result = compact
-        ? std::format(
-            "中毒（{}次、{}幀；每{}幀造成{}傷害）",
-            charges->count,
-            duration,
-            periodicRule->intervalFrames,
-            damage)
+        ? context.compactPolicy == EffectDescriptionCompactPolicy::PlayerCard
+            ? std::format(
+                "中毒（{}次、{}幀；每{}幀造成{}傷害{}；每次消耗1次）",
+                charges->count,
+                duration,
+                periodicRule->intervalFrames,
+                damage,
+                poisonDamage->amount.minimum
+                    ? std::format("，最低{}", *poisonDamage->amount.minimum)
+                    : std::string{})
+            : std::format(
+                "中毒（{}次、{}幀；每{}幀造成{}傷害）",
+                charges->count,
+                duration,
+                periodicRule->intervalFrames,
+                damage)
         : std::format(
             "施加可觸發{}次的中毒，持續{}幀；每{}幀造成目標{}的中毒傷害並消耗1次",
             charges->count,
@@ -855,11 +886,70 @@ std::optional<std::string> renderCanonicalPoisonApplication(
     return result;
 }
 
+std::optional<std::string> renderPlayerCardShadowlessBehavior(
+    const StatusBehaviorDefinition& behavior)
+{
+    if (behavior.rules.size() != 1) return std::nullopt;
+    const auto& rule = behavior.rules.front();
+    const EffectSelector expectedSelector{
+        .kind = EffectSelectorKind::NearestEnemies,
+        .count = 3,
+    };
+    const auto* condition = rule.conditions.size() == 1
+        ? std::get_if<IsRootAttackCondition>(&rule.conditions.front())
+        : nullptr;
+    const auto* attack = rule.actions.size() == 1
+        ? std::get_if<ModifyAttackAction>(&rule.actions.front().value)
+        : nullptr;
+    const AttackPattern expectedPattern{
+        .kind = AttackPatternKind::EchoNearestOthers,
+        .projectileCount = 2,
+    };
+    if (rule.event != EffectEvent::AttackSpawned
+        || rule.observation != EffectObservationScope::StatusHolderEventSource
+        || rule.castMatch != EffectCastMatch::BoundMagic
+        || rule.selector != expectedSelector
+        || !condition
+        || !attack
+        || attack->pattern != expectedPattern
+        || attack->strengthPct != 50
+        || attack->through
+        || attack->tracking
+        || attack->mainProjectile
+        || attack->sameTargetHitLimit != 0
+        || attack->projectileClearRadiusPct != 0
+        || attack->targets != AttackTargetPolicy::SelectedTargets
+        || attack->propagation != CastPropagationPolicy::NoEffectRules
+        || !attack->addToBaseAttack
+        || attack->source
+        || attack->damageOverride
+        || attack->damageKind
+        || !std::holds_alternative<std::monostate>(attack->runtimeBehavior)
+        || rule.chancePct != 100
+        || rule.maxActivations != 0
+        || rule.sharedCooldownFrames != 0
+        || rule.intervalFrames != 0
+        || rule.everyNthEvent != 0
+        || rule.activationLimit
+        || rule.repetitionCount)
+        return std::nullopt;
+    return "原始攻擊對最近3名敵人追加殘影×2，每道50%傷害；非主彈，不觸發效果";
+}
+
 std::string renderStatusBehaviorDefinition(
     const StatusBehaviorDefinition& behavior,
-    EffectDescriptionStyle style)
+    EffectDescriptionStyle style,
+    const EffectDescriptionPresentationContext& context)
 {
     const bool compact = style == EffectDescriptionStyle::Compact;
+
+    if (compact
+        && context.compactPolicy == EffectDescriptionCompactPolicy::PlayerCard)
+    {
+        if (const auto shadowless = renderPlayerCardShadowlessBehavior(behavior))
+            return *shadowless;
+    }
+
     std::string result;
     for (const auto& rule : behavior.rules)
     {
@@ -919,7 +1009,7 @@ std::string renderStatusBehaviorDefinition(
         for (const auto& action : rule.actions)
         {
             if (!actions.empty()) actions += compact ? "、" : "，並";
-            actions += renderDescriptionActionArgument(action.value, style);
+            actions += renderDescriptionActionArgument(action.value, style, {}, context);
         }
         if (actions.empty()) continue;
 
@@ -950,18 +1040,24 @@ std::string_view detailedStatusObservationLabel(EffectObservationScope observati
 std::string renderDescriptionActionArgument(
     const EffectActionValue& action,
     EffectDescriptionStyle style,
-    std::span<const DescriptionQualifier> suppressed)
+    std::span<const DescriptionQualifier> suppressed,
+    const EffectDescriptionPresentationContext& context)
 {
     const bool detailed = style == EffectDescriptionStyle::Detailed;
     const bool compact = style == EffectDescriptionStyle::Compact;
     const std::string_view qualifierSeparator = compact || detailed ? "，" : "，";
     return std::visit(
-        [style, detailed, compact, qualifierSeparator, suppressed](const auto& typed) -> std::string
+        [style, detailed, compact, qualifierSeparator, suppressed, context](const auto& typed) -> std::string
         {
             using T = std::decay_t<decltype(typed)>;
             if constexpr (std::is_same_v<T, ModifyAttributeAction>)
             {
-                const auto attribute = attributeLabel(typed.attribute, compact);
+                const auto attribute = compact
+                    && context.compactPolicy
+                        == EffectDescriptionCompactPolicy::PlayerCard
+                    && typed.attribute == BattleAttribute::DodgeChance
+                    ? std::string("閃避率")
+                    : attributeLabel(typed.attribute, compact);
                 const auto amount = descriptionNumberLabel(typed.amount, style);
                 const auto attributeUnit = battleAttributeUsesPercentagePoints(typed.attribute)
                     ? "%"
@@ -1183,6 +1279,19 @@ std::string renderDescriptionActionArgument(
                     verb,
                     descriptionNumberLabel(typed.amount, style),
                     numberIncludesResource ? "" : resource);
+                if (compact
+                    && context.compactPolicy
+                        == EffectDescriptionCompactPolicy::PlayerCard
+                    && !numberIncludesResource
+                    && (typed.kind == ResourceChangeKind::Restore
+                        || typed.kind == ResourceChangeKind::Grant)
+                    && effectiveConstantEffectNumberValue(typed.amount))
+                {
+                    result = std::format(
+                        "{}+{}",
+                        resource,
+                        *effectiveConstantEffectNumberValue(typed.amount));
+                }
                 if (typed.kind == ResourceChangeKind::Transfer && typed.transferDestination)
                     result += std::format("至{}", selectorLabel(*typed.transferDestination, compact));
                 if (typed.resource == BattleResource::Hp
@@ -1205,7 +1314,7 @@ std::string renderDescriptionActionArgument(
             else if constexpr (std::is_same_v<T, ApplyStatusAction>)
             {
                 if (const auto poison = renderCanonicalPoisonApplication(
-                        typed, style))
+                        typed, style, context))
                 {
                     return *poison;
                 }
@@ -1256,7 +1365,7 @@ std::string renderDescriptionActionArgument(
                         : std::format("，持續{}幀", typed.durationFrames);
 
                 const auto effectText = typed.behavior
-                    ? renderStatusBehaviorDefinition(*typed.behavior, style)
+                    ? renderStatusBehaviorDefinition(*typed.behavior, style, context)
                     : std::string{};
                 const bool poisonSumsSameEventDamage = typed.poisonSameEventMerge
                     == PoisonSameEventMerge::SumDamagePercent;
@@ -1475,12 +1584,97 @@ std::string renderDescriptionActionArgument(
             }
             else if constexpr (std::is_same_v<T, ModifyAttackAction>)
             {
-                const auto pattern = typed.pattern.kind == AttackPatternKind::Fan ? "扇形"
-                    : typed.pattern.kind == AttackPatternKind::Flanks ? "側翼"
-                    : typed.pattern.kind == AttackPatternKind::SamePointSequence ? "同落點延遲"
-                    : typed.pattern.kind == AttackPatternKind::MultiTarget ? "多目標"
-                    : typed.pattern.kind == AttackPatternKind::EchoNearestOthers ? "殘影"
-                    : compact ? "原彈道" : "沿用彈道樣式";
+                if (compact
+                    && context.compactPolicy
+                        == EffectDescriptionCompactPolicy::PlayerCard
+                    && std::holds_alternative<std::monostate>(typed.runtimeBehavior))
+                {
+                    const auto pattern = [&]
+                    {
+                        switch (typed.pattern.kind)
+                        {
+                        case AttackPatternKind::Preserve: return std::string("原彈道");
+                        case AttackPatternKind::Fan: return std::string("扇形攻擊");
+                        case AttackPatternKind::Flanks: return std::string("側翼攻擊");
+                        case AttackPatternKind::SamePointSequence: return std::string("同落點追加");
+                        case AttackPatternKind::MultiTarget: return std::string("多目標攻擊");
+                        case AttackPatternKind::EchoNearestOthers: return std::string("殘影");
+                        }
+                        std::unreachable();
+                    }();
+                    std::string result = std::format(
+                        "{}×{}",
+                        pattern,
+                        typed.pattern.projectileCount);
+                    std::vector<std::string> clauses;
+                    clauses.push_back(std::format(
+                        "每道{}%傷害",
+                        typed.strengthPct));
+                    clauses.push_back(typed.mainProjectile ? "主彈" : "非主彈");
+                    if (typed.pattern.spreadDegrees > 0)
+                        clauses.push_back(std::format(
+                            "展開{}°",
+                            typed.pattern.spreadDegrees));
+                    if (typed.pattern.intervalFrames > 0)
+                        clauses.push_back(std::format(
+                            "間隔{}幀",
+                            typed.pattern.intervalFrames));
+                    if (typed.targets == AttackTargetPolicy::SelectedTargets)
+                        clauses.push_back("選擇目標");
+                    else if (typed.targets == AttackTargetPolicy::SamePoint
+                        && typed.pattern.kind != AttackPatternKind::SamePointSequence)
+                        clauses.push_back("同落點");
+                    else if (typed.targets == AttackTargetPolicy::SameTarget)
+                        clauses.push_back("同目標");
+                    if (typed.through)
+                        clauses.push_back(*typed.through ? "貫穿" : "不貫穿");
+                    if (typed.tracking)
+                        clauses.push_back(*typed.tracking ? "追蹤" : "不追蹤");
+                    if (typed.sameTargetHitLimit > 0)
+                        clauses.push_back(std::format(
+                            "同目標最多{}次",
+                            typed.sameTargetHitLimit));
+                    if (typed.projectileClearRadiusPct > 0)
+                        clauses.push_back(std::format(
+                            "沿途清除敵方彈道（含絕招，半徑{}%）",
+                            typed.projectileClearRadiusPct));
+                    if (typed.propagation == CastPropagationPolicy::SourceHitRulesOnly)
+                        clauses.push_back("僅來源命中");
+                    else if (typed.propagation == CastPropagationPolicy::SuppressUltimateRules)
+                        clauses.push_back("不觸發大招效果");
+                    else if (typed.propagation == CastPropagationPolicy::BorrowedUltimateRules)
+                        clauses.push_back("觸發借用大招效果");
+                    else if (typed.propagation == CastPropagationPolicy::NoEffectRules)
+                        clauses.push_back("不觸發效果");
+                    if (typed.addToBaseAttack)
+                        clauses.push_back("追加攻擊");
+                    if (typed.source)
+                        clauses.push_back("由" + selectorLabel(*typed.source, true) + "出手");
+                    if (typed.damageOverride)
+                    {
+                        auto overrideText = "傷害改為"
+                            + descriptionNumberLabel(*typed.damageOverride, style);
+                        if (typed.damageKind)
+                            overrideText += std::string(damageKindLabel(*typed.damageKind)) + "傷害";
+                        else
+                            overrideText += "傷害（沿用種類）";
+                        clauses.push_back(std::move(overrideText));
+                    }
+                    else if (typed.damageKind)
+                    {
+                        clauses.push_back(
+                            "傷害種類改為" + std::string(damageKindLabel(*typed.damageKind)));
+                    }
+                    for (std::size_t index = 0; index < clauses.size(); ++index)
+                    {
+                        result += index == 0 ? "（" : "；";
+                        result += clauses[index];
+                    }
+                    result += "）";
+                    return result;
+                }
+
+                const auto pattern = attackPatternLabel(typed.pattern, compact);
                 auto result = std::format("{}{}×{}，{}%傷害",
                     pattern,
                     typed.mainProjectile ? "主彈" : "非主彈",
@@ -1894,13 +2088,10 @@ std::string renderDescriptionActionArgument(
                 if (typed.replacementPattern)
                 {
                     const auto& pattern = *typed.replacementPattern;
-                    const auto patternName = pattern.kind == AttackPatternKind::Fan ? "扇形"
-                        : pattern.kind == AttackPatternKind::Flanks ? "側翼"
-                        : pattern.kind == AttackPatternKind::SamePointSequence ? "同落點延遲"
-                        : pattern.kind == AttackPatternKind::MultiTarget ? "多目標"
-                        : pattern.kind == AttackPatternKind::EchoNearestOthers ? "殘影"
-                        : compact ? "原彈道" : "沿用彈道樣式";
-                    auto replacement = std::format("替換攻擊樣式為{}×{}", patternName, pattern.projectileCount);
+                    auto replacement = std::format(
+                        "替換攻擊樣式為{}×{}",
+                        attackPatternLabel(pattern, compact),
+                        pattern.projectileCount);
                     if (pattern.spreadDegrees > 0) replacement += std::format("{}展開{}度", qualifierSeparator, pattern.spreadDegrees);
                     if (pattern.intervalFrames > 0) replacement += std::format("{}間隔{}幀", qualifierSeparator, pattern.intervalFrames);
                     append(std::move(replacement));
@@ -2378,7 +2569,8 @@ std::string renderEffectAction(
         const auto baseText = renderDescriptionActionArgument(
             EffectActionValue{std::move(base)},
             context.style,
-            context.suppressedActionQualifiers);
+            context.suppressedActionQualifiers,
+            context.presentation);
         const auto depletedText = renderEffectAction(
             EffectAction{EffectActionValue{depleted}},
             context,
@@ -2416,7 +2608,8 @@ std::string renderEffectAction(
         auto result = renderDescriptionActionArgument(
             action.value,
             context.style,
-            context.suppressedActionQualifiers);
+            context.suppressedActionQualifiers,
+            context.presentation);
         if (std::holds_alternative<RecordMaximumDamageAction>(*state))
             result += compact ? "，初始0" : "；首次記錄值為0";
         else if (const auto* consume = std::get_if<ConsumeRecordedMaximumAction>(state);
@@ -2431,7 +2624,8 @@ std::string renderEffectAction(
     return renderDescriptionActionArgument(
         action.value,
         context.style,
-        context.suppressedActionQualifiers);
+        context.suppressedActionQualifiers,
+        context.presentation);
 }
 
 std::string renderEffectActions(
@@ -2502,13 +2696,15 @@ std::string renderActionDescription(
     const EffectAction& action,
     EffectDescriptionStyle style,
     EffectEvent event,
-    bool coalesce)
+    bool coalesce,
+    const EffectDescriptionPresentationContext& context)
 {
     return renderEffectAction(
         action,
         DescriptionRenderContext{
             .style = style,
             .event = event,
+            .presentation = context,
         },
         coalesce);
 }
@@ -2517,11 +2713,28 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
     const EffectAction& action,
     EffectDescriptionStyle style,
     EffectEvent event,
-    bool coalesce)
+    bool coalesce,
+    const EffectDescriptionPresentationContext& context)
 {
     assert(style != EffectDescriptionStyle::Detailed);
     if (const auto* status = std::get_if<ApplyStatusAction>(&action.value))
     {
+        if (style == EffectDescriptionStyle::Compact
+            && context.compactPolicy == EffectDescriptionCompactPolicy::PlayerCard
+            && status->status == BattleStatusKind::Shadowless
+            && status->behavior
+            && status->reapplication == StatusReapplicationPolicy::RefreshDuration)
+        {
+            if (const auto behavior = renderPlayerCardShadowlessBehavior(
+                    *status->behavior))
+            {
+                return {{std::format(
+                    "無影（{}幀，刷新）：{}",
+                    statusDurationLabel(*status, style),
+                    *behavior)}};
+            }
+        }
+
         const auto* layers = std::get_if<AddStatusLayers>(&status->quantity);
         if (status->status == BattleStatusKind::Bleed)
         {
@@ -2821,11 +3034,11 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
     const auto* attack = std::get_if<ModifyAttackAction>(&action.value);
     if (!attack)
     {
-        return {{renderActionDescription(action, style, event, coalesce)}};
+        return {{renderActionDescription(action, style, event, coalesce, context)}};
     }
     if (hasOrdinaryAttackModification(*attack))
     {
-        return {{renderActionDescription(action, style, event, coalesce)}};
+        return {{renderActionDescription(action, style, event, coalesce, context)}};
     }
 
     return std::visit(
@@ -2877,7 +3090,7 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
             }
             else
             {
-                return {{renderActionDescription(action, style, event, coalesce)}};
+                return {{renderActionDescription(action, style, event, coalesce, context)}};
             }
         },
         attack->runtimeBehavior);

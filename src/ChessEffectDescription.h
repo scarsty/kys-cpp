@@ -21,6 +21,12 @@ enum class EffectDescriptionContainerKind
     ComboThreshold,
 };
 
+enum class EffectDescriptionCompactPolicy
+{
+    Default,
+    PlayerCard,
+};
+
 struct EffectDescriptionInput
 {
     EffectDescriptionContainerKind kind{};
@@ -30,6 +36,7 @@ struct EffectDescriptionInput
 struct EffectDescriptionPresentationContext
 {
     std::optional<EffectEvent> enclosingDefaultEvent{};
+    EffectDescriptionCompactPolicy compactPolicy{};
 };
 
 enum class DescriptionFieldDisposition

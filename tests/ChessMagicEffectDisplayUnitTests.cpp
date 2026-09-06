@@ -69,7 +69,7 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     }
     CHECK(effectText.find("眩暈") != std::string::npos);
     CHECK(effectText.find("14幀") != std::string::npos);
-    CHECK(effectText.find("回復30內力") != std::string::npos);
+    CHECK(effectText.find("內力+30") != std::string::npos);
 }
 
 TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",

@@ -22,7 +22,8 @@ std::string statusDurationLabel(
     EffectDescriptionStyle style);
 std::string renderStatusBehaviorDefinition(
     const StatusBehaviorDefinition& behavior,
-    EffectDescriptionStyle style);
+    EffectDescriptionStyle style,
+    const EffectDescriptionPresentationContext& context = {});
 
 inline bool statusBehaviorHasExactShape(
     const ApplyStatusAction& status,
@@ -78,7 +79,8 @@ std::string renderActionDescription(
     const EffectAction& action,
     EffectDescriptionStyle style,
     EffectEvent event,
-    bool coalesce);
+    bool coalesce,
+    const EffectDescriptionPresentationContext& context = {});
 
 struct DescriptionActionPhraseRow
 {
@@ -92,7 +94,8 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
     const EffectAction& action,
     EffectDescriptionStyle style,
     EffectEvent event,
-    bool coalesce);
+    bool coalesce,
+    const EffectDescriptionPresentationContext& context = {});
 std::vector<DescriptionActionPhraseRow> renderDetailedStatusBehaviorRows(
     const ApplyStatusAction& status);
 

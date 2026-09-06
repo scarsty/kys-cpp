@@ -45,6 +45,7 @@ function(kys_collect_chess_core_sources out_var kys_root)
         "${kys_root_abs}/src/ChessBalance.cpp"
         "${kys_root_abs}/src/ChessBattleAnalysis.cpp"
         "${kys_root_abs}/src/ChessBattleEffectParser.cpp"
+        "${kys_root_abs}/src/ChessEffectAuthoringDescriptors.cpp"
         "${kys_root_abs}/src/ChessBattleEffectSemantics.cpp"
         "${kys_root_abs}/src/ChessBattleEffectValidation.cpp"
         "${kys_root_abs}/src/ChessBattleMapCatalog.cpp"

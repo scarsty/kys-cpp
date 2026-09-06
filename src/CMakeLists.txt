@@ -69,17 +69,23 @@ kys_enable_deterministic_floating_point(kys_chess_core)
 
 set(KYS_EFFECT_SCHEMA_OUTPUTS)
 if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
+    find_package(glaze CONFIG REQUIRED)
     add_executable(kys_effect_schema_codegen
         "${KYS_ROOT}/tools/kys_effect_schema_codegen/main.cpp"
         "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp"
         "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaWriter.cpp"
+        "${KYS_ROOT}/src/ChessEffectAuthoringDescriptors.cpp"
+        "${KYS_ROOT}/src/ChessBattleEffectSemantics.cpp"
     )
     target_include_directories(kys_effect_schema_codegen PRIVATE
         ${KYS_COMMON_INCLUDES}
         "${KYS_ROOT}/tools/kys_effect_schema_codegen"
     )
     target_compile_definitions(kys_effect_schema_codegen PRIVATE KYS_HEADLESS_CORE NOMINMAX)
-    target_link_libraries(kys_effect_schema_codegen PRIVATE kys_chess_core)
+    target_link_libraries(kys_effect_schema_codegen PRIVATE
+        glaze::glaze
+        yaml-cpp::yaml-cpp
+    )
     kys_enable_deterministic_floating_point(kys_effect_schema_codegen)
 
     set(KYS_EFFECT_SCHEMA_OUTPUTS
@@ -88,10 +94,13 @@ if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
         "${KYS_ROOT}/schemas/chess_effects/chess_magic_effects.schema.json"
         "${KYS_ROOT}/schemas/chess_effects/chess_neigong.schema.json"
     )
+    set(KYS_EFFECT_SCHEMA_STAMP
+        "${CMAKE_CURRENT_BINARY_DIR}/kys_effect_schema_outputs.stamp")
     add_custom_command(
-        OUTPUT ${KYS_EFFECT_SCHEMA_OUTPUTS}
+        OUTPUT ${KYS_EFFECT_SCHEMA_OUTPUTS} "${KYS_EFFECT_SCHEMA_STAMP}"
         COMMAND $<TARGET_FILE:kys_effect_schema_codegen>
             --output-dir "${KYS_ROOT}/schemas/chess_effects"
+        COMMAND ${CMAKE_COMMAND} -E touch "${KYS_EFFECT_SCHEMA_STAMP}"
         DEPENDS kys_effect_schema_codegen
         COMMENT "Generating chess effect JSON schemas"
         VERBATIM
@@ -99,7 +108,7 @@ if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
     set_source_files_properties(${KYS_EFFECT_SCHEMA_OUTPUTS}
         PROPERTIES GENERATED TRUE HEADER_FILE_ONLY TRUE)
     add_custom_target(kys_effect_schema_outputs_internal
-        DEPENDS ${KYS_EFFECT_SCHEMA_OUTPUTS})
+        DEPENDS ${KYS_EFFECT_SCHEMA_OUTPUTS} "${KYS_EFFECT_SCHEMA_STAMP}")
     set_property(TARGET kys_effect_schema_outputs_internal PROPERTY FOLDER "Internal")
 endif()
 

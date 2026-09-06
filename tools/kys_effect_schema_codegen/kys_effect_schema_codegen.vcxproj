@@ -53,6 +53,8 @@
   <ItemGroup>
     <ClCompile Include="ChessEffectSchemaRenderer.cpp" />
     <ClCompile Include="ChessEffectSchemaWriter.cpp" />
+    <ClCompile Include="$(SolutionDir)src\ChessEffectAuthoringDescriptors.cpp" />
+    <ClCompile Include="$(SolutionDir)src\ChessBattleEffectSemantics.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -60,15 +62,18 @@
     <ClInclude Include="ChessEffectSchemaWriter.h" />
     <ClInclude Include="$(SolutionDir)src\ChessEffectAuthoringDescriptors.h" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="$(SolutionDir)src\kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference>
-    <ProjectReference Include="$(SolutionDir)src\kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference>
-  </ItemGroup>
+  <PropertyGroup>
+    <SchemaCodegenStamp>$(IntDir)schema_codegen.stamp</SchemaCodegenStamp>
+  </PropertyGroup>
   <Target Name="StageSchemaCodegenRuntime" BeforeTargets="GenerateChessEffectSchemas">
     <Copy SourceFiles="@(SchemaCodegenRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
-  <Target Name="GenerateChessEffectSchemas" AfterTargets="Build">
+  <Target Name="GenerateChessEffectSchemas"
+          AfterTargets="Build"
+          Inputs="$(TargetPath)"
+          Outputs="$(SchemaCodegenStamp);$(SolutionDir)schemas\chess_effects\chess_combos.schema.json;$(SolutionDir)schemas\chess_effects\chess_equipment.schema.json;$(SolutionDir)schemas\chess_effects\chess_magic_effects.schema.json;$(SolutionDir)schemas\chess_effects\chess_neigong.schema.json">
     <Exec Command="&quot;$(TargetPath)&quot; --output-dir &quot;$(SolutionDir)schemas\chess_effects&quot;" />
+    <Touch Files="$(SchemaCodegenStamp)" AlwaysCreate="true" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

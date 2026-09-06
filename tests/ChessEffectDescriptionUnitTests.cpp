@@ -204,6 +204,116 @@ TEST_CASE("EffectDescriptionDocument_PreservesInlineConditionalOrderAndActionRel
     CHECK(sequenceBreakCount(sequential) > sequenceBreakCount(simultaneous));
 }
 
+TEST_CASE("EffectDescriptionDocument_PlayerCardCompactDescriptionsKeepCriticalFacts",
+          "[battle][effects][description][document][player-card]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    const EffectDescriptionPresentationContext playerCardContext{
+        .compactPolicy = EffectDescriptionCompactPolicy::PlayerCard,
+    };
+    const auto playerCardRows = [&](int magicId)
+    {
+        const auto& definition = definitionWithId(content->magicEffects(), magicId);
+        return effectDescriptionTextRows(renderEffectDescription(
+            buildEffectDescriptionDocument({
+                EffectDescriptionContainerKind::Magic,
+                definition.rules,
+            }),
+            EffectDescriptionStyle::Compact,
+            playerCardContext));
+    };
+    const auto playerCardText = [&](int magicId)
+    {
+        return joinEffectDescriptionRows(
+            renderEffectDescription(
+                buildEffectDescriptionDocument({
+                    EffectDescriptionContainerKind::Magic,
+                    definitionWithId(content->magicEffects(), magicId).rules,
+                }),
+                EffectDescriptionStyle::Compact,
+                playerCardContext));
+    };
+
+    const auto sanqingRows = playerCardRows(133);
+    REQUIRE(sanqingRows.size() == 2);
+    CHECK(sanqingRows[0] == "自身及內力最低的2名友軍（不含自身）：");
+    CHECK(sanqingRows[1] == "  施放前滿內力→護盾160；否則內力+20");
+
+    const auto sunflower = playerCardText(105);
+    for (const auto fact : {
+             std::string_view{"速度+40%"},
+             std::string_view{"閃避率+20%"},
+             std::string_view{"100幀"},
+             std::string_view{"刷新"},
+             std::string_view{"無影"},
+             std::string_view{"原始攻擊"},
+             std::string_view{"最近3名敵人"},
+             std::string_view{"殘影×2"},
+             std::string_view{"50%傷害"},
+             std::string_view{"非主彈"},
+             std::string_view{"不觸發效果"},
+         })
+        CHECK(sunflower.find(fact) != std::string::npos);
+    CHECK(sunflower.find("同時發生") == std::string::npos);
+
+    const auto xuanming = playerCardText(21);
+    for (const auto fact : {
+             std::string_view{"結算剩餘中毒"},
+             std::string_view{"移除中毒"},
+             std::string_view{"5次"},
+             std::string_view{"150幀"},
+             std::string_view{"每30幀"},
+             std::string_view{"10%"},
+             std::string_view{"最低1"},
+             std::string_view{"取代現有中毒"},
+         })
+        CHECK(xuanming.find(fact) != std::string::npos);
+    CHECK(xuanming.find("依序執行") == std::string::npos);
+
+    const auto taiji = playerCardText(16);
+    CHECK(taiji.find("記錄最大單次招式生命傷害") != std::string::npos);
+    CHECK(taiji.find("讀取記錄值") != std::string::npos);
+    CHECK(taiji.find("100%純粹傷害") != std::string::npos);
+
+    const auto taijiSword = playerCardText(46);
+    CHECK(taijiSword.find("記錄最大單次招式生命傷害") != std::string::npos);
+    CHECK(taijiSword.find("消耗記錄值") != std::string::npos);
+    CHECK(taijiSword.find("100%純粹傷害") != std::string::npos);
+    CHECK(taijiSword.find("清除記錄") != std::string::npos);
+    CHECK(taijiSword.find("讀取記錄值") == std::string::npos);
+
+    const auto ironPalm = playerCardText(13);
+    CHECK(ironPalm.find("造成招式傷害後") != std::string::npos);
+    CHECK(ironPalm.find("最高單次") != std::string::npos);
+    CHECK(ironPalm.find("100%護盾") != std::string::npos);
+    CHECK(ironPalm.find("施放結算完成時") != std::string::npos);
+
+    const auto taixue = playerCardText(34);
+    CHECK(taixue.find("同落點追加×3") != std::string::npos);
+    CHECK(taixue.find("10幀") != std::string::npos);
+    CHECK(taixue.find("50%傷害") != std::string::npos);
+    CHECK(taixue.find("第4道") != std::string::npos);
+    CHECK(taixue.find("眩暈") != std::string::npos);
+    CHECK(taixue.find("30幀") != std::string::npos);
+
+    const auto fiveTigers = playerCardText(59);
+    CHECK(fiveTigers.find("扇形攻擊×5") != std::string::npos);
+    CHECK(fiveTigers.find("展開60°") != std::string::npos);
+    CHECK(fiveTigers.find("每道60%傷害") != std::string::npos);
+    CHECK(fiveTigers.find("貫穿") != std::string::npos);
+    CHECK(fiveTigers.find("同目標最多1次") != std::string::npos);
+
+    const auto xiaoyaoyou = playerCardText(2);
+    CHECK(xiaoyaoyou.find("清除全部控制狀態") != std::string::npos);
+    CHECK(xiaoyaoyou.find("解除目前動作僵直") != std::string::npos);
+    CHECK(xiaoyaoyou.find("僵直護盾+50") != std::string::npos);
+    CHECK(xiaoyaoyou.find("速度+20%") != std::string::npos);
+    CHECK(xiaoyaoyou.find("90幀") != std::string::npos);
+    CHECK(xiaoyaoyou.find("刷新") != std::string::npos);
+    CHECK(xiaoyaoyou.find("同時發生") == std::string::npos);
+}
+
 TEST_CASE("EffectDescriptionDocument_ResolvesObservedSourceSeparatelyFromEffectOwner",
           "[battle][effects][description][document][roles]")
 {

@@ -1563,7 +1563,9 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     const auto rendered = renderEffectDescription(
                         document,
                         EffectDescriptionStyle::Compact,
-                        {});
+                        EffectDescriptionPresentationContext{
+                            .compactPolicy = EffectDescriptionCompactPolicy::PlayerCard,
+                        });
                     appendRenderedEffectDescriptionRows(
                         block,
                         rendered,

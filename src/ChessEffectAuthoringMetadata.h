@@ -39,7 +39,7 @@ std::optional<Enum> parseLabel(
     return static_cast<Enum>(found->value);
 }
 
-bool validateKnownKeys(
+inline bool validateKnownKeys(
     const YAML::Node& node,
     std::initializer_list<std::string_view> allowed,
     std::string& error)
@@ -67,7 +67,7 @@ bool validateKnownKeys(
     return true;
 }
 
-bool validateUniqueKeys(const YAML::Node& node, std::string& error)
+inline bool validateUniqueKeys(const YAML::Node& node, std::string& error)
 {
     if (!node || !node.IsMap())
     {
@@ -704,7 +704,7 @@ static constexpr std::array authorEnumDescriptors{
     &martialCategoryEnum,
 };
 
-bool validatePayloadNodeShape(
+inline bool validatePayloadNodeShape(
     const YAML::Node& node,
     const PayloadFieldDescriptor& field,
     std::string& error)
@@ -922,7 +922,7 @@ static constexpr PayloadDescriptor activationLimitPayload{
 次數: 1)",
 };
 
-bool parseActivationLimitNode(
+inline bool parseActivationLimitNode(
     const YAML::Node& node,
     EffectActivationLimit& out,
     std::string& error)
@@ -982,7 +982,7 @@ bool optionalBool(const Node& node,
     }
 }
 
-bool parseDamageKindLabel(
+inline bool parseDamageKindLabel(
     std::string_view label,
     BattleDamageKind& out,
     std::string& error)
@@ -1041,7 +1041,7 @@ static constexpr PayloadDescriptor effectNumberPayload{
     PayloadNodeShape::Any, {}, {}, 1,
 };
 
-bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::string& error)
+inline bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::string& error)
 {
     if (!node)
     {
@@ -1251,7 +1251,7 @@ static constexpr PayloadDescriptor selectorPayload{
 半徑格數: 3)",
 };
 
-bool parseSelectorNode(const YAML::Node& node, EffectSelector& out, std::string& error)
+inline bool parseSelectorNode(const YAML::Node& node, EffectSelector& out, std::string& error)
 {
     out = {};
     std::string label;

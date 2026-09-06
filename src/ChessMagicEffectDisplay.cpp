@@ -86,7 +86,9 @@ std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
                 definition->rules,
             }),
             EffectDescriptionStyle::Compact,
-            {});
+            EffectDescriptionPresentationContext{
+                .compactPolicy = EffectDescriptionCompactPolicy::PlayerCard,
+            });
         for (const auto& section : rendered.sections)
         {
             for (const auto& block : section.blocks)
