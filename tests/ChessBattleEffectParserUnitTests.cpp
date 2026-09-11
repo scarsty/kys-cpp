@@ -15,10 +15,82 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
-TEST_CASE("ChessBattleEffects_ReviewedUltimateDurationsAndPersonalProtection", "[battle][effects][ultimate]")
+TEST_CASE("ChessBattleEffects_CardSummaryReferencesFollowConfigWithoutMutatingIt",
+          "[battle][effects][description][player-card]")
+{
+    auto root = YAML::LoadFile("tests/data/chess-effect-parser-cases.yaml");
+    YAML::Node sword;
+    for (const auto& entry : root["絕招"])
+        if (entry["武功"].as<int>() == 29) sword.reset(entry);
+    REQUIRE(sword.IsDefined());
+    const auto before = YAML::Dump(root);
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(parseMagicEffects(root, definitions, "卡片摘要測試"));
+    CHECK(YAML::Dump(root) == before);
+    CHECK(definitionWithId(definitions, 29).cardSummary == std::vector<std::string>{
+        "追加2道側翼劍氣，每道100%傷害。",
+        "本次命中3名敵人，全隊速度+24%，90幀。",
+    });
+
+    sword["效果"][1]["動作"][0]["屬性修正"]["數值"] = 37;
+    REQUIRE(parseMagicEffects(root, definitions, "卡片摘要測試"));
+    CHECK(definitionWithId(definitions, 29).cardSummary[1]
+        == "本次命中3名敵人，全隊速度+37%，90幀。");
+
+    auto management = YAML::Load(R"(
+管理規則:
+  - 每最高存活星級: 2
+卡片摘要:
+  - "勝利額外金幣為最高存活星級×${管理規則/0/每最高存活星級}。"
+)");
+    std::vector<std::string> summary;
+    REQUIRE(parseEffectCardSummary(management, summary, "管理摘要"));
+    CHECK(summary.front() == "勝利額外金幣為最高存活星級×2。");
+    management["管理規則"][0]["每最高存活星級"] = 3;
+    REQUIRE(parseEffectCardSummary(management, summary, "管理摘要"));
+    CHECK(summary.front() == "勝利額外金幣為最高存活星級×3。");
+}
+
+TEST_CASE("ChessBattleEffects_CardSummaryRejectsBrokenReferencesAndUnboundedProse",
+          "[battle][effects][description][player-card]")
+{
+    auto entry = YAML::Load(R"(
+效果:
+  - 回復內力: 20
+)");
+    for (const auto* invalid : {
+             "${效果/9/回復內力}", "${效果/-1/回復內力}",
+             "${效果/no/回復內力}", "${效果/0/不存在}",
+             "${效果/0}", "${效果/0/回復內力/不存在}",
+             "${效果//回復內力}", "${卡片摘要/0}",
+             "${效果/0/回復內力", "", "第一行\n第二行",
+             "觸發時：回內20。", "觸發時:回內20。", "沒有句號",
+         })
+    {
+        CAPTURE(invalid);
+        entry["卡片摘要"] = std::vector<std::string>{"有效首句。", invalid};
+        std::vector<std::string> summary;
+        CHECK_FALSE(parseEffectCardSummary(entry, summary, "摘要錯誤"));
+        CHECK(summary.empty());
+    }
+    for (const auto& invalid : {
+             YAML::Load("[]"), YAML::Load("[甲, 乙, 丙]"),
+             YAML::Load("文字"), YAML::Load("[{}]"),
+         })
+    {
+        entry["卡片摘要"] = invalid;
+        std::vector<std::string> summary;
+        CHECK_FALSE(parseEffectCardSummary(entry, summary, "摘要格式"));
+    }
+    entry["卡片摘要"] = std::vector<std::string>{std::string(81, 'x')};
+    std::vector<std::string> summary;
+    CHECK_FALSE(parseEffectCardSummary(entry, summary, "摘要長度"));
+}
+
+TEST_CASE("ChessBattleEffects_ParsesDurationsStackLimitsAndPersonalProtection", "[battle][effects][ultimate]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
+    REQUIRE(loadMagicEffectsFile("tests/data/chess-effect-parser-cases.yaml", definitions));
     const auto& sword = ruleWithEvent(definitionWithId(definitions, 47), EffectEvent::AttackCommitted);
     const auto& guaranteedHit = std::get<ModifyAttributeAction>(sword.actions.front().value);
     CHECK(guaranteedHit.attribute == BattleAttribute::GuaranteedHit);
@@ -488,7 +560,7 @@ TEST_CASE("ChessBattleEffects_CoupleBladeCarriesTypedAllyAttackSource",
           "[battle][effects][magic][schema][attack_source]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& rule = ruleWithEvent(
@@ -546,7 +618,7 @@ TEST_CASE("ChessBattleEffects_CoupleBladeCarriesTypedAllyAttackSource",
 TEST_CASE("ChessBattleEffects_HuFamilyBladeUsesTypedPerCastTargetActivationLimit", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& rule = ruleWithEvent(
@@ -608,10 +680,10 @@ TEST_CASE("ChessBattleEffects_ParsesAndDescribesLivingUnitSelectorsWithOwnerExcl
     CHECK_FALSE(error.empty());
 }
 
-TEST_CASE("ChessBattleEffects_RealSelectorsExcludeSanqingCasterAndLetXiaowuxiangUseAnyOtherLivingUnit", "[battle][effects][magic][schema][selector]")
+TEST_CASE("ChessBattleEffects_SelectorFixturesExcludeOwnerAndSelectOtherLivingUnits", "[battle][effects][magic][schema][selector]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& sanqing = ruleWithEvent(
@@ -650,7 +722,7 @@ TEST_CASE("ChessBattleEffects_RealSelectorsExcludeSanqingCasterAndLetXiaowuxiang
 TEST_CASE("ChessBattleEffects_TypedMagicLoaderLeavesSourceBindingToRuntime", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto hasInjectedCastCondition = [](const EffectRule& rule)
@@ -684,10 +756,10 @@ TEST_CASE("ChessBattleEffects_TypedMagicLoaderLeavesSourceBindingToRuntime", "[b
         == EffectObservationScope::StatusHolderEventTarget);
 }
 
-TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][effects][magic][schema]")
+TEST_CASE("ChessBattleEffects_FixtureCoversHealingCastingStatusAndProjectileSchemas", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& qingnang = definitionWithId(definitions, 127);
@@ -695,7 +767,7 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
     CHECK(qingnang.name == "青囊奇術");
     CHECK(qingnangRule.selector.kind == EffectSelectorKind::LowestHpAllies);
     CHECK(qingnangRule.selector.count == 1);
-    REQUIRE(qingnangRule.actions.size() == 4);
+    REQUIRE(qingnangRule.actions.size() == 3);
     const auto* qingnangHeal = std::get_if<ChangeResourceAction>(&qingnangRule.actions[0].value);
     REQUIRE(qingnangHeal != nullptr);
     CHECK(qingnangHeal->resource == BattleResource::Hp);
@@ -704,9 +776,6 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
     CHECK(qingnangHeal->amount.percent == 7);
     CHECK(std::get<RemoveStatusAction>(qingnangRule.actions[1].value).statuses == std::vector{BattleStatusKind::Poison});
     CHECK(std::get<RemoveStatusAction>(qingnangRule.actions[2].value).statuses == std::vector{BattleStatusKind::Bleed});
-    const auto& qingnangShield = std::get<ChangeResourceAction>(qingnangRule.actions[3].value);
-    CHECK(qingnangShield.resource == BattleResource::Shield);
-    CHECK(qingnangShield.amount.flat == 120);
 
     const auto& shenzhao = definitionWithId(definitions, 94);
     const auto& shenzhaoPlan = ruleWithEvent(shenzhao, EffectEvent::CastPlanned);
@@ -754,7 +823,7 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
 TEST_CASE("ChessBattleEffects_QiankunCarriesTypedAbsorptionSettlement", "[battle][effects][magic][schema][absorption]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& rule = ruleWithEvent(
@@ -788,7 +857,7 @@ TEST_CASE("ChessBattleEffects_QiankunCarriesTypedAbsorptionSettlement", "[battle
 TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& cleanse = ruleWithEvent(definitionWithId(definitions, 134), EffectEvent::AttackCommitted);
@@ -943,7 +1012,7 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
 TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedButNotAuthorSpecified", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto perspectiveOf = [](const EffectRule& rule)
@@ -995,7 +1064,7 @@ TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedButNotAuthorSpecified", "[
 TEST_CASE("ChessBattleEffects_AnranUsesAttackTimesMissingHpRatio", "[battle][effects][magic][schema][formula]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& rule = ruleWithEvent(
@@ -1021,7 +1090,7 @@ TEST_CASE("ChessBattleEffects_JiuyangAuthorsTrueQiAsStatusOwnedHitDamage",
           "[battle][effects][magic][schema][status]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& jiuyang = definitionWithId(definitions, 106);
@@ -1131,7 +1200,7 @@ TEST_CASE("ChessBattleEffects_StatusBehaviorUsesGenericRulesAndRejectsRetiredPay
 TEST_CASE("ChessBattleEffects_XiaoyaoDeclaresActionPreservingStaggerRelease", "[battle][effects][magic][schema][control]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
+    const auto path = std::filesystem::current_path() / "tests/data/chess-effect-parser-cases.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& rule = ruleWithEvent(

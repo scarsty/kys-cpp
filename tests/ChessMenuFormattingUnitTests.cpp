@@ -23,7 +23,7 @@ int testDisplayWidth(const std::string& text)
             continue;
         }
         const int length = lead < 0xE0 ? 2 : (lead < 0xF0 ? 3 : 4);
-        width += length >= 3 ? 2 : 1;
+        width += 2;
         index += length;
     }
     return width;
@@ -43,6 +43,26 @@ const ChessGameGuideSection& guideSection(
     return *found;
 }
 
+}
+
+TEST_CASE("save rows align legacy timestamps and full-width separators", "[chess][menu-formatting][save]")
+{
+    CHECK(displayTextWidth("·") == 2);
+    CHECK(displayTextWidth("賭徒 · 第2關") == 13);
+    std::vector<std::string> rows{
+        "進度01  2026-09-10 23:48:11  賭徒 · 第2關",
+        "進度02  2026-07-27 00:19:32",
+        "進度03  -------------------",
+        "自動檔  2026-09-11 00:46:42  大器晚成 · 第12關",
+    };
+    const auto original = rows;
+    alignDisplayTextRows(rows);
+    for (std::size_t index = 0; index < rows.size(); ++index)
+    {
+        CHECK(rows[index].starts_with(original[index]));
+        CHECK(displayTextWidth(rows[index]) == displayTextWidth(original.back()));
+        CHECK(displayColumnBefore(rows[index], "  ") == 6);
+    }
 }
 
 TEST_CASE("panel text fitting chooses the largest complete readable layout",
@@ -68,6 +88,35 @@ TEST_CASE("panel text fitting chooses the largest complete readable layout",
 
     const auto tooLarge = layoutPanelText(rows, 80, fitted.baseFontSize + 1);
     CHECK(tooLarge.height > 68);
+}
+
+TEST_CASE("card prose wrapping preserves punctuation and avoids orphaned introductions",
+          "[chess][menu-formatting][panel-text][player-card]")
+{
+    const std::string text = "觸發時，其原攻擊目標獲得每星100護盾。";
+    for (int width : {18, 24, 30, 40})
+    {
+        const auto lines = wrapDisplayText(text, width, true, DisplayTextWrapping::Prose);
+        REQUIRE_FALSE(lines.empty());
+        CHECK(lines.front() != "觸發時，");
+        std::string joined;
+        for (const auto& line : lines)
+        {
+            CHECK(displayTextWidth(line) <= width);
+            CHECK_FALSE(line.starts_with("，"));
+            CHECK_FALSE(line.starts_with("。"));
+            joined += line;
+        }
+        CHECK(joined == text);
+        CHECK(std::ranges::any_of(lines, [](const auto& line) { return line.contains("100"); }));
+    }
+    CHECK(wrapDisplayText("天地玄黃。", 8, true, DisplayTextWrapping::Prose)
+        == std::vector<std::string>{"天地玄", "黃。"});
+    const std::vector<PanelTextSourceRow> rows{
+        {.text = text, .wrapping = DisplayTextWrapping::Prose},
+    };
+    const auto layout = layoutPanelText(rows, 168, 14);
+    CHECK(layout.lines.front().text == wrapDisplayText(text, 24, true, DisplayTextWrapping::Prose).front());
 }
 
 TEST_CASE("talent presentation exposes an equipment reward table and descriptive mechanics",

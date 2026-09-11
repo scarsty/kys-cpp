@@ -109,7 +109,7 @@ int effectAdjustedAttribute(
     int baseValue,
     int eventSourceUnitId)
 {
-    return BattleEffectCommandSystem::queryAttribute(
+    const int adjusted = BattleEffectCommandSystem::queryAttribute(
         runtime,
         {
             .unitId = unitId,
@@ -118,6 +118,9 @@ int effectAdjustedAttribute(
             .frame = runtime.movement.frame,
             .eventSourceUnitId = eventSourceUnitId,
         });
+    // 攻防減益可以超過基礎值；完整結算修正後，實際攻防最低為零。
+    return attribute == BattleAttribute::Attack || attribute == BattleAttribute::Defence
+        ? std::max(0, adjusted) : adjusted;
 }
 
 int areaAttributeDelta(

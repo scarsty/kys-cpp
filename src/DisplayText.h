@@ -9,6 +9,12 @@
 namespace KysChess
 {
 
+enum class DisplayTextWrapping
+{
+    Semantic,
+    Prose,
+};
+
 inline int utf8DisplayTextCharacterLength(unsigned char value)
 {
     if (value < 0x80) return 1;
@@ -20,8 +26,8 @@ inline int utf8DisplayTextCharacterLength(unsigned char value)
 
 inline int utf8DisplayTextCharacterWidth(unsigned char value)
 {
-    if (value < 0x80) return 1;
-    return utf8DisplayTextCharacterLength(value) >= 3 ? 2 : 1;
+    // Font::renderText 對 ASCII 前進半格，其餘字元（包括「·」）皆前進一整格。
+    return value < 0x80 ? 1 : 2;
 }
 
 inline int displayTextWidth(std::string_view text)
@@ -42,10 +48,20 @@ inline int displayTextWidth(std::string_view text)
     return result;
 }
 
+inline void alignDisplayTextRows(std::vector<std::string>& rows)
+{
+    int maximumWidth{};
+    for (const auto& row : rows)
+        maximumWidth = std::max(maximumWidth, displayTextWidth(row));
+    for (auto& row : rows)
+        row.append(maximumWidth - displayTextWidth(row), ' ');
+}
+
 inline std::vector<std::string> wrapDisplayText(
     const std::string& text,
     int maximumWidth,
-    bool allowGlyphBreaks = true)
+    bool allowGlyphBreaks = true,
+    DisplayTextWrapping wrapping = DisplayTextWrapping::Semantic)
 {
     if (text.empty() || maximumWidth <= 0)
     {
@@ -57,6 +73,7 @@ inline std::vector<std::string> wrapDisplayText(
         std::string text;
         int width{};
         bool preferredBreakAfter = false;
+        bool cannotStartLine{};
     };
     std::vector<Glyph> glyphs;
     for (std::size_t index = 0; index < text.size();)
@@ -69,10 +86,16 @@ inline std::vector<std::string> wrapDisplayText(
             || glyph == "(" || glyph == ")" || glyph == "（" || glyph == "）"
             || glyph == "," || glyph == ";" || glyph == "/"
             || glyph == "，" || glyph == "、" || glyph == "；" || glyph == "。";
+        const bool cannotStartLine = glyph == "，" || glyph == "。" || glyph == "；"
+            || glyph == "：" || glyph == "、" || glyph == "！" || glyph == "？"
+            || glyph == "）" || glyph == "」" || glyph == "』"
+            || glyph == "," || glyph == "." || glyph == ";" || glyph == ":"
+            || glyph == "!" || glyph == "?" || glyph == ")" || glyph == "%";
         glyphs.push_back({
             .text = std::move(glyph),
             .width = utf8DisplayTextCharacterWidth(value),
             .preferredBreakAfter = preferredBreak,
+            .cannotStartLine = cannotStartLine,
         });
     }
 
@@ -83,18 +106,22 @@ inline std::vector<std::string> wrapDisplayText(
         int width = 0;
         std::size_t end = start;
         std::size_t preferredBreak = start;
+        int preferredWidth{};
         while (end < glyphs.size() && width + glyphs[end].width <= maximumWidth)
         {
             width += glyphs[end].width;
             if (glyphs[end].preferredBreakAfter)
             {
                 preferredBreak = end + 1;
+                preferredWidth = width;
             }
             ++end;
         }
 
         std::size_t lineEnd = end;
-        if (end < glyphs.size() && preferredBreak > start)
+        if (end < glyphs.size() && preferredBreak > start
+            && (wrapping == DisplayTextWrapping::Semantic
+                || preferredWidth * 3 >= maximumWidth * 2))
         {
             lineEnd = preferredBreak;
         }
@@ -106,6 +133,24 @@ inline std::vector<std::string> wrapDisplayText(
         {
             if (!allowGlyphBreaks) return {};
             lineEnd = std::min(start + 1, glyphs.size());
+        }
+        if (wrapping == DisplayTextWrapping::Prose && lineEnd < glyphs.size())
+        {
+            // 換行只處理排版：標點與前字同行，不把短引句拆成標題。
+            while (lineEnd > start + 1 && glyphs[lineEnd].cannotStartLine)
+                --lineEnd;
+            const auto numeric = [&](std::size_t index)
+            {
+                return glyphs[index].text.size() == 1
+                    && std::string_view("0123456789.+-%").find(glyphs[index].text[0])
+                        != std::string_view::npos;
+            };
+            if (numeric(lineEnd) && numeric(lineEnd - 1))
+            {
+                auto numberStart = lineEnd;
+                while (numberStart > start && numeric(numberStart - 1)) --numberStart;
+                if (numberStart > start) lineEnd = numberStart;
+            }
         }
 
         std::string line;

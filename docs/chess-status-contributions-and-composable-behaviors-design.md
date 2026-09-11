@@ -1,5 +1,8 @@
 # Chess status contributions and composable behaviors
 
+> 化勁 revision: [命中回內](chess-neutralize-force-mp-recovery.md) supersedes
+> all 化勁 suppression, shield, and 化勁/刺目 arbitration rules below.
+
 > **Superseded in part before completion.** The named-debuff storage,
 > reapplication, bleed, and `化勁`/`刺目` arbitration sections in this document
 > are superseded by `chess-named-debuff-groups-amendment.md`. Positive

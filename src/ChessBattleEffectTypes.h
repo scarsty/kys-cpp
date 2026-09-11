@@ -460,6 +460,7 @@ struct ChangeResourceAction
     std::optional<EffectSelector> transferDestination;
     EffectHealKind healKind = EffectHealKind::Direct;
     EffectHealSourcePolicy healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
+    bool healRequiresFullMp = false;
 };
 
 enum class HealModifierOperation
@@ -561,7 +562,7 @@ struct ApplyStatusAction
     StatusQuantityOperation quantity;
     StatusReapplicationPolicy reapplication = StatusReapplicationPolicy::Implicit;
     PoisonSameEventMerge poisonSameEventMerge = PoisonSameEventMerge::None;
-    std::optional<EffectNumber> neutralizeShield;
+    std::optional<EffectNumber> neutralizeMpRecovery;
     std::shared_ptr<const StatusBehaviorDefinition> behavior;
 
     bool operator==(const ApplyStatusAction&) const;
@@ -1195,7 +1196,7 @@ inline bool ApplyStatusAction::operator==(const ApplyStatusAction& other) const
         && quantity == other.quantity
         && reapplication == other.reapplication
         && poisonSameEventMerge == other.poisonSameEventMerge
-        && neutralizeShield == other.neutralizeShield
+        && neutralizeMpRecovery == other.neutralizeMpRecovery
         && behavior == other.behavior;
 }
 struct ChessMagicEffectDefinition
@@ -1204,6 +1205,7 @@ struct ChessMagicEffectDefinition
     std::string name;
     std::vector<EffectRule> rules;
     std::string purpose;
+    std::vector<std::string> cardSummary;
 };
 
 }  // namespace KysChess

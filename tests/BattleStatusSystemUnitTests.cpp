@@ -51,7 +51,7 @@ BattleStatusApplyRequest catalogDebuff(
     EffectRuleId ruleId,
     int quantity = 1,
     int durationFrames = 0,
-    std::optional<int> neutralizeShield = std::nullopt)
+    std::optional<int> neutralizeMpRecovery = std::nullopt)
 {
     ApplyStatusAction action;
     action.status = kind;
@@ -63,8 +63,8 @@ BattleStatusApplyRequest catalogDebuff(
         action.quantity = SetStatusTriggerCharges{ quantity };
     else
         action.quantity = NoStatusQuantity{};
-    if (neutralizeShield)
-        action.neutralizeShield = EffectNumber{ .flat = *neutralizeShield };
+    if (neutralizeMpRecovery)
+        action.neutralizeMpRecovery = EffectNumber{ .flat = *neutralizeMpRecovery };
     action.behavior = makeCatalogOwnedStatusBehavior(action);
     const auto lowered = lowerStatusQuantity(action);
     return {
@@ -1410,37 +1410,42 @@ TEST_CASE("BattleFrameRunner_BlindedSuppressesEveryContactOfOneAttack", "[battle
     CHECK_FALSE(state.attacks.contactsSuppressed(nextAttack.attackId));
 }
 
-TEST_CASE("BattleFrameRunner_NeutralizeForceSuppressesTheAttackAndShieldsItsOriginalTargetOnce", "[battle][core][status][suppression]")
+TEST_CASE("BattleFrameRunner_NeutralizeForceRestoresMpToTheActualHitTargetOnce", "[battle][core][status]")
 {
     auto state = attackSuppressionFrameState();
-    addAttackContactShieldRule(state, 9);
-    addAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce, 37);
-    const auto tracked = spawnTrackedAttack(
-        state,
-        attackSuppressionRequest(),
-        2);
+    state.units.requireCore(1).vitals.mp = 0;
+    state.units.requireCore(1).vitals.maxMp = 100;
+    state.units.requireCore(2).vitals.mp = 0;
+    state.units.requireCore(2).vitals.maxMp = 100;
+    auto baseline = state;
+    const auto baselineAttack = spawnTrackedAttack(baseline, attackSuppressionRequest(), 2);
+    addAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce, 50);
+    const auto tracked = spawnTrackedAttack(state, attackSuppressionRequest(), 2);
 
     advanceUntilAttackContacts(state, tracked.attackId, 1);
+    advanceUntilAttackContacts(baseline, baselineAttack.attackId, 1);
 
+    CHECK(state.units.requireCore(1).vitals.mp == baseline.units.requireCore(1).vitals.mp + 50);
+    CHECK(state.units.requireCore(2).vitals.mp == baseline.units.requireCore(2).vitals.mp);
+    CHECK(state.units.requireCore(1).vitals.hp == 75);
     CHECK(state.units.requireCore(1).shield == 0);
-    CHECK(state.units.requireCore(2).shield == 37);
+    CHECK(state.units.requireCore(2).shield == 0);
     CHECK_FALSE(hasAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce));
-    CHECK(state.attacks.contactsSuppressed(tracked.attackId));
+    CHECK_FALSE(state.attacks.contactsSuppressed(tracked.attackId));
 
     advanceUntilAttackContacts(state, tracked.attackId, 2);
+    advanceUntilAttackContacts(baseline, baselineAttack.attackId, 2);
 
-    CHECK(state.units.requireCore(1).vitals.hp == 100);
-    CHECK(state.units.requireCore(2).vitals.hp == 100);
-    CHECK(state.units.requireCore(1).shield == 0);
-    CHECK(state.units.requireCore(2).shield == 37);
-    CHECK(state.castLifecycle.runtime(tracked.castId).aggregate.distinctHitUnitIds.empty());
+    CHECK(state.units.requireCore(2).vitals.hp == 75);
+    CHECK(state.units.requireCore(2).vitals.mp == baseline.units.requireCore(2).vitals.mp);
+    CHECK(state.castLifecycle.runtime(tracked.castId).aggregate.distinctHitUnitIds.size() == 2);
 }
 
 TEST_CASE("BattleFrameRunner_SourceSuppressionCoversDelayedSiblingAttacksUntilCastSettles", "[battle][core][status][suppression][cast]")
 {
     auto state = attackSuppressionFrameState();
     addAttackContactShieldRule(state, 9);
-    addAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce, 37);
+    addAttackSuppressionStatus(state, 0, BattleStatusKind::Blinded);
 
     auto firstRequest = attackSuppressionRequest();
     firstRequest.initial.preferredTargetUnitId = 1;
@@ -1466,11 +1471,11 @@ TEST_CASE("BattleFrameRunner_SourceSuppressionCoversDelayedSiblingAttacksUntilCa
 
     CHECK(state.units.requireCore(1).vitals.hp == 100);
     CHECK(state.units.requireCore(1).shield == 0);
-    CHECK(state.units.requireCore(2).shield == 37);
+    CHECK(state.units.requireCore(2).shield == 0);
     CHECK_FALSE(hasAttackSuppressionStatus(
         state,
         0,
-        BattleStatusKind::NeutralizeForce));
+        BattleStatusKind::Blinded));
     CHECK(state.attacks.castContactsSuppressed(tracked.castId));
     CHECK(state.attacks.contactsSuppressed(firstSpawned.attackId));
 
@@ -1482,7 +1487,7 @@ TEST_CASE("BattleFrameRunner_SourceSuppressionCoversDelayedSiblingAttacksUntilCa
     runBattleFrame(state);
 
     CHECK(state.units.requireCore(2).vitals.hp == 100);
-    CHECK(state.units.requireCore(2).shield == 37);
+    CHECK(state.units.requireCore(2).shield == 0);
     CHECK(state.castLifecycle.runtime(tracked.castId)
           .aggregate.distinctHitUnitIds.empty());
 
@@ -1530,24 +1535,20 @@ TEST_CASE("BattleFrameRunner_NoContactCancelledCastLeavesSourceSuppressionForNex
     CHECK(state.attacks.contactsSuppressed(tracked.attackId));
 }
 
-TEST_CASE("BattleFrameRunner_NeutralizeForceShieldGrantSaturates", "[battle][core][status][suppression]")
+TEST_CASE("BattleFrameRunner_NeutralizeForceMpRecoveryCapsAtMaxMp", "[battle][core][status]")
 {
     auto state = attackSuppressionFrameState();
-    state.units.requireCore(2).shield = std::numeric_limits<int>::max() - 10;
-    addAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce, 37);
-    const auto tracked = spawnTrackedAttack(
-        state,
-        attackSuppressionRequest(),
-        2);
-
+    state.units.requireCore(1).vitals.mp = 90;
+    state.units.requireCore(1).vitals.maxMp = 100;
+    addAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce, 70);
+    const auto tracked = spawnTrackedAttack(state, attackSuppressionRequest(), 2);
     advanceUntilAttackContacts(state, tracked.attackId, 1);
-
-    CHECK(state.units.requireCore(2).shield == std::numeric_limits<int>::max());
+    CHECK(state.units.requireCore(1).vitals.mp == 100);
     CHECK_FALSE(hasAttackSuppressionStatus(state, 0, BattleStatusKind::NeutralizeForce));
-    CHECK(state.attacks.contactsSuppressed(tracked.attackId));
+    CHECK_FALSE(state.attacks.contactsSuppressed(tracked.attackId));
 }
 
-TEST_CASE("BattleFrameRunner_AllAttackerSideSuppressorsAreConsumedBeforeIncomingMiss", "[battle][core][status][suppression]")
+TEST_CASE("BattleFrameRunner_BlindedPreservesNeutralizeForceAndIncomingMiss", "[battle][core][status][suppression]")
 {
     const auto verify = [](bool neutralizeFirst)
     {
@@ -1589,11 +1590,11 @@ TEST_CASE("BattleFrameRunner_AllAttackerSideSuppressorsAreConsumedBeforeIncoming
         CHECK(state.units.requireCore(1).vitals.hp == 100);
         CHECK(state.units.requireCore(2).vitals.hp == 100);
         CHECK(state.units.requireCore(1).shield == 0);
-        CHECK(state.units.requireCore(2).shield == 37);
-        CHECK(protectionCueCount == 1);
+        CHECK(state.units.requireCore(2).shield == 0);
+        CHECK(protectionCueCount == 0);
         CHECK_FALSE(hasAttackSuppressionStatus(
             state, 0, BattleStatusKind::Blinded));
-        CHECK_FALSE(hasAttackSuppressionStatus(
+        CHECK(hasAttackSuppressionStatus(
             state, 0, BattleStatusKind::NeutralizeForce));
         CHECK(hasAttackSuppressionStatus(state, 1, BattleStatusKind::NextAttackMiss));
         CHECK(state.attacks.contactsSuppressed(tracked.attackId));
@@ -1609,10 +1610,12 @@ TEST_CASE("BattleFrameRunner_AllAttackerSideSuppressorsAreConsumedBeforeIncoming
     }
 }
 
-TEST_CASE("BattleFrameRunner consumes one charge from every eligible force-neutralize and blind packet per suppressed cast",
+TEST_CASE("BattleFrameRunner consumes neutralize-force only when an attack hits after blindness and incoming miss",
           "[battle][core][status][suppression][charge]")
 {
     auto state = attackSuppressionFrameState();
+    state.units.requireCore(1).vitals.mp = 0;
+    state.units.requireCore(1).vitals.maxMp = 1000;
     addAttackSuppressionStatus(
         state, 0, BattleStatusKind::NeutralizeForce, 37, 2);
     addAttackSuppressionStatus(
@@ -1640,25 +1643,37 @@ TEST_CASE("BattleFrameRunner consumes one charge from every eligible force-neutr
     };
 
     performCast(true);
-    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 1);
+    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 2);
     CHECK(stacks(0, BattleStatusKind::Blinded) == 2);
     CHECK(stacks(1, BattleStatusKind::NextAttackMiss) == 1);
-    CHECK(state.units.requireCore(1).shield == 37);
+    CHECK(state.units.requireCore(1).shield == 0);
 
     performCast(true);
-    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 0);
+    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 2);
     CHECK(stacks(0, BattleStatusKind::Blinded) == 1);
     CHECK(stacks(1, BattleStatusKind::NextAttackMiss) == 1);
-    CHECK(state.units.requireCore(1).shield == 74);
+    CHECK(state.units.requireCore(1).shield == 0);
 
     performCast(true);
     CHECK(stacks(0, BattleStatusKind::Blinded) == 0);
     CHECK(stacks(1, BattleStatusKind::NextAttackMiss) == 1);
-    CHECK(state.units.requireCore(1).shield == 74);
+    CHECK(state.units.requireCore(1).shield == 0);
 
     performCast(false);
     CHECK(stacks(1, BattleStatusKind::NextAttackMiss) == 0);
-    CHECK(state.units.requireCore(1).shield == 74);
+    CHECK(state.units.requireCore(1).shield == 0);
+    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 2);
+    CHECK(state.units.requireCore(1).vitals.mp == 2);
+
+    performCast(false);
+    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 1);
+    CHECK(state.units.requireCore(1).vitals.mp == 57);
+    CHECK(state.units.requireCore(1).vitals.hp == 75);
+
+    performCast(false);
+    CHECK(stacks(0, BattleStatusKind::NeutralizeForce) == 0);
+    CHECK(state.units.requireCore(1).vitals.mp == 112);
+    CHECK(state.units.requireCore(1).vitals.hp == 50);
 }
 
 TEST_CASE("BattleFrameRunner_SourceSuppressionPropagatesThroughBounceDescendants", "[battle][core][status][suppression][bounce]")

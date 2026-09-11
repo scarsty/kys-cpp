@@ -667,7 +667,7 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(game["role_metadata_scope"], "complete")
         self.assertTrue(game["relevant_roles"])
 
-    def test_poison_reports_drain_payload_application_and_ticks_separately(self):
+    def test_battle_report_counters_match_emitted_effect_events(self):
         completed = run_jsonl(
             [
                 {
@@ -696,57 +696,18 @@ class ChessCliTests(unittest.TestCase):
         self.assertNotIn("unit_stats", responses[-2]["result"]["battle"])
 
         full = responses[-1]["result"]
-        poison_units = [
-            unit for unit in full["unit_stats"] if unit["poison_payload_events"] > 0
-        ]
-        self.assertEqual(len(poison_units), 2)
-        # Poison payloads and MP drains are separate effects. Verify attribution
-        # against emitted events, including sources that apply poison without draining.
+        # 正式配置只驗證報告契約；中毒與奪內的行為案例由獨立 C++ fixture 驗證。
         for unit in full["unit_stats"]:
             events = [event for event in full["effect_activations"]
                       if event["source_unit_id"] == unit["unit_id"]]
             self.assertEqual(unit["magic_points_drained"], sum(
                 event["value"] for event in events if event["type"] == "magic_points_drained"))
-            self.assertEqual(unit["poison_payload_events"], sum(
-                event["type"] == "poison_payload" for event in events))
-            self.assertEqual(unit["poison_application_events"], sum(
-                event["type"] == "poison_applied" for event in events))
-        self.assertTrue(any(unit["magic_points_drained"] == 0 for unit in poison_units))
-        self.assertTrue(
-            all(
-                unit["poison_application_events"] <= unit["poison_payload_events"]
-                for unit in poison_units
-            )
-        )
-        self.assertTrue(any(unit["poison_ticks"] > 0 for unit in poison_units))
-        self.assertTrue(any(unit["poison_damage"] > 0 for unit in poison_units))
-
-        drain = next(
-            event
-            for event in full["effect_activations"]
-            if event["type"] == "magic_points_drained"
-        )
-        self.assertGreater(drain["value"], 0)
-        self.assertNotEqual(drain["source_unit_id"], drain["target_unit_id"])
-        self.assertTrue(
-            any(
-                event["type"] == "magic_points_restored"
-                for event in full["effect_activations"]
-            )
-        )
-        payload = next(
-            event
-            for event in full["effect_activations"]
-            if event["type"] == "poison_payload"
-        )
-        self.assertEqual(payload["poison_percent"], 7)
-        self.assertEqual(payload["scheduled_ticks"], 3)
-        self.assertTrue(
-            any(
-                event["type"] == "poison_applied"
-                for event in full["effect_activations"]
-            )
-        )
+            for counter, event_type in (
+                ("magic_points_drain_events", "magic_points_drained"),
+                ("poison_payload_events", "poison_payload"),
+                ("poison_application_events", "poison_applied"),
+            ):
+                self.assertEqual(unit[counter], sum(event["type"] == event_type for event in events))
 
     def test_equipment_reward_description_separates_character_effects(self):
         completed = run_jsonl(

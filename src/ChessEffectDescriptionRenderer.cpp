@@ -1572,24 +1572,6 @@ bool playerCardBlockProjectionIsComplete(const EffectDescriptionBlock& block)
             EffectDescriptionStyle::Compact);
 }
 
-const DescriptionBranch* singleDescriptionBranch(
-    const EffectDescriptionBlock& block)
-{
-    if (block.actions.size() != 1
-        || block.actions.front().actions.size() != 1)
-        return nullptr;
-    const auto* branch = std::get_if<std::shared_ptr<DescriptionBranch>>(
-        &block.actions.front().actions.front().value);
-    return branch && *branch ? branch->get() : nullptr;
-}
-
-const EffectAction* singleDescriptionLeaf(const DescriptionActionGroup& group)
-{
-    return group.actions.size() == 1
-        ? descriptionEffectAction(group.actions.front())
-        : nullptr;
-}
-
 bool isConstantAmount(const EffectNumber& amount, int value)
 {
     EffectNumber expected;
@@ -1597,56 +1579,28 @@ bool isConstantAmount(const EffectNumber& amount, int value)
     return amount == expected;
 }
 
-const ChangeResourceAction* matchingResourceAction(
-    const DescriptionActionGroup& group,
-    BattleResource resource,
-    ResourceChangeKind kind,
-    int amount)
+bool matchesSanqingActions(const EffectDescriptionBlock& block)
 {
-    const auto* action = singleDescriptionLeaf(group);
-    if (!action) return nullptr;
-    const auto* resourceAction = std::get_if<ChangeResourceAction>(&action->value);
-    if (!resourceAction
-        || resourceAction->resource != resource
-        || resourceAction->kind != kind
-        || !isConstantAmount(resourceAction->amount, amount)
-        || resourceAction->transferDestination
-        || resourceAction->healKind != EffectHealKind::Direct
-        || resourceAction->healSourcePolicy != EffectHealSourcePolicy::RequireAlive)
-        return nullptr;
-    return resourceAction;
-}
-
-const DescriptionBranch* matchingSanqingBranch(
-    const EffectDescriptionBlock& block)
-{
-    const auto* branch = singleDescriptionBranch(block);
-    if (!branch
-        || branch->conditions.size() != 1
-        || !isProjected(
-            branch->conditions.front().projection,
-            EffectDescriptionStyle::Compact)
-        || branch->whenTrue.size() != 1
-        || branch->whenFalse.size() != 1)
-        return nullptr;
-    const auto* condition = std::get_if<DescriptionConditionFact>(
-        &branch->conditions.front().value);
-    if (!condition
-        || !std::holds_alternative<TargetMpWasFullBeforeCastCondition>(
-            condition->condition))
-        return nullptr;
-    if (!matchingResourceAction(
-            branch->whenTrue.front(),
-            BattleResource::Shield,
-            ResourceChangeKind::Grant,
-            160)
-        || !matchingResourceAction(
-            branch->whenFalse.front(),
-            BattleResource::Mp,
-            ResourceChangeKind::Restore,
-            20))
-        return nullptr;
-    return branch;
+    if (block.actions.size() != 1
+        || block.actions.front().actions.size() != 2
+        || !block.actions.front().sequential)
+        return false;
+    const auto& actions = block.actions.front().actions;
+    const auto matches = [&](std::size_t index, BattleResource resource,
+                             const EffectNumber& amount, bool requiresFullMp)
+    {
+        const auto* action = descriptionEffectAction(actions[index]);
+        const auto* change = action ? std::get_if<ChangeResourceAction>(&action->value) : nullptr;
+        return change && change->resource == resource
+            && change->kind == ResourceChangeKind::Restore
+            && change->amount == amount && !change->transferDestination
+            && change->healKind == EffectHealKind::Direct
+            && change->healSourcePolicy == EffectHealSourcePolicy::RequireAlive
+            && change->healRequiresFullMp == requiresFullMp;
+    };
+    return matches(0, BattleResource::Mp, EffectNumber{ .flat = 20 }, false)
+        && matches(1, BattleResource::Hp,
+            EffectNumber{ .base = EffectNumberBase::SourceStar, .percent = 3300 }, true);
 }
 
 bool matchesSanqingBlock(
@@ -1662,7 +1616,7 @@ bool matchesSanqingBlock(
         && descriptionTarget(block).selector == selector
         && descriptionConditions(block).empty()
         && hasDefaultRuleQualifiers(ruleQualifiers(block))
-        && matchingSanqingBranch(block);
+        && matchesSanqingActions(block);
 }
 
 std::optional<RenderedEffectDescription> renderPlayerCardSanqing(
@@ -1709,7 +1663,7 @@ std::optional<RenderedEffectDescription> renderPlayerCardSanqing(
     appendSemanticRow(
         block,
         EffectDescriptionStyle::Compact,
-        "施放前滿內力→護盾160；否則內力+20",
+        "先內力+20；回內後滿內力→生命+星級×33",
         1,
         EffectDescriptionSemanticBreak::Branch);
     section.blocks.push_back(std::move(block));
@@ -1948,6 +1902,19 @@ RenderedEffectDescription renderEffectDescription(
         && effectiveContext.compactPolicy
             == EffectDescriptionCompactPolicy::PlayerCard)
     {
+        if (!document.cardSummary.empty())
+        {
+            RenderedEffectDescriptionBlock summary;
+            for (const auto& sentence : document.cardSummary)
+                summary.rows.push_back({
+                    .kind = EffectDescriptionRowKind::Summary,
+                    .text = sentence,
+                    .wrapping = DisplayTextWrapping::Prose,
+                });
+            RenderedEffectDescriptionSection section;
+            section.blocks.push_back(std::move(summary));
+            return {.sections = {std::move(section)}};
+        }
         if (const auto playerCard = renderPlayerCardDocument(document))
             return *playerCard;
     }

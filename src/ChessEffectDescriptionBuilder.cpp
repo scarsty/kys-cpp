@@ -53,6 +53,7 @@ EffectDescriptionDocument buildEffectDescriptionDocument(
 {
     EffectDescriptionDocument result{
         .kind = input.kind,
+        .cardSummary = {input.cardSummary.begin(), input.cardSummary.end()},
     };
     for (std::size_t ruleOrder = 0; ruleOrder < input.rules.size(); ++ruleOrder)
     {

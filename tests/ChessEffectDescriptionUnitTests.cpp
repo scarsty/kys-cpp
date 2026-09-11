@@ -75,19 +75,15 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
     });
     const auto& sanqingBlock = sanqingDocument.sections.front().blocks.front();
     REQUIRE(sanqingBlock.actions.size() == 1);
-    REQUIRE(sanqingBlock.actions.front().actions.size() == 1);
-    const auto sanqingBranch = std::get<std::shared_ptr<DescriptionBranch>>(
-        sanqingBlock.actions.front().actions.front().value);
-    REQUIRE(sanqingBranch);
-    CHECK_FALSE(sanqingBranch->whenTrue.empty());
-    CHECK_FALSE(sanqingBranch->whenFalse.empty());
+    REQUIRE(sanqingBlock.actions.front().actions.size() == 2);
+    CHECK(sanqingBlock.actions.front().sequential);
     const auto sanqingFull = joinEffectDescriptionRows(renderEffectDescription(
         sanqingDocument,
         EffectDescriptionStyle::Full,
         {}));
-    CHECK(sanqingFull.find("施放前內力已滿") != std::string::npos);
+    CHECK(sanqingFull.find("僅結算時滿內力才回復") != std::string::npos);
     CHECK(sanqingFull.find("回復20內力") != std::string::npos);
-    CHECK(sanqingFull.find("獲得160護盾") != std::string::npos);
+    CHECK(sanqingFull.find("回復星級×33生命") != std::string::npos);
 
     const auto& coupleBlade = ruleWithEvent(
         definitionWithId(definitions, 62),
@@ -108,7 +104,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
     CHECK(descriptionText(std::span<const EffectRule>{&(taijiRecord), 1}, EffectDescriptionStyle::Full, {}).find(
         "首次記錄值為0") != std::string::npos);
     CHECK(descriptionText(std::span<const EffectRule>{&(taijiConsume), 1}, EffectDescriptionStyle::Compact, {}).find(
-        "讀取記錄值") != std::string::npos);
+        "消耗記錄值") != std::string::npos);
     const auto& transferMachine = std::get<StateMachineAction>(
         taijiTransfer.actions[0].value);
     const auto& transfer = std::get<TransferStateValueAction>(transferMachine);
@@ -118,7 +114,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
         taijiConsume.actions[0].value);
     const auto& consume = std::get<ConsumeRecordedMaximumAction>(consumeMachine);
     CHECK(consume.slot == EffectStateSlot::CastMaximumHpDamage);
-    CHECK_FALSE(consume.clearAfterConsume);
+    CHECK(consume.clearAfterConsume);
 }
 
 TEST_CASE("EffectDescriptionDocument_PreservesInlineConditionalOrderAndActionRelations",
@@ -238,7 +234,7 @@ TEST_CASE("EffectDescriptionDocument_PlayerCardCompactDescriptionsKeepCriticalFa
     const auto sanqingRows = playerCardRows(133);
     REQUIRE(sanqingRows.size() == 2);
     CHECK(sanqingRows[0] == "自身及內力最低的2名友軍（不含自身）：");
-    CHECK(sanqingRows[1] == "  施放前滿內力→護盾160；否則內力+20");
+    CHECK(sanqingRows[1] == "  先內力+20；回內後滿內力→生命+星級×33");
 
     const auto sunflower = playerCardText(105);
     for (const auto fact : {
@@ -273,7 +269,7 @@ TEST_CASE("EffectDescriptionDocument_PlayerCardCompactDescriptionsKeepCriticalFa
 
     const auto taiji = playerCardText(16);
     CHECK(taiji.find("記錄最大單次招式生命傷害") != std::string::npos);
-    CHECK(taiji.find("讀取記錄值") != std::string::npos);
+    CHECK(taiji.find("消耗記錄值") != std::string::npos);
     CHECK(taiji.find("100%純粹傷害") != std::string::npos);
 
     const auto taijiSword = playerCardText(46);
@@ -312,6 +308,73 @@ TEST_CASE("EffectDescriptionDocument_PlayerCardCompactDescriptionsKeepCriticalFa
     CHECK(xiaoyaoyou.find("90幀") != std::string::npos);
     CHECK(xiaoyaoyou.find("刷新") != std::string::npos);
     CHECK(xiaoyaoyou.find("同時發生") == std::string::npos);
+}
+
+TEST_CASE("EffectDescriptionDocument_AuthoredSummaryIsOnlyUsedOnPlayerCards",
+          "[battle][effects][description][document][player-card]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    for (const auto& definition : content->magicEffects())
+    {
+        CAPTURE(definition.name);
+        REQUIRE_FALSE(definition.cardSummary.empty());
+        REQUIRE(definition.cardSummary.size() <= 2);
+        const auto rulesDocument = buildEffectDescriptionDocument({
+            EffectDescriptionContainerKind::Magic, definition.rules,
+        });
+        const auto cardDocument = buildEffectDescriptionDocument({
+            EffectDescriptionContainerKind::Magic, definition.rules, definition.cardSummary,
+        });
+        const auto summary = renderEffectDescription(cardDocument,
+            EffectDescriptionStyle::Compact,
+            {.compactPolicy = EffectDescriptionCompactPolicy::PlayerCard});
+        CHECK(effectDescriptionTextRows(summary) == definition.cardSummary);
+        for (const auto& row : definition.cardSummary)
+        {
+            CHECK(displayTextWidth(row) <= 80);
+            CHECK(row.find("${") == std::string::npos);
+            CHECK(row.ends_with("。"));
+            CHECK_FALSE(row.contains("："));
+        }
+        for (const auto style : {EffectDescriptionStyle::Detailed,
+                 EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact})
+        {
+            CHECK(joinEffectDescriptionRows(renderEffectDescription(cardDocument, style, {}))
+                == joinEffectDescriptionRows(renderEffectDescription(rulesDocument, style, {})));
+        }
+    }
+
+    for (const auto& combo : content->combos())
+    {
+        for (const auto& threshold : combo.thresholds)
+        {
+            CAPTURE(combo.name, threshold.count);
+            REQUIRE_FALSE(threshold.cardSummary.empty());
+            REQUIRE(threshold.cardSummary.size() <= 2);
+            for (const auto& sentence : threshold.cardSummary)
+            {
+                CHECK(sentence.ends_with("。"));
+                CHECK_FALSE(sentence.contains("："));
+                CHECK(displayTextWidth(sentence) <= 80);
+            }
+            const auto document = buildEffectDescriptionDocument({
+                EffectDescriptionContainerKind::ComboThreshold,
+                threshold.rules, threshold.cardSummary,
+            });
+            CHECK(effectDescriptionTextRows(renderEffectDescription(document,
+                EffectDescriptionStyle::Compact,
+                {.compactPolicy = EffectDescriptionCompactPolicy::PlayerCard}))
+                == threshold.cardSummary);
+            const auto panelRows = panelTextRowsForEffectDescription(renderEffectDescription(document,
+                EffectDescriptionStyle::Compact,
+                {.compactPolicy = EffectDescriptionCompactPolicy::PlayerCard}));
+            CHECK(std::ranges::all_of(panelRows, [](const auto& row)
+            {
+                return row.wrapping == DisplayTextWrapping::Prose;
+            }));
+        }
+    }
 }
 
 TEST_CASE("EffectDescriptionDocument_ResolvesObservedSourceSeparatelyFromEffectOwner",
@@ -1537,18 +1600,18 @@ TEST_CASE("EffectDescriptionDocument_RendersRepresentativeContainerLifecycles",
 
     CHECK(rows(7, EffectDescriptionStyle::Full) == std::vector<std::string>{
         "主彈道命中時，對被主彈命中的敵人施加可觸發1次的化勁",
-        "  觸發時使該次施放目前及剩餘攻擊落空，原攻擊目標獲得星級×100護盾",
+        "  狀態持有者下次命中時，命中目標恢復星級×10＋40內力並消耗1次化勁",
         "  再次施加會完整取代現有化勁",
     });
     CHECK(compactRows(7) == std::vector<std::string>{
-        "主彈命中：對主彈目標化勁1次：使下次施放落空",
-        "  觸發時，原攻擊目標獲得星級×100護盾",
+        "主彈命中：對主彈目標化勁1次：下次命中為目標回內",
+        "  命中目標恢復星級×10＋40內力",
         "  再次施加：完整取代現有化勁",
     });
     const auto neutralizeDetailed = rows(7, EffectDescriptionStyle::Detailed);
     CHECK(std::ranges::contains(
         neutralizeDetailed,
-        "  化解後護盾：原攻擊目標獲得星級×100護盾"));
+        "  命中回內：命中目標恢復星級×10＋40內力"));
 
     const auto sevenStarDetailed = rows(39, EffectDescriptionStyle::Detailed);
     CHECK(std::ranges::contains(
@@ -2270,10 +2333,14 @@ TEST_CASE("EffectDescriptionDocument_FormalNonMagicPanelsFitReadableFonts",
         EffectDescriptionStyle style,
         int fontSizeDelta,
         int extraSpacing,
-        int baseIndentUnits = 0)
+        int baseIndentUnits = 0,
+        std::span<const std::string> cardSummary = {})
     {
-        const auto document = buildEffectDescriptionDocument({kind, rules});
-        const auto rendered = renderEffectDescription(document, style, {});
+        const auto document = buildEffectDescriptionDocument({kind, rules, cardSummary});
+        const auto rendered = renderEffectDescription(document, style,
+            {.compactPolicy = cardSummary.empty()
+                ? EffectDescriptionCompactPolicy::Default
+                : EffectDescriptionCompactPolicy::PlayerCard});
         auto descriptionRows = panelTextRowsForEffectDescription(
             rendered,
             fontSizeDelta,
@@ -2332,58 +2399,8 @@ TEST_CASE("EffectDescriptionDocument_FormalNonMagicPanelsFitReadableFonts",
     int smallestEquipmentFont = 26;
     for (const auto& equipment : content->equipment())
     {
-        std::vector<PanelTextSourceRow> rows;
-        if (!equipment.rules.empty())
-        {
-            appendRow(rows, "特殊效果:", 2, 0, 0, 2);
-            appendDescription(
-                rows,
-                EffectDescriptionContainerKind::Equipment,
-                equipment.rules,
-                EffectDescriptionStyle::Full,
-                0,
-                2);
-        }
-        const bool hasSynergies = std::ranges::any_of(
-            content->equipmentSynergies(),
-            [&](const auto& synergy) { return synergy.equipmentId == equipment.itemId; });
-        if (hasSynergies)
-        {
-            appendRow(rows, "裝備羈絆:", 2, 0,
-                equipment.rules.empty() ? 0 : 12, 2);
-            for (const auto& synergy : content->equipmentSynergies())
-            {
-                if (synergy.equipmentId != equipment.itemId) continue;
-                std::string heading;
-                for (std::size_t index = 0; index < synergy.roleIds.size(); ++index)
-                {
-                    if (index > 0) heading += "、";
-                    const auto* role = content->role(synergy.roleIds[index]);
-                    REQUIRE(role);
-                    heading += role->Name;
-                }
-                heading += "：";
-                const auto comboNames = countsAsComboNames(synergy.managementRules);
-                if (!comboNames.empty())
-                {
-                    heading += "計作";
-                    for (std::size_t index = 0; index < comboNames.size(); ++index)
-                    {
-                        if (index > 0) heading += "、";
-                        heading += comboNames[index];
-                    }
-                }
-                appendRow(rows, std::move(heading), 0, 0, 0, 2);
-                appendDescription(
-                    rows,
-                    EffectDescriptionContainerKind::EquipmentSynergy,
-                    synergy.rules,
-                    EffectDescriptionStyle::Full,
-                    0,
-                    2,
-                    2);
-            }
-        }
+        const auto rows = panelTextRowsForEquipment(chessEquipmentMetadata(
+            *content, equipment.itemId, EffectDescriptionStyle::Full));
         if (rows.empty()) continue;
         smallestEquipmentFont = std::min(
             smallestEquipmentFont,
@@ -2537,7 +2554,8 @@ TEST_CASE("EffectDescriptionDocument_FormalNonMagicPanelsFitReadableFonts",
                     EffectDescriptionStyle::Compact,
                     0,
                     1,
-                    2);
+                    2,
+                    threshold.cardSummary);
                 const int height = layoutPanelText(
                     block,
                     compactPanelWidth / 2,
@@ -2581,7 +2599,7 @@ TEST_CASE("EffectDescriptionDocument_FormalNonMagicPanelsFitReadableFonts",
         }
         CHECK(expectedFirstBlock == blocks.size());
     }
-    CHECK(smallestCompactComboFont >= 12);
+    CHECK(smallestCompactComboFont >= 14);
 }
 
 TEST_CASE("EffectDescriptionDocument_FormalContentMeetsCoverageAndRowContracts",

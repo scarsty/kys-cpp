@@ -209,8 +209,15 @@ inline std::shared_ptr<const StatusBehaviorDefinition> persistentStatusBehavior(
 
 inline std::shared_ptr<const StatusBehaviorDefinition> attackSuppressionStatusBehavior(
     BattleStatusKind kind,
-    int originalTargetShield = 0)
+    int mpRecoveryAmount = 0)
 {
+    if (kind == BattleStatusKind::NeutralizeForce)
+    {
+        ApplyStatusAction action;
+        action.status = kind;
+        action.neutralizeMpRecovery = EffectNumber{ .flat = mpRecoveryAmount };
+        return makeCatalogOwnedStatusBehavior(action);
+    }
     EffectRule rule;
     rule.id = EffectRuleId{ 1 };
     rule.event = EffectEvent::HitBeforeDamage;
@@ -222,17 +229,9 @@ inline std::shared_ptr<const StatusBehaviorDefinition> attackSuppressionStatusBe
     }
     else
     {
-        assert(kind == BattleStatusKind::NeutralizeForce
-            || kind == BattleStatusKind::Blinded);
+        assert(kind == BattleStatusKind::Blinded);
         rule.observation = EffectObservationScope::StatusHolderEventSource;
-        SuppressCurrentCastContactsAction suppress;
-        if (kind == BattleStatusKind::NeutralizeForce)
-        {
-            EffectNumber shield;
-            shield.flat = originalTargetShield;
-            suppress.originalTargetShield = shield;
-        }
-        rule.actions.push_back(EffectAction{ suppress });
+        rule.actions.push_back(EffectAction{ SuppressCurrentCastContactsAction{} });
     }
     auto behavior = std::make_shared<StatusBehaviorDefinition>();
     behavior->rules.push_back(std::move(rule));

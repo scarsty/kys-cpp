@@ -1208,7 +1208,13 @@ std::string renderDescriptionActionArgument(
                         {
                             amount += "%";
                         }
-                        if (compact
+                        if (typed.operation == DamageModifierOperation::FlatAdd)
+                        {
+                            result = constantAmount
+                                ? std::format("{}固定加算{:+}點", damageContext, *constantAmount)
+                                : std::format("{}固定加算{}點", damageContext, amount);
+                        }
+                        else if (compact
                             && typed.operation == DamageModifierOperation::PercentAdd
                             && constantAmount)
                         {
@@ -1216,9 +1222,7 @@ std::string renderDescriptionActionArgument(
                         }
                         else
                         {
-                            const auto operation = typed.operation == DamageModifierOperation::FlatAdd
-                                ? "加算"
-                                : typed.operation == DamageModifierOperation::PercentAdd
+                            const auto operation = typed.operation == DamageModifierOperation::PercentAdd
                                 ? compact ? "加" : "百分比加算"
                                 : compact ? "×" : "乘以";
                             result = std::format("{}{}{}", damageContext, operation, amount);
@@ -1298,6 +1302,8 @@ std::string renderDescriptionActionArgument(
                     && typed.kind == ResourceChangeKind::Restore)
                 {
                     result += std::format("{}{}", qualifierSeparator, healKindLabel(typed.healKind));
+                    if (typed.healRequiresFullMp)
+                        result += std::format("{}僅結算時滿內力才回復", qualifierSeparator);
                     if (typed.healSourcePolicy == EffectHealSourcePolicy::AllowDead)
                         result += std::format("{}來源死亡仍可生效", qualifierSeparator);
                 }
@@ -2349,7 +2355,9 @@ bool actionPairDependsOnOrder(
                 && lhs->channel == rhs->channel;
     if (const auto* lhs = std::get_if<ChangeResourceAction>(&first))
         if (const auto* rhs = std::get_if<ChangeResourceAction>(&second))
-            return lhs->resource == rhs->resource;
+            return lhs->resource == rhs->resource
+                || (lhs->resource == BattleResource::Mp && rhs->healRequiresFullMp)
+                || (rhs->resource == BattleResource::Mp && lhs->healRequiresFullMp);
     if (std::holds_alternative<ModifyAttackAction>(first)
         && std::holds_alternative<ModifyAttackAction>(second))
         return true;
@@ -2802,34 +2810,33 @@ std::vector<DescriptionActionPhraseRow> renderPlayerActionDescriptionRows(
         }
 
         if (status->status == BattleStatusKind::NeutralizeForce
-            && statusBehaviorHasExactShape(*status, { 1 }))
+            && statusBehaviorHasExactShape(*status, { 2 }))
         {
             const auto* charges = std::get_if<SetStatusTriggerCharges>(
                 &status->quantity);
-            const auto* suppression = findStatusBehaviorAction<
-                SuppressCurrentCastContactsAction>(*status);
-            if (charges && suppression && suppression->originalTargetShield)
+            const auto* recovery = findStatusBehaviorAction<ChangeResourceAction>(*status);
+            if (charges && recovery)
             {
-                const auto shield = descriptionNumberLabel(
-                    *suppression->originalTargetShield,
+                const auto amount = descriptionNumberLabel(
+                    recovery->amount,
                     style);
                 if (style == EffectDescriptionStyle::Compact)
                 {
                     return {
                         {std::format(
-                            "化勁{}次：使下次施放落空",
+                            "化勁{}次：下次命中為目標回內",
                             charges->count)},
                         {std::format(
-                            "觸發時，原攻擊目標獲得{}護盾",
-                            shield), 1},
+                            "命中目標恢復{}內力",
+                            amount), 1},
                         {"再次施加：完整取代現有化勁", 1},
                     };
                 }
                 return {
                     {std::format("施加可觸發{}次的化勁", charges->count)},
                     {std::format(
-                        "觸發時使該次施放目前及剩餘攻擊落空，原攻擊目標獲得{}護盾",
-                        shield), 1},
+                        "狀態持有者下次命中時，命中目標恢復{}內力並消耗1次化勁",
+                        amount), 1},
                     {"再次施加會完整取代現有化勁", 1},
                 };
             }
@@ -3187,18 +3194,18 @@ std::vector<DescriptionActionPhraseRow> renderDetailedStatusBehaviorRows(
     }
 
     if (status.status == BattleStatusKind::NeutralizeForce
-        && statusBehaviorHasExactShape(status, { 1 }))
+        && statusBehaviorHasExactShape(status, { 2 }))
     {
-        assert(status.neutralizeShield);
+        assert(status.neutralizeMpRecovery);
         return {
             {"群組規則：目標只保留一個完整化勁充能包；再次施加會完整取代"},
-            {"觸發：狀態持有者的施放命中前"},
-            {"動作：消耗1次化勁，使該次施放目前及剩餘攻擊落空"},
-            {"化解後護盾：原攻擊目標獲得"
+            {"觸發：狀態持有者成功命中時"},
+            {"動作：消耗1次化勁，命中目標恢復內力"},
+            {"命中回內：命中目標恢復"
                 + descriptionNumberLabel(
-                    *status.neutralizeShield,
+                    *status.neutralizeMpRecovery,
                     EffectDescriptionStyle::Detailed)
-                + "護盾"},
+                + "內力"},
         };
     }
 

@@ -161,7 +161,8 @@ TEST_CASE("ChessMagicEffectDisplay_NormalPoolFitsTheNarrowSingleColumnViewport",
                 minimumEffectFontSize = std::min(
                     minimumEffectFontSize,
                     layout.effectFontSize);
-                CHECK(layout.effectFontSize >= (viewportWidth == 244 ? 12 : 10));
+                CHECK(layout.effectFontSize >= 14);
+                CHECK_FALSE(layout.scrollable);
                 CHECK(layout.scrollable == (layout.requiredHeight > viewportHeight));
                 int previousBottom = 0;
                 for (const auto& line : layout.lines)
@@ -255,6 +256,6 @@ TEST_CASE("ChessMagicEffectDisplay_NormalPoolFitsTheNarrowSingleColumnViewport",
                 }
             }
         }
-        CHECK(minimumEffectFontSize >= (viewportWidth == 244 ? 12 : 10));
+        CHECK(minimumEffectFontSize >= 14);
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessEffectDescription.h"
+#include "ChessCatalogQueries.h"
 #include "DisplayText.h"
 #include "Font.h"
 
@@ -41,6 +42,7 @@ struct PanelTextSourceRow
     int indentUnits{};
     int spacingBefore{};
     int spacingAfter{};
+    DisplayTextWrapping wrapping{};
 };
 
 struct PanelTextPhysicalLine
@@ -107,12 +109,67 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEffectDescription(
                         ? extraSpacing
                         : 0,
                     .spacingAfter = extraSpacing,
+                    .wrapping = row.wrapping,
                 });
                 firstRow = false;
             }
         }
     }
     return result;
+}
+
+inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
+    const ChessEquipmentMetadata& equipment)
+{
+    std::vector<PanelTextSourceRow> rows;
+    const auto appendText = [&](std::string text, bool heading = false) {
+        rows.push_back({
+            .text = std::move(text),
+            .fontSizeDelta = heading ? 2 : 0,
+            .spacingBefore = heading && !rows.empty() ? 6 : 0,
+            .spacingAfter = 2,
+        });
+    };
+    const auto appendEffects = [&](const RenderedEffectDescription& effects) {
+        auto effectRows = panelTextRowsForEffectDescription(effects, 0, 2);
+        rows.insert(rows.end(),
+            std::make_move_iterator(effectRows.begin()),
+            std::make_move_iterator(effectRows.end()));
+    };
+    const auto appendCombos = [&](const std::vector<std::string>& names) {
+        for (const auto& name : names)
+            appendText(std::format("計作「{}」羈絆的一名成員", name));
+    };
+    if (!equipment.baseStatEffects.empty())
+    {
+        appendText("基礎屬性:", true);
+        std::string stats;
+        for (const auto& stat : equipment.baseStatEffects)
+        {
+            if (!stats.empty()) stats += "、";
+            stats += stat;
+        }
+        appendText(std::move(stats));
+    }
+    if (!equipment.specialEffects.sections.empty())
+    {
+        appendText("特殊效果:", true);
+        appendEffects(equipment.specialEffects);
+    }
+    appendCombos(equipment.countsAsCombos);
+    for (const auto& bonus : equipment.characterBonuses)
+    {
+        std::string heading;
+        for (const auto& role : bonus.roles)
+        {
+            if (!heading.empty()) heading += "、";
+            heading += role;
+        }
+        appendText(heading + "專屬:", true);
+        appendCombos(bonus.countsAsCombos);
+        appendEffects(bonus.effects);
+    }
+    return rows;
 }
 
 inline PanelTextLayout layoutPanelText(
@@ -182,7 +239,7 @@ inline PanelTextLayout layoutPanelText(
             fontSize,
             pixelWidth,
             indentPixels);
-        const auto wrapped = wrapDisplayText(row.text, displayWidth);
+        const auto wrapped = wrapDisplayText(row.text, displayWidth, true, row.wrapping);
         assert(!wrapped.empty());
         result.height += row.spacingBefore;
         for (std::size_t lineIndex = 0; lineIndex < wrapped.size(); ++lineIndex)

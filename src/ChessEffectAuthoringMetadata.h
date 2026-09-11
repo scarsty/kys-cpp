@@ -1750,6 +1750,7 @@ static constexpr std::array resourceChangeFields{
         "治療種類", false, PayloadNodeShape::String, "直接", {},
         PayloadSchemaReference::None, &healKindEnum,
     },
+    PayloadFieldDescriptor{ "僅滿內力時", false, PayloadNodeShape::Boolean, "true", "資源: 生命\n方式: 回復\n數值: 1" },
     PayloadFieldDescriptor{
         "來源政策", false, PayloadNodeShape::String, "允許死亡來源", {},
         PayloadSchemaReference::None, &healSourcePolicyEnum,
@@ -1836,7 +1837,7 @@ consteval std::string_view statusNamedNumberContextProbe(
 {
     switch (id)
     {
-    case StatusNamedNumberFieldId::NeutralizeShield:
+    case StatusNamedNumberFieldId::NeutralizeMpRecovery:
         return neutralizeForceStatusProbe;
     case StatusNamedNumberFieldId::Count:
         break;
@@ -2529,6 +2530,7 @@ static constexpr std::array resourceMacroFields{
         "治療種類", false, PayloadNodeShape::String, "直接", {},
         PayloadSchemaReference::None, &healKindEnum,
     },
+    PayloadFieldDescriptor{ "僅滿內力時", false, PayloadNodeShape::Boolean, "true", "資源: 生命\n數值: 1" },
     PayloadFieldDescriptor{
         "來源政策", false, PayloadNodeShape::String, "允許死亡來源", {},
         PayloadSchemaReference::None, &healSourcePolicyEnum,
@@ -2543,6 +2545,7 @@ static constexpr std::array healMacroFields{
         "治療種類", false, PayloadNodeShape::String, "直接", {},
         PayloadSchemaReference::None, &healKindEnum,
     },
+    PayloadFieldDescriptor{ "僅滿內力時", false, PayloadNodeShape::Boolean, "true", "數值: 1" },
     PayloadFieldDescriptor{
         "來源政策", false, PayloadNodeShape::String, "允許死亡來源", {},
         PayloadSchemaReference::None, &healSourcePolicyEnum,

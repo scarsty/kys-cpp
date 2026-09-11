@@ -120,6 +120,24 @@ TEST_CASE("direct restore accepts dev versions and rejects incompatible release 
     releaseSave.replay.header.gameVersion = "1.3.0";
     CHECK(releaseSave.restore(devSession) == ChessCheckpointError::None);
 
+    SECTION("開發版本載入修改規則前的存檔，保留快照與原始重播")
+    {
+        releaseSave.replay.header.contentFingerprint[0] ^= 1;
+        REQUIRE(releaseSave.restore(devSession) == ChessCheckpointError::None);
+        CHECK(devSession.state() == releaseSave.state);
+        CHECK(devSession.random().state() == releaseSave.random);
+        CHECK(devSession.journal().header() == releaseSave.replay.header);
+        REQUIRE(devSession.submitAndDrain(lockAction(true)).accepted);
+        const auto savedAgain = ChessSessionCheckpoint::capture(devSession, 6);
+        CHECK(savedAgain.restore(devSession) == ChessCheckpointError::None);
+    }
+
+    SECTION("正式版本仍拒絕規則不同的開發存檔")
+    {
+        devSave.replay.header.contentFingerprint[0] ^= 1;
+        CHECK(devSave.restore(session) == ChessCheckpointError::IncompatibleContent);
+    }
+
     auto transition = ChessSessionCheckpoint::capture(session, 4);
     transition.state.phase = ChessSessionPhase::BattleResolution;
     CHECK(transition.restore(session) == ChessCheckpointError::UnrepresentableSnapshot);

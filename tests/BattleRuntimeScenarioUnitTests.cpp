@@ -627,6 +627,24 @@ TEST_CASE("BattleRuntimeScenario_RealDivineFlickPlansBaseMeleeAsRangedOnlyForIts
     }
 }
 
+TEST_CASE("BattleRuntimeScenario_RealSanqingHealsAlliesToppedUpByItsRecovery", "[battle][scenario][runtime][ultimate-effect][vertical]")
+{
+    auto input = singleUltimateInput(133, 3, 1, { 220, 100, 0 });
+    input.units.push_back(verticalSliceUnit(2, 0, 400, 1000, 80, { 100, 180, 0 }));
+    input.units.push_back(verticalSliceUnit(3, 0, 400, 1000, 20, { 100, 260, 0 }));
+    auto state = initializedVerticalSliceState(std::move(input));
+    REQUIRE(runUntil(state, 180, [](const auto& runtime, const auto&)
+    {
+        return runtime.units.requireCore(2).vitals.mp == 100;
+    }));
+    CHECK(state.units.requireCore(2).vitals.hp == 499);
+    CHECK(state.units.requireCore(3).vitals.mp >= 40);
+    CHECK(state.units.requireCore(3).vitals.mp < 100);
+    CHECK(state.units.requireCore(3).vitals.hp == 400);
+    CHECK(state.units.requireCore(2).shield == 0);
+    CHECK(state.units.requireCore(3).shield == 0);
+}
+
 TEST_CASE("BattleRuntimeScenario_RealShenzhaoSpends75MpAndGrantsStarShield", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
     auto state = initializedVerticalSliceState(singleUltimateInput(

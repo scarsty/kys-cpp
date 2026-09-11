@@ -15,7 +15,7 @@ void TextBox::setFontSize(int size)
     font_size_ = size;
     if (resize_with_text_)
     {
-        w_ = font_size_ * text_.length() / 2;
+        w_ = font_size_ * Font::getTextDrawSize(text_) / 2;
         h_ = font_size_;
     }
 }

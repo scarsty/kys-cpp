@@ -583,21 +583,20 @@ void assertCatalogOwnedStatusRequest(const BattleStatusApplyRequest& request)
     canonical.status = request.kind;
     if (request.kind == BattleStatusKind::NeutralizeForce)
     {
-        const SuppressCurrentCastContactsAction* suppression = nullptr;
+        const ChangeResourceAction* recovery = nullptr;
         for (const auto& rule : request.behavior->rules)
         {
             for (const auto& action : rule.actions)
             {
-                if (const auto* candidate = std::get_if<
-                        SuppressCurrentCastContactsAction>(&action.value))
+                if (const auto* candidate = std::get_if<ChangeResourceAction>(&action.value))
                 {
-                    assert(!suppression);
-                    suppression = candidate;
+                    assert(!recovery);
+                    recovery = candidate;
                 }
             }
         }
-        assert(suppression && suppression->originalTargetShield);
-        canonical.neutralizeShield = suppression->originalTargetShield;
+        assert(recovery);
+        canonical.neutralizeMpRecovery = recovery->amount;
     }
     const auto expected = makeCatalogOwnedStatusBehavior(canonical);
     assert(statusBehaviorsEquivalent(request.behavior, expected));

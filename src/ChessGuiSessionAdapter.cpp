@@ -713,84 +713,14 @@ void drawEquipmentDetail(
 
     std::vector<PanelVisualTextRow> bodyRows;
     const int bodyWidth = frame.w - 20;
-    if (!equipment.rules.empty())
+    const auto metadata = chessEquipmentMetadata(
+        session.content(), equipment.itemId, EffectDescriptionStyle::Full);
+    for (auto& row : panelTextRowsForEquipment(metadata))
     {
-        appendPanelTextRow(bodyRows, "特殊效果:", {255, 200, 100, 255}, 2, 0, 0, 2);
-        const auto document = buildEffectDescriptionDocument({
-            EffectDescriptionContainerKind::Equipment,
-            equipment.rules,
-        });
-        const auto rendered = renderEffectDescription(
-            document,
-            EffectDescriptionStyle::Full,
-            {});
-        appendRenderedEffectDescriptionRows(
-            bodyRows,
-            rendered,
-            {220, 220, 100, 255},
-            0,
-            2);
-    }
-
-    const bool hasSynergies = std::ranges::any_of(
-        session.content().equipmentSynergies(),
-        [&](const auto& synergy) { return synergy.equipmentId == equipment.itemId; });
-    if (hasSynergies)
-    {
-        appendPanelTextRow(
-            bodyRows,
-            "裝備羈絆:",
-            {255, 200, 100, 255},
-            2,
-            0,
-            equipment.rules.empty() ? 0 : 12,
-            2);
-        for (const auto& synergy : session.content().equipmentSynergies())
-        {
-            if (synergy.equipmentId != equipment.itemId) continue;
-            std::string heading;
-            for (std::size_t index = 0; index < synergy.roleIds.size(); ++index)
-            {
-                if (index > 0) heading += "、";
-                const auto* role = session.content().role(synergy.roleIds[index]);
-                assert(role);
-                heading += role->Name;
-            }
-            heading += "：";
-            const auto comboNames = countsAsComboNames(synergy.managementRules);
-            if (!comboNames.empty())
-            {
-                heading += "計作";
-                for (std::size_t index = 0; index < comboNames.size(); ++index)
-                {
-                    if (index > 0) heading += "、";
-                    heading += comboNames[index];
-                }
-            }
-            appendPanelTextRow(
-                bodyRows,
-                std::move(heading),
-                {220, 220, 100, 255},
-                0,
-                0,
-                0,
-                2);
-            const auto document = buildEffectDescriptionDocument({
-                EffectDescriptionContainerKind::EquipmentSynergy,
-                synergy.rules,
-            });
-            const auto rendered = renderEffectDescription(
-                document,
-                EffectDescriptionStyle::Full,
-                {});
-            appendRenderedEffectDescriptionRows(
-                bodyRows,
-                rendered,
-                {220, 220, 100, 255},
-                0,
-                2,
-                2);
-        }
+        const Color color = row.fontSizeDelta > 0
+            ? Color{255, 200, 100, 255}
+            : Color{220, 220, 100, 255};
+        bodyRows.push_back({std::move(row), color});
     }
 
     if (!equippedBy.empty())
@@ -801,7 +731,7 @@ void drawEquipmentDetail(
             {140, 220, 255, 255},
             2,
             0,
-            !equipment.rules.empty() || hasSynergies ? 16 : 0,
+            !bodyRows.empty() ? 16 : 0,
             4);
         for (const auto& name : equippedBy)
         {
@@ -1213,7 +1143,7 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
     layout.skillCol1.line(skillY + layout.lineHeight * 1, "耍刀", std::format("{:5}", stats.knife), selectStatColor(stats.knife, Role::getMaxValue()->Knife));
     layout.skillCol2.line(skillY + layout.lineHeight * 1, "特殊", std::format("{:5}", stats.unusual), selectStatColor(stats.unusual, Role::getMaxValue()->Unusual));
 
-    font->draw("武學", layout.titleFontSize, layout.magic.x, layout.magic.y, colorName);
+    font->draw("武學摘要", layout.titleFontSize, layout.magic.x, layout.magic.y, colorName);
     const auto selectedMagics = chessRoleMagicsForStar(session.content(), *role, star);
     std::vector<const MagicSave*> magics;
     magics.reserve(selectedMagics.size());
@@ -1522,8 +1452,10 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
             auto* font = Font::getInstance();
             constexpr int preferredFontSize = 19;
             constexpr int minimumFontSize = 12;
-            font->draw("羈絆資訊", preferredFontSize + 5,
+            font->draw("羈絆摘要", preferredFontSize + 5,
                 frame.x + 10, frame.y + 5, {255, 255, 100, 255});
+            font->draw("完整規則：棋局總覽→效果全覽", 16,
+                frame.x + 120, frame.y + 9, {200, 200, 200, 255});
 
             std::vector<std::vector<PanelVisualTextRow>> blocks;
             blocks.reserve(roleCombos.size());
@@ -1559,6 +1491,7 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     const auto document = buildEffectDescriptionDocument({
                         EffectDescriptionContainerKind::ComboThreshold,
                         shownThreshold->rules,
+                        shownThreshold->cardSummary,
                     });
                     const auto rendered = renderEffectDescription(
                         document,

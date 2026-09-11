@@ -853,6 +853,7 @@ void appendActionCoverage(
                     typed.transferDestination ? "present" : "absent");
                 scalarField("healKind", typed.healKind, defaults.healKind);
                 scalarField("healSourcePolicy", typed.healSourcePolicy, defaults.healSourcePolicy);
+                scalarField("healRequiresFullMp", typed.healRequiresFullMp, defaults.healRequiresFullMp);
                 appendEffectNumberCoverage(coverage, rule, DescriptionSourceFieldKind::Action,
                     variantIndex, typed.amount, std::format("{}.amount", path));
                 if (typed.transferDestination)

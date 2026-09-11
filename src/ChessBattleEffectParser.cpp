@@ -3,11 +3,13 @@
 #include "ChessBattleEffectValidation.h"
 #include "ChessEffectAuthoringDescriptors.h"
 #include "ChessEffectAuthoringMetadata.h"
+#include "DisplayText.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <charconv>
 #include <format>
 #include <iterator>
 #include <ranges>
@@ -15,6 +17,7 @@
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace KysChess::EffectAuthoring
 {
@@ -735,6 +738,7 @@ bool parseResourceMetadata(
     ChangeResourceAction& action,
     std::string& error)
 {
+    if (!optionalBool(node, "僅滿內力時", action.healRequiresFullMp, error)) return false;
     if (node["轉移目標"])
     {
         EffectSelector selector;
@@ -2089,7 +2093,7 @@ bool parseNamedAction(
             return false;
         }
         const bool metadataPayload = payload.IsMap()
-            && (payload["數值"] || payload["治療種類"] || payload["來源政策"]);
+            && (payload["數值"] || payload["治療種類"] || payload["來源政策"] || payload["僅滿內力時"]);
         if (metadataPayload)
         {
             PayloadView healPayload(payload, *macro->payload);
@@ -2580,6 +2584,90 @@ bool reportMagicLoadError(
 
 }  // namespace
 
+bool parseEffectCardSummary(
+    const YAML::Node& container,
+    std::vector<std::string>& out,
+    const std::string& context,
+    const ChessDiagnosticSink& diagnostics)
+{
+    out.clear();
+    const auto summary = container["卡片摘要"];
+    if (!summary) return true;
+    const auto fail = [&](std::string_view message)
+    {
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error,
+            "卡片摘要", std::format("{}：{}", context, message));
+        return false;
+    };
+    if (!summary.IsSequence() || summary.size() == 0 || summary.size() > 2)
+        return fail("需要一至兩句摘要");
+
+    std::vector<std::string> resolved;
+    for (const auto& sentence : summary)
+    {
+        if (!sentence.IsScalar()) return fail("摘要必須是文字");
+        const auto source = sentence.as<std::string>();
+        std::string text;
+        std::size_t cursor{};
+        while (cursor < source.size())
+        {
+            const auto opening = source.find("${", cursor);
+            if (opening == std::string::npos)
+            {
+                text += source.substr(cursor);
+                break;
+            }
+            text += source.substr(cursor, opening - cursor);
+            const auto closing = source.find('}', opening + 2);
+            if (closing == std::string::npos) return fail("數值引用缺少右括號");
+            const auto path = std::string_view(source).substr(opening + 2, closing - opening - 2);
+            if (!path.starts_with("效果/") && !path.starts_with("管理規則/"))
+                return fail("數值引用必須從效果/或管理規則/開始");
+            YAML::Node value = container;
+            std::size_t segmentStart{};
+            while (segmentStart <= path.size())
+            {
+                const auto slash = path.find('/', segmentStart);
+                const auto segment = path.substr(segmentStart,
+                    slash == std::string_view::npos ? path.size() - segmentStart : slash - segmentStart);
+                if (segment.empty()) return fail("數值引用不可包含空路徑");
+                if (value.IsSequence())
+                {
+                    std::size_t index{};
+                    const auto [end, error] = std::from_chars(
+                        segment.data(), segment.data() + segment.size(), index);
+                    if (error != std::errc{} || end != segment.data() + segment.size()
+                        || index >= value.size())
+                        return fail(std::format("無效的列表索引：{}", path));
+                    value.reset(std::as_const(value)[index]);
+                }
+                else if (value.IsMap())
+                {
+                    const auto child = std::as_const(value)[std::string(segment)];
+                    if (!child.IsDefined()) return fail(std::format("數值引用路徑不存在：{}", path));
+                    value.reset(child);
+                }
+                else return fail(std::format("數值引用路徑不存在：{}", path));
+                if (slash == std::string_view::npos) break;
+                segmentStart = slash + 1;
+            }
+            if (!value.IsScalar()) return fail(std::format("引用必須指向單一數值：{}", path));
+            text += value.as<std::string>();
+            cursor = closing + 1;
+        }
+        if (text.find_first_not_of(' ') == std::string::npos
+            || text.find_first_of("\r\n\t") != std::string::npos
+            || displayTextWidth(text) > 80)
+            return fail("每句摘要須為非空單行，最多40個中文字寬；完整規則請留在詳情");
+        if (!text.ends_with("。") || text.find("：") != std::string::npos
+            || text.find(':') != std::string::npos)
+            return fail("摘要須為以句號結尾的完整句子；條件與結果以逗號連接，不使用冒號標題");
+        resolved.push_back(std::move(text));
+    }
+    out = std::move(resolved);
+    return true;
+}
+
 bool parseMagicEffects(
     const YAML::Node& root,
     std::vector<ChessMagicEffectDefinition>& out,
@@ -2613,7 +2701,7 @@ bool parseMagicEffects(
     {
         const auto entryNode = entries[definitionIndex];
         std::string entryError;
-        if (!validateKnownKeys(entryNode, { "武功", "名稱", "效果" }, entryError))
+        if (!validateKnownKeys(entryNode, { "武功", "名稱", "效果", "卡片摘要" }, entryError))
             return reportMagicLoadError(entryNode, context, entryError, diagnostics);
 
         ChessMagicEffectDefinition definition;
@@ -2682,6 +2770,9 @@ bool parseMagicEffects(
                 std::format("武功 {}：{}", definition.magicId, lifecycleError),
                 diagnostics);
         }
+        if (!parseEffectCardSummary(entryNode, definition.cardSummary,
+                std::format("{}：{}", context, definition.name), diagnostics))
+            return false;
         parsedDefinitions.push_back(std::move(definition));
     }
     out = std::move(parsedDefinitions);

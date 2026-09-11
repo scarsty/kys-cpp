@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessBattleEffectTypes.h"
+#include "DisplayText.h"
 
 namespace KysChess
 {
@@ -31,6 +32,7 @@ struct EffectDescriptionInput
 {
     EffectDescriptionContainerKind kind{};
     std::span<const EffectRule> rules{};
+    std::span<const std::string> cardSummary{};
 };
 
 struct EffectDescriptionPresentationContext
@@ -262,6 +264,7 @@ struct EffectDescriptionDocument
 {
     EffectDescriptionContainerKind kind{};
     std::vector<EffectDescriptionSection> sections;
+    std::vector<std::string> cardSummary;
 };
 
 enum class EffectDescriptionRowKind
@@ -289,6 +292,7 @@ struct RenderedEffectDescriptionRow
     std::string text;
     int indent{};
     EffectDescriptionSemanticBreak breakBefore{};
+    DisplayTextWrapping wrapping{};
 };
 
 struct RenderedEffectDescriptionBlock

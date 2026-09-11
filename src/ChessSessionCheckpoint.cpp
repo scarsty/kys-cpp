@@ -54,7 +54,8 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
     {
         return ChessCheckpointError::IncompatibleGameVersion;
     }
-    if (replay.header.contentFingerprint != session.content_->contentFingerprint())
+    if (session.content_->gameVersion() != "dev"
+        && replay.header.contentFingerprint != session.content_->contentFingerprint())
     {
         return ChessCheckpointError::IncompatibleContent;
     }

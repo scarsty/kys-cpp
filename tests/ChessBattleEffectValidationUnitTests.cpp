@@ -17,6 +17,23 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("ChessBattleEffects_FullMpHealingRequiresAnHpRestoreAction",
+          "[battle][effects][schema][healing]")
+{
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
+    auto rule = ruleWithEvent(definitionWithId(definitions, 133), EffectEvent::AttackCommitted);
+    auto& heal = std::get<ChangeResourceAction>(rule.actions.at(1).value);
+    CHECK(heal.healRequiresFullMp);
+    std::string error;
+    REQUIRE(validateEffectRule(rule, error));
+    heal.resource = BattleResource::Mp;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    heal.resource = BattleResource::Hp;
+    heal.kind = ResourceChangeKind::Remove;
+    CHECK_FALSE(validateEffectRule(rule, error));
+}
+
 TEST_CASE("ChessBattleEffects_ProjectileSweepRequiresAtLeastHitRadius",
           "[battle][effects][schema][projectile_sweep]")
 {
@@ -1389,7 +1406,7 @@ TEST_CASE("ChessBattleEffects_EffectNumberTraversalReachesNestedStatusBehavior",
 套用狀態:
   狀態: 化勁
   可觸發次數: 1
-  化解後護盾:
+  命中回內:
     每星級: 100
 )"), rule, EffectRuleId{ 7401 }, "巢狀狀態數值走訪"));
 
@@ -1509,9 +1526,9 @@ TEST_CASE("ChessBattleEffects_OpenMarkersAndStatusOnlyActionsAreValidatedRecursi
 套用狀態:
   狀態: 化勁
   可觸發次數: 1
-  化解後護盾: 0
+  命中回內: 0
 )", &diagnostic));
-    CHECK(diagnostic.find("狀態「化勁」的「化解後護盾」必須保證為正數")
+    CHECK(diagnostic.find("狀態「化勁」的「命中回內」必須保證為正數")
         != std::string::npos);
 }
 
@@ -1548,7 +1565,7 @@ TEST_CASE("ChessBattleEffects_OuterValidationDoesNotRebindNestedStatusBehaviorNu
       套用狀態:
         狀態: 化勁
         可觸發次數: 1
-        化解後護盾:
+        命中回內:
           每星級: 100
 )"), nested, EffectRuleId{ 7403 }, "外層狀態行為中的巢狀具名參數"));
 }

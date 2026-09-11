@@ -285,14 +285,15 @@ std::shared_ptr<const StatusBehaviorDefinition> makeCatalogOwnedStatusBehavior(
     }
     case BattleStatusKind::NeutralizeForce:
     {
-        const auto& shield = statusNamedNumberField(
-            action,
-            StatusNamedNumberFieldId::NeutralizeShield);
-        assert(shield);
+        assert(action.neutralizeMpRecovery);
         rule.event = EffectEvent::HitBeforeDamage;
-        SuppressCurrentCastContactsAction suppress;
-        suppress.originalTargetShield = shield;
-        append(std::move(suppress));
+        rule.selector.kind = EffectSelectorKind::HitTarget;
+        ChangeResourceAction recovery;
+        recovery.resource = BattleResource::Mp;
+        recovery.kind = ResourceChangeKind::Restore;
+        recovery.amount = *action.neutralizeMpRecovery;
+        append(std::move(recovery));
+        append(ConsumeThisStatusAction{});
         break;
     }
     case BattleStatusKind::Blinded:

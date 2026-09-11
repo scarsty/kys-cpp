@@ -194,6 +194,17 @@ public:
 
     void queueSemanticCue(int targetUnitId, BattleSemanticCueFamily family)
     {
+        // 暫停負面狀態的角色特效，避免反覆閃爍，也不讓它們排擠其他提示。
+        switch (family)
+        {
+        case BattleSemanticCueFamily::Poison:
+        case BattleSemanticCueFamily::Bleed:
+        case BattleSemanticCueFamily::Control:
+        case BattleSemanticCueFamily::Curse:
+            return;
+        default:
+            break;
+        }
         auto existing = std::find_if(
             semanticCues_.begin(),
             semanticCues_.end(),

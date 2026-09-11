@@ -216,22 +216,37 @@ TEST_CASE("catalog combo and challenge metadata retain provenance and ordering",
     CHECK(challenge.rewards == std::vector<std::string>{"獲取9金幣"});
 }
 
-TEST_CASE("effect catalog covers every configured runtime rule by source",
+TEST_CASE("equipment panel includes base stats, membership and exclusive effects",
+          "[chess][catalog][effects][panel-text]")
+{
+    const auto content = catalogContent();
+    const auto rows = panelTextRowsForEquipment(chessEquipmentMetadata(content, 500));
+    std::string text;
+    for (const auto& row : rows) text += row.text + "\n";
+    CHECK(text.contains("生命+25、攻擊+8、御劍+6"));
+    CHECK(text.contains("防禦+7"));
+    CHECK(text.contains("計作「共用羈絆」羈絆的一名成員"));
+    CHECK(text.contains("共用查詢棋子專屬"));
+    CHECK(text.contains("計作「角色羈絆」羈絆的一名成員"));
+    CHECK(text.contains("速度+5"));
+}
+
+TEST_CASE("effect catalog covers every configured rule by source",
           "[chess][catalog][effects]")
 {
     const auto content = catalogContent();
     const auto catalog = chessEffectCatalog(content);
 
-    REQUIRE(catalog.size() == 6);
+    REQUIRE(catalog.size() == 8);
     CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::Magic,
               &ChessEffectCatalogEntry::source)
         == 2);
     CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::Equipment,
               &ChessEffectCatalogEntry::source)
-        == 1);
+        == 2);
     CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::EquipmentSynergy,
               &ChessEffectCatalogEntry::source)
-        == 1);
+        == 2);
     CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::Neigong,
               &ChessEffectCatalogEntry::source)
         == 1);
@@ -263,6 +278,12 @@ TEST_CASE("effect catalog covers every configured runtime rule by source",
     CHECK(combo->sourceName == "共用羈絆 · 啟動");
     CHECK(combo->sourceContext.contains("1人門檻"));
     CHECK(chessEffectCatalogSourceLabel(combo->source) == std::string_view{"羈絆"});
+    CHECK(std::ranges::any_of(catalog, [](const auto& entry) {
+        return joinEffectDescriptionRows(entry.effects).contains("計作「共用羈絆」");
+    }));
+    CHECK(std::ranges::any_of(catalog, [](const auto& entry) {
+        return joinEffectDescriptionRows(entry.effects).contains("計作「角色羈絆」");
+    }));
 }
 
 TEST_CASE("formal effect catalog renders every configured rule at readable panel size",
@@ -275,19 +296,34 @@ TEST_CASE("formal effect catalog renders every configured rule at readable panel
     for (const auto& definition : content->magicEffects())
         configuredRuleCount += definition.rules.size();
     for (const auto& definition : content->equipment())
-        configuredRuleCount += definition.rules.size();
+        configuredRuleCount += definition.rules.size() + definition.managementRules.size();
     for (const auto& definition : content->equipmentSynergies())
-        configuredRuleCount += definition.rules.size();
+        configuredRuleCount += definition.rules.size() + definition.managementRules.size();
     for (const auto& definition : content->neigong())
         configuredRuleCount += definition.rules.size();
     for (const auto& combo : content->combos())
         for (const auto& threshold : combo.thresholds)
-            configuredRuleCount += threshold.rules.size();
+            configuredRuleCount += threshold.rules.size() + threshold.managementRules.size();
 
     const auto catalog = chessEffectCatalog(*content);
     REQUIRE(catalog.size() == configuredRuleCount);
     REQUIRE_FALSE(catalog.empty());
     CHECK(std::ranges::is_sorted(catalog, {}, &ChessEffectCatalogEntry::source));
+    CHECK(std::ranges::any_of(catalog, [](const auto& entry) {
+        return joinEffectDescriptionRows(entry.effects).contains("最高存活棋子星級");
+    }));
+
+    // 每個可選內功都必須有說明；只檢查非空效果列會漏掉整個空白內功。
+    for (const auto& neigong : content->neigong())
+    {
+        CAPTURE(neigong.magicId, neigong.name);
+        REQUIRE_FALSE(neigong.rules.empty());
+        CHECK(std::ranges::any_of(catalog, [&](const auto& entry) {
+            return entry.source == ChessEffectCatalogSource::Neigong
+                && entry.sourceName == neigong.name
+                && !effectDescriptionTextRows(entry.effects).empty();
+        }));
+    }
 
     constexpr int minimumDetailWidth = 540;
     constexpr int detailHeight = 590;

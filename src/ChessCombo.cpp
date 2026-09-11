@@ -304,6 +304,9 @@ std::vector<ComboDef> loadChessCombos(
                     thresh.managementRules.push_back(std::move(*rule));
                 }
             }
+            if (!parseEffectCardSummary(tNode, thresh.cardSummary,
+                    std::format("羈絆「{}」閾值「{}」", def.name, thresh.name), diagnostics))
+                return {};
             def.thresholds.push_back(thresh);
         }
         combos.push_back(std::move(def));

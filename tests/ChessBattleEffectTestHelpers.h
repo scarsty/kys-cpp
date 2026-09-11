@@ -394,6 +394,7 @@ inline void checkActionEqual(const EffectAction& lhs, const EffectAction& rhs)
             checkOptionalSelectorEqual(left.transferDestination, right.transferDestination);
             CHECK(left.healKind == right.healKind);
             CHECK(left.healSourcePolicy == right.healSourcePolicy);
+            CHECK(left.healRequiresFullMp == right.healRequiresFullMp);
         }
         else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
         {

@@ -1,5 +1,8 @@
 # Semantic status-effect authoring, runtime lowering, and descriptions
 
+> 化勁 revision: [命中回內](chess-neutralize-force-mp-recovery.md) supersedes
+> all 化勁 suppression, shield, and 化勁/刺目 arbitration rules below.
+
 ## Status
 
 Historical implementation and migration record. The current status-contribution runtime and canonical generic nested `效果` authoring surface are specified by [chess-status-contributions-and-composable-behaviors-design.md](chess-status-contributions-and-composable-behaviors-design.md), which supersedes this document wherever the two disagree. In particular, the status-specific payload examples retained below (such as `每層生效`, `每次觸發`, and named status-effect fields) explain the migration that was later replaced; they are not valid current authoring forms.

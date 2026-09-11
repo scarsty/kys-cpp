@@ -24,10 +24,12 @@ struct MagicDisplayFontMetrics
     int effectLineHeight{};
 };
 
-constexpr std::array<MagicDisplayFontMetrics, 7> kFontMetrics{{
+constexpr std::array<MagicDisplayFontMetrics, 9> kFontMetrics{{
     {20, 18, 24, 20},
     {19, 16, 22, 18},
+    {18, 16, 20, 18},
     {19, 14, 21, 16},
+    {18, 14, 20, 16},
     {18, 13, 20, 13},
     {17, 12, 19, 12},
     {16, 11, 18, 11},
@@ -84,6 +86,7 @@ std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
             buildEffectDescriptionDocument({
                 EffectDescriptionContainerKind::Magic,
                 definition->rules,
+                definition->cardSummary,
             }),
             EffectDescriptionStyle::Compact,
             EffectDescriptionPresentationContext{
@@ -102,6 +105,7 @@ std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
                         .ultimate = true,
                         .semanticIndent = row.indent,
                         .breakBefore = row.breakBefore,
+                        .wrapping = row.wrapping,
                     });
                 }
             }
@@ -150,7 +154,7 @@ ChessMagicEffectDisplayLayout layoutChessMagicEffectDisplay(
                 (viewportWidth - x) * 2 / metrics.effectFontSize);
             const auto wrapped = row.kind == ChessMagicEffectDisplayLineKind::Skill
                 ? std::vector<std::string>{row.text}
-                : wrapDisplayText(row.text, effectDisplayWidth);
+                : wrapDisplayText(row.text, effectDisplayWidth, true, row.wrapping);
             bool firstPhysicalLine = true;
             for (const auto& text : wrapped)
             {

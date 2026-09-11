@@ -398,7 +398,7 @@ enum class StatusBehaviorProfile
 
 enum class StatusNamedNumberFieldId
 {
-    NeutralizeShield,
+    NeutralizeMpRecovery,
     Count,
 };
 
@@ -409,7 +409,7 @@ enum class StatusNamedNumberConstraint
 
 enum class StatusNamedNumberDescriptionRole
 {
-    NeutralizeShield,
+    NeutralizeMpRecovery,
 };
 
 struct StatusNamedNumberFieldCatalogEntry
@@ -425,13 +425,13 @@ struct StatusNamedNumberFieldCatalogEntry
 
 inline constexpr std::array statusNamedNumberFieldCatalog{
     StatusNamedNumberFieldCatalogEntry{
-        .id = StatusNamedNumberFieldId::NeutralizeShield,
+        .id = StatusNamedNumberFieldId::NeutralizeMpRecovery,
         .status = BattleStatusKind::NeutralizeForce,
-        .label = "化解後護盾",
+        .label = "命中回內",
         .probeValue = "100",
         .required = true,
         .constraint = StatusNamedNumberConstraint::Positive,
-        .descriptionRole = StatusNamedNumberDescriptionRole::NeutralizeShield,
+        .descriptionRole = StatusNamedNumberDescriptionRole::NeutralizeMpRecovery,
     },
 };
 
@@ -542,7 +542,7 @@ inline constexpr std::array statusCatalog{
         .reapplication = StatusReapplicationModel::Implicit,
         .behaviorClassification = StatusBehaviorClassification::CatalogOwned,
         .behaviorProfile = StatusBehaviorProfile::NeutralizeForce,
-        .namedNumberFields = { StatusNamedNumberFieldId::NeutralizeShield },
+        .namedNumberFields = { StatusNamedNumberFieldId::NeutralizeMpRecovery },
         .namedNumberFieldCount = 1,
     },
     StatusCatalogEntry{
@@ -729,8 +729,8 @@ inline std::optional<EffectNumber>& statusNamedNumberField(
 {
     switch (field)
     {
-    case StatusNamedNumberFieldId::NeutralizeShield:
-        return action.neutralizeShield;
+    case StatusNamedNumberFieldId::NeutralizeMpRecovery:
+        return action.neutralizeMpRecovery;
     case StatusNamedNumberFieldId::Count:
         break;
     }
@@ -744,8 +744,8 @@ inline const std::optional<EffectNumber>& statusNamedNumberField(
 {
     switch (field)
     {
-    case StatusNamedNumberFieldId::NeutralizeShield:
-        return action.neutralizeShield;
+    case StatusNamedNumberFieldId::NeutralizeMpRecovery:
+        return action.neutralizeMpRecovery;
     case StatusNamedNumberFieldId::Count:
         break;
     }

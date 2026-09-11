@@ -6,6 +6,7 @@
 #include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
 #include "battle/BattleStatusSystem.h"
+#include "battle/BattleEffectEventBridge.h"
 #include "BattleCoreTestHelpers.h"
 #include "Find.h"
 
@@ -447,7 +448,7 @@ void queueEffectCommandBatch(
 
 }  // namespace
 
-TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "[battle][frame_runner][runtime][effect_cue]")
+TEST_CASE("BattleFrameRunner_SuppressesDebuffCuesAndKeepsPositiveStatusColors", "[battle][frame_runner][runtime][effect_cue]")
 {
     struct Case
     {
@@ -456,10 +457,10 @@ TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "
         BattlePresentationColor color;
     };
     const std::array cases{
-        Case{ BattleStatusKind::Poison, BattleCueNegativeVisualPath, { 136, 220, 96, 170 } },
-        Case{ BattleStatusKind::Bleed, BattleCueBleedVisualPath, { 255, 94, 86, 220 } },
-        Case{ BattleStatusKind::Stun, BattleCueControlVisualPath, { 104, 160, 255, 190 } },
-        Case{ BattleStatusKind::WitheredBone, BattleCueNegativeVisualPath, { 190, 112, 255, 170 } },
+        Case{ BattleStatusKind::Poison, {}, {} },
+        Case{ BattleStatusKind::Bleed, {}, {} },
+        Case{ BattleStatusKind::Stun, {}, {} },
+        Case{ BattleStatusKind::WitheredBone, {}, {} },
         Case{ BattleStatusKind::DamageBlockLayer, BattleCuePositiveVisualPath, { 112, 224, 255, 210 } },
         Case{ BattleStatusKind::BattleSpirit, BattleCuePositiveVisualPath, { 255, 204, 96, 220 } },
     };
@@ -513,6 +514,12 @@ TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "
 
         const auto frame = runBattleFrame(state);
         const auto cues = semanticCueEvents(frame);
+        CHECK(state.units.require(1).status.effects.has(test.status));
+        if (test.path.empty())
+        {
+            CHECK(cues.empty());
+            continue;
+        }
         REQUIRE(cues.size() == 1);
         CHECK(cues.front()->targetUnitId == 1);
         CHECK(cues.front()->visualPath == test.path);
@@ -1944,8 +1951,8 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
 {
     auto state = runtimeFrameState();
     auto target = teamRuntimeUnit(1, 1, 100);
-    target.stats.attack = 100;
-    target.stats.defence = 80;
+    target.stats.attack = 40;
+    target.stats.defence = 30;
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         target,
@@ -2007,18 +2014,50 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
     CHECK(BattleEffectCommandSystem::queryAttribute(state, {
         .unitId = 1,
         .attribute = KysChess::BattleAttribute::Attack,
-        .baseValue = 100,
+        .baseValue = 40,
         .frame = state.movement.frame,
-    }) == 56);
+    }) == -4);
     CHECK(BattleEffectCommandSystem::queryAttribute(state, {
         .unitId = 1,
         .attribute = KysChess::BattleAttribute::Defence,
-        .baseValue = 80,
+        .baseValue = 30,
         .frame = state.movement.frame,
-    }) == 36);
+    }) == -14);
 
-    const auto refresh = runBattleFrame(state);
-    CHECK(enemyTopEvents(refresh).empty());
+    for (int frame = 0; frame < 120; ++frame)
+    {
+        for (int hit = 0; hit < 4; ++hit)
+        {
+            const auto dispatched = BattleEffectEventBridge().dispatch(state,
+                { .frame = state.movement.frame,
+                  .eventOrdinal = static_cast<std::uint64_t>(frame * 4 + hit + 1),
+                  .ownerUnitId = 0 },
+                EffectEvent::HitBeforeDamage,
+                HitEventData{
+                    .provenance = {
+                        .cast = {
+                            .rootCastId = BattleCastId{1},
+                            .castId = BattleCastId{1},
+                            .sourceUnitId = 0,
+                            .magicId = 1,
+                        },
+                        .attackId = BattleAttackId{1},
+                        .rootAttack = true,
+                        .mainProjectile = true,
+                    },
+                    .targetUnitId = 1,
+                    .originalTargetUnitId = 1,
+                });
+            CHECK(dispatched.commands.empty());
+        }
+        const auto refresh = runBattleFrame(state);
+        CHECK(enemyTopEvents(refresh).empty());
+        REQUIRE(state.effectCommands.attributeModifiers.size() == 2);
+        for (const auto& modifier : state.effectCommands.attributeModifiers)
+            CHECK(modifier.stackCount == 2);
+        CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 40) == 0);
+        CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Defence, 30) == 0);
+    }
 
     auto& secondOwner = state.units.requireCore(2);
     secondOwner.alive = false;
@@ -2030,6 +2069,8 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
     CHECK(oneOwnerEvents[0]->amount == 22);
     CHECK(oneOwnerEvents[0]->previousAmount == -44);
     CHECK(oneOwnerEvents[0]->newAmount == -22);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 40) == 18);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Defence, 30) == 8);
 
     auto& firstOwner = state.units.requireCore(0);
     firstOwner.alive = false;
@@ -2041,6 +2082,8 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
     CHECK(noOwnerEvents[0]->amount == 22);
     CHECK(noOwnerEvents[0]->previousAmount == -22);
     CHECK(noOwnerEvents[0]->newAmount == 0);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 40) == 40);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Defence, 30) == 30);
 }
 
 TEST_CASE("BattleFrameRunner_ContinuesCompoundEffectsAfterQueuedDamageSettles", "[battle][frame_runner][runtime][effect][damage][continuation]")

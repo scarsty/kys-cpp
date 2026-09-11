@@ -5,6 +5,7 @@
 #include "Save.h"
 #include "ChessSaveFile.h"
 #include "ChessTalent.h"
+#include "DisplayText.h"
 #include "SubScene.h"
 #include "UI.h"
 #include "filefunc.h"
@@ -43,6 +44,7 @@ void UISave::refreshEntries()
     }
     auto str = std::format("自動檔  {}", get_save_time(static_cast<int>(Slot::Auto)));
     strings.push_back(str);
+    KysChess::alignDisplayTextRows(strings);
     setStrings(strings);
     setFontSize(32);
     childs_[0]->setVisible(false);    //屏蔽进度0

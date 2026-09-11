@@ -1,5 +1,6 @@
 #include "battle/BattleEffectCommandSystem.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
+#include "battle/BattleRuntimeEffects.h"
 #include "BattleCoreTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -1038,6 +1039,56 @@ TEST_CASE("BattleEffectCommandSystem preserves order and queries stacked attribu
     }) == 14);
 }
 
+TEST_CASE("runtime attack floors stacked debuffs after all modifiers and recovers on expiry", "[battle][effect][command][attack]")
+{
+    auto state = makeState();
+    state.movement.frame = 40;
+    ModifyAttributeAction action;
+    action.attribute = BattleAttribute::Attack;
+    action.operation = AttributeOperation::FlatAdd;
+    action.durationFrames = 1;
+    action.stack = EffectStackPolicy::AddStack;
+    action.stackLimit = 10;
+    BattleEffectCommandSystem system;
+    for (int stack = 0; stack < 10; ++stack)
+        system.reduce(state, EffectCommand{
+            metadata(44, 1), ModifyAttributeEffectCommand{ action, -22 },
+        }, { .frame = 40 });
+
+    REQUIRE(state.effectCommands.attributeModifiers.size() == 1);
+    CHECK(state.effectCommands.attributeModifiers.front().stackCount == 10);
+    CHECK(BattleEffectCommandSystem::queryAttribute(state, {
+        .unitId = 1, .attribute = BattleAttribute::Attack,
+        .baseValue = 100, .frame = 40,
+    }) == -120);
+    const int attack = effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 100);
+    CHECK(attack == 0);
+    CHECK(BattleDamageSystem().snapshotAttackPotency(attack, 50).effectiveAttack == 0);
+
+    SECTION("增益與減益相加後才取下限")
+    {
+        action.durationFrames = 2;
+        system.reduce(state, EffectCommand{
+            metadata(45, 1), ModifyAttributeEffectCommand{ action, 150 },
+        }, { .frame = 40 });
+        CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 100) == 30);
+    }
+    SECTION("百分比減攻也能超過基礎值")
+    {
+        state.effectCommands.attributeModifiers.clear();
+        action.operation = AttributeOperation::PercentAdd;
+        system.reduce(state, EffectCommand{
+            metadata(45, 1), ModifyAttributeEffectCommand{ action, -150 },
+        }, { .frame = 40 });
+        CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 100) == 0);
+    }
+    SECTION("減攻到期後恢復原值")
+    {
+        state.movement.frame = 41;
+        CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 100) == 100);
+    }
+}
+
 TEST_CASE("BattleEffectCommandSystem refresh domains are shared across effect owners", "[battle][effect][command][modifier][refresh]")
 {
     SECTION("屬性修正依效果來源刷新，事件來源範圍仍各自獨立")
@@ -1131,6 +1182,40 @@ TEST_CASE("BattleEffectCommandSystem refresh domains are shared across effect ow
         REQUIRE(state.effectCommands.damageModifiers.size() == 2);
         CHECK(state.effectCommands.damageModifiers[0].eventSourceUnitId == 1);
         CHECK(state.effectCommands.damageModifiers[1].eventSourceUnitId == 2);
+    }
+}
+
+TEST_CASE("BattleEffectCommandSystem checks full MP healing after adjusted recovery", "[battle][effect][command][resource]")
+{
+    for (const int initialMp : { 70, 79, 80, 95, 100 })
+    {
+        for (const int bonus : { 0, 50 })
+        {
+            CAPTURE(initialMp, bonus);
+            auto state = makeState();
+            state.movement.frame = 10;
+            state.units.requireCore(2).vitals.mp = initialMp;
+            ModifyAttributeAction modifier;
+            modifier.attribute = BattleAttribute::MpRecoveryBonus;
+            modifier.operation = AttributeOperation::PercentagePointAdd;
+            modifier.durationFrames = 100;
+            BattleEffectCommandSystem system;
+            system.reduce(state, EffectCommand{
+                metadata(133, 2), ModifyAttributeEffectCommand{ modifier, bonus }
+            }, { .frame = 10 });
+            auto heal = resourceCommand(133, 2, BattleResource::Hp,
+                ResourceChangeKind::Restore, 99, 1);
+            std::get<ChangeResourceEffectCommand>(heal.value).action.healRequiresFullMp = true;
+            const std::array commands{
+                resourceCommand(133, 2, BattleResource::Mp, ResourceChangeKind::Restore, 20),
+                heal,
+            };
+            system.reduce(state, commands, { .frame = 10 });
+            const int expectedMp = std::min(100, initialMp + 20 * (100 + bonus) / 100);
+            CHECK(state.units.requireCore(2).vitals.mp == expectedMp);
+            CHECK(state.units.requireCore(2).vitals.hp == (expectedMp == 100 ? 299 : 200));
+            CHECK(state.units.requireCore(2).shield == 0);
+        }
     }
 }
 

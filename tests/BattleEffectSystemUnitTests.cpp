@@ -3598,3 +3598,58 @@ TEST_CASE("BattleEffectRuleStore_BlinkAttackTargetModeIsOwnerScoped", "[battle][
     CHECK_FALSE(store.blinkAttackUsesWeakestTarget(7));
     CHECK(store.blinkAttackUsesWeakestTarget(8));
 }
+
+TEST_CASE("BattleEffectSystem binds neutralize-force MP recovery to its producer star",
+          "[battle][effect][status][numbers]")
+{
+    for (int star : { 1, 2, 3 })
+    {
+        CAPTURE(star);
+        auto owner = makeUnit(1, 0, 100, 100);
+        owner.star = star;
+        auto target = makeUnit(2, 1, 100, 100);
+        target.star = 5;
+        const std::vector units{ owner, target };
+        ApplyStatusAction status;
+        status.status = BattleStatusKind::NeutralizeForce;
+        status.quantity = SetStatusTriggerCharges{ 1 };
+        status.neutralizeMpRecovery = EffectNumber{
+            .base = EffectNumberBase::SourceStar,
+            .flat = 40,
+            .percent = 1000,
+        };
+        status.behavior = makeCatalogOwnedStatusBehavior(status);
+        const auto source = magicBinding(7);
+        BattleEffectRuleStore store;
+        store.append(source, makeRule(1, EffectEvent::MainProjectileBeforeDamage,
+                                     hitTargetSelector(), { effectAction(status) }));
+        BattleRuntimeRandom random(1);
+        const auto result = BattleEffectSystem{}.dispatch(
+            store,
+            makeContext(EffectEvent::MainProjectileBeforeDamage, source, owner, units,
+                        HitEventData{
+                            .provenance = attackProvenance(7),
+                            .targetUnitId = target.id,
+                            .originalTargetUnitId = target.id,
+                            .damageKind = BattleDamageKind::Skill,
+                        }),
+            random);
+        REQUIRE(result.commands.size() == 1);
+        const auto& application = std::get<ApplyStatusEffectCommand>(result.commands.front().value);
+        REQUIRE(application.action.behavior);
+        const auto& recovery = std::get<ChangeResourceAction>(
+            application.action.behavior->rules.front().actions.front().value);
+        CHECK(recovery.amount.base == EffectNumberBase::BoundRatio);
+        CHECK(recovery.amount.boundNumerator == star);
+        CHECK(recovery.amount.boundDenominator == 1);
+        const auto context = makeContext(
+            EffectEvent::HitBeforeDamage, source, target, units,
+            HitEventData{
+                .provenance = attackProvenance(7),
+                .targetUnitId = owner.id,
+                .originalTargetUnitId = owner.id,
+                .damageKind = BattleDamageKind::Skill,
+            });
+        CHECK(BattleEffectSystem::evaluateNumber(recovery.amount, context, owner) == 40 + 10 * star);
+    }
+}

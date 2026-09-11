@@ -1236,6 +1236,16 @@ std::expected<JsonValue, std::string> commonDefinitions()
 std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
 {
     const auto ruleList = reference("ruleList");
+    const auto cardSummary = object({
+        { "type", "array" },
+        { "minItems", 1 },
+        { "maxItems", 2 },
+        { "description", "玩家卡片完整句子；${效果/0/欄位} 或 ${管理規則/0/欄位} 引用同項目數值。" },
+        { "items", object({
+            { "type", "string" },
+            { "pattern", "^[^\\r\\n：:]+。$" },
+        }) },
+    });
     if (kind == "combos")
     {
         const auto integerList = object({
@@ -1243,6 +1253,7 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
             { "items", object({{ "type", "integer" }}) },
         });
         const auto threshold = objectSchema({
+            { "卡片摘要", cardSummary },
             { "人數", object({{ "type", "integer" }}) },
             { "名稱", object({{ "type", "string" }}) },
             { "效果", ruleList },
@@ -1293,6 +1304,7 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
     if (kind == "magic_effects")
     {
         const auto magic = objectSchema({
+            { "卡片摘要", cardSummary },
             { "武功", object({{ "type", "integer" }}) },
             { "名稱", object({{ "type", "string" }}) },
             { "效果", ruleList },

@@ -35,6 +35,25 @@ class ChessEffectSchemasTests(unittest.TestCase):
                 )
                 jsonschema.Draft202012Validator(schema).validate(config)
 
+    def test_sanqing_cannot_replenish_quanzhen_shields(self) -> None:
+        config = yaml.safe_load(
+            (ROOT / "config" / "chess_magic_effects.yaml").read_text(encoding="utf-8")
+        )
+        sanqing = next(magic for magic in config["絕招"] if magic["武功"] == 133)
+        shield_actions = {"獲得護盾", "消耗記錄為護盾", "原攻擊目標獲得護盾"}
+
+        def visit(value: object) -> None:
+            if isinstance(value, dict):
+                self.assertFalse(shield_actions.intersection(value))
+                self.assertNotEqual(value.get("資源"), "護盾")
+                for child in value.values():
+                    visit(child)
+            elif isinstance(value, list):
+                for child in value:
+                    visit(child)
+
+        visit(sanqing)
+
     def test_shipped_clone_tiers_remain_the_reviewed_one_two_three_sites(self) -> None:
         config = yaml.safe_load(
             (ROOT / "config" / "chess_combos.yaml").read_text(encoding="utf-8")

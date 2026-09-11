@@ -658,7 +658,8 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
         const std::string& sourceName,
         const std::string& sourceContext,
         EffectDescriptionContainerKind containerKind,
-        std::span<const EffectRule> rules)
+        std::span<const EffectRule> rules,
+        std::span<const ChessNonBattleRule> managementRules = {})
     {
         for (std::size_t index = 0; index < rules.size(); ++index)
         {
@@ -671,11 +672,26 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 .sourceName = sourceName,
                 .sourceContext = sourceContext,
                 .ruleOrdinal = index + 1,
-                .sourceRuleCount = rules.size(),
+                .sourceRuleCount = rules.size() + managementRules.size(),
                 .effects = renderEffectDescription(
                     document,
                     descriptionStyle,
                     {}),
+            });
+        }
+        for (std::size_t index = 0; index < managementRules.size(); ++index)
+        {
+            RenderedEffectDescription effects;
+            appendStandaloneDescriptionRow(effects,
+                chessNonBattleRuleDescription(managementRules[index],
+                    descriptionStyle == EffectDescriptionStyle::Compact));
+            result.push_back({
+                .source = source,
+                .sourceName = sourceName,
+                .sourceContext = sourceContext,
+                .ruleOrdinal = rules.size() + index + 1,
+                .sourceRuleCount = rules.size() + managementRules.size(),
+                .effects = std::move(effects),
             });
         }
     };
@@ -700,7 +716,8 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 chessEquipmentTypeName(definition.equipType),
                 definition.itemId),
             EffectDescriptionContainerKind::Equipment,
-            definition.rules);
+            definition.rules,
+            definition.managementRules);
     }
 
     for (const auto& synergy : content.equipmentSynergies())
@@ -718,7 +735,8 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 chessEquipmentTypeName(equipment.equipType),
                 synergy.equipmentId),
             EffectDescriptionContainerKind::EquipmentSynergy,
-            synergy.rules);
+            synergy.rules,
+            synergy.managementRules);
     }
 
     for (const auto& definition : content.neigong())
@@ -742,7 +760,8 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 std::format("{} · {}", combo.name, threshold.name),
                 std::format("{}人門檻 · 羈絆 ID {}", threshold.count, combo.id),
                 EffectDescriptionContainerKind::ComboThreshold,
-                threshold.rules);
+                threshold.rules,
+                threshold.managementRules);
         }
     }
     return result;

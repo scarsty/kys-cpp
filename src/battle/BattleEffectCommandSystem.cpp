@@ -833,6 +833,15 @@ BattleResourceEffectResult commitHeal(
     const ChangeResourceEffectCommand& command,
     const BattleEffectCommandContext& context)
 {
+    const auto& target = state.units.requireCore(metadata.targetUnitId);
+    if (command.action.healRequiresFullMp
+        && target.vitals.mp < target.vitals.maxMp)
+    {
+        BattleResourceEffectResult result;
+        result.outcome = BattleResourceEffectOutcome::NoChange;
+        return result;
+    }
+
     BattleHealRequest request;
     request.sourceUnitId = metadata.binding.ownerUnitId;
     request.targetUnitId = metadata.targetUnitId;

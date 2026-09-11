@@ -22,6 +22,7 @@ struct ComboThreshold
     std::string name;
     std::vector<EffectRule> rules;
     std::vector<ChessNonBattleRule> managementRules;
+    std::vector<std::string> cardSummary;
 };
 
 struct ComboDef

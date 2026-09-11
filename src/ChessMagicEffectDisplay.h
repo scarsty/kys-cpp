@@ -23,6 +23,7 @@ struct ChessMagicEffectDisplayLine
     bool ultimate = false;
     int semanticIndent{};
     EffectDescriptionSemanticBreak breakBefore{};
+    DisplayTextWrapping wrapping{};
 };
 
 std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(

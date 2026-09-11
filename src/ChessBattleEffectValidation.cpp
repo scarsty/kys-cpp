@@ -767,19 +767,18 @@ bool validateMinimumStatusBehaviorProfile(
     case StatusBehaviorProfile::NeutralizeForce:
         if (!anyRule([](const EffectRule& rule)
             {
-                return isStatusHolderRule(rule, EffectEvent::HitBeforeDamage)
-                    && rule.observation
-                        == EffectObservationScope::StatusHolderEventSource
-                    && isUngatedStatusBehaviorRule(rule)
-                    && std::ranges::any_of(rule.actions, [](const EffectAction& action)
-                    {
-                        const auto* suppress = std::get_if<SuppressCurrentCastContactsAction>(
-                            &action.value);
-                        return suppress
-                            && suppress->originalTargetShield
-                            && isPositiveNumber(*suppress->originalTargetShield);
-                    });
-            })) return fail("阻止本次施放接觸並讓原攻擊目標獲得護盾");
+                if (rule.event != EffectEvent::HitBeforeDamage
+                    || rule.selector.kind != EffectSelectorKind::HitTarget
+                    || rule.observation != EffectObservationScope::StatusHolderEventSource
+                    || !isUngatedStatusBehaviorRule(rule)
+                    || rule.actions.size() != 2) return false;
+                const auto* recovery = std::get_if<ChangeResourceAction>(&rule.actions[0].value);
+                const auto* consume = std::get_if<ConsumeThisStatusAction>(&rule.actions[1].value);
+                return recovery && recovery->resource == BattleResource::Mp
+                    && recovery->kind == ResourceChangeKind::Restore
+                    && isPositiveNumber(recovery->amount)
+                    && consume && consume->quantity == 1 && !consume->whenDepleted;
+            })) return fail("命中目標恢復內力並消耗一次化勁");
         return true;
     case StatusBehaviorProfile::Blinded:
         if (!anyRule([](const EffectRule& rule)
@@ -1287,6 +1286,10 @@ bool validateActionPayload(
                     && (typed.healKind != EffectHealKind::Direct
                         || typed.healSourcePolicy != EffectHealSourcePolicy::RequireAlive))
                     return reject("非生命資源不可指定治療種類或來源政策");
+                if (typed.healRequiresFullMp
+                    && (typed.resource != BattleResource::Hp
+                        || typed.kind != ResourceChangeKind::Restore))
+                    return reject("僅滿內力時只支援回復生命");
                 if (typed.transferDestination)
                 {
                     if (!validateSelectorSchema(*typed.transferDestination, error)

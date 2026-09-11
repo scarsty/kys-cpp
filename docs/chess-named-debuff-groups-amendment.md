@@ -1,5 +1,8 @@
 # Chess named-debuff groups and producer-local buffs amendment
 
+> 化勁 revision: [命中回內](chess-neutralize-force-mp-recovery.md) supersedes
+> all 化勁 suppression, shield, and 化勁/刺目 arbitration rules below.
+
 ## Document status
 
 This is the normative delivery amendment for the status-authoring and runtime
