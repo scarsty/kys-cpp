@@ -1,6 +1,5 @@
 #include "ChessEquipment.h"
-#include "ChessBattleEffectParser.h"
-#include "ChessBattleEffectValidation.h"
+#include "ChessGameplayEffect.h"
 #include "yaml-cpp/yaml.h"
 #include <algorithm>
 #include <format>
@@ -100,33 +99,9 @@ bool appendSynergyDef(
     }
     if (entry["效果"])
     {
-        int effectOrdinal = 0;
-        for (const auto& eNode : entry["效果"])
-        {
-            ++effectOrdinal;
-            auto effectContext = std::format("裝備羈絆裝備{}效果#{}", def.equipmentId, effectOrdinal);
-            EffectRule rule;
-            if (!parseEffectRule(
-                    eNode,
-                    rule,
-                    EffectRuleId{ nextRuleId++ },
-                    effectContext,
-                    diagnostics))
-            {
-                return false;
-            }
-            def.rules.push_back(std::move(rule));
-        }
-    }
-    std::string lifecycleError;
-    if (!validateEffectRules(def.rules, lifecycleError))
-    {
-        emitChessDiagnostic(
-            diagnostics,
-            ChessDiagnosticSeverity::Error,
-            "裝備配置",
-            std::format("裝備羈絆裝備{}：{}", def.equipmentId, lifecycleError));
-        return false;
+        if (!parseGameplayEffects(entry["效果"], def.effects, def.rules, nextRuleId,
+                std::format("裝備{}", def.equipmentId), diagnostics))
+            return false;
     }
 
     if (!appendEquipmentManagementRules(
@@ -202,33 +177,9 @@ bool loadChessEquipment(
         }
         if (entry["效果"])
         {
-            std::size_t effectOrdinal{};
-            for (const auto& eNode : entry["效果"])
-            {
-                ++effectOrdinal;
-                auto effectContext = std::format("裝備{}效果#{}", def.itemId, effectOrdinal);
-                EffectRule rule;
-                if (!parseEffectRule(
-                        eNode,
-                        rule,
-                        EffectRuleId{ nextRuleId++ },
-                        effectContext,
-                        diagnostics))
-                {
-                    return false;
-                }
-                def.rules.push_back(std::move(rule));
-            }
-        }
-        std::string lifecycleError;
-        if (!validateEffectRules(def.rules, lifecycleError))
-        {
-            emitChessDiagnostic(
-                diagnostics,
-                ChessDiagnosticSeverity::Error,
-                "裝備配置",
-                std::format("裝備{}：{}", def.itemId, lifecycleError));
-            return false;
+            if (!parseGameplayEffects(entry["效果"], def.effects, def.rules, nextRuleId,
+                    std::format("裝備{}", def.itemId), diagnostics))
+                return false;
         }
 
         if (!appendEquipmentManagementRules(

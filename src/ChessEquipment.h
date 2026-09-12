@@ -16,6 +16,7 @@ struct EquipmentDef
     int equipType;
     std::vector<EffectRule> rules;
     std::vector<ChessNonBattleRule> managementRules;
+    std::vector<GameplayEffect> effects;
 };
 
 inline const char* chessEquipmentTypeName(int equipType)
@@ -42,6 +43,7 @@ struct EquipmentSynergyDef
     int equipmentId = -1;
     std::vector<EffectRule> rules;
     std::vector<ChessNonBattleRule> managementRules;
+    std::vector<GameplayEffect> effects;
 };
 
 bool loadChessEquipment(

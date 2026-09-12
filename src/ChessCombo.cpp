@@ -1,7 +1,6 @@
 #include "ChessCombo.h"
 
-#include "ChessBattleEffectParser.h"
-#include "ChessBattleEffectValidation.h"
+#include "ChessGameplayEffect.h"
 #include "ChessGameContent.h"
 #include "ChessSessionTypes.h"
 #include "battle/ChessComboResolver.h"
@@ -246,31 +245,9 @@ std::vector<ComboDef> loadChessCombos(
 
             if (const auto effectNodes = tNode["效果"])
             {
-                std::size_t effectOrdinal{};
-                for (const auto& eNode : effectNodes)
-                {
-                    ++effectOrdinal;
-                    auto effectContext = std::format("羈絆「{}」閾值「{}」效果#{}", def.name, thresh.name, effectOrdinal);
-                    EffectRule rule;
-                    if (!parseEffectRule(
-                            eNode,
-                            rule,
-                            EffectRuleId{ nextRuleId++ },
-                            effectContext,
-                            diagnostics))
-                        return {};
-                    thresh.rules.push_back(std::move(rule));
-                }
-            }
-            std::string lifecycleError;
-            if (!validateEffectRules(thresh.rules, lifecycleError))
-            {
-                emitChessDiagnostic(
-                    diagnostics,
-                    ChessDiagnosticSeverity::Error,
-                    "羈絆配置",
-                    std::format("「{}」閾值「{}」：{}", def.name, thresh.name, lifecycleError));
-                return {};
+                if (!parseGameplayEffects(effectNodes, thresh.effects, thresh.rules,
+                        nextRuleId, std::format("羈絆「{}」閾值「{}」", def.name, thresh.name), diagnostics))
+                    return {};
             }
             if (const auto managementRuleNodes = tNode["管理規則"])
             {
@@ -304,9 +281,6 @@ std::vector<ComboDef> loadChessCombos(
                     thresh.managementRules.push_back(std::move(*rule));
                 }
             }
-            if (!parseEffectCardSummary(tNode, thresh.cardSummary,
-                    std::format("羈絆「{}」閾值「{}」", def.name, thresh.name), diagnostics))
-                return {};
             def.thresholds.push_back(thresh);
         }
         combos.push_back(std::move(def));

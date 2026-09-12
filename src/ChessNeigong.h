@@ -20,6 +20,7 @@ struct NeigongDef
     int tier;
     std::string name;
     std::vector<EffectRule> rules;
+    std::vector<GameplayEffect> effects;
 };
 
 struct NeigongConfig

@@ -800,14 +800,8 @@ void drawNeigongDetail(
 
     std::vector<PanelVisualTextRow> bodyRows;
     appendPanelTextRow(bodyRows, "效果:", {200, 200, 200, 255}, 2, 0, 0, 2);
-    const auto document = buildEffectDescriptionDocument({
-        EffectDescriptionContainerKind::Neigong,
-        neigong.rules,
-    });
-    const auto rendered = renderEffectDescription(
-        document,
-        EffectDescriptionStyle::Full,
-        {});
+    const auto& document = neigong.effects;
+    const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Full);
     appendRenderedEffectDescriptionRows(
         bodyRows,
         rendered,
@@ -1488,17 +1482,8 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     2);
                 if (shownThreshold)
                 {
-                    const auto document = buildEffectDescriptionDocument({
-                        EffectDescriptionContainerKind::ComboThreshold,
-                        shownThreshold->rules,
-                        shownThreshold->cardSummary,
-                    });
-                    const auto rendered = renderEffectDescription(
-                        document,
-                        EffectDescriptionStyle::Compact,
-                        EffectDescriptionPresentationContext{
-                            .compactPolicy = EffectDescriptionCompactPolicy::PlayerCard,
-                        });
+                    const auto& document = shownThreshold->effects;
+                    const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Compact);
                     appendRenderedEffectDescriptionRows(
                         block,
                         rendered,
@@ -4022,14 +4007,8 @@ void ChessGuiSessionAdapter::viewCombos()
                 0,
                 8,
                 1);
-            const auto document = buildEffectDescriptionDocument({
-                EffectDescriptionContainerKind::ComboThreshold,
-                threshold.rules,
-            });
-            const auto rendered = renderEffectDescription(
-                document,
-                EffectDescriptionStyle::Full,
-                {});
+            const auto& document = threshold.effects;
+            const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Full);
             appendRenderedEffectDescriptionRows(
                 thresholdRows,
                 rendered,

@@ -21,20 +21,10 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
   - 武功: 26
     名稱: 降龍十八掌
     效果:
-      - 時機: 主彈命中
-        目標: 命中目標
-        動作:
-          - 套用狀態:
-              狀態: 眩暈
-              持續幀數: 14
-              重複套用: 保留較長持續時間
-      - 時機: 絕招施放
-        目標: 自身
-        動作:
-          - 資源變更:
-              資源: 內力
-              方式: 回復
-              數值: 30
+      - 類型: 命中眩暈
+        持續幀數: 14
+      - 類型: 出招全隊回內
+        回復內力: 30
 )");
 
     std::vector<ChessMagicEffectDefinition> definitions;
@@ -60,7 +50,7 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     CHECK(rows[1].text == "降龍十八掌");
     CHECK(rows[1].ultimate);
     CHECK(rows[2].kind == ChessMagicEffectDisplayLineKind::Effect);
-    CHECK(rows[2].text.starts_with("主彈命中"));
+    CHECK(rows[2].text.starts_with("命中"));
     std::string effectText;
     for (std::size_t index = 2; index < rows.size(); ++index)
     {
@@ -69,7 +59,7 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     }
     CHECK(effectText.find("眩暈") != std::string::npos);
     CHECK(effectText.find("14幀") != std::string::npos);
-    CHECK(effectText.find("內力+30") != std::string::npos);
+    CHECK(effectText.find("回復30內力") != std::string::npos);
 }
 
 TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",

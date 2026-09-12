@@ -43,12 +43,8 @@ RenderedEffectDescription magicEffects(
         magicId,
         &ChessMagicEffectDefinition::magicId);
     if (definition == content.magicEffects().end()) return {};
-    const auto document = buildEffectDescriptionDocument(
-        {EffectDescriptionContainerKind::Magic, definition->rules});
-    return renderEffectDescription(
-        document,
-        descriptionStyle,
-        {});
+    const auto& document = definition->effects;
+    return describeGameplayEffects(document, descriptionStyle);
 }
 
 bool hasDescriptionRows(const RenderedEffectDescription& description)
@@ -428,12 +424,8 @@ ChessEquipmentMetadata chessEquipmentMetadata(
     appendItemStat(result.baseStatEffects, "耍刀", item->addKnife);
     appendItemStat(result.baseStatEffects, "特殊", item->addUnusual);
     appendItemStat(result.baseStatEffects, "暗器", item->addHiddenWeapon);
-    const auto equipmentDocument = buildEffectDescriptionDocument(
-        {EffectDescriptionContainerKind::Equipment, definition.rules});
-    result.specialEffects = renderEffectDescription(
-        equipmentDocument,
-        descriptionStyle,
-        {});
+    const auto& equipmentDocument = definition.effects;
+    result.specialEffects = describeGameplayEffects(equipmentDocument, descriptionStyle);
     result.countsAsCombos = countsAsComboNames(definition.managementRules);
     if (!result.countsAsCombos.empty())
     {
@@ -453,12 +445,8 @@ ChessEquipmentMetadata chessEquipmentMetadata(
             bonus.roles.push_back(role->Name);
         }
         bonus.countsAsCombos = countsAsComboNames(synergy.managementRules);
-        const auto synergyDocument = buildEffectDescriptionDocument(
-            {EffectDescriptionContainerKind::EquipmentSynergy, synergy.rules});
-        bonus.effects = renderEffectDescription(
-            synergyDocument,
-            descriptionStyle,
-            {});
+        const auto& synergyDocument = synergy.effects;
+        bonus.effects = describeGameplayEffects(synergyDocument, descriptionStyle);
         result.characterBonuses.push_back(std::move(bonus));
     }
     return result;
@@ -513,12 +501,8 @@ ChessComboMetadata chessComboMetadata(
         metadata.requiredCount = threshold.count;
         metadata.name = threshold.name;
         metadata.active = index <= activeThresholdIndex;
-        const auto thresholdDocument = buildEffectDescriptionDocument(
-            {EffectDescriptionContainerKind::ComboThreshold, threshold.rules});
-        metadata.effects = renderEffectDescription(
-            thresholdDocument,
-            descriptionStyle,
-            {});
+        const auto& thresholdDocument = threshold.effects;
+        metadata.effects = describeGameplayEffects(thresholdDocument, descriptionStyle);
         for (const auto& rule : threshold.managementRules)
         {
             appendStandaloneDescriptionRow(
@@ -657,26 +641,19 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
         ChessEffectCatalogSource source,
         const std::string& sourceName,
         const std::string& sourceContext,
-        EffectDescriptionContainerKind containerKind,
-        std::span<const EffectRule> rules,
+        std::span<const GameplayEffect> definitions,
         std::span<const ChessNonBattleRule> managementRules = {})
     {
-        for (std::size_t index = 0; index < rules.size(); ++index)
+        for (std::size_t index = 0; index < definitions.size(); ++index)
         {
-            const auto document = buildEffectDescriptionDocument({
-                containerKind,
-                std::span<const EffectRule>{&rules[index], 1},
-            });
+            const auto document = std::span<const GameplayEffect>{&definitions[index], 1};
             result.push_back({
                 .source = source,
                 .sourceName = sourceName,
                 .sourceContext = sourceContext,
                 .ruleOrdinal = index + 1,
-                .sourceRuleCount = rules.size() + managementRules.size(),
-                .effects = renderEffectDescription(
-                    document,
-                    descriptionStyle,
-                    {}),
+                .sourceRuleCount = definitions.size() + managementRules.size(),
+                .effects = describeGameplayEffects(document, descriptionStyle),
             });
         }
         for (std::size_t index = 0; index < managementRules.size(); ++index)
@@ -689,8 +666,8 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 .source = source,
                 .sourceName = sourceName,
                 .sourceContext = sourceContext,
-                .ruleOrdinal = rules.size() + index + 1,
-                .sourceRuleCount = rules.size() + managementRules.size(),
+                .ruleOrdinal = definitions.size() + index + 1,
+                .sourceRuleCount = definitions.size() + managementRules.size(),
                 .effects = std::move(effects),
             });
         }
@@ -702,8 +679,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
             ChessEffectCatalogSource::Magic,
             definition.name,
             std::format("武功 ID {}", definition.magicId),
-            EffectDescriptionContainerKind::Magic,
-            definition.rules);
+            definition.effects);
     }
 
     for (const auto& definition : content.equipment())
@@ -715,8 +691,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 chessRewardTierLabel(definition.tier),
                 chessEquipmentTypeName(definition.equipType),
                 definition.itemId),
-            EffectDescriptionContainerKind::Equipment,
-            definition.rules,
+            definition.effects,
             definition.managementRules);
     }
 
@@ -734,8 +709,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 chessRewardTierLabel(equipment.tier),
                 chessEquipmentTypeName(equipment.equipType),
                 synergy.equipmentId),
-            EffectDescriptionContainerKind::EquipmentSynergy,
-            synergy.rules,
+            synergy.effects,
             synergy.managementRules);
     }
 
@@ -747,8 +721,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
             std::format("{} · 武功 ID {}",
                 chessRewardTierLabel(definition.tier),
                 definition.magicId),
-            EffectDescriptionContainerKind::Neigong,
-            definition.rules);
+            definition.effects);
     }
 
     for (const auto& combo : content.combos())
@@ -759,8 +732,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                 ChessEffectCatalogSource::ComboThreshold,
                 std::format("{} · {}", combo.name, threshold.name),
                 std::format("{}人門檻 · 羈絆 ID {}", threshold.count, combo.id),
-                EffectDescriptionContainerKind::ComboThreshold,
-                threshold.rules,
+                threshold.effects,
                 threshold.managementRules);
         }
     }

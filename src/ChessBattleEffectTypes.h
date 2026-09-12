@@ -48,8 +48,8 @@ struct StatusContributionFilter
     bool operator==(const StatusContributionFilter&) const = default;
 };
 
-// Battle effects are described by orthogonal event, target, condition and
-// action values. All battle-effect sources use this schema.
+// C++ 戰鬥指令：玩法定義在此組合事件、目標、條件與動作。
+// 配置與玩家描述使用具名玩法效果，不直接使用此執行層格式。
 enum class EffectEvent
 {
     BattleInitialized,
@@ -1199,13 +1199,16 @@ inline bool ApplyStatusAction::operator==(const ApplyStatusAction& other) const
         && neutralizeMpRecovery == other.neutralizeMpRecovery
         && behavior == other.behavior;
 }
+class GameplayEffectDefinition;
+using GameplayEffect = std::shared_ptr<const GameplayEffectDefinition>;
+
 struct ChessMagicEffectDefinition
 {
     int magicId = -1;
     std::string name;
     std::vector<EffectRule> rules;
     std::string purpose;
-    std::vector<std::string> cardSummary;
+    std::vector<GameplayEffect> effects;
 };
 
 }  // namespace KysChess

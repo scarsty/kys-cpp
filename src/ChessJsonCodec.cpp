@@ -735,13 +735,7 @@ RewardOptionDto rewardOptionDto(
         assert(found != content.neigong().end());
         dto.label = found->name;
         dto.description = std::format("{}階", found->tier);
-        const auto rendered = renderEffectDescription(
-            buildEffectDescriptionDocument({
-                EffectDescriptionContainerKind::Neigong,
-                found->rules,
-            }),
-            descriptionStyle,
-            {});
+        const auto rendered = describeGameplayEffects(found->effects, descriptionStyle);
         const auto effectText = joinEffectDescriptionRows(rendered);
         if (!effectText.empty())
         {

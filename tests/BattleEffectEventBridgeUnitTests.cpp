@@ -288,6 +288,77 @@ TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer
     CHECK(result.commands[2].metadata.commandOrdinal == 2);
 }
 
+TEST_CASE("BattleEffectEventBridge preserves hit positions during status liveness reduction",
+          "[battle][effect][bridge][status][liveness][area]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const auto source = binding(EffectSourceKind::Magic, 43, 1, 0);
+    const auto application = trueQiApplicationRule(10, 1, 1);
+    EffectCommand status;
+    status.metadata.binding = source;
+    status.metadata.ruleId = application.id;
+    status.metadata.targetUnitId = 1;
+    status.value = ApplyStatusEffectCommand{
+        std::get<ApplyStatusAction>(application.actions.front().value),
+    };
+    BattleEffectCommandSystem().reduce(runtime, status, { .frame = 0 });
+
+    CreateAreaAction area;
+    area.shape = AreaShape::Circle;
+    area.radiusTiles = 2;
+    area.anchor = AreaAnchor::HitPosition;
+    area.durationFrames = 100;
+    area.sourceDeath = AreaSourceDeathPolicy::PersistUntilExpiry;
+    area.merge = AreaMergePolicy::RefreshSameSource;
+    AreaModifier modifier;
+    modifier.kind = AreaModifierKind::Attribute;
+    modifier.relation = EffectTeamFilter::Enemy;
+    modifier.attribute = BattleAttribute::Speed;
+    modifier.amount.flat = -25;
+    modifier.overlap = AreaOverlapPolicy::KeepStrongest;
+    area.modifiers.push_back(modifier);
+    EffectRule rule;
+    rule.id = EffectRuleId{ 20 };
+    rule.event = EffectEvent::HitBeforeDamage;
+    rule.selector.kind = EffectSelectorKind::HitTarget;
+    rule.actions.push_back(action(area));
+    runtime.effectRules.append(source, rule);
+
+    const Pointf contactPosition{ 120.0f, 240.0f };
+    const auto provenance = attackProvenance(ultimateCast(1, 43));
+    const auto result = BattleEffectEventBridge().dispatch(
+        runtime,
+        { .frame = 7, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::HitBeforeDamage,
+        HitEventData{
+            .provenance = provenance,
+            .targetUnitId = 2,
+            .originalTargetUnitId = 2,
+            .contactPosition = contactPosition,
+            .damageKind = BattleDamageKind::Skill,
+        });
+
+    REQUIRE(result.commands.size() == 2);
+    CHECK(runtime.areas.areas.empty());
+    CHECK(runtime.units.require(1).status.effects.statuses.front().stacks == 1);
+    const auto found = std::ranges::find_if(result.commands, [](const auto& command)
+    {
+        return std::holds_alternative<CreateAreaEffectCommand>(command.value);
+    });
+    REQUIRE(found != result.commands.end());
+    BattleEffectCommandSystem().reduce(runtime, *found, {
+        .frame = 7,
+        .effectPosition = contactPosition,
+        .cast = provenance.cast,
+        .attack = provenance,
+        .areaTargetTeamDomain = 1,
+    });
+    REQUIRE(runtime.areas.areas.size() == 1);
+    CHECK(runtime.areas.areas.front().anchor.fixedPosition.x == contactPosition.x);
+    CHECK(runtime.areas.areas.front().anchor.fixedPosition.y == contactPosition.y);
+    CHECK(runtime.areas.areas.front().expiresFrameExclusive == 107);
+}
+
 TEST_CASE("BattleEffectEventBridge uses reducer-equivalent protection state for status liveness",
           "[battle][effect][bridge][status][liveness][protection]")
 {

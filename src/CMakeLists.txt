@@ -74,8 +74,6 @@ if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
         "${KYS_ROOT}/tools/kys_effect_schema_codegen/main.cpp"
         "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp"
         "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaWriter.cpp"
-        "${KYS_ROOT}/src/ChessEffectAuthoringDescriptors.cpp"
-        "${KYS_ROOT}/src/ChessBattleEffectSemantics.cpp"
     )
     target_include_directories(kys_effect_schema_codegen PRIVATE
         ${KYS_COMMON_INCLUDES}
@@ -83,6 +81,7 @@ if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
     )
     target_compile_definitions(kys_effect_schema_codegen PRIVATE KYS_HEADLESS_CORE NOMINMAX)
     target_link_libraries(kys_effect_schema_codegen PRIVATE
+        kys_chess_core
         glaze::glaze
         yaml-cpp::yaml-cpp
     )

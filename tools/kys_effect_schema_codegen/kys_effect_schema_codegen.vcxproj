@@ -53,14 +53,11 @@
   <ItemGroup>
     <ClCompile Include="ChessEffectSchemaRenderer.cpp" />
     <ClCompile Include="ChessEffectSchemaWriter.cpp" />
-    <ClCompile Include="$(SolutionDir)src\ChessEffectAuthoringDescriptors.cpp" />
-    <ClCompile Include="$(SolutionDir)src\ChessBattleEffectSemantics.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ChessEffectSchemaRenderer.h" />
     <ClInclude Include="ChessEffectSchemaWriter.h" />
-    <ClInclude Include="$(SolutionDir)src\ChessEffectAuthoringDescriptors.h" />
   </ItemGroup>
   <PropertyGroup>
     <SchemaCodegenStamp>$(IntDir)schema_codegen.stamp</SchemaCodegenStamp>
@@ -75,5 +72,10 @@
     <Exec Command="&quot;$(TargetPath)&quot; --output-dir &quot;$(SolutionDir)schemas\chess_effects&quot;" />
     <Touch Files="$(SchemaCodegenStamp)" AlwaysCreate="true" />
   </Target>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\kys_chess_core.vcxproj">
+      <Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

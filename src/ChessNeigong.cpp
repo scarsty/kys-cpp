@@ -1,7 +1,6 @@
 #include "ChessNeigong.h"
 
-#include "ChessBattleEffectParser.h"
-#include "ChessBattleEffectValidation.h"
+#include "ChessGameplayEffect.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
@@ -92,36 +91,9 @@ bool loadChessNeigong(
             : magic ? magic->Name : std::format("內功{}", magicId);
 
         auto effNode = ng["效果"][std::to_string(magicId)];
-        if (effNode && effNode.IsSequence())
-        {
-            std::size_t effectOrdinal{};
-            for (const auto& eNode : effNode)
-            {
-                ++effectOrdinal;
-                auto effectContext = std::format("內功「{}」效果#{}", def.name, effectOrdinal);
-                EffectRule rule;
-                if (!parseEffectRule(
-                        eNode,
-                        rule,
-                        EffectRuleId{ nextRuleId++ },
-                        effectContext,
-                        diagnostics))
-                {
-                    return false;
-                }
-                def.rules.push_back(std::move(rule));
-            }
-        }
-        std::string lifecycleError;
-        if (!validateEffectRules(def.rules, lifecycleError))
-        {
-            emitChessDiagnostic(
-                diagnostics,
-                ChessDiagnosticSeverity::Error,
-                "內功配置",
-                std::format("內功「{}」：{}", def.name, lifecycleError));
+        if (!parseGameplayEffects(effNode, def.effects, def.rules, nextRuleId,
+                std::format("內功「{}」", def.name), diagnostics))
             return false;
-        }
         pool.push_back(std::move(def));
     }
 

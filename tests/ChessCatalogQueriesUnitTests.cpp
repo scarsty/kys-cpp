@@ -13,16 +13,21 @@ using namespace KysChess;
 namespace
 {
 
+GameplayEffect attributeDefinition(BattleAttribute attribute, int amount)
+{
+    const auto name = attribute == BattleAttribute::Attack ? "攻擊加成"
+        : attribute == BattleAttribute::Defence ? "防禦加成"
+        : attribute == BattleAttribute::Speed ? "速度加成" : "生命上限加成";
+    const auto catalog = gameplayEffectCatalog();
+    const auto found = std::ranges::find(catalog, name, &GameplayEffectRegistration::name);
+    REQUIRE(found != catalog.end());
+    const std::array values{amount};
+    return found->create(values);
+}
+
 EffectRule attributeRule(BattleAttribute attribute, int amount)
 {
-    EffectRule rule;
-    rule.event = EffectEvent::BattleInitialized;
-    ModifyAttributeAction action;
-    action.attribute = attribute;
-    action.amount.flat = amount;
-    action.operation = AttributeOperation::FlatAdd;
-    rule.actions.push_back({EffectActionValue{action}});
-    return rule;
+    return attributeDefinition(attribute, amount)->buildRules().front();
 }
 
 ChessGameContent catalogContent()
@@ -73,6 +78,10 @@ ChessGameContent catalogContent()
         attributeRule(BattleAttribute::Attack, 4),
         attributeRule(BattleAttribute::Speed, 5),
     };
+    magicEffects.effects = {
+        attributeDefinition(BattleAttribute::Attack, 4),
+        attributeDefinition(BattleAttribute::Speed, 5),
+    };
     data.magicEffects.push_back(std::move(magicEffects));
 
     ChessItemDefinition item;
@@ -89,12 +98,14 @@ ChessGameContent catalogContent()
         0,
         {attributeRule(BattleAttribute::Defence, 7)},
         {CountsAsComboRule{"共用羈絆"}},
+        {attributeDefinition(BattleAttribute::Defence, 7)},
     });
     data.equipmentSynergies.push_back({
         {role.ID},
         item.id,
         {attributeRule(BattleAttribute::Speed, 5)},
         {CountsAsComboRule{"角色羈絆"}},
+        {attributeDefinition(BattleAttribute::Speed, 5)},
     });
 
     ComboDef combo;
@@ -105,6 +116,8 @@ ChessGameContent catalogContent()
         1,
         "啟動",
         {attributeRule(BattleAttribute::Attack, 10)},
+        {},
+        {attributeDefinition(BattleAttribute::Attack, 10)},
     });
     data.combos.push_back(std::move(combo));
 
@@ -114,6 +127,7 @@ ChessGameContent catalogContent()
     neigong.tier = 3;
     neigong.name = "共用內功";
     neigong.rules.push_back(attributeRule(BattleAttribute::MaxHp, 30));
+    neigong.effects.push_back(attributeDefinition(BattleAttribute::MaxHp, 30));
     data.neigong.push_back(std::move(neigong));
 
     ChessBattleMapDefinition map;
@@ -166,20 +180,20 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
     const auto equipment = chessEquipmentMetadata(content, 500);
     CHECK(equipment.baseStatEffects == std::vector<std::string>{"生命+25", "攻擊+8", "御劍+6"});
     CHECK(effectDescriptionTextRows(equipment.specialEffects)
-        == std::vector<std::string>{"防禦+7"});
+        == std::vector<std::string>{"防禦+7。"});
     REQUIRE(equipment.specialEffects.sections.size() == 1);
     REQUIRE(equipment.specialEffects.sections[0].blocks.size() == 1);
     REQUIRE(equipment.specialEffects.sections[0].blocks[0].rows.size() == 1);
     const auto& specialEffectRow = equipment.specialEffects.sections[0].blocks[0].rows[0];
     CHECK(specialEffectRow.kind == EffectDescriptionRowKind::Prose);
-    CHECK(specialEffectRow.text == "防禦+7");
+    CHECK(specialEffectRow.text == "防禦+7。");
     CHECK(specialEffectRow.indent == 0);
-    CHECK(specialEffectRow.breakBefore == EffectDescriptionSemanticBreak::Block);
+    CHECK(specialEffectRow.breakBefore == EffectDescriptionSemanticBreak::None);
     CHECK(equipment.countsAsCombos == std::vector<std::string>{"共用羈絆"});
     REQUIRE(equipment.characterBonuses.size() == 1);
     CHECK(equipment.characterBonuses.front().roles == std::vector<std::string>{"共用查詢棋子"});
     CHECK(effectDescriptionTextRows(equipment.characterBonuses.front().effects)
-        == std::vector<std::string>{"速度+5"});
+        == std::vector<std::string>{"速度+5。"});
     CHECK(equipment.characterBonuses.front().countsAsCombos == std::vector<std::string>{"角色羈絆"});
 }
 
@@ -268,7 +282,7 @@ TEST_CASE("effect catalog covers every configured rule by source",
     CHECK(synergy->sourceName == "共用寶劍 · 共用查詢棋子");
     CHECK(synergy->sourceContext.contains("共用查詢棋子專屬"));
     CHECK(effectDescriptionTextRows(synergy->effects)
-        == std::vector<std::string>{"速度+5"});
+        == std::vector<std::string>{"速度+5。"});
 
     const auto combo = std::ranges::find(
         catalog,
@@ -292,21 +306,21 @@ TEST_CASE("formal effect catalog renders every configured rule at readable panel
     const auto content = Test::actualContent(Difficulty::Normal);
     REQUIRE(content);
 
-    std::size_t configuredRuleCount{};
+    std::size_t configuredEffectCount{};
     for (const auto& definition : content->magicEffects())
-        configuredRuleCount += definition.rules.size();
+        configuredEffectCount += definition.effects.size();
     for (const auto& definition : content->equipment())
-        configuredRuleCount += definition.rules.size() + definition.managementRules.size();
+        configuredEffectCount += definition.effects.size() + definition.managementRules.size();
     for (const auto& definition : content->equipmentSynergies())
-        configuredRuleCount += definition.rules.size() + definition.managementRules.size();
+        configuredEffectCount += definition.effects.size() + definition.managementRules.size();
     for (const auto& definition : content->neigong())
-        configuredRuleCount += definition.rules.size();
+        configuredEffectCount += definition.effects.size();
     for (const auto& combo : content->combos())
         for (const auto& threshold : combo.thresholds)
-            configuredRuleCount += threshold.rules.size() + threshold.managementRules.size();
+            configuredEffectCount += threshold.effects.size() + threshold.managementRules.size();
 
     const auto catalog = chessEffectCatalog(*content);
-    REQUIRE(catalog.size() == configuredRuleCount);
+    REQUIRE(catalog.size() == configuredEffectCount);
     REQUIRE_FALSE(catalog.empty());
     CHECK(std::ranges::is_sorted(catalog, {}, &ChessEffectCatalogEntry::source));
     CHECK(std::ranges::any_of(catalog, [](const auto& entry) {

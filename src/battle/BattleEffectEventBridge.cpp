@@ -212,6 +212,23 @@ public:
         : runtime_(source)
         , commandContext_{ .frame = event.header.frame }
     {
+        if (const auto* cast = eventCastProvenance(event.payload))
+            commandContext_.cast = *cast;
+        if (const auto* hit = std::get_if<HitEventData>(&event.payload))
+        {
+            commandContext_.effectPosition = hit->contactPosition;
+            commandContext_.attack = hit->provenance;
+            commandContext_.areaTargetTeamDomain =
+                runtime_.units.requireCore(hit->targetUnitId).team;
+        }
+        else if (const auto* attack = std::get_if<AttackEventData>(&event.payload))
+        {
+            commandContext_.effectPosition = attack->spawnPosition;
+            commandContext_.attack = attack->provenance;
+            commandContext_.areaTargetTeamDomain =
+                runtime_.units.requireCore(attack->provenance.cast.sourceUnitId).team;
+        }
+
         hooks_.contributionQuantity = [&](
             int holderUnitId,
             std::uint64_t appliedSequence,
