@@ -121,9 +121,9 @@ void appendMpResourceEffectLogEvents(
     const ChangeResourceEffectCommand& command,
     const BattleResourceEffectResult& result)
 {
-    if (command.action.resource != BattleResource::Mp
-        || (command.action.kind != ResourceChangeKind::Drain
-            && command.action.kind != ResourceChangeKind::Transfer))
+    if (command.resource != BattleResource::Mp
+        || (command.kind != ResourceChangeKind::Drain
+            && command.kind != ResourceChangeKind::Transfer))
     {
         return;
     }
@@ -142,7 +142,7 @@ void appendMpResourceEffectLogEvents(
             logEvents,
             metadata.binding.ownerUnitId,
             metadata.targetUnitId,
-            command.action.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
+            command.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
             BattleStatusSemanticId::MagicPointsDrained,
             BattleResourceSemanticId::MagicPoints,
             removed);
@@ -160,7 +160,7 @@ void appendMpResourceEffectLogEvents(
             metadata.binding.ownerUnitId,
             delta.unitId,
             restored,
-            command.action.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
+            command.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
             BattleResourceSemanticId::MagicPoints);
     }
 }
@@ -334,253 +334,6 @@ void reduceFrameGameplayCommandsImpl(
     commands = std::move(unreduced);
 }
 
-void appendStateMachineOutput(
-    BattleRuntimeState& state,
-    std::vector<BattlePendingDamageIntent>& pendingDamage,
-    const BattleEffectReductionEntry& entry,
-    const StateMachineEffectCommand& command,
-    const BattleEffectCommandContext& context)
-{
-    std::visit(Overloaded{
-        [&](const ChangeStateValueAction&)
-        {
-            // The dispatcher owns rule state so later rules in the same event
-            // observe the committed value deterministically.
-        },
-        [&](const TransferStateValueAction&)
-        {
-            // The dispatcher atomically moves both state slots while emitting
-            // the command, so later rules observe the transferred value.
-        },
-        [&](const RecordMaximumDamageAction&)
-        {
-            // The dispatcher owns the recorded maximum so selection and command
-            // generation observe one deterministic value.
-        },
-        [&](const ConsumeRecordedMaximumAction& action)
-        {
-            if (command.outputValue <= 0)
-            {
-                return;
-            }
-            assert(command.outputValue <= std::numeric_limits<int>::max());
-            const int amount = static_cast<int>(command.outputValue);
-            if (action.destination == StateValueDestination::ShieldAmount)
-            {
-                assert(false);
-                return;
-            }
-
-            BattleDamageRequest request;
-            request.attackerUnitId = entry.metadata.binding.ownerUnitId;
-            request.defenderUnitId = entry.metadata.targetUnitId;
-            request.baseDamage = amount;
-            request.damageKind = BattleDamageKind::Pure;
-            const auto provenance = context.attack.value_or(
-                BattleAttackProvenance{});
-            CoreDetail::appendFramePendingDamage(
-                state,
-                pendingDamage,
-                std::move(request),
-                std::nullopt,
-                false,
-                false,
-                provenance,
-                makeEffectDamageOrigin(
-                    entry.metadata.binding,
-                    entry.metadata.ruleId,
-                    entry.metadata.authoredActionOrder,
-                    entry.metadata.statusContribution,
-                    context.cast,
-                    context.attack),
-                CoreDetail::reserveEffectDamageDescendantWork(state, context, provenance));
-        },
-        [&](const StartDamageAbsorptionAction&)
-        {
-            // Persistent absorption lifetime is consumed at the damage boundary;
-            // the state slot was reset by the dispatcher.
-        },
-        [&](const SettleDamageAbsorptionAction& action)
-        {
-            if (command.outputValue <= 0)
-            {
-                return;
-            }
-            assert(command.outputValue <= std::numeric_limits<int>::max());
-            const auto provenance = context.attack.value_or(
-                BattleAttackProvenance{});
-            for (int targetUnitId : command.selectedSourceUnitIds)
-            {
-                BattleDamageRequest request;
-                request.attackerUnitId = entry.metadata.binding.ownerUnitId;
-                request.defenderUnitId = targetUnitId;
-                request.baseDamage = static_cast<int>(command.outputValue);
-                request.damageKind = action.damageKind;
-                CoreDetail::appendFramePendingDamage(
-                    state,
-                    pendingDamage,
-                    std::move(request),
-                    std::nullopt,
-                    false,
-                    false,
-                    provenance,
-                    makeEffectDamageOrigin(
-                        entry.metadata.binding,
-                        entry.metadata.ruleId,
-                        entry.metadata.authoredActionOrder,
-                        entry.metadata.statusContribution,
-                        context.cast,
-                        context.attack),
-                    CoreDetail::reserveEffectDamageDescendantWork(
-                        state,
-                        context,
-                        provenance));
-            }
-        },
-        [&](const BorrowEffectRulesAction&)
-        {
-            // Borrowed source bindings are applied while constructing the child
-            // attack; no current-frame resource mutation belongs here.
-        },
-        [&](const CopyAttackDefinitionAction&)
-        {
-            // The cast coordinator already scheduled the tracked copied child cast
-            // before this command reaches the mutation reducer.
-        },
-        [&](const SettleRemainingStatusDamageAction& action)
-        {
-            assert(action.status == BattleStatusKind::Poison);
-            auto& target = state.units.require(entry.metadata.targetUnitId);
-            struct PendingPoisonTick
-            {
-                std::int64_t nextTickFrame{};
-                std::int64_t remainingTicks{};
-                int intervalFrames{};
-                int damagePct{};
-                EffectExecutionOrderKey order;
-            };
-            std::vector<PendingPoisonTick> pendingTicks;
-            for (const auto& poison : target.status.effects.statuses)
-            {
-                if (poison.kind != BattleStatusKind::Poison) continue;
-                assert(poison.remainingFrames > 0);
-                assert(poison.stacks > 0);
-                assert(poison.behavior);
-                assert(poison.behaviorRuntime.size() == poison.behavior->rules.size());
-                assert(poison.producer);
-                assert(poison.origin);
-
-                const auto capability = canonicalPoisonDamageCapability(
-                    *poison.behavior);
-                assert(capability && capability->rule && capability->damage);
-                const auto ruleIndex = static_cast<std::size_t>(
-                    capability->rule - poison.behavior->rules.data());
-                assert(ruleIndex < poison.behavior->rules.size());
-                const auto& rule = poison.behavior->rules[ruleIndex];
-                const auto& runtime = poison.behaviorRuntime[ruleIndex];
-                assert(runtime.intervalFramesRemaining > 0);
-                assert(runtime.intervalFramesRemaining <= rule.intervalFrames);
-                if (runtime.intervalFramesRemaining > poison.remainingFrames)
-                    continue;
-                const std::int64_t scheduledTicks = 1
-                    + (static_cast<std::int64_t>(poison.remainingFrames)
-                        - runtime.intervalFramesRemaining)
-                        / rule.intervalFrames;
-                pendingTicks.push_back({
-                    .nextTickFrame = runtime.intervalFramesRemaining,
-                    .remainingTicks = std::min<std::int64_t>(
-                        scheduledTicks,
-                        poison.stacks),
-                    .intervalFrames = rule.intervalFrames,
-                    .damagePct = capability->damage->amount.percent,
-                    .order = statusBehaviorExecutionOrderKey(
-                        poison.producer->binding,
-                        poison.origin->ruleOrder,
-                        poison.producer->actionOrder,
-                        static_cast<std::uint32_t>(ruleIndex),
-                        target.core.id,
-                        poison.appliedSequence,
-                        0),
-                });
-            }
-
-            int settlementDamage{};
-            int projectedHp = target.core.vitals.hp;
-            while (projectedHp > 0 && !pendingTicks.empty())
-            {
-                const auto next = std::ranges::min_element(
-                    pendingTicks,
-                    {},
-                    [](const PendingPoisonTick& tick)
-                    {
-                        return std::pair{ tick.nextTickFrame, tick.order };
-                    });
-                assert(next != pendingTicks.end());
-                const int tickDamage = static_cast<int>(std::max<std::int64_t>(
-                    1,
-                    static_cast<std::int64_t>(projectedHp) * next->damagePct / 100));
-                const int appliedDamage = std::min(projectedHp, tickDamage);
-                settlementDamage += appliedDamage;
-                projectedHp -= appliedDamage;
-                --next->remainingTicks;
-                if (next->remainingTicks == 0)
-                {
-                    pendingTicks.erase(next);
-                }
-                else
-                {
-                    next->nextTickFrame += next->intervalFrames;
-                }
-            }
-            if (settlementDamage <= 0)
-            {
-                return;
-            }
-            BattleDamageRequest request;
-            request.attackerUnitId = entry.metadata.binding.ownerUnitId;
-            request.defenderUnitId = entry.metadata.targetUnitId;
-            request.baseDamage = settlementDamage;
-            request.damageKind = BattleDamageKind::Poison;
-            request.preResolvedDamage = true;
-            request.preResolvedModifierPolicy =
-                BattlePreResolvedModifierPolicy::DefenderTypedStatuses;
-            const auto provenance = context.attack.value_or(
-                BattleAttackProvenance{});
-            CoreDetail::appendFramePendingDamage(
-                state,
-                pendingDamage,
-                std::move(request),
-                std::nullopt,
-                false,
-                false,
-                provenance,
-                makeEffectDamageOrigin(
-                    entry.metadata.binding,
-                    entry.metadata.ruleId,
-                    entry.metadata.authoredActionOrder,
-                    entry.metadata.statusContribution,
-                    context.cast,
-                    context.attack),
-                CoreDetail::reserveEffectDamageDescendantWork(
-                    state,
-                    context,
-                    provenance));
-        },
-        [&](const GenerateClonesAction&)
-        {
-            // Consumed by BattleStartInitializer before the runtime is built.
-        },
-        [&](const PreventDeathAction&)
-        {
-            // Consumed by BattleStartInitializer before the runtime is built.
-        },
-        [&](const ConfigureRescueRepositionAction&)
-        {
-            // Consumed by BattleStartInitializer before the runtime is built.
-        },
-    }, command.action);
-}
-
 bool sameEffectRuleCommandSequence(
     const EffectCommandMetadata& lhs,
     const EffectCommandMetadata& rhs)
@@ -730,13 +483,12 @@ void reduceEffectCommandImpl(
     BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     const EffectCommand& command,
-    const BattleEffectCommandContext& context,
     BattleEffectCommandReduction* reductionReceipt)
 {
+    const auto& context = command.execution;
     auto reduction = BattleEffectCommandSystem().reduce(
         state,
-        command,
-        context);
+        command);
     assert(reduction.entries.size() == 1);
     const auto& entry = reduction.entries.front();
     if (const auto* attribute = std::get_if<BattleAttributeEffectResult>(&entry.value))
@@ -832,7 +584,7 @@ void reduceEffectCommandImpl(
     else if (const auto* cast = std::get_if<
                  BattleRoutedEffectCommand<ModifyCastEffectCommand>>(&entry.value))
     {
-        const auto& request = cast->command.action.autoUltimate;
+        const auto& request = cast->command.autoUltimate;
         if (request)
         {
             frame.queueCommand(BattleAutoUltimateCommand{
@@ -841,16 +593,6 @@ void reduceEffectCommandImpl(
                 request->announce,
             });
         }
-    }
-    else if (const auto* stateMachine = std::get_if<
-                 BattleRoutedEffectCommand<StateMachineEffectCommand>>(&entry.value))
-    {
-        appendStateMachineOutput(
-            state,
-            pendingDamage,
-            entry,
-            stateMachine->command,
-            context);
     }
     else if (const auto* heal = std::get_if<BattleResourceEffectResult>(&entry.value))
     {
@@ -874,11 +616,11 @@ void reduceEffectCommandImpl(
                 KysChess::EFT_HEAL,
                 CoreDetail::CoreRoleStatusEffectFrames));
         }
-        if (resource->action.resource == BattleResource::Shield
-            || resource->action.resource == BattleResource::StatusShield
-            || resource->action.resource == BattleResource::StaggerShield
-            || resource->action.resource == BattleResource::ControlImmunityFrames
-            || resource->action.resource == BattleResource::InvincibilityFrames)
+        if (resource->resource == BattleResource::Shield
+            || resource->resource == BattleResource::StatusShield
+            || resource->resource == BattleResource::StaggerShield
+            || resource->resource == BattleResource::ControlImmunityFrames
+            || resource->resource == BattleResource::InvincibilityFrames)
         {
             for (const auto& delta : heal->deltas)
             {
@@ -905,8 +647,8 @@ void reduceEffectCommandImpl(
         queueStatusApplyCue(
             frame,
             entry.metadata,
-            apply->action.status,
-            lowerStatusQuantity(apply->action).stacks,
+            apply->status,
+            apply->stacks,
             status->status);
     }
     else if (const auto* consume = std::get_if<BattleStatusConsumeEffectResult>(&entry.value))
@@ -923,8 +665,8 @@ void reduceEffectCommandImpl(
             queueStatusApplyCue(
                 frame,
                 entry.metadata,
-                (*depletedCommand)->action.status,
-                lowerStatusQuantity((*depletedCommand)->action).stacks,
+                (*depletedCommand)->status,
+                (*depletedCommand)->stacks,
                 *consume->depletedStatus);
         }
     }
@@ -942,35 +684,6 @@ void reduceEffectCommandImpl(
                 BattleSemanticCueFamily::Cleanse);
         }
     }
-    else if (const auto* deferredHp = std::get_if<BattleDeferredHpResourceOutput>(&entry.value))
-    {
-        BattleDamageRequest request;
-        request.attackerUnitId = entry.metadata.binding.ownerUnitId;
-        request.defenderUnitId = entry.metadata.targetUnitId;
-        request.baseDamage = deferredHp->command.amount;
-        request.damageKind = BattleDamageKind::Effect;
-        const auto provenance = context.attack.value_or(
-            BattleAttackProvenance{});
-        CoreDetail::appendFramePendingDamage(
-            state,
-            pendingDamage,
-            std::move(request),
-            std::nullopt,
-            false,
-            false,
-            provenance,
-            makeEffectDamageOrigin(
-                entry.metadata.binding,
-                entry.metadata.ruleId,
-                entry.metadata.authoredActionOrder,
-                entry.metadata.statusContribution,
-                context.cast,
-                context.attack),
-            CoreDetail::reserveEffectDamageDescendantWork(
-                state,
-                context,
-                provenance));
-    }
     if (reductionReceipt)
     {
         reductionReceipt->entries.push_back(std::move(reduction.entries.front()));
@@ -981,8 +694,7 @@ void registerEffectDamageContinuation(
     BattleRuntimeState& state,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::size_t firstDamageIndex,
-    std::vector<EffectCommand> commands,
-    BattleEffectCommandContext context)
+    std::vector<EffectCommand> commands)
 {
     assert(firstDamageIndex < pendingDamage.size());
     assert(!commands.empty());
@@ -998,7 +710,6 @@ void registerEffectDamageContinuation(
                 .remainingDamageTransactions = static_cast<int>(transactionCount),
                 .commandBatch = {
                     .commands = std::move(commands),
-                    .context = std::move(context),
                 },
             });
     assert(inserted);
@@ -1279,7 +990,6 @@ void reduceEffectCommand(
     BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     const EffectCommand& command,
-    const BattleEffectCommandContext& context,
     BattleEffectCommandReduction* reductionReceipt)
 {
     reduceEffectCommandImpl(
@@ -1287,7 +997,6 @@ void reduceEffectCommand(
         frame,
         pendingDamage,
         command,
-        context,
         reductionReceipt);
 }
 
@@ -1414,16 +1123,7 @@ void dispatchReadyCastLifecycleEffects(
                 }
             }
 
-            frame.queueEffectCommands(
-                std::move(dispatched.commands),
-                {
-                    .frame = state.movement.frame,
-                    .cast = event.provenance,
-                    .retainCastUntilDamageDescendants = event.type
-                        != BattleCastLifecycleEventType::CastSettled,
-                    .areaTargetTeamDomain = state.units.requireCore(
-                        event.provenance.sourceUnitId).team,
-                });
+            frame.queueEffectCommands(std::move(dispatched.commands));
             reduceEffectCommandBatches(
                 state,
                 frame,
@@ -1553,9 +1253,7 @@ void reduceEffectCommandBatches(
             {});
         for (auto& batch : queued)
         {
-            frame.queueEffectCommands(
-                std::move(batch.commands),
-                std::move(batch.context));
+            frame.queueEffectCommands(std::move(batch.commands));
         }
 
         auto batches = frame.drainEffectCommandBatches();
@@ -1597,7 +1295,6 @@ void reduceEffectCommandBatches(
                             frame,
                             pendingDamage,
                             batch.commands[index],
-                            batch.context,
                             batch.reductionReceiptId == reductionReceiptId
                                 ? reductionReceipt
                                 : nullptr);
@@ -1616,8 +1313,7 @@ void reduceEffectCommandBatches(
                             state,
                             pendingDamage,
                             firstDamageIndex,
-                            std::move(continuationCommands),
-                            batch.context);
+                            std::move(continuationCommands));
                         break;
                     }
                     actionBegin = actionEnd;
@@ -1637,42 +1333,34 @@ std::vector<BattleFrameEffectCommandBatch> dispatchFrameAdvancedEffects(
     assert(!state.units.empty());
     std::vector<BattleFrameEffectCommandBatch> deferredAutoUltimateBatches;
     const auto& placeholderOwner = state.units.all().front().core;
+    auto eventHeader = nextEffectEventHeader(state, placeholderOwner.id);
+    eventHeader.executionFrame = upcomingFrame;
     const auto event = BattleEffectEventBridge().makeEvent(
         state,
-        nextEffectEventHeader(state, placeholderOwner.id),
+        std::move(eventHeader),
         EffectEvent::FrameAdvanced,
         FrameTickEventData{
             .deltaFrames = 1,
             .periodOrdinal = static_cast<std::uint64_t>(upcomingFrame),
         });
     auto dispatched = BattleEffectEventBridge().dispatchFrameAdvanced(state, event);
-    const auto eventContext = event.context();
     for (auto& command : dispatched.commands)
     {
-        const auto* owner = eventContext.header.battle.findUnit(
-            command.metadata.binding.ownerUnitId);
-        assert(owner);
-        BattleEffectCommandContext commandContext{
-            .frame = upcomingFrame,
-            .effectPosition = owner->position,
-            .areaTargetTeamDomain = owner->team,
-        };
         const auto* modifyCast = std::get_if<ModifyCastEffectCommand>(
             &command.value);
-        if (modifyCast && modifyCast->action.autoUltimate)
+        if (modifyCast && modifyCast->autoUltimate)
         {
             std::vector<EffectCommand> commands;
             commands.push_back(std::move(command));
             deferredAutoUltimateBatches.push_back({
                 std::move(commands),
-                std::move(commandContext),
             });
         }
         else
         {
             std::vector<EffectCommand> commands;
             commands.push_back(std::move(command));
-            frame.queueEffectCommands(std::move(commands), std::move(commandContext));
+            frame.queueEffectCommands(std::move(commands));
         }
     }
     reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
@@ -1739,11 +1427,6 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
                     });
                 result.cooldownFinishedEffects.push_back({
                     .commands = std::move(dispatched.commands),
-                    .context = {
-                        .frame = state.movement.frame + 1,
-                        .effectPosition = unit.motion.position,
-                        .areaTargetTeamDomain = unit.team,
-                    },
                 });
             }
             unitRecord.clearSkillCooldownSource();
@@ -1966,9 +1649,7 @@ void completeEffectDamageContinuation(
 
     auto commandBatch = std::move(continuation->second.commandBatch);
     state.effectIntegration.damageContinuations.erase(continuation);
-    frame.queueEffectCommands(
-        std::move(commandBatch.commands),
-        std::move(commandBatch.context));
+    frame.queueEffectCommands(std::move(commandBatch.commands));
     reduceEffectCommandBatches(state, frame, pendingDamage);
 }
 

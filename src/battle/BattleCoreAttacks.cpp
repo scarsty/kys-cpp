@@ -569,21 +569,15 @@ bool consumeTypedAttackSuppression(
             grantShieldMetadata.targetUnitId = shieldTargetUnitId;
             const EffectCommand grantShieldCommand{
                 std::move(grantShieldMetadata),
-                ChangeResourceEffectCommand{
-                    .action = std::move(grantShield),
-                    .amount = suppress->originalTargetShield,
-                },
+                prepareChangeResource(std::move(grantShield),
+                    suppress->originalTargetShield),
+                command.execution,
             };
             CoreDetail::reduceEffectCommand(
                 state,
                 frame,
                 frame.currentFrameDamage(),
-                grantShieldCommand,
-                {
-                    .frame = state.movement.frame,
-                    .cast = event.provenance.cast,
-                    .attack = event.provenance,
-                });
+                grantShieldCommand);
         }
         consume(command);
     }
@@ -613,13 +607,13 @@ int currentHitIgnoreDefensePct(
             BattleRoutedEffectCommand<ModifyDamageEffectCommand>>(&reduction.value);
         const auto* damage = routed ? &routed->command : nullptr;
         if (!damage
-            || damage->action.durationFrames != 0
-            || damage->action.stack != EffectStackPolicy::Independent
-            || damage->action.perspective != DamageModifierPerspective::Outgoing
-            || damage->action.stage != DamageModifierStage::BeforeDefense
-            || (damage->action.channel != DamageChannel::All
-                && damage->action.channel != CoreDetail::effectDamageChannel(event.damageKind))
-            || damage->action.operation != DamageModifierOperation::IgnoreDefensePercent)
+            || damage->durationFrames != 0
+            || damage->stack != EffectStackPolicy::Independent
+            || damage->perspective != DamageModifierPerspective::Outgoing
+            || damage->stage != DamageModifierStage::BeforeDefense
+            || (damage->channel != DamageChannel::All
+                && damage->channel != CoreDetail::effectDamageChannel(event.damageKind))
+            || damage->operation != DamageModifierOperation::IgnoreDefensePercent)
         {
             continue;
         }
@@ -696,18 +690,18 @@ void collectHitDamageModifiers(
             BattleRoutedEffectCommand<ModifyDamageEffectCommand>>(&reduction.value);
         const auto* modifier = routed ? &routed->command : nullptr;
         if (!modifier
-            || modifier->action.durationFrames != 0
-            || modifier->action.stack != EffectStackPolicy::Independent
-            || (modifier->action.channel != DamageChannel::All
-                && modifier->action.channel != channel))
+            || modifier->durationFrames != 0
+            || modifier->stack != EffectStackPolicy::Independent
+            || (modifier->channel != DamageChannel::All
+                && modifier->channel != channel))
         {
             continue;
         }
         appendHitDamageModifier(
             input.damageModifiers,
-            modifier->action.perspective,
-            modifier->action.stage,
-            { modifier->action.operation, modifier->amount });
+            modifier->perspective,
+            modifier->stage,
+            { modifier->operation, modifier->amount });
     }
 
     const std::array perspectives{
@@ -932,14 +926,8 @@ void applyAttackSpawnedEffects(
         }
     }
 
-    BattleEffectCommandContext context{
-        .frame = state.movement.frame,
-        .effectPosition = event.position,
-        .areaTargetTeamDomain = state.units.requireCore(event.sourceUnitId).team,
-    };
-    context.cast = event.provenance.cast;
-    context.attack = event.provenance;
-    frame.queueEffectCommands(std::move(dispatched.commands), std::move(context));
+
+    frame.queueEffectCommands(std::move(dispatched.commands));
     CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
 }
 
@@ -1109,17 +1097,9 @@ void resolveTypedHitEvent(
     BattleEffectCommandReduction hitEffectReduction;
     const auto reduceDispatched = [&](BattleEffectDispatchResult dispatched)
     {
-        BattleEffectCommandContext context{
-            .frame = state.movement.frame,
-            .effectPosition = event.position,
-            .areaTargetTeamDomain = state.units.requireCore(event.unitId).team,
-        };
-        context.cast = event.provenance.cast;
-        context.attack = event.provenance;
-        frame.queueEffectCommands(
-            std::move(dispatched.commands),
-            std::move(context),
-            HitReductionReceiptId);
+
+
+        frame.queueEffectCommands(std::move(dispatched.commands), HitReductionReceiptId);
         CoreDetail::reduceEffectCommandBatches(
             state,
             frame,

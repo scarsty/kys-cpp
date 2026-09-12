@@ -1,3 +1,4 @@
+#include "EffectCommandTestHelpers.h"
 #include "battle/BattleCore.h"
 #include "BattleLogTestHelpers.h"
 #include "BattlePresentationTestHelpers.h"
@@ -246,13 +247,10 @@ void queueForceMoveEffect(
     metadata.ruleId = KysChess::EffectRuleId{ 1 };
     metadata.event = KysChess::EffectEvent::HitBeforeDamage;
     metadata.targetUnitId = 1;
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = { EffectCommand{
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{ EffectCommand{
             .metadata = metadata,
             .value = ForceMoveEffectCommand{ std::move(action) },
-        } },
-        .context = { .frame = state.movement.frame + 1 },
-    });
+        } }, { .frame = state.movement.frame + 1 }) });
 }
 
 BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
@@ -440,10 +438,7 @@ void queueEffectCommandBatch(
     BattleRuntimeState& state,
     std::vector<EffectCommand> commands)
 {
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = std::move(commands),
-        .context = { .frame = state.movement.frame + 1 },
-    });
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::move(commands), { .frame = state.movement.frame + 1 }) });
 }
 
 }  // namespace
@@ -508,7 +503,7 @@ TEST_CASE("BattleFrameRunner_SuppressesDebuffCuesAndKeepsPositiveStatusColors", 
         queueEffectCommandBatch(state, {
             EffectCommand{
                 metadata,
-                ApplyStatusEffectCommand{ action, std::nullopt },
+                KysChess::Battle::Test::statusApplication(action),
             },
         });
 
@@ -555,8 +550,8 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     shieldMetadata.actionOrder = 1;
     shieldMetadata.commandOrdinal = 2;
     queueEffectCommandBatch(state, {
-        EffectCommand{ metadata, ModifyAttributeEffectCommand{ blockChance, 20 } },
-        EffectCommand{ shieldMetadata, ChangeResourceEffectCommand{ shield, 25 } },
+        EffectCommand{ metadata, prepareModifyAttribute(blockChance, 20) },
+        EffectCommand{ shieldMetadata, prepareChangeResource(shield, 25) },
     });
 
     const auto applied = runBattleFrame(state);
@@ -568,7 +563,7 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     CHECK(appliedCues.front()->color.b == 255);
 
     queueEffectCommandBatch(state, {
-        EffectCommand{ metadata, ModifyAttributeEffectCommand{ blockChance, 20 } },
+        EffectCommand{ metadata, prepareModifyAttribute(blockChance, 20) },
     });
     CHECK(semanticCueEvents(runBattleFrame(state)).empty());
 
@@ -579,7 +574,7 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     queueEffectCommandBatch(openingState, {
         EffectCommand{
             openingMetadata,
-            ModifyAttributeEffectCommand{ blockChance, 20 },
+            prepareModifyAttribute(blockChance, 20),
         },
     });
     CHECK(semanticCueEvents(runBattleFrame(openingState)).empty());
@@ -597,7 +592,7 @@ TEST_CASE("BattleFrameRunner_GuaranteedHitCuesEachRecipientAndRefresh", "[battle
         for (int id : {0, 1})
             queueEffectCommandBatch(state, {
                 EffectCommand{cueEffectMetadata(state, EffectEvent::AttackCommitted, id),
-                    ModifyAttributeEffectCommand{buff, 1}},
+                    prepareModifyAttribute(buff, 1)},
             });
         return runBattleFrame(state);
     };
@@ -630,7 +625,7 @@ TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][
         action.behavior = KysChess::Battle::Test::battleSpiritStatusBehavior(10, 1);
         const EffectCommand command{
             metadata,
-            ApplyStatusEffectCommand{ action, std::nullopt },
+            KysChess::Battle::Test::statusApplication(action),
         };
 
         queueEffectCommandBatch(state, { command });
@@ -654,7 +649,7 @@ TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][
         action.negativeOnly = true;
         const EffectCommand command{
             metadata,
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
 
         queueEffectCommandBatch(state, { command });
@@ -1552,7 +1547,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
             .event = KysChess::EffectEvent::BattleInitialized,
             .targetUnitId = 0,
         },
-        { recoveryBonus, 100 },
+        prepareModifyAttribute(recoveryBonus, 100),
         0);
 
     runBattleFrame(state);
@@ -1649,7 +1644,7 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesTheCanonicalPoisonSchedule", "[battl
     const EffectCommand settlementCommand{
         metadata,
         StateMachineEffectCommand{
-            .action = KysChess::StateMachineAction{ settlementAction },
+            .value = settlementAction,
         },
     };
 
@@ -1659,7 +1654,7 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesTheCanonicalPoisonSchedule", "[battl
     removeAction.statuses.push_back(KysChess::BattleStatusKind::Poison);
     const EffectCommand removeCommand{
         metadata,
-        RemoveStatusEffectCommand{ std::move(removeAction) },
+        KysChess::Battle::Test::statusRemoval(std::move(removeAction)),
     };
 
     metadata.actionOrder = 2;
@@ -1672,12 +1667,9 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesTheCanonicalPoisonSchedule", "[battl
     applyAction.behavior = KysChess::Battle::Test::poisonStatusBehavior(10);
     const EffectCommand applyCommand{
         metadata,
-        ApplyStatusEffectCommand{ applyAction, std::nullopt },
+        KysChess::Battle::Test::statusApplication(applyAction),
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = { settlementCommand, removeCommand, applyCommand },
-        .context = { .frame = 41 },
-    });
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{ settlementCommand, removeCommand, applyCommand }, { .frame = 41 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -1743,17 +1735,14 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[ba
     const KysChess::SettleRemainingStatusDamageAction action{
         .status = KysChess::BattleStatusKind::Poison,
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = {
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{
             EffectCommand{
                 metadata,
                 StateMachineEffectCommand{
-                    .action = KysChess::StateMachineAction{ action },
+                    .value = action,
                 },
             },
-        },
-        .context = { .frame = 41 },
-    });
+        }, { .frame = 41 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -1796,17 +1785,14 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRe
     const KysChess::SettleRemainingStatusDamageAction action{
         .status = KysChess::BattleStatusKind::Poison,
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = {
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{
             EffectCommand{
                 metadata,
                 StateMachineEffectCommand{
-                    .action = KysChess::StateMachineAction{ action },
+                    .value = action,
                 },
             },
-        },
-        .context = { .frame = 41 },
-    });
+        }, { .frame = 41 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -1852,12 +1838,9 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
     action.behavior = KysChess::Battle::Test::poisonStatusBehavior(7);
     const EffectCommand command{
         metadata,
-        ApplyStatusEffectCommand{ action, std::nullopt },
+        KysChess::Battle::Test::statusApplication(action),
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = { command },
-        .context = { .frame = 41 },
-    });
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{ command }, { .frame = 41 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -1912,12 +1895,9 @@ TEST_CASE("BattleFrameRunner_MpDrainReportsActualRemovedAndRestoredDeltas", "[ba
     action.kind = KysChess::ResourceChangeKind::Drain;
     const EffectCommand command{
         metadata,
-        ChangeResourceEffectCommand{ action, 20 },
+        prepareChangeResource(action, 20),
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = { command },
-        .context = { .frame = 8 },
-    });
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{ command }, { .frame = 8 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -2111,7 +2091,7 @@ TEST_CASE("BattleFrameRunner_ContinuesCompoundEffectsAfterQueuedDamageSettles", 
     damageAction.kind = KysChess::BattleDamageKind::Effect;
     const EffectCommand damageCommand{
         metadata,
-        DealDamageEffectCommand{ damageAction, 20, 1 },
+        prepareDealDamage(damageAction, 20, 1),
     };
 
     metadata.actionOrder = 1;
@@ -2121,12 +2101,9 @@ TEST_CASE("BattleFrameRunner_ContinuesCompoundEffectsAfterQueuedDamageSettles", 
     healAction.kind = KysChess::ResourceChangeKind::Restore;
     const EffectCommand healCommand{
         metadata,
-        ChangeResourceEffectCommand{ healAction, 10 },
+        prepareChangeResource(healAction, 10),
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = { damageCommand, healCommand },
-        .context = { .frame = 1 },
-    });
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{ damageCommand, healCommand }, { .frame = 1 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -2181,7 +2158,7 @@ TEST_CASE("BattleFrameRunner_DamageContinuationStopsAtStatusContributionRuleBoun
     damageAction.kind = BattleDamageKind::Effect;
     const EffectCommand damageCommand{
         metadata,
-        DealDamageEffectCommand{ damageAction, 20, 1 },
+        prepareDealDamage(damageAction, 20, 1),
     };
 
     metadata.actionOrder = 1;
@@ -2192,12 +2169,9 @@ TEST_CASE("BattleFrameRunner_DamageContinuationStopsAtStatusContributionRuleBoun
     shieldAction.kind = ResourceChangeKind::Grant;
     const EffectCommand shieldCommand{
         metadata,
-        ChangeResourceEffectCommand{ shieldAction, 20 },
+        prepareChangeResource(shieldAction, 20),
     };
-    state.effectIntegration.queuedCommandBatches.push_back({
-        .commands = { damageCommand, shieldCommand },
-        .context = { .frame = 1 },
-    });
+    state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::vector<EffectCommand>{ damageCommand, shieldCommand }, { .frame = 1 }) });
 
     const auto result = runBattleFrame(state);
 
@@ -2237,16 +2211,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
         .magicId = 8001,
         .ultimate = true,
     };
-    BattleEffectCommandSystem().reduce(
-        state,
-        EffectCommand{
+    BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
             applyMetadata,
-            ApplyStatusEffectCommand{ applyBleed, std::nullopt },
-        },
-        {
+            KysChess::Battle::Test::statusApplication(applyBleed),
+        }, {
             .frame = 0,
             .cast = applicationCast,
-        });
+        }));
     auto* appliedBleed = state.units.require(1).status.effects.find(
         BattleStatusKind::Bleed);
     REQUIRE(appliedBleed);

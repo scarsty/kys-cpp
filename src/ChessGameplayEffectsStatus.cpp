@@ -82,7 +82,7 @@ struct ProtectLowestHealth final : GameplayEffectDefinition
                 友軍數,
                 承傷上限百分比);
         }
-        return std::format("出招時，生命比例最低的{}名友軍下次承傷不超過各自最大生命的{}%。", 友軍數, 承傷上限百分比);
+        return std::format("出招：血比最低{}名友軍，下次承傷≤各自生命上限{}%", 友軍數, 承傷上限百分比);
     }
 };
 
@@ -106,7 +106,7 @@ struct HitSilence final : GameplayEffectDefinition
         {
             return std::format("命中使目標封內{}幀，期間無法恢復內力。再次施加保留較長持續時間。", 持續幀數);
         }
-        return std::format("命中使目標封內{}幀，期間無法恢復內力。", 持續幀數);
+        return std::format("命中：封內{}幀", 持續幀數);
     }
 };
 
@@ -133,7 +133,7 @@ struct HitStun final : GameplayEffectDefinition
         {
             return std::format("命中使目標眩暈{}幀。再次施加保留較長持續時間。", 持續幀數);
         }
-        return std::format("命中使目標眩暈{}幀。", 持續幀數);
+        return std::format("命中：眩暈{}幀", 持續幀數);
     }
 };
 
@@ -160,7 +160,7 @@ struct CastStunEnemies final : GameplayEffectDefinition
         {
             return std::format("出招使所有敵人眩暈{}幀。再次施加保留較長持續時間。", 持續幀數);
         }
-        return std::format("出招使所有敵人眩暈{}幀。", 持續幀數);
+        return std::format("出招：全敵眩暈{}幀", 持續幀數);
     }
 };
 
@@ -244,7 +244,7 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
                 中毒次數,
                 中毒生命百分比);
         }
-        return std::format("每次出招累積{}層，最多{}層；死亡時逐層引爆，對{}格內敵人每層造成每星{}傷害並施毒。",
+        return std::format("出招疊{}層（上限{}）；陣亡逐層引爆{}格，每層每星{}傷害並施毒",
                            每次層數,
                            層數上限,
                            半徑格數,
@@ -284,7 +284,7 @@ struct CastStackDamageBlocks final : GameplayEffectDefinition
                                每次抵擋數,
                                抵擋上限);
         }
-        return std::format("出招增加{}次傷害抵擋，最多{}次。", 每次抵擋數, 抵擋上限);
+        return std::format("出招：抵擋+{}次，上限{}次", 每次抵擋數, 抵擋上限);
     }
 };
 
@@ -389,7 +389,7 @@ struct HitHealingBlockSlow final : GameplayEffectDefinition
             return std::format(
                 "命中使目標無法恢復生命且速度降低25%，持續{}幀。再次施加取代剩餘時間，兩項效果一同移除。", 持續幀數);
         }
-        return std::format("命中使目標無法恢復生命且速度降低25%，持續{}幀。", 持續幀數);
+        return std::format("命中：禁療、速度-25%，{}幀", 持續幀數);
     }
 };
 
@@ -445,7 +445,7 @@ struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
                 生命傷害百分比,
                 中毒次數);
         }
-        return std::format("出招立即結算所有敵人剩餘中毒傷害，再施加持續{}幀的中毒。", 中毒次數 * 中毒間隔幀數);
+        return std::format("出招：結算全敵剩餘毒傷，再施毒{}幀", 中毒次數 * 中毒間隔幀數);
     }
 };
 
@@ -482,7 +482,7 @@ struct HitRestoreVictimMp final : GameplayEffectDefinition
                 固定回內,
                 每星回內);
         }
-        return std::format("命中使敵人之後{}次命中為其攻擊目標回復內力。", 觸發次數);
+        return std::format("命中：敵人下{}次命中替目標回內", 觸發次數);
     }
 };
 
@@ -525,7 +525,7 @@ struct AbsorbAndReturnDamage final : GameplayEffectDefinition
                 返還百分比,
                 敵人數);
         }
-        return std::format("出招後{}幀內吸收受到傷害的{}%，結束時將累積值的{}%以純粹傷害返還給隨機{}名敵人。",
+        return std::format("出招{}幀內吸收{}%承傷，結束以累積值{}%純粹傷害反擊隨機{}敵",
                            持續幀數,
                            吸收百分比,
                            返還百分比,
@@ -579,7 +579,7 @@ struct GrowingHitStun final : GameplayEffectDefinition
                 每層延長幀數,
                 最長幀數);
         }
-        return std::format("每次出招增加{}層，最多{}層；命中眩暈時間為{}幀，每層再延長{}幀，最長{}幀。",
+        return std::format("出招疊{}層（上限{}）；命中眩暈{}幀，每層+{}幀，上限{}幀",
                            每次層數,
                            層數上限,
                            基礎幀數,
@@ -623,7 +623,7 @@ struct ProtectNextAttack final : GameplayEffectDefinition
                 友軍數,
                 持續幀數);
         }
-        return std::format("出招保護生命比例最低的{}名友軍，持續{}幀，使每人的下一次受擊落空。", 友軍數, 持續幀數);
+        return std::format("出招：血比最低{}名友軍，{}幀內各免疫下次受擊", 友軍數, 持續幀數);
     }
 };
 
@@ -679,7 +679,7 @@ struct CastStackDamageAndReduction final : GameplayEffectDefinition
                                每層增傷百分比,
                                每層承傷百分比);
         }
-        return std::format("每次出招增加{}層，最多{}層；每層技能傷害{:+}%、承受傷害{:+}%。",
+        return std::format("出招疊{}層（上限{}）：每層技能傷害{:+}%、承傷{:+}%",
                            每次層數,
                            層數上限,
                            每層增傷百分比,
@@ -710,7 +710,7 @@ struct HitVulnerableHealingPenalty final : GameplayEffectDefinition
                 "命中使目標承受傷害增加25%、受到治療減少75%，持續{}幀。再次施加取代剩餘時間，兩項效果一同移除。",
                 持續幀數);
         }
-        return std::format("命中使目標承受傷害增加25%、受到治療減少75%，持續{}幀。", 持續幀數);
+        return std::format("命中：目標承傷+25%、受療-75%，{}幀", 持續幀數);
     }
 };
 
@@ -735,7 +735,7 @@ struct HitCancelNextCast final : GameplayEffectDefinition
         {
             return std::format("命中使目標之後{}次出招落空。再次施加取代原有效果。", 次數);
         }
-        return std::format("命中使目標之後{}次出招落空。", 次數);
+        return std::format("命中：目標下{}次出招落空", 次數);
     }
 };
 
@@ -768,7 +768,7 @@ struct ReceivedHitStunAttacker final : GameplayEffectDefinition
             return std::format(
                 "受擊後有{}%機率使攻擊者眩暈{}幀。須為有效命中且目標非無敵，重複眩暈延長時間。", 機率百分比, 持續幀數);
         }
-        return std::format("受擊後有{}%機率使攻擊者眩暈{}幀。", 機率百分比, 持續幀數);
+        return std::format("受擊：{}%機率眩暈攻擊者{}幀", 機率百分比, 持續幀數);
     }
 };
 
@@ -787,7 +787,11 @@ struct InitialStatusShield final : GameplayEffectDefinition
                                                                    .kind = ResourceChangeKind::RefreshToAtLeast}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("開場時狀態護盾至少為{}。", 護盾點數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("開場狀態盾≥{}", 護盾點數);
+        return std::format("開場時狀態護盾至少為{}。", 護盾點數);
+    }
 };
 
 struct CastInvincibility final : GameplayEffectDefinition
@@ -811,7 +815,7 @@ struct CastInvincibility final : GameplayEffectDefinition
         {
             return std::format("出招獲得{}幀無敵。已有較長無敵時保留較長時間。", 持續幀數);
         }
-        return std::format("出招獲得{}幀無敵。", 持續幀數);
+        return std::format("出招：無敵{}幀", 持續幀數);
     }
 };
 
@@ -864,7 +868,7 @@ struct HitPoison final : GameplayEffectDefinition
                 生命傷害百分比,
                 中毒次數);
         }
-        return std::format("命中施加中毒，持續{}幀；每{}幀造成目標當前生命{}%傷害，共{}次。",
+        return std::format("命中中毒{}幀：每{}幀傷當前血量{}%，共{}次",
                            中毒次數 * 中毒間隔幀數,
                            中毒間隔幀數,
                            生命傷害百分比,
@@ -894,7 +898,7 @@ struct KillInvincibility final : GameplayEffectDefinition
         {
             return std::format("擊殺敵人後獲得{}幀無敵。已有較長無敵時保留較長時間。", 持續幀數);
         }
-        return std::format("擊殺敵人後獲得{}幀無敵。", 持續幀數);
+        return std::format("擊殺：無敵{}幀", 持續幀數);
     }
 };
 
@@ -926,7 +930,7 @@ struct ChanceHitSilence final : GameplayEffectDefinition
                 機率百分比,
                 持續幀數);
         }
-        return std::format("有效命中非無敵目標後，有{}%機率使其封內{}幀，期間無法恢復內力。", 機率百分比, 持續幀數);
+        return std::format("命中{}%機率：封內{}幀", 機率百分比, 持續幀數);
     }
 };
 
@@ -961,7 +965,7 @@ struct ChanceHitStun final : GameplayEffectDefinition
             return std::format(
                 "技能有效命中非無敵目標後，有{}%機率使其眩暈{}幀。重複眩暈延長時間。", 機率百分比, 持續幀數);
         }
-        return std::format("技能有效命中非無敵目標後，有{}%機率使其眩暈{}幀。", 機率百分比, 持續幀數);
+        return std::format("技能命中{}%機率：眩暈{}幀", 機率百分比, 持續幀數);
     }
 };
 
@@ -1001,7 +1005,7 @@ struct ChanceHitBleed final : GameplayEffectDefinition
                 層數,
                 目標層數上限);
         }
-        return std::format("技能造成生命傷害後，有{}%機率施加{}層流血，目標最多{}層。", 機率百分比, 層數, 目標層數上限);
+        return std::format("技能傷血{}%機率：流血+{}層，上限{}層", 機率百分比, 層數, 目標層數上限);
     }
 };
 
@@ -1023,7 +1027,11 @@ struct DamageInvincibility final : GameplayEffectDefinition
                                                                    .kind = ResourceChangeKind::Grant}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("受到生命傷害後，增加{}幀無敵。", 持續幀數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("傷血後無敵+{}幀", 持續幀數);
+        return std::format("受到生命傷害後，增加{}幀無敵。", 持續幀數);
+    }
 };
 
 struct InitialDamageBlocks final : GameplayEffectDefinition
@@ -1053,7 +1061,7 @@ struct InitialDamageBlocks final : GameplayEffectDefinition
         {
             return std::format("開場獲得{}次傷害抵擋。每次抵擋一次大於零的非處決傷害。", 抵擋次數);
         }
-        return std::format("開場獲得{}次傷害抵擋。", 抵擋次數);
+        return std::format("開場：抵擋{}次傷害", 抵擋次數);
     }
 };
 
@@ -1081,7 +1089,7 @@ struct PeriodicInvincibility final : GameplayEffectDefinition
         {
             return std::format("每{}幀獲得{}幀無敵。已有較長無敵時保留較長時間。", 間隔幀數, 持續幀數);
         }
-        return std::format("每{}幀獲得{}幀無敵。", 間隔幀數, 持續幀數);
+        return std::format("每{}幀：無敵{}幀", 間隔幀數, 持續幀數);
     }
 };
 
@@ -1098,7 +1106,11 @@ struct PreventLethalDamage final : GameplayEffectDefinition
                                .value = StateMachineAction{PreventDeathAction{.invincibilityFrames = 無敵幀數}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("首次受到致命傷害時保留1生命，並獲得{}幀無敵。", 無敵幀數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("首次致命傷：保留1血、無敵{}幀", 無敵幀數);
+        return std::format("首次受到致命傷害時保留1生命，並獲得{}幀無敵。", 無敵幀數);
+    }
 };
 
 }    // namespace

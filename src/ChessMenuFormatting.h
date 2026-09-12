@@ -628,7 +628,7 @@ std::vector<std::string> buildAlignedComboCatalogLabels(
 inline std::string formatChessRolePreviewMp(int maximumMp)
 {
     // 管理與獎勵預覽代表剛進入戰鬥的單位，當前內力一律從零開始。
-    return std::format("{:5}/{:5}", 0, maximumMp);
+    return std::format("0/{}", maximumMp);
 }
 
 inline std::string chessStars(int star)

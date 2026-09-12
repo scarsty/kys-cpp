@@ -277,7 +277,7 @@ void applyTargetPolicy(
     WorkingAttack& attack,
     const BattleCastInput& input,
     const EffectCommand& command,
-    const ModifyAttackAction& action,
+    const ModifyAttackEffectCommand& action,
     int targetUnitId)
 {
     if (action.targets == AttackTargetPolicy::Preserve)
@@ -350,7 +350,7 @@ void applyTargetPolicy(
 void applyPatternGeometry(
     WorkingAttack& attack,
     const EffectCommand& command,
-    const ModifyAttackAction& action,
+    const ModifyAttackEffectCommand& action,
     int projectileIndex,
     int projectileCount,
     const BattleCastInput& input)
@@ -404,7 +404,7 @@ void applyAttackPayload(
     BattleAttackOriginKind origin,
     std::optional<BattleAttackId> parentAttackId)
 {
-    const auto& action = typed.action;
+    const auto& action = typed;
     attack.request.initial.strengthPct = scaledStrength(
         attack.request.initial.strengthPct,
         action.strengthPct);
@@ -489,7 +489,7 @@ void applyCommandGroup(
     assert(!group.empty());
     const auto& firstCommand = *group.front();
     const auto& typed = std::get<ModifyAttackEffectCommand>(firstCommand.value);
-    const auto& action = typed.action;
+    const auto& action = typed;
     assert(action.pattern.projectileCount > 0);
     assert(action.pattern.intervalFrames >= 0);
     assert(action.strengthPct >= 0);
@@ -613,12 +613,12 @@ void applyCommandGroup(
             attack,
             input,
             command,
-            projectileCommand.action,
+            projectileCommand,
             targetUnitId);
         applyPatternGeometry(
             attack,
             command,
-            projectileCommand.action,
+            projectileCommand,
             projectileIndex,
             projectileCount,
             input);
@@ -671,7 +671,7 @@ BattleEffectAttackApplyResult applyAttackCommandsToRequests(
     for (std::size_t begin = 0; begin < ordered.size();)
     {
         const auto& action = std::get<ModifyAttackEffectCommand>(
-            ordered[begin]->value).action;
+            ordered[begin]->value);
         if (!std::holds_alternative<std::monostate>(action.runtimeBehavior))
         {
             ++begin;
@@ -748,11 +748,11 @@ BattleEffectAttackApplyResult applyReplacementPatternToRequests(
     attacks.clear();
     attacks.reserve(pattern.projectileCount);
 
-    ModifyAttackAction geometryOnly;
+    ModifyAttackEffectCommand geometryOnly;
     geometryOnly.pattern = pattern;
     geometryOnly.targets = AttackTargetPolicy::Preserve;
     EffectCommand sourceCommand;
-    sourceCommand.value = ModifyAttackEffectCommand{ geometryOnly };
+    sourceCommand.value = geometryOnly;
     for (int projectileIndex = 0;
          projectileIndex < pattern.projectileCount;
          ++projectileIndex)
@@ -838,7 +838,7 @@ BattleEffectCastPreparation BattleEffectAttackCastSystem::prepareCast(
     for (const auto* command : ordered)
     {
         const auto& typed = std::get<ModifyCastEffectCommand>(command->value);
-        const auto& action = typed.action;
+        const auto& action = typed;
         if (typed.mpCost)
         {
             assert(*typed.mpCost >= 0);

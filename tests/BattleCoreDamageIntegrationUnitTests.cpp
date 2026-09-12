@@ -1,5 +1,6 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleCoreDetail.h"
+#include "battle/BattleFrameContext.h"
 #include "BattleCoreTestHelpers.h"
 
 #include "BattleLogTestHelpers.h"
@@ -802,14 +803,20 @@ TEST_CASE("Damage absorption settlement preserves status or configured action pr
     absorption.returnedPct = 100;
     absorption.accumulatedDamage = 10;
 
+    std::array<std::byte, 4096> storage{};
+    auto frame = BattleFrameContext::begin(state, {}, storage.data(), storage.size());
     std::vector<BattlePendingDamageIntent> pendingDamage;
     const std::array statusOwned{ absorption };
     CoreDetail::appendDamageAbsorptionSettlements(
         state,
+        frame,
         pendingDamage,
         statusOwned,
         10);
     REQUIRE(pendingDamage.size() == 1);
+    CHECK_FALSE(pendingDamage.front().provenance.valid());
+    CHECK_FALSE(pendingDamage.front().delayedCastWork.valid());
+    CHECK_FALSE(state.castLifecycle.containsCast(triggeringAttack.cast.castId));
     const auto* statusOrigin = std::get_if<EffectStatusDamageOrigin>(
         &pendingDamage.front().effectOrigin);
     REQUIRE(statusOrigin);
@@ -825,10 +832,14 @@ TEST_CASE("Damage absorption settlement preserves status or configured action pr
     const std::array configured{ absorption };
     CoreDetail::appendDamageAbsorptionSettlements(
         state,
+        frame,
         pendingDamage,
         configured,
         10);
     REQUIRE(pendingDamage.size() == 1);
+    CHECK_FALSE(pendingDamage.front().provenance.valid());
+    CHECK_FALSE(pendingDamage.front().delayedCastWork.valid());
+    CHECK_FALSE(state.castLifecycle.containsCast(triggeringAttack.cast.castId));
     const auto* ruleOrigin = std::get_if<EffectRuleDamageOrigin>(
         &pendingDamage.front().effectOrigin);
     REQUIRE(ruleOrigin);

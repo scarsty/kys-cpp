@@ -612,7 +612,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
     std::uint64_t eventOrdinal = 1;
     for (const auto& owner : snapshots)
     {
-        EffectEventContext event;
+        EffectEventData event;
         event.event = EffectEvent::BattleInitialized;
         event.header.frame = context_.frame;
         event.header.eventOrdinal = eventOrdinal++;
@@ -653,14 +653,14 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
             {
                 antiComboInitializationValues[commandIndex] = *attribute;
             }
-            const bool baseAttribute = attribute->action.attribute == BattleAttribute::MaxHp
-                || attribute->action.attribute == BattleAttribute::Attack
-                || attribute->action.attribute == BattleAttribute::Defence
-                || attribute->action.attribute == BattleAttribute::Speed;
+            const bool baseAttribute = attribute->attribute == BattleAttribute::MaxHp
+                || attribute->attribute == BattleAttribute::Attack
+                || attribute->attribute == BattleAttribute::Defence
+                || attribute->attribute == BattleAttribute::Speed;
             if (baseAttribute)
             {
-                auto& total = totals[{ command.metadata.targetUnitId, attribute->action.attribute }];
-                switch (attribute->action.operation)
+                auto& total = totals[{ command.metadata.targetUnitId, attribute->attribute }];
+                switch (attribute->operation)
                 {
                 case AttributeOperation::FlatAdd:
                     total.flat += attribute->amount;
@@ -736,7 +736,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 remaining += action.activations;
             },
             [](const auto&) { assert(false); },
-        }, stateMachine->action);
+        }, stateMachine->value);
     }
 
     const auto attributeValue = [&](int unitId, BattleAttribute attribute) -> int&
@@ -876,7 +876,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 std::move(targetStatus),
                 command.metadata,
                 initializedStatus,
-                { .frame = context_.frame },
+                command.execution,
                 {},
                 targetSpawn.unit.shield > 0);
             writeBattleStatusRuntimeUnit(targetSpawn.status, applied.target);
@@ -887,13 +887,13 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
             }
             continue;
         }
-        assert(resource->action.kind != ResourceChangeKind::Drain
-            && resource->action.kind != ResourceChangeKind::Transfer);
+        assert(resource->kind != ResourceChangeKind::Drain
+            && resource->kind != ResourceChangeKind::Transfer);
 
         const auto* owner = resourceReadView.findUnit(command.metadata.binding.ownerUnitId);
         const auto* target = resourceReadView.findUnit(command.metadata.targetUnitId);
         assert(owner && target);
-        EffectEventContext event;
+        EffectEventData event;
         event.event = EffectEvent::BattleInitialized;
         event.header.frame = context_.frame;
         event.header.binding = command.metadata.binding;
@@ -901,7 +901,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         event.header.battle = resourceReadView;
         event.payload = InitializationEventData{};
         const int amount = BattleEffectSystem::evaluateNumber(
-            resource->action.amount,
+            std::get<InitializationResourceAmount>(resource->amount).formula,
             event,
             *target);
         assert(amount >= 0);
@@ -916,7 +916,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         auto& targetSpawn = spawn(command.metadata.targetUnitId);
         const auto changedValue = [&](int before)
         {
-            switch (resource->action.kind)
+            switch (resource->kind)
             {
             case ResourceChangeKind::Restore:
             case ResourceChangeKind::Grant:
@@ -942,7 +942,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
 
         int before{};
         int after{};
-        switch (resource->action.resource)
+        switch (resource->resource)
         {
         case BattleResource::Hp:
             assert(false && "戰鬥初始化不可變更生命");
@@ -984,7 +984,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
             after = targetSpawn.unit.invincible;
             break;
         }
-        if (resource->action.resource == BattleResource::Shield && after > before)
+        if (resource->resource == BattleResource::Shield && after > before)
         {
             result_.logEvents.push_back({
                 BattleLogEventType::Status,

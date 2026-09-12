@@ -4,7 +4,9 @@
 #include "../ChessBattleEffectValidation.h"
 #include "../Point.h"
 #include "BattleCastLifecycle.h"
+#include "BattleStatusSystem.h"
 #include "BattleHealSystem.h"
+#include "BattleAreaEffectSystem.h"
 
 #include <array>
 #include <cassert>
@@ -351,6 +353,8 @@ struct EffectEventHeader
     BattleEffectReadView battle;
     EffectFormulaInputs formulaInputs;
     std::optional<EffectStatusContributionContext> statusContribution;
+    std::optional<BattleCastProvenance> healCast;
+    std::optional<int> executionFrame;
 };
 
 enum class EffectExecutionLane
@@ -359,11 +363,53 @@ enum class EffectExecutionLane
     StatusBehavior,
 };
 
-struct EffectEventContext
+struct EffectEventData
 {
     EffectEvent event{};
     EffectEventHeader header;
     EffectEventPayload payload;
+};
+
+struct EffectEvaluationScope
+{
+    EffectSourceBinding binding;
+    const EffectUnitSnapshot* owner{};
+    EffectFormulaInputs formulaInputs;
+    std::optional<EffectStatusContributionContext> statusContribution;
+    std::optional<BattleCastProvenance> cast;
+    std::optional<BattleAttackProvenance> attack;
+};
+
+// 借用不可變事件；只有規則的觀察者、公式輸入與有效來源可被覆寫。
+struct EffectEventContext
+{
+    EffectEventContext(const EffectEventData& data)
+        : event(data.event), header(data.header), payload(data.payload)
+        , scope{ data.header.binding, data.header.owner,
+                 data.header.formulaInputs, data.header.statusContribution }
+    {
+    }
+    const EffectEvent& event;
+    const EffectEventHeader& header;
+    const EffectEventPayload& payload;
+    EffectEvaluationScope scope;
+};
+
+const BattleCastProvenance* effectEventCastProvenance(const EffectEventPayload& payload);
+const BattleAttackProvenance* effectEventAttackProvenance(const EffectEventPayload& payload);
+const BattleCastProvenance* effectCastProvenance(const EffectEventContext& context);
+const BattleAttackProvenance* effectAttackProvenance(const EffectEventContext& context);
+
+// 求值後由命令持有；來源事件的 lineage 與規則 binding 各自保留原本語義。
+struct EffectExecutionInputs
+{
+    int frame{};
+    std::optional<BattleCastProvenance> cast;
+    std::optional<BattleAttackProvenance> attack;
+    bool retainCastUntilDamageDescendants = true;
+    BattleHealModifierState healModifiers;
+    int controlLowHpImmunityPct = 25;
+    bool bypassStatusShield = false;
 };
 
 struct EffectCommandMetadata
@@ -418,22 +464,58 @@ EffectExecutionOrderKey statusBehaviorExecutionOrderKey(
 
 struct ModifyAttributeEffectCommand
 {
-    ModifyAttributeAction action;
+    BattleAttribute attribute{};
     int amount{};
+    AttributeOperation operation{};
+    int durationFrames = 0;
+    EffectStackPolicy stack = EffectStackPolicy::Independent;
+    std::optional<int> stackLimit;
+    EffectStackScope stackScope = EffectStackScope::Shared;
 };
+
+ModifyAttributeEffectCommand prepareModifyAttribute(
+    const ModifyAttributeAction& action, int amount);
 
 struct ModifyDamageEffectCommand
 {
-    ModifyDamageAction action;
+    DamageModifierPerspective perspective = DamageModifierPerspective::Outgoing;
+    DamageModifierStage stage{};
+    DamageChannel channel{};
     int amount{};
+    DamageModifierOperation operation{};
+    int durationFrames = 0;
+    EffectStackPolicy stack = EffectStackPolicy::Independent;
+    std::optional<int> stackLimit;
+    EffectStackScope stackScope = EffectStackScope::Shared;
 };
+
+ModifyDamageEffectCommand prepareModifyDamage(
+    const ModifyDamageAction& action, int amount);
+
+// 初始化資源須在基礎屬性完成後才求值；與一般命令的固定數值互斥。
+struct InitializationResourceAmount
+{
+    EffectNumber formula;
+};
+
+using ResourceEffectAmount = std::variant<int, InitializationResourceAmount>;
 
 struct ChangeResourceEffectCommand
 {
-    ChangeResourceAction action;
-    int amount{};
+    BattleResource resource{};
+    ResourceEffectAmount amount{};
+    ResourceChangeKind kind{};
+    EffectHealKind healKind = EffectHealKind::Direct;
+    EffectHealSourcePolicy healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
+    bool healRequiresFullMp = false;
     std::vector<int> transferDestinationUnitIds;
+
+    int resolvedAmount() const { return std::get<int>(amount); }
 };
+
+ChangeResourceEffectCommand prepareChangeResource(
+    const ChangeResourceAction& action, ResourceEffectAmount amount,
+    std::vector<int> destinations = {});
 
 struct ModifyHealTransactionEffectCommand
 {
@@ -442,33 +524,68 @@ struct ModifyHealTransactionEffectCommand
 
 struct ApplyStatusEffectCommand
 {
-    ApplyStatusAction action;
-    std::optional<int> evaluatedDurationFrames;
+    BattleStatusKind status{};
+    int durationFrames{};
+    int stacks{};
+    EffectStackPolicy stack{};
+    std::optional<int> stackLimit;
+    std::optional<int> targetTotalLimit;
+    std::shared_ptr<const StatusBehaviorDefinition> behavior;
+    PoisonSameEventMerge poisonSameEventMerge{};
 };
+
+ApplyStatusEffectCommand prepareStatusApplication(
+    const ApplyStatusAction& action,
+    int durationFrames,
+    std::shared_ptr<const StatusBehaviorDefinition> behavior);
 
 struct ConsumeStatusEffectCommand
 {
-    ConsumeStatusAction action;
+    BattleStatusConsumeRequest request;
     std::optional<ApplyStatusEffectCommand> whenDepleted;
 };
 
 struct ConsumeThisStatusEffectCommand
 {
-    ConsumeThisStatusAction action;
+    BattleStatusConsumeRequest request;
     std::optional<ApplyStatusEffectCommand> whenDepleted;
 };
 
 struct RemoveStatusEffectCommand
 {
-    RemoveStatusAction action;
+    BattleStatusRemoveRequest request;
+};
+
+RemoveStatusEffectCommand prepareStatusRemoval(
+    const RemoveStatusAction& action, const EffectCommandMetadata& metadata);
+
+struct EffectDamageDelivery
+{
+    DamageArea area;
+    PerCastHitPolicy perCast;
+    std::optional<AreaProjectileDamageDelivery> areaProjectiles;
+    int projectileSourceMaxHpPercent{};
+    std::optional<int> displayedSourceMaxHpPercent;
+    bool statusTickPresentation = true;
+    // 過期吸收保留傷害來源，但不延續已完成攻擊的工作生命期。
+    bool inheritAttackProvenance = true;
+    std::optional<std::vector<int>> targetUnitIds;
 };
 
 struct DealDamageEffectCommand
 {
-    DealDamageAction action;
     int amount{};
     int transactionCount = 1;
+    BattleDamageKind kind{};
+    bool appliesDamageModifiers = true;
+    bool triggersHurtInvincibility = true;
+    bool canExecute{};
+    bool applyDefenderTypedStatuses{};
+    EffectDamageDelivery delivery;
 };
+
+DealDamageEffectCommand prepareDealDamage(
+    const DealDamageAction& action, int amount, int transactionCount = 1);
 
 struct SuppressCurrentCastContactsEffectCommand
 {
@@ -485,10 +602,25 @@ struct ResolvedEffectAttackSource
 
 struct ModifyAttackEffectCommand
 {
-    ModifyAttackAction action;
-    std::optional<int> damageOverride;
+    AttackPattern pattern;
+    int strengthPct = 100;
+    std::optional<bool> through;
+    std::optional<bool> tracking;
+    bool mainProjectile = true;
+    int sameTargetHitLimit = 0;
+    int projectileClearRadiusPct = 0;
+    AttackTargetPolicy targets = AttackTargetPolicy::Preserve;
+    CastPropagationPolicy propagation = CastPropagationPolicy::SourceRules;
+    bool addToBaseAttack = false;
     std::optional<ResolvedEffectAttackSource> source;
+    std::optional<int> damageOverride;
+    std::optional<BattleDamageKind> damageKind;
+    AttackRuntimeBehavior runtimeBehavior;
 };
+
+ModifyAttackEffectCommand prepareModifyAttack(
+    const ModifyAttackAction& action, std::optional<int> damageOverride = {},
+    std::optional<ResolvedEffectAttackSource> source = {});
 
 struct ForceMoveEffectCommand
 {
@@ -497,23 +629,63 @@ struct ForceMoveEffectCommand
 
 struct CreateAreaEffectCommand
 {
-    CreateAreaAction action;
-    std::vector<int> modifierAmounts;
+    BattleAreaCreateRequest request;
 };
 
 struct ModifyCastEffectCommand
 {
-    ModifyCastAction action;
     std::optional<int> mpCost;
+    std::optional<CastRangeMode> rangeMode;
+    int projectileSpeedPct = 0;
+    int minimumSelectDistance = 0;
+    int additionalProjectiles = 0;
+    CastMobilityPolicy mobility = CastMobilityPolicy::Preserve;
+    std::optional<AutoUltimateCastRequest> autoUltimate;
+    std::optional<AttackPattern> replacementPattern;
+    bool freeAdditionalCast = false;
+    CastPropagationPolicy propagation = CastPropagationPolicy::SourceRules;
 };
+
+ModifyCastEffectCommand prepareModifyCast(
+    const ModifyCastAction& action, std::optional<int> mpCost = {});
+
+// 保留已完成求值的命令位置，維持排序、借用規則及 reduction 回執的邊界。
+struct EvaluatedStateEffectCommand {};
+
+struct StateDamageEffectCommand
+{
+    int amount{};
+    BattleDamageKind kind{};
+    std::vector<int> targetUnitIds;
+};
+
+struct BorrowEffectRulesCommand
+{
+    std::vector<int> sourceUnitIds;
+    BorrowedRuleFilter filter;
+    CastPropagationPolicy propagation{};
+};
+
+struct CopyAttackDefinitionCommand
+{
+    std::vector<int> sourceUnitIds;
+    CastPropagationPolicy propagation{};
+};
+
+using StateMachineExecution = std::variant<
+    EvaluatedStateEffectCommand,
+    StateDamageEffectCommand,
+    StartDamageAbsorptionAction,
+    BorrowEffectRulesCommand,
+    CopyAttackDefinitionCommand,
+    SettleRemainingStatusDamageAction,
+    GenerateClonesAction,
+    PreventDeathAction,
+    ConfigureRescueRepositionAction>;
 
 struct StateMachineEffectCommand
 {
-    StateMachineAction action;
-    std::vector<int> selectedSourceUnitIds;
-    std::int64_t stateValueBefore{};
-    std::int64_t stateValueAfter{};
-    std::int64_t outputValue{};
+    StateMachineExecution value;
 };
 
 using EffectCommandValue = std::variant<
@@ -538,6 +710,7 @@ struct EffectCommand
 {
     EffectCommandMetadata metadata;
     EffectCommandValue value;
+    EffectExecutionInputs execution;
 };
 
 struct BoundEffectRule
@@ -662,7 +835,6 @@ struct ActiveStatusBehaviorView
     BattleStatusKind kind{};
     int quantity{};
     std::uint64_t appliedSequence{};
-    const BattleStatusEffectState* holderEffects = nullptr;
     std::shared_ptr<const StatusBehaviorDefinition> behavior;
     std::vector<EffectRuleRuntimeState>* runtime = nullptr;
 };
@@ -676,10 +848,7 @@ enum class StatusBehaviorDispatchFilter
     ExcludeAttackInterceptors,
 };
 
-// Production dispatch supplies a reducer-backed shadow runtime so a later
-// status rule is checked against the same status/protection transitions that
-// real command reduction will perform.  Lower-level effect-system tests may
-// omit it and use the self-contained status-only projection instead.
+// 需要狀態存活判定的 dispatch 必須提供共用的 reducer-backed prediction。
 struct StatusBehaviorDispatchLiveness
 {
     std::function<std::optional<int>(

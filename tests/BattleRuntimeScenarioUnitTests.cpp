@@ -1,4 +1,5 @@
 #include "BattleRuntimeScenarioTestHelpers.h"
+#include "HeadlessBattleRunner.h"
 #include "BattleCoreTestHelpers.h"
 #include "ChessBattleEffectParser.h"
 #include "Find.h"
@@ -391,6 +392,25 @@ const BattleAttackInstance* copiedRuntimeAttack(const BattleRuntimeState& state)
 }
 
 }  // namespace
+
+TEST_CASE("BattleRuntimeScenario_EffectRefactorBattleGoldens", "[battle][scenario][determinism][effect-golden]")
+{
+    const std::map<int, std::pair<std::string, std::uint64_t>> goldens{
+        { 18, { "05226f72c8cfb3743356b707ea1d271a6950d7ba63776b0a2fb7b64a983a377b", 45 } },
+        { 94, { "09dabbdddebb6d229f45f5fd089000d270a9f46cad74d268d3881e04a0300295", 60 } },
+        { 133, { "3de24dfd20cecebd407d86999d37899d79b22f8d0dec29e6fcc894a6767a06b3", 60 } },
+    };
+    for (const auto& [magicId, expected] : goldens)
+    {
+        auto input = singleUltimateInput(magicId, 3, 1, { 220, 100, 0 });
+        input.rules.maximumFrames = 600;
+        const auto battle = KysChess::HeadlessBattleRunner::run(std::move(input));
+        CAPTURE(magicId, KysChess::chessSha256Hex(battle.digest), battle.finalRuntime.random.rawDrawCount());
+        CHECK(battle.summary.endFrame == 600);
+        CHECK(KysChess::chessSha256Hex(battle.digest) == expected.first);
+        CHECK(battle.finalRuntime.random.rawDrawCount() == expected.second);
+    }
+}
 
 TEST_CASE("BattleRuntimeScenario_BasicSessionDigestTracksFramesAndRuntime", "[battle][scenario][runtime]")
 {

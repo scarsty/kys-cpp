@@ -334,45 +334,6 @@ int clampToInt(std::int64_t value)
         static_cast<std::int64_t>(std::numeric_limits<int>::max())));
 }
 
-const BattleCastProvenance* castProvenance(const EffectEventContext& context)
-{
-    return std::visit(Overloaded{
-        [](const CastPlanEventData& data) { return &data.provenance; },
-        [](const CastCommitEventData& data) { return &data.provenance; },
-        [](const AttackEventData& data) { return &data.provenance.cast; },
-        [](const HitEventData& data) { return &data.provenance.cast; },
-        [](const CastAggregateEventData& data) { return &data.provenance; },
-        [&](const DamageResultEventData& data) {
-            return effectDamageCastProvenance(data.origin);
-        },
-        [&](const ShieldBreakEventData& data) {
-            return effectDamageCastProvenance(data.cause);
-        },
-        [&](const DeathEventData& data) {
-            return effectDamageCastProvenance(data.cause);
-        },
-        [](const auto&) -> const BattleCastProvenance* { return nullptr; },
-    }, context.payload);
-}
-
-const BattleAttackProvenance* attackProvenance(const EffectEventContext& context)
-{
-    return std::visit(Overloaded{
-        [](const AttackEventData& data) { return &data.provenance; },
-        [](const HitEventData& data) { return &data.provenance; },
-        [&](const DamageResultEventData& data) {
-            return effectDamageAttackProvenance(data.origin);
-        },
-        [&](const ShieldBreakEventData& data) {
-            return effectDamageAttackProvenance(data.cause);
-        },
-        [&](const DeathEventData& data) {
-            return effectDamageAttackProvenance(data.cause);
-        },
-        [](const auto&) -> const BattleAttackProvenance* { return nullptr; },
-    }, context.payload);
-}
-
 const EffectDamageOrigin* damageOrigin(const EffectEventContext& context)
 {
     return std::visit(Overloaded{
@@ -447,7 +408,7 @@ const EffectUnitSnapshot* sourceSnapshot(const EffectEventContext& context)
         {
             return data.killer ? &*data.killer : nullptr;
         },
-        [&context](const auto&) -> const EffectUnitSnapshot* { return context.header.owner; },
+        [&context](const auto&) -> const EffectUnitSnapshot* { return context.scope.owner; },
     }, context.payload);
 }
 
@@ -462,9 +423,9 @@ const EffectUnitSnapshot* snapshotForTarget(const EffectEventContext& context, i
     {
         return source;
     }
-    if (context.header.owner->id == unitId)
+    if (context.scope.owner->id == unitId)
     {
-        return context.header.owner;
+        return context.scope.owner;
     }
     return context.header.battle.findUnit(unitId);
 }
@@ -475,7 +436,7 @@ std::optional<int> sourceUnitId(const EffectEventContext& context)
     {
         return source->id;
     }
-    if (const auto* cast = castProvenance(context))
+    if (const auto* cast = effectCastProvenance(context))
     {
         return cast->sourceUnitId;
     }
@@ -500,7 +461,7 @@ const EffectUnitSnapshot* requiredTargetSnapshot(EffectRequiredTarget requiredTa
     switch (requiredTarget)
     {
     case EffectRequiredTarget::Self:
-        return context.header.owner;
+        return context.scope.owner;
     case EffectRequiredTarget::SourceUnit:
         return sourceSnapshot(context);
     case EffectRequiredTarget::TransactionTarget:
@@ -528,7 +489,7 @@ Pointf selectorCenter(const EffectEventContext& context)
             {
                 return target->position;
             }
-            return context.header.owner->position;
+            return context.scope.owner->position;
         },
         [&context](const CastCommitEventData& data)
         {
@@ -536,9 +497,9 @@ Pointf selectorCenter(const EffectEventContext& context)
             {
                 return target->position;
             }
-            return context.header.owner->position;
+            return context.scope.owner->position;
         },
-        [&context](const auto&) { return context.header.owner->position; },
+        [&context](const auto&) { return context.scope.owner->position; },
     }, context.payload);
 }
 
@@ -643,8 +604,8 @@ bool matchesTeamFilter(const EffectUnitSnapshot& unit,
     switch (filter)
     {
     case EffectTeamFilter::Any: return true;
-    case EffectTeamFilter::Ally: return unit.team == context.header.owner->team;
-    case EffectTeamFilter::Enemy: return unit.team != context.header.owner->team;
+    case EffectTeamFilter::Ally: return unit.team == context.scope.owner->team;
+    case EffectTeamFilter::Enemy: return unit.team != context.scope.owner->team;
     }
     assert(false);
     return false;
@@ -654,7 +615,7 @@ bool matchesSelectorRequirements(const EffectUnitSnapshot& unit,
                                  const EffectSelector& selector,
                                  const EffectEventContext& context)
 {
-    if (selector.excludeOwner && unit.id == context.header.owner->id)
+    if (selector.excludeOwner && unit.id == context.scope.owner->id)
     {
         return false;
     }
@@ -663,7 +624,7 @@ bool matchesSelectorRequirements(const EffectUnitSnapshot& unit,
         return false;
     }
     if (selector.requiredBoundMagic
-        && !unit.usesMagic(context.header.binding.sourceId))
+        && !unit.usesMagic(context.scope.binding.sourceId))
     {
         return false;
     }
@@ -678,19 +639,19 @@ bool matchesSelectorMembership(const EffectUnitSnapshot& unit,
     switch (selector.kind)
     {
     case EffectSelectorKind::ComboMembers:
-        return unit.comboIds.contains(context.header.binding.sourceId);
+        return unit.comboIds.contains(context.scope.binding.sourceId);
     case EffectSelectorKind::Allies:
     case EffectSelectorKind::LowestHpAllies:
     case EffectSelectorKind::LowestMpAllies:
-        return unit.team == context.header.owner->team;
+        return unit.team == context.scope.owner->team;
     case EffectSelectorKind::Enemies:
     case EffectSelectorKind::HighestMpEnemy:
     case EffectSelectorKind::StrongestEnemies:
     case EffectSelectorKind::NearestEnemies:
     case EffectSelectorKind::FarthestEnemy:
-        return unit.team != context.header.owner->team;
+        return unit.team != context.scope.owner->team;
     case EffectSelectorKind::AlliesUsingMartialCategory:
-        return unit.team == context.header.owner->team
+        return unit.team == context.scope.owner->team
             && unit.martialCategory == selector.requiredMartialCategory;
     case EffectSelectorKind::Self:
     case EffectSelectorKind::SourceUnit:
@@ -802,44 +763,44 @@ bool conditionSatisfied(const EffectCondition& condition,
     return std::visit(Overloaded{
         [&](const IsUltimateCondition&)
         {
-            const auto* cast = castProvenance(context);
+            const auto* cast = effectCastProvenance(context);
             return cast && cast->ultimate;
         },
         [&](const CastUsesEffectSourceMagicCondition&)
         {
-            const auto* cast = castProvenance(context);
-            return cast && cast->magicId == context.header.binding.sourceId;
+            const auto* cast = effectCastProvenance(context);
+            return cast && cast->magicId == context.scope.binding.sourceId;
         },
         [&](const IsMainProjectileCondition&)
         {
-            const auto* attack = attackProvenance(context);
+            const auto* attack = effectAttackProvenance(context);
             return attack && attack->mainProjectile;
         },
         [&](const IsRootAttackCondition&)
         {
-            const auto* attack = attackProvenance(context);
+            const auto* attack = effectAttackProvenance(context);
             return attack && attack->rootAttack;
         },
         [&](const SourceHpRatioAtMostCondition& value)
         {
-            return context.header.owner->maxHp > 0 &&
-                   static_cast<std::int64_t>(context.header.owner->hp) * 100 <=
-                       static_cast<std::int64_t>(context.header.owner->maxHp) * value.percent;
+            return context.scope.owner->maxHp > 0 &&
+                   static_cast<std::int64_t>(context.scope.owner->hp) * 100 <=
+                       static_cast<std::int64_t>(context.scope.owner->maxHp) * value.percent;
         },
         [&](const SourceHpRatioBelowCondition& value)
         {
-            return context.header.owner->maxHp > 0 &&
-                   static_cast<std::int64_t>(context.header.owner->hp) * 100 <
-                       static_cast<std::int64_t>(context.header.owner->maxHp) * value.percent;
+            return context.scope.owner->maxHp > 0 &&
+                   static_cast<std::int64_t>(context.scope.owner->hp) * 100 <
+                       static_cast<std::int64_t>(context.scope.owner->maxHp) * value.percent;
         },
         [&](const SourceIsLastAliveCondition&)
         {
-            return context.header.owner->alive
+            return context.scope.owner->alive
                 && std::ranges::count_if(
                     context.header.battle.units(),
                     [&](const EffectUnitSnapshot& unit)
                     {
-                        return unit.alive && unit.team == context.header.owner->team;
+                        return unit.alive && unit.team == context.scope.owner->team;
                     }) == 1;
         },
         [&](const TargetHpRatioAtMostCondition& value)
@@ -854,7 +815,7 @@ bool conditionSatisfied(const EffectCondition& condition,
         },
         [&](const SourceHasStateCondition& value)
         {
-            return context.header.owner->hasState(value.state);
+            return context.scope.owner->hasState(value.state);
         },
         [&](const TargetHasStateCondition& value)
         {
@@ -864,19 +825,19 @@ bool conditionSatisfied(const EffectCondition& condition,
         {
             return target.hasStateFromSource(
                 value.state,
-                context.header.binding.ownerUnitId);
+                context.scope.binding.ownerUnitId);
         },
         [&](const SourceStackAtLeastCondition& value)
         {
-            return context.header.owner->stackCount(value.stack) >= value.count;
+            return context.scope.owner->stackCount(value.stack) >= value.count;
         },
         [&](const OtherLivingAllyUsesBoundMagicCondition&)
         {
             return std::ranges::any_of(context.header.battle.units(), [&](const EffectUnitSnapshot& unit)
             {
-                return unit.alive && unit.id != context.header.owner->id &&
-                       unit.team == context.header.owner->team
-                       && unit.usesMagic(context.header.binding.sourceId);
+                return unit.alive && unit.id != context.scope.owner->id &&
+                       unit.team == context.scope.owner->team
+                       && unit.usesMagic(context.scope.binding.sourceId);
             });
         },
         [&](const CastDistinctTargetCountAtLeastCondition& value)
@@ -886,7 +847,7 @@ bool conditionSatisfied(const EffectCondition& condition,
         },
         [&](const AttackOrdinalEqualsCondition& value)
         {
-            const auto* attack = attackProvenance(context);
+            const auto* attack = effectAttackProvenance(context);
             return attack && attack->attackOrdinal == value.ordinal;
         },
         [&](const HealKindInCondition& value)
@@ -920,13 +881,13 @@ bool conditionSatisfied(const EffectCondition& condition,
         },
         [&](const EventTargetBelongsToBoundSourceCondition&)
         {
-            if (context.header.binding.kind != EffectSourceKind::Combo)
+            if (context.scope.binding.kind != EffectSourceKind::Combo)
             {
                 return false;
             }
             const auto* target = transactionTargetSnapshot(context);
             return target
-                && target->comboIds.contains(context.header.binding.sourceId);
+                && target->comboIds.contains(context.scope.binding.sourceId);
         },
         [&](const DamagePerspectiveCondition& value)
         {
@@ -936,8 +897,8 @@ bool conditionSatisfied(const EffectCondition& condition,
                 return false;
             }
             return value.perspective == DamagePerspective::Dealt
-                ? damage->attackerBefore && damage->attackerBefore->id == context.header.owner->id
-                : damage->defenderBefore.id == context.header.owner->id;
+                ? damage->attackerBefore && damage->attackerBefore->id == context.scope.owner->id
+                : damage->defenderBefore.id == context.scope.owner->id;
         },
         [&](const DamageKindInCondition& value)
         {
@@ -960,8 +921,8 @@ bool conditionSatisfied(const EffectCondition& condition,
         [&](const RandomSelectionAvailableCondition&) { return selectionAvailable; },
         [&](const TargetIsStatusHolderCondition&)
         {
-            return context.header.statusContribution
-                && target.id == context.header.statusContribution->holderUnitId;
+            return context.scope.statusContribution
+                && target.id == context.scope.statusContribution->holderUnitId;
         },
     }, condition);
 }
@@ -979,18 +940,34 @@ bool conditionsSatisfied(std::span<const EffectCondition> conditions,
 
 std::optional<CastPropagationPolicy> propagationPolicy(const EffectEventContext& context)
 {
-    if (const auto* attack = attackProvenance(context))
+    if (const auto* attack = effectAttackProvenance(context))
     {
         return attack->propagation;
     }
-    if (const auto* cast = castProvenance(context))
+    if (const auto* cast = effectCastProvenance(context))
     {
         return cast->propagation;
     }
     return std::nullopt;
 }
 
-bool isOwnerObservation(const BoundEffectRule& bound,
+struct BoundEffectRuleView
+{
+    const EffectSourceBinding& binding;
+    const EffectRule& rule;
+    std::uint32_t order{};
+    std::optional<BattleCastId> castScope;
+    CastPropagationPolicy scopedPropagation = CastPropagationPolicy::SourceRules;
+
+    BoundEffectRuleView(const BoundEffectRule& bound)
+        : binding(bound.binding), rule(bound.rule), order(bound.order)
+        , castScope(bound.castScope), scopedPropagation(bound.scopedPropagation) {}
+    BoundEffectRuleView(const EffectSourceBinding& binding, const EffectRule& rule,
+                       std::uint32_t order)
+        : binding(binding), rule(rule), order(order) {}
+};
+
+bool isOwnerObservation(const BoundEffectRuleView& bound,
                         const EffectEventContext& context)
 {
     if (const auto* hit = std::get_if<HitEventData>(&context.payload);
@@ -1017,14 +994,14 @@ bool isOwnerObservation(const BoundEffectRule& bound,
     return false;
 }
 
-bool ruleObservesEvent(const BoundEffectRule& bound,
+bool ruleObservesEvent(const BoundEffectRuleView& bound,
                        const EffectEventContext& context)
 {
     switch (bound.rule.observation)
     {
     case EffectObservationScope::Owner:
         return bound.binding.ownerUnitId < 0
-            || bound.binding.ownerUnitId == context.header.owner->id;
+            || bound.binding.ownerUnitId == context.scope.owner->id;
     case EffectObservationScope::OwnerTeamEventSource:
     {
         const auto* source = sourceSnapshot(context);
@@ -1036,20 +1013,20 @@ bool ruleObservesEvent(const BoundEffectRule& bound,
         return target && target->id == bound.binding.ownerUnitId;
     }
     case EffectObservationScope::StatusHolderEventSource:
-        return context.header.statusContribution
+        return context.scope.statusContribution
             && (context.event == EffectEvent::FrameAdvanced
                 || sourceUnitId(context)
-                    == context.header.statusContribution->holderUnitId);
+                    == context.scope.statusContribution->holderUnitId);
     case EffectObservationScope::StatusHolderEventTarget:
     {
         const auto* target = transactionTargetSnapshot(context);
-        return context.header.statusContribution
+        return context.scope.statusContribution
             && target
-            && target->id == context.header.statusContribution->holderUnitId;
+            && target->id == context.scope.statusContribution->holderUnitId;
     }
     case EffectObservationScope::StatusSourceEventSource:
-        return context.header.statusContribution
-            && sourceUnitId(context) == context.header.statusContribution->sourceUnitId;
+        return context.scope.statusContribution
+            && sourceUnitId(context) == context.scope.statusContribution->sourceUnitId;
     case EffectObservationScope::SourceOwnerTeamEventSource:
     {
         const auto* source = sourceSnapshot(context);
@@ -1060,7 +1037,7 @@ bool ruleObservesEvent(const BoundEffectRule& bound,
     return false;
 }
 
-void rewriteObservedOwner(const BoundEffectRule& bound,
+void rewriteObservedOwner(const BoundEffectRuleView& bound,
                           EffectEventContext& context)
 {
     if (bound.rule.observation == EffectObservationScope::Owner)
@@ -1074,17 +1051,17 @@ void rewriteObservedOwner(const BoundEffectRule& bound,
             "觀察規則的效果擁有者 {} 不存在",
             bound.binding.ownerUnitId));
     }
-    context.header.owner = owner;
+    context.scope.owner = owner;
 }
 
-bool castScopeMatches(const BoundEffectRule& bound,
+bool castScopeMatches(const BoundEffectRuleView& bound,
                       const EffectEventContext& context)
 {
     if (!bound.castScope)
     {
         return true;
     }
-    const auto* cast = castProvenance(context);
+    const auto* cast = effectCastProvenance(context);
     if (cast)
     {
         return cast->castId == *bound.castScope
@@ -1096,7 +1073,7 @@ bool castScopeMatches(const BoundEffectRule& bound,
 }
 
 void rewriteBorrowedCast(BattleCastProvenance& cast,
-                         const BoundEffectRule& bound)
+                         const BoundEffectRuleView& bound)
 {
     assert(bound.castScope);
     assert(cast.castId == *bound.castScope);
@@ -1106,60 +1083,33 @@ void rewriteBorrowedCast(BattleCastProvenance& cast,
 }
 
 void rewriteBorrowedAttack(BattleAttackProvenance& attack,
-                           const BoundEffectRule& bound)
+                           const BoundEffectRuleView& bound)
 {
     rewriteBorrowedCast(attack.cast, bound);
     attack.propagation = bound.scopedPropagation;
 }
 
-void rewriteScopedRuleContext(const BoundEffectRule& bound,
+void rewriteScopedRuleContext(const BoundEffectRuleView& bound,
                               EffectEventContext& context)
 {
-    context.header.binding = bound.binding;
+    context.scope.binding = bound.binding;
     if (!bound.castScope)
     {
         return;
     }
-    const auto* cast = castProvenance(context);
+    const auto* cast = effectCastProvenance(context);
     if (!cast || cast->castId != *bound.castScope)
     {
         return;
     }
 
-    const auto rewriteOrigin = [&](EffectDamageOrigin& origin)
+    if (const auto* attack = effectAttackProvenance(context))
     {
-        if (auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
-        {
-            rewriteBorrowedAttack(attack->provenance, bound);
-            return;
-        }
-        if (auto* status = std::get_if<EffectStatusDamageOrigin>(&origin))
-        {
-            if (status->triggeringAttack)
-                rewriteBorrowedAttack(*status->triggeringAttack, bound);
-            if (status->triggeringCast)
-                rewriteBorrowedCast(*status->triggeringCast, bound);
-            return;
-        }
-        if (auto* rule = std::get_if<EffectRuleDamageOrigin>(&origin))
-        {
-            if (rule->triggeringAttack)
-                rewriteBorrowedAttack(*rule->triggeringAttack, bound);
-            if (rule->triggeringCast)
-                rewriteBorrowedCast(*rule->triggeringCast, bound);
-        }
-    };
-    std::visit(Overloaded{
-        [&](CastPlanEventData& data) { rewriteBorrowedCast(data.provenance, bound); },
-        [&](CastCommitEventData& data) { rewriteBorrowedCast(data.provenance, bound); },
-        [&](AttackEventData& data) { rewriteBorrowedAttack(data.provenance, bound); },
-        [&](HitEventData& data) { rewriteBorrowedAttack(data.provenance, bound); },
-        [&](CastAggregateEventData& data) { rewriteBorrowedCast(data.provenance, bound); },
-        [&](DamageResultEventData& data) { rewriteOrigin(data.origin); },
-        [&](ShieldBreakEventData& data) { rewriteOrigin(data.cause); },
-        [&](DeathEventData& data) { rewriteOrigin(data.cause); },
-        [](auto&) {},
-    }, context.payload);
+        context.scope.attack = *attack;
+        rewriteBorrowedAttack(*context.scope.attack, bound);
+    }
+    context.scope.cast = *cast;
+    rewriteBorrowedCast(*context.scope.cast, bound);
 }
 
 bool isHitRuleEvent(EffectEvent event)
@@ -1177,7 +1127,7 @@ bool isHitRuleEvent(EffectEvent event)
     }
 }
 
-bool ruleAllowedByPropagation(const BoundEffectRule& bound,
+bool ruleAllowedByPropagation(const BoundEffectRuleView& bound,
                               const EffectEventContext& context)
 {
     const auto policy = propagationPolicy(context);
@@ -1215,14 +1165,14 @@ bool ruleAllowedByPropagation(const BoundEffectRule& bound,
     return false;
 }
 
-bool ruleMatchesMagicCast(const BoundEffectRule& bound,
+bool ruleMatchesMagicCast(const BoundEffectRuleView& bound,
                           const EffectEventContext& context)
 {
     if (bound.binding.kind != EffectSourceKind::Magic)
     {
         return true;
     }
-    const auto* cast = castProvenance(context);
+    const auto* cast = effectCastProvenance(context);
     if (!cast)
     {
         return true;
@@ -1365,8 +1315,9 @@ bool ruleAllowedByBorrowFilter(
     });
 }
 
+template<class Rules>
 bool copiedMagicMatchesFilter(
-    const BattleEffectRuleStore& store,
+    const Rules& rules,
     const EffectUnitSnapshot& unit,
     const CopiedMagicFilter& filter)
 {
@@ -1381,7 +1332,7 @@ bool copiedMagicMatchesFilter(
             }
             break;
         case CopiedMagicCondition::ExcludesRecursiveEffects:
-            if (std::ranges::any_of(store.rules(), [&](const auto& bound)
+            if (std::ranges::any_of(rules, [&](const auto& bound)
                 {
                     return !bound.castScope
                         && bound.binding.kind == EffectSourceKind::Magic
@@ -1406,7 +1357,7 @@ std::uint64_t stateScopeId(EffectStateSlot slot, const EffectEventContext& conte
     {
         return 0;
     }
-    const auto* cast = castProvenance(context);
+    const auto* cast = effectCastProvenance(context);
     if (!cast)
     {
         throw std::logic_error("本次施放狀態槽需要 cast provenance");
@@ -1496,14 +1447,74 @@ std::int64_t percentOf(std::int64_t value, int percent)
         EffectRounding::TowardZero);
 }
 
+std::int64_t effectStateValue(const std::map<EffectStateKey, std::int64_t>& values,
+    const EffectSourceBinding& binding, EffectStateSlot slot, std::uint64_t scope)
+{
+    const auto found = values.find(stateKey(binding, slot, scope));
+    return found == values.end() ? 0 : found->second;
+}
+
+void setEffectStateValue(std::map<EffectStateKey, std::int64_t>& values,
+    const EffectSourceBinding& binding, EffectStateSlot slot, std::int64_t value,
+    std::uint64_t scope)
+{
+    values[stateKey(binding, slot, scope)] = value;
+}
+
+struct EffectStateAccess
+{
+    std::map<EffectStateKey, std::int64_t>& values;
+    std::int64_t stateValue(const EffectSourceBinding& binding, EffectStateSlot slot,
+                            std::uint64_t scope = 0) const
+    {
+        return effectStateValue(values, binding, slot, scope);
+    }
+    void setStateValue(const EffectSourceBinding& binding, EffectStateSlot slot,
+                       std::int64_t value, std::uint64_t scope = 0)
+    {
+        setEffectStateValue(values, binding, slot, value, scope);
+    }
+};
+
+EffectExecutionInputs executionInputs(const EffectEventContext& context)
+{
+    EffectExecutionInputs inputs{
+        .frame = context.header.executionFrame.value_or(context.header.frame),
+    };
+    if (const auto* cast = effectEventCastProvenance(context.payload)) inputs.cast = *cast;
+    else inputs.cast = context.header.healCast;
+    if (const auto* attack = effectEventAttackProvenance(context.payload)) inputs.attack = *attack;
+    inputs.retainCastUntilDamageDescendants = context.event != EffectEvent::CastSettled;
+    return inputs;
+}
+
+int areaTeamDomain(const EffectEventContext& context)
+{
+    return std::visit(Overloaded{
+        [&](const HitEventData& hit) { return context.header.battle.findUnit(hit.targetUnitId)->team; },
+        [&](const AttackEventData& attack) { return context.header.battle.findUnit(attack.provenance.cast.sourceUnitId)->team; },
+        [&](const HealRequestEventData& heal) { return heal.targetBefore.team; },
+        [&](const HealResultEventData& heal) { return heal.request.targetBefore.team; },
+        [&](const ShieldBreakEventData& broken) { return broken.targetAfter.team; },
+        [&](const DeathEventData& death) { return death.deadAfter.team; },
+        [&](const auto&) { return context.header.owner->team; },
+    }, context.payload);
+}
+
 struct CommandEmitter
 {
-    BattleEffectRuleStore& store;
-    const BoundEffectRule& bound;
+    EffectStateAccess state;
+    std::span<const BoundEffectRule> rules;
+    const BoundEffectRuleView& bound;
     const EffectEventContext& context;
     BattleRuntimeRandom& random;
     std::vector<EffectCommand>& commands;
     std::uint64_t& nextCommandOrdinal;
+
+    void append(const EffectCommandMetadata& metadata, EffectCommandValue value)
+    {
+        commands.push_back({ metadata, std::move(value), executionInputs(context) });
+    }
 
     int evaluate(const EffectNumber& number,
                  const EffectUnitSnapshot& target) const
@@ -1516,7 +1527,7 @@ struct CommandEmitter
         }
         assert(number.stateSlot);
         auto stateContext = context;
-        stateContext.header.formulaInputs.storedStateValue = store.stateValue(
+        stateContext.scope.formulaInputs.storedStateValue = state.stateValue(
             bound.binding,
             *number.stateSlot,
             stateScopeId(*number.stateSlot, context));
@@ -1533,43 +1544,43 @@ struct CommandEmitter
         switch (applicationBaseBindingKind(base))
         {
         case ApplicationBaseBindingKind::SourceStar:
-            return { context.header.owner->star, 1 };
+            return { context.scope.owner->star, 1 };
         case ApplicationBaseBindingKind::SourceAttack:
-            return { context.header.owner->attack, 1 };
+            return { context.scope.owner->attack, 1 };
         case ApplicationBaseBindingKind::SourceMaxHp:
-            return { context.header.owner->maxHp, 1 };
+            return { context.scope.owner->maxHp, 1 };
         case ApplicationBaseBindingKind::SourceMissingHpRatio:
-            assert(context.header.owner->maxHp > 0);
+            assert(context.scope.owner->maxHp > 0);
             return {
                 std::clamp(
-                    context.header.owner->maxHp - context.header.owner->hp,
+                    context.scope.owner->maxHp - context.scope.owner->hp,
                     0,
-                    context.header.owner->maxHp),
-                context.header.owner->maxHp,
+                    context.scope.owner->maxHp),
+                context.scope.owner->maxHp,
             };
         case ApplicationBaseBindingKind::SourceCurrentMpRatio:
-            assert(context.header.owner->maxMp > 0);
+            assert(context.scope.owner->maxMp > 0);
             return {
-                std::clamp(context.header.owner->mp, 0, context.header.owner->maxMp),
-                context.header.owner->maxMp,
+                std::clamp(context.scope.owner->mp, 0, context.scope.owner->maxMp),
+                context.scope.owner->maxMp,
             };
         case ApplicationBaseBindingKind::SourceStatusQuantity:
         {
             assert(number.status);
             return {
-                context.header.owner->stackCount(
+                context.scope.owner->stackCount(
                     *number.status,
                     resolveStatusContributionFilter(
                         number.statusSource,
                         bound.binding,
-                        context.header.statusContribution)),
+                        context.scope.statusContribution)),
                 1,
             };
         }
         case ApplicationBaseBindingKind::StoredStateValue:
             assert(number.stateSlot);
             return {
-                store.stateValue(
+                state.stateValue(
                     bound.binding,
                     *number.stateSlot,
                     stateScopeId(*number.stateSlot, context)),
@@ -1694,119 +1705,104 @@ struct CommandEmitter
             .targetUnitId = target.id,
             .eventSourceUnitId = sourceUnitId(context).value_or(-1),
         };
-        if (context.header.statusContribution)
+        if (context.scope.statusContribution)
         {
-            metadata.ruleId = context.header.statusContribution->producerRuleId;
-            metadata.ruleOrder = context.header.statusContribution->producerRuleOrder;
+            metadata.ruleId = context.scope.statusContribution->producerRuleId;
+            metadata.ruleOrder = context.scope.statusContribution->producerRuleOrder;
             metadata.executionLane = EffectExecutionLane::StatusBehavior;
             metadata.producerActionOrder =
-                context.header.statusContribution->producerActionOrder;
+                context.scope.statusContribution->producerActionOrder;
             metadata.behaviorRuleOrder =
-                context.header.statusContribution->behaviorRuleOrder;
-            metadata.statusContribution = context.header.statusContribution;
+                context.scope.statusContribution->behaviorRuleOrder;
+            metadata.statusContribution = context.scope.statusContribution;
         }
 
+        const auto prepareApplication = [&](const ApplyStatusAction& application)
+        {
+            auto behavior = bindStatusBehavior(application.behavior, target);
+            const int duration = application.duration
+                ? evaluate(*application.duration, target) : application.durationFrames;
+            return prepareStatusApplication(application, duration, std::move(behavior));
+        };
+        const auto prepareDepletion = [&](const std::optional<ApplyStatusAction>& application)
+            -> std::optional<ApplyStatusEffectCommand>
+        {
+            if (!application) return std::nullopt;
+            return prepareApplication(*application);
+        };
         std::visit(Overloaded{
             [&](const ModifyAttributeAction& action)
             {
-                commands.push_back({ metadata, ModifyAttributeEffectCommand{
-                    action,
-                    evaluate(action.amount, target),
-                } });
+                append(metadata, prepareModifyAttribute(action,
+                    evaluate(action.amount, target)));
             },
             [&](const ModifyDamageAction& action)
             {
-                commands.push_back({ metadata, ModifyDamageEffectCommand{
-                    action,
-                    evaluate(action.amount, target),
-                } });
+                append(metadata, prepareModifyDamage(action,
+                    evaluate(action.amount, target)));
             },
             [&](const ChangeResourceAction& action)
             {
                 auto destinations = action.transferDestination
                     ? BattleEffectSystem::selectTargets(*action.transferDestination, context, random)
                     : std::vector<int>{};
-                commands.push_back({ metadata, ChangeResourceEffectCommand{
-                    action,
-                    evaluate(action.amount, target),
-                    std::move(destinations),
-                } });
+                ResourceEffectAmount amount = context.event == EffectEvent::BattleInitialized
+                    ? ResourceEffectAmount{ InitializationResourceAmount{ action.amount } }
+                    : ResourceEffectAmount{ evaluate(action.amount, target) };
+                append(metadata, prepareChangeResource(action,
+                    std::move(amount), std::move(destinations)));
             },
             [&](const ModifyHealTransactionAction& action)
             {
-                commands.push_back({ metadata, ModifyHealTransactionEffectCommand{ action } });
+                append(metadata, ModifyHealTransactionEffectCommand{ action });
             },
             [&](const ApplyStatusAction& action)
             {
-                auto boundAction = action;
-                boundAction.behavior = bindStatusBehavior(action.behavior, target);
-                commands.push_back({ metadata, ApplyStatusEffectCommand{
-                    std::move(boundAction),
-                    action.duration
-                        ? std::optional<int>{ evaluate(*action.duration, target) }
-                        : std::nullopt,
-                } });
+                append(metadata, prepareApplication(action));
             },
             [&](const ConsumeStatusAction& action)
             {
-                std::optional<ApplyStatusEffectCommand> whenDepleted;
-                if (action.whenDepleted)
-                {
-                    auto boundAction = *action.whenDepleted;
-                    boundAction.behavior = bindStatusBehavior(
-                        action.whenDepleted->behavior,
-                        target);
-                    whenDepleted = ApplyStatusEffectCommand{
-                        std::move(boundAction),
-                        action.whenDepleted->duration
-                            ? std::optional<int>{ evaluate(*action.whenDepleted->duration, target) }
-                            : std::nullopt,
-                    };
-                }
-                commands.push_back({ metadata, ConsumeStatusEffectCommand{
-                    action,
-                    std::move(whenDepleted),
-                } });
+                append(metadata, ConsumeStatusEffectCommand{
+                    .request = {
+                        .kind = action.status,
+                        .stacks = action.quantity,
+                        .filter = resolveStatusContributionFilter(
+                            action.source, metadata.binding, metadata.statusContribution),
+                    },
+                    .whenDepleted = prepareDepletion(action.whenDepleted),
+                });
             },
             [&](const ConsumeThisStatusAction& action)
             {
-                assert(context.header.statusContribution);
-                std::optional<ApplyStatusEffectCommand> whenDepleted;
-                if (action.whenDepleted)
-                {
-                    auto boundAction = *action.whenDepleted;
-                    boundAction.behavior = bindStatusBehavior(
-                        action.whenDepleted->behavior,
-                        target);
-                    whenDepleted = ApplyStatusEffectCommand{
-                        std::move(boundAction),
-                        action.whenDepleted->duration
-                            ? std::optional<int>{ evaluate(*action.whenDepleted->duration, target) }
-                            : std::nullopt,
-                    };
-                }
-                commands.push_back({ metadata, ConsumeThisStatusEffectCommand{
-                    action,
-                    std::move(whenDepleted),
-                } });
+                assert(context.scope.statusContribution);
+                append(metadata, ConsumeThisStatusEffectCommand{
+                    .request = {
+                        .kind = context.scope.statusContribution->kind,
+                        .stacks = action.quantity,
+                        .filter = resolveStatusContributionFilter(
+                            StatusSourceMatch::CurrentContribution,
+                            metadata.binding, metadata.statusContribution),
+                    },
+                    .whenDepleted = prepareDepletion(action.whenDepleted),
+                });
             },
             [&](const RemoveStatusAction& action)
             {
-                commands.push_back({ metadata, RemoveStatusEffectCommand{ action } });
+                append(metadata, prepareStatusRemoval(action, metadata));
             },
             [&](const SuppressCurrentCastContactsAction& action)
             {
-                assert(context.header.statusContribution);
-                commands.push_back({ metadata, SuppressCurrentCastContactsEffectCommand{
+                assert(context.scope.statusContribution);
+                append(metadata, SuppressCurrentCastContactsEffectCommand{
                     .originalTargetShield = action.originalTargetShield
                         ? evaluate(*action.originalTargetShield, target)
                         : 0,
-                } });
+                });
             },
             [&](const MakeIncomingAttackMissAction&)
             {
-                assert(context.header.statusContribution);
-                commands.push_back({ metadata, MakeIncomingAttackMissEffectCommand{} });
+                assert(context.scope.statusContribution);
+                append(metadata, MakeIncomingAttackMissEffectCommand{});
             },
             [&](const BlockPositiveDamageAction&)
             {
@@ -1814,13 +1810,11 @@ struct CommandEmitter
             },
             [&](const DealDamageAction& action)
             {
-                commands.push_back({ metadata, DealDamageEffectCommand{
-                    action,
+                append(metadata, prepareDealDamage(action,
                     evaluate(action.amount, target),
                     action.transactionCount
                         ? evaluate(*action.transactionCount, target)
-                        : 1,
-                } });
+                        : 1));
             },
             [&](const ModifyAttackAction& action)
             {
@@ -1843,36 +1837,55 @@ struct CommandEmitter
                         .position = selected->position,
                     };
                 }
-                commands.push_back({ metadata, ModifyAttackEffectCommand{
-                    action,
+                append(metadata, prepareModifyAttack(action,
                     action.damageOverride
                         ? std::optional<int>{ evaluate(*action.damageOverride, target) }
                         : std::nullopt,
-                    source,
-                } });
+                    source));
             },
             [&](const ForceMoveAction& action)
             {
-                commands.push_back({ metadata, ForceMoveEffectCommand{ action } });
+                append(metadata, ForceMoveEffectCommand{ action });
             },
             [&](const CreateAreaAction& action)
             {
-                std::vector<int> amounts;
-                amounts.reserve(action.modifiers.size());
-                for (const auto& modifier : action.modifiers)
+                BattleAreaCreateRequest request{
+                    .source = metadata.binding,
+                    .ruleId = metadata.ruleId,
+                    .targetTeamDomain = areaTeamDomain(context),
+                    .geometry = { action.shape, action.radiusTiles, action.squareSideTiles },
+                    .currentFrame = context.header.executionFrame.value_or(context.header.frame),
+                    .durationFrames = action.durationFrames,
+                    .sourceDeath = action.sourceDeath,
+                    .merge = action.merge,
+                    .modifiers = action.modifiers,
+                };
+                if (action.anchor == AreaAnchor::FollowSourceUnit)
+                    request.anchor = { BattleAreaAnchorKind::FollowSourceUnit, {}, metadata.binding.ownerUnitId };
+                else
                 {
-                    amounts.push_back(evaluate(modifier.amount, target));
+                    const auto* hit = std::get_if<HitEventData>(&context.payload);
+                    assert(hit);
+                    request.anchor = { BattleAreaAnchorKind::FixedWorldPosition, hit->contactPosition, -1 };
                 }
-                commands.push_back({ metadata, CreateAreaEffectCommand{ action, std::move(amounts) } });
+                for (auto& modifier : request.modifiers)
+                {
+                    const int amount = evaluate(modifier.amount, target);
+                    if (modifier.kind == AreaModifierKind::Attribute
+                        || modifier.kind == AreaModifierKind::PeriodicDamage)
+                    {
+                        modifier.amount = {};
+                        modifier.amount.flat = amount;
+                    }
+                }
+                append(metadata, CreateAreaEffectCommand{ std::move(request) });
             },
             [&](const ModifyCastAction& action)
             {
-                commands.push_back({ metadata, ModifyCastEffectCommand{
-                    action,
+                append(metadata, prepareModifyCast(action,
                     action.mpCost
                         ? std::optional<int>{ evaluate(*action.mpCost, target) }
-                        : std::nullopt,
-                } });
+                        : std::nullopt));
             },
             [&](const StateMachineAction& action)
             {
@@ -1884,162 +1897,123 @@ struct CommandEmitter
                     return;
                 }
 
-                StateMachineEffectCommand command;
-                std::optional<ChangeResourceEffectCommand> routedResourceCommand;
-                command.action = action;
                 std::visit(Overloaded{
                     [&](const ChangeStateValueAction& value)
                     {
                         const auto scope = stateScopeId(value.slot, context);
-                        command.stateValueBefore = store.stateValue(bound.binding, value.slot, scope);
-                        command.stateValueAfter = saturatingAdd(
-                            command.stateValueBefore,
-                            value.delta);
-                        if (value.minimum)
-                        {
-                            command.stateValueAfter = std::max(
-                                command.stateValueAfter,
-                                *value.minimum);
-                        }
-                        if (value.maximum)
-                        {
-                            command.stateValueAfter = std::min(
-                                command.stateValueAfter,
-                                *value.maximum);
-                        }
-                        command.outputValue = command.stateValueAfter;
-                        store.setStateValue(
-                            bound.binding,
-                            value.slot,
-                            command.stateValueAfter,
-                            scope);
+                        auto after = saturatingAdd(state.stateValue(bound.binding, value.slot, scope), value.delta);
+                        if (value.minimum) after = std::max(after, *value.minimum);
+                        if (value.maximum) after = std::min(after, *value.maximum);
+                        state.setStateValue(bound.binding, value.slot, after, scope);
+                        append(metadata, StateMachineEffectCommand{ EvaluatedStateEffectCommand{} });
                     },
                     [&](const TransferStateValueAction& value)
                     {
                         const auto sourceScope = stateScopeId(value.sourceSlot, context);
-                        const auto destinationScope = stateScopeId(
-                            value.destinationSlot,
-                            context);
-                        command.stateValueBefore = store.stateValue(
-                            bound.binding,
-                            value.sourceSlot,
-                            sourceScope);
-                        command.stateValueAfter = 0;
-                        command.outputValue = command.stateValueBefore;
-                        store.setStateValue(
-                            bound.binding,
-                            value.sourceSlot,
-                            0,
-                            sourceScope);
-                        store.setStateValue(
-                            bound.binding,
-                            value.destinationSlot,
-                            command.outputValue,
-                            destinationScope);
+                        const auto destinationScope = stateScopeId(value.destinationSlot, context);
+                        const auto amount = state.stateValue(bound.binding, value.sourceSlot, sourceScope);
+                        state.setStateValue(bound.binding, value.sourceSlot, 0, sourceScope);
+                        state.setStateValue(bound.binding, value.destinationSlot, amount, destinationScope);
+                        append(metadata, StateMachineEffectCommand{ EvaluatedStateEffectCommand{} });
                     },
                     [&](const RecordMaximumDamageAction& value)
                     {
                         const auto scope = stateScopeId(value.slot, context);
-                        command.stateValueBefore = store.stateValue(bound.binding, value.slot, scope);
                         const auto observed = channelMatches(value.channel, currentDamageChannel(context))
-                            ? finalHpDamage(context).value_or(0)
-                            : 0;
-                        command.stateValueAfter = std::max(command.stateValueBefore,
-                                                           static_cast<std::int64_t>(observed));
-                        command.outputValue = observed;
-                        store.setStateValue(bound.binding, value.slot, command.stateValueAfter, scope);
+                            ? finalHpDamage(context).value_or(0) : 0;
+                        const auto after = std::max(state.stateValue(bound.binding, value.slot, scope),
+                            static_cast<std::int64_t>(observed));
+                        state.setStateValue(bound.binding, value.slot, after, scope);
+                        append(metadata, StateMachineEffectCommand{ EvaluatedStateEffectCommand{} });
                     },
                     [&](const ConsumeRecordedMaximumAction& value)
                     {
                         const auto scope = stateScopeId(value.slot, context);
-                        command.stateValueBefore = store.stateValue(bound.binding, value.slot, scope);
-                        command.outputValue = percentOf(command.stateValueBefore, value.percent);
-                        command.stateValueAfter = value.clearAfterConsume ? 0 : command.stateValueBefore;
-                        store.setStateValue(bound.binding, value.slot, command.stateValueAfter, scope);
-                        if (value.destination == StateValueDestination::ShieldAmount
-                            && command.outputValue > 0)
+                        const auto before = state.stateValue(bound.binding, value.slot, scope);
+                        const auto amount = percentOf(before, value.percent);
+                        state.setStateValue(bound.binding, value.slot, value.clearAfterConsume ? 0 : before, scope);
+                        if (amount <= 0)
                         {
-                            assert(command.outputValue <= std::numeric_limits<int>::max());
-                            const int amount = static_cast<int>(command.outputValue);
-                            ChangeResourceAction grantShield;
-                            grantShield.resource = BattleResource::Shield;
-                            grantShield.kind = ResourceChangeKind::Grant;
-                            grantShield.amount.flat = amount;
-                            routedResourceCommand = ChangeResourceEffectCommand{
-                                .action = std::move(grantShield),
-                                .amount = amount,
-                            };
+                            append(metadata, StateMachineEffectCommand{ EvaluatedStateEffectCommand{} });
+                            return;
+                        }
+                        assert(amount <= std::numeric_limits<int>::max());
+                        if (value.destination == StateValueDestination::ShieldAmount)
+                        {
+                            ChangeResourceEffectCommand grant;
+                            grant.resource = BattleResource::Shield;
+                            grant.kind = ResourceChangeKind::Grant;
+                            grant.amount = static_cast<int>(amount);
+                            append(metadata, std::move(grant));
+                        }
+                        else
+                        {
+                            append(metadata, StateMachineEffectCommand{ StateDamageEffectCommand{
+                                static_cast<int>(amount), BattleDamageKind::Pure, { target.id } } });
                         }
                     },
                     [&](const StartDamageAbsorptionAction& value)
                     {
                         const auto scope = stateScopeId(value.slot, context);
-                        command.stateValueBefore = store.stateValue(bound.binding, value.slot, scope);
-                        command.stateValueAfter = 0;
-                        store.setStateValue(bound.binding, value.slot, 0, scope);
+                        state.setStateValue(bound.binding, value.slot, 0, scope);
+                        append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const SettleDamageAbsorptionAction& value)
                     {
                         const auto scope = stateScopeId(value.slot, context);
-                        command.stateValueBefore = store.stateValue(bound.binding, value.slot, scope);
-                        command.outputValue = percentOf(command.stateValueBefore, value.returnedPct);
-                        command.stateValueAfter = value.clearAfterSettle ? 0 : command.stateValueBefore;
-                        store.setStateValue(bound.binding, value.slot, command.stateValueAfter, scope);
-                        command.selectedSourceUnitIds = BattleEffectSystem::selectTargets(value.target, context, random);
+                        const auto before = state.stateValue(bound.binding, value.slot, scope);
+                        const auto amount = percentOf(before, value.returnedPct);
+                        state.setStateValue(bound.binding, value.slot, value.clearAfterSettle ? 0 : before, scope);
+                        auto targets = BattleEffectSystem::selectTargets(value.target, context, random);
+                        if (amount <= 0)
+                        {
+                            append(metadata, StateMachineEffectCommand{ EvaluatedStateEffectCommand{} });
+                            return;
+                        }
+                        assert(amount <= std::numeric_limits<int>::max());
+                        append(metadata, StateMachineEffectCommand{ StateDamageEffectCommand{
+                            static_cast<int>(amount), value.damageKind, std::move(targets) } });
                     },
                     [&](const BorrowEffectRulesAction& value)
                     {
-                        command.selectedSourceUnitIds = BattleEffectSystem::selectTargets(value.sourceUnits, context, random);
+                        auto sources = BattleEffectSystem::selectTargets(value.sourceUnits, context, random);
                         const auto desired = std::max(0, evaluate(value.sourceCount, target));
-                        if (static_cast<int>(command.selectedSourceUnitIds.size()) > desired)
-                        {
-                            command.selectedSourceUnitIds.resize(static_cast<std::size_t>(desired));
-                        }
-                        command.outputValue = static_cast<std::int64_t>(command.selectedSourceUnitIds.size());
+                        if (static_cast<int>(sources.size()) > desired)
+                            sources.resize(static_cast<std::size_t>(desired));
+                        append(metadata, StateMachineEffectCommand{ BorrowEffectRulesCommand{
+                            std::move(sources), value.filter, value.propagation } });
                     },
                     [&](const CopyAttackDefinitionAction& value)
                     {
-                        command.selectedSourceUnitIds = BattleEffectSystem::selectTargets(
-                            value.sourceUnits,
-                            context,
-                            random,
+                        auto sources = BattleEffectSystem::selectTargets(value.sourceUnits, context, random,
                             [&](const EffectUnitSnapshot& candidate)
                             {
-                                return copiedMagicMatchesFilter(
-                                    store,
-                                    candidate,
-                                    value.filter);
+                                if (context.scope.statusContribution)
+                                    return copiedMagicMatchesFilter(std::array{ bound }, candidate, value.filter);
+                                return copiedMagicMatchesFilter(rules, candidate, value.filter);
                             });
-                        if (static_cast<int>(command.selectedSourceUnitIds.size()) > value.copyCount)
-                        {
-                            command.selectedSourceUnitIds.resize(static_cast<std::size_t>(value.copyCount));
-                        }
-                        command.outputValue = static_cast<std::int64_t>(command.selectedSourceUnitIds.size());
+                        if (static_cast<int>(sources.size()) > value.copyCount)
+                            sources.resize(static_cast<std::size_t>(value.copyCount));
+                        append(metadata, StateMachineEffectCommand{ CopyAttackDefinitionCommand{
+                            std::move(sources), value.propagation } });
                     },
-                    [&](const SettleRemainingStatusDamageAction&)
+                    [&](const SettleRemainingStatusDamageAction& value)
                     {
+                        append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const GenerateClonesAction& value)
                     {
-                        command.outputValue = value.count;
+                        append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const PreventDeathAction& value)
                     {
-                        command.outputValue = value.invincibilityFrames;
+                        append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const ConfigureRescueRepositionAction& value)
                     {
-                        command.outputValue = value.activations;
+                        append(metadata, StateMachineEffectCommand{ value });
                     },
                 }, action);
-                if (routedResourceCommand)
-                {
-                    commands.push_back({ metadata, std::move(*routedResourceCommand) });
-                }
-                else
-                {
-                    commands.push_back({ metadata, std::move(command) });
-                }
             },
             [&](const std::shared_ptr<ConditionalEffectAction>& conditional)
             {
@@ -2534,8 +2508,7 @@ std::int64_t BattleEffectRuleStore::stateValue(const EffectSourceBinding& bindin
                                                EffectStateSlot slot,
                                                std::uint64_t scopeId) const
 {
-    const auto it = stateValues_.find(stateKey(binding, slot, scopeId));
-    return it != stateValues_.end() ? it->second : 0;
+    return effectStateValue(stateValues_, binding, slot, scopeId);
 }
 
 void BattleEffectRuleStore::setStateValue(const EffectSourceBinding& binding,
@@ -2543,7 +2516,7 @@ void BattleEffectRuleStore::setStateValue(const EffectSourceBinding& binding,
                                           std::int64_t value,
                                           std::uint64_t scopeId)
 {
-    stateValues_[stateKey(binding, slot, scopeId)] = value;
+    setEffectStateValue(stateValues_, binding, slot, value, scopeId);
 }
 
 bool BattleEffectSystem::eventPayloadMatches(const EffectEventContext& context)
@@ -2604,21 +2577,21 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
         switch (effectNumberEvaluationKind(base))
         {
         case EffectNumberEvaluationKind::Constant: return 0;
-        case EffectNumberEvaluationKind::SourceStar: return context.header.owner->star;
-        case EffectNumberEvaluationKind::SourceAttack: return context.header.owner->attack;
-        case EffectNumberEvaluationKind::SourceMaxHp: return context.header.owner->maxHp;
+        case EffectNumberEvaluationKind::SourceStar: return context.scope.owner->star;
+        case EffectNumberEvaluationKind::SourceAttack: return context.scope.owner->attack;
+        case EffectNumberEvaluationKind::SourceMaxHp: return context.scope.owner->maxHp;
         case EffectNumberEvaluationKind::SourceMissingHpRatio:
-            assert(context.header.owner->maxHp > 0);
+            assert(context.scope.owner->maxHp > 0);
             return std::clamp(
-                context.header.owner->maxHp - context.header.owner->hp,
+                context.scope.owner->maxHp - context.scope.owner->hp,
                 0,
-                context.header.owner->maxHp);
+                context.scope.owner->maxHp);
         case EffectNumberEvaluationKind::SourceCurrentMpRatio:
-            assert(context.header.owner->maxMp > 0);
+            assert(context.scope.owner->maxMp > 0);
             return std::clamp(
-                context.header.owner->mp,
+                context.scope.owner->mp,
                 0,
-                context.header.owner->maxMp);
+                context.scope.owner->maxMp);
         case EffectNumberEvaluationKind::TargetMaxHp: return target.maxHp;
         case EffectNumberEvaluationKind::TargetCurrentHp: return target.hp;
         case EffectNumberEvaluationKind::TargetCurrentShield: return target.shield;
@@ -2632,21 +2605,21 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
         case EffectNumberEvaluationKind::SourceStatusQuantity:
         {
             assert(number.status);
-            return context.header.owner->stackCount(
+            return context.scope.owner->stackCount(
                 *number.status,
                 resolveStatusContributionFilter(
                     number.statusSource,
-                    context.header.binding,
-                    context.header.statusContribution));
+                    context.scope.binding,
+                    context.scope.statusContribution));
         }
         case EffectNumberEvaluationKind::CurrentContributionQuantity:
-            assert(context.header.statusContribution);
-            assert(context.header.statusContribution->quantity > 0);
-            return context.header.statusContribution->quantity;
+            assert(context.scope.statusContribution);
+            assert(context.scope.statusContribution->quantity > 0);
+            return context.scope.statusContribution->quantity;
         case EffectNumberEvaluationKind::StoredStateValue:
-            if (context.header.formulaInputs.storedStateValue)
+            if (context.scope.formulaInputs.storedStateValue)
             {
-                return *context.header.formulaInputs.storedStateValue;
+                return *context.scope.formulaInputs.storedStateValue;
             }
             throw std::logic_error("狀態槽公式缺少 typed input");
         case EffectNumberEvaluationKind::ApplicationTargetMaxHp:
@@ -2664,13 +2637,13 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
         const auto evaluation = effectNumberEvaluationKind(base);
         if (evaluation == EffectNumberEvaluationKind::SourceMissingHpRatio)
         {
-            assert(context.header.owner->maxHp > 0);
-            return context.header.owner->maxHp;
+            assert(context.scope.owner->maxHp > 0);
+            return context.scope.owner->maxHp;
         }
         if (evaluation == EffectNumberEvaluationKind::SourceCurrentMpRatio)
         {
-            assert(context.header.owner->maxMp > 0);
-            return context.header.owner->maxMp;
+            assert(context.scope.owner->maxMp > 0);
+            return context.scope.owner->maxMp;
         }
         if (evaluation == EffectNumberEvaluationKind::BoundRatio)
         {
@@ -2692,8 +2665,8 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
     const auto percentageDenominator = saturatingMultiply(denominator, 100);
     if (number.statusScale == StatusNumberScale::PerContributionLayer)
     {
-        assert(context.header.statusContribution);
-        assert(context.header.statusContribution->quantity > 0);
+        assert(context.scope.statusContribution);
+        assert(context.scope.statusContribution->quantity > 0);
         const auto percentageNumerator = saturatingMultiply(value, number.percent);
         const auto flatNumerator = saturatingMultiply(
             number.flat,
@@ -2701,7 +2674,7 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
         value = roundEffectRatio(
             saturatingMultiply(
                 saturatingAdd(percentageNumerator, flatNumerator),
-                context.header.statusContribution->quantity),
+                context.scope.statusContribution->quantity),
             percentageDenominator,
             number.rounding);
     }
@@ -2734,7 +2707,7 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
     SelectorOrdering ordering = SelectorOrdering::UnitId;
     const Pointf center = selector.kind == EffectSelectorKind::NearestEnemies ||
                                   selector.kind == EffectSelectorKind::FarthestEnemy
-        ? context.header.owner->position
+        ? context.scope.owner->position
         : selectorCenter(context);
     const EffectUnitSnapshot* requiredTarget = selector.requiredTarget
         ? requiredTargetSnapshot(*selector.requiredTarget, context)
@@ -2762,12 +2735,12 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
     switch (selector.kind)
     {
     case EffectSelectorKind::Self:
-        addDirect(context.header.owner);
+        addDirect(context.scope.owner);
         break;
     case EffectSelectorKind::StatusHolder:
-        assert(context.header.statusContribution);
+        assert(context.scope.statusContribution);
         addDirect(context.header.battle.findUnit(
-            context.header.statusContribution->holderUnitId));
+            context.scope.statusContribution->holderUnitId));
         break;
     case EffectSelectorKind::SourceUnit:
         addDirect(sourceSnapshot(context));
@@ -3028,8 +3001,8 @@ bool poisonMergeBehaviorsEquivalent(
 
 bool sumsSameEventPoisonDamage(const ApplyStatusEffectCommand& command)
 {
-    return command.action.status == BattleStatusKind::Poison
-        && command.action.poisonSameEventMerge
+    return command.status == BattleStatusKind::Poison
+        && command.poisonSameEventMerge
             == PoisonSameEventMerge::SumDamagePercent;
 }
 
@@ -3051,8 +3024,8 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
             continue;
         }
 
-        assert(status->action.status == BattleStatusKind::Poison);
-        assert(status->action.reapplication == StatusReapplicationPolicy::KeepHigherDamage);
+        assert(status->status == BattleStatusKind::Poison);
+        assert(status->stack == EffectStackPolicy::KeepStrongest);
         const auto sameAggregateTarget = [&](EffectCommand& candidate)
         {
             const auto* existing = std::get_if<ApplyStatusEffectCommand>(&candidate.value);
@@ -3060,11 +3033,11 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
                 && sumsSameEventPoisonDamage(*existing)
                 && candidate.metadata.targetUnitId == command.metadata.targetUnitId
                 && candidate.metadata.binding.ownerUnitId == command.metadata.binding.ownerUnitId
-                && existing->action.behavior
-                && status->action.behavior
+                && existing->behavior
+                && status->behavior
                 && poisonMergeBehaviorsEquivalent(
-                    *existing->action.behavior,
-                    *status->action.behavior);
+                    *existing->behavior,
+                    *status->behavior);
         };
         const auto existingCommand = std::find_if(
             aggregated.begin(), aggregated.end(), sameAggregateTarget);
@@ -3075,25 +3048,19 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
         }
 
         auto& existing = std::get<ApplyStatusEffectCommand>(existingCommand->value);
-        assert(existing.action.behavior);
-        assert(status->action.behavior);
+        assert(existing.behavior);
+        assert(status->behavior);
         auto combinedBehavior = std::make_shared<StatusBehaviorDefinition>(
-            *existing.action.behavior);
+            *existing.behavior);
         auto& existingDamage = canonicalPoisonDamageNumber(*combinedBehavior);
-        auto addedBehavior = *status->action.behavior;
+        auto addedBehavior = *status->behavior;
         const auto& addedDamage = canonicalPoisonDamageNumber(addedBehavior);
         existingDamage.percent = clampToInt(saturatingAdd(
             existingDamage.percent,
             addedDamage.percent));
-        existing.action.behavior = std::move(combinedBehavior);
-        const int existingDuration = existing.evaluatedDurationFrames.value_or(
-            existing.action.durationFrames);
-        const int addedDuration = status->evaluatedDurationFrames.value_or(
-            status->action.durationFrames);
-        existing.evaluatedDurationFrames = std::max(existingDuration, addedDuration);
-        auto& existingQuantity = std::get<SetStatusTriggerCharges>(existing.action.quantity);
-        const auto& addedQuantity = std::get<SetStatusTriggerCharges>(status->action.quantity);
-        existingQuantity.count = std::max(existingQuantity.count, addedQuantity.count);
+        existing.behavior = std::move(combinedBehavior);
+        existing.durationFrames = std::max(existing.durationFrames, status->durationFrames);
+        existing.stacks = std::max(existing.stacks, status->stacks);
     }
 
     for (auto& command : aggregated)
@@ -3101,13 +3068,234 @@ void aggregateEventPoisonDamagePercent(std::vector<EffectCommand>& commands)
         if (auto* status = std::get_if<ApplyStatusEffectCommand>(&command.value);
             status && sumsSameEventPoisonDamage(*status))
         {
-            status->action.poisonSameEventMerge = PoisonSameEventMerge::None;
+            status->poisonSameEventMerge = PoisonSameEventMerge::None;
         }
     }
     commands = std::move(aggregated);
 }
 
 }  // namespace
+
+ModifyAttributeEffectCommand prepareModifyAttribute(
+    const ModifyAttributeAction& action, int amount)
+{
+    return {
+        .attribute = action.attribute,
+        .amount = amount,
+        .operation = action.operation,
+        .durationFrames = action.durationFrames,
+        .stack = action.stack,
+        .stackLimit = action.stackLimit,
+        .stackScope = action.stackScope,
+    };
+}
+
+ModifyDamageEffectCommand prepareModifyDamage(
+    const ModifyDamageAction& action, int amount)
+{
+    return {
+        .perspective = action.perspective,
+        .stage = action.stage,
+        .channel = action.channel,
+        .amount = amount,
+        .operation = action.operation,
+        .durationFrames = action.durationFrames,
+        .stack = action.stack,
+        .stackLimit = action.stackLimit,
+        .stackScope = action.stackScope,
+    };
+}
+
+ChangeResourceEffectCommand prepareChangeResource(
+    const ChangeResourceAction& action, ResourceEffectAmount amount,
+    std::vector<int> destinations)
+{
+    return {
+        .resource = action.resource,
+        .amount = std::move(amount),
+        .kind = action.kind,
+        .healKind = action.healKind,
+        .healSourcePolicy = action.healSourcePolicy,
+        .healRequiresFullMp = action.healRequiresFullMp,
+        .transferDestinationUnitIds = std::move(destinations),
+    };
+}
+
+ModifyAttackEffectCommand prepareModifyAttack(
+    const ModifyAttackAction& action, std::optional<int> damageOverride,
+    std::optional<ResolvedEffectAttackSource> source)
+{
+    return {
+        .pattern = action.pattern,
+        .strengthPct = action.strengthPct,
+        .through = action.through,
+        .tracking = action.tracking,
+        .mainProjectile = action.mainProjectile,
+        .sameTargetHitLimit = action.sameTargetHitLimit,
+        .projectileClearRadiusPct = action.projectileClearRadiusPct,
+        .targets = action.targets,
+        .propagation = action.propagation,
+        .addToBaseAttack = action.addToBaseAttack,
+        .source = source,
+        .damageOverride = damageOverride,
+        .damageKind = action.damageKind,
+        .runtimeBehavior = action.runtimeBehavior,
+    };
+}
+
+ModifyCastEffectCommand prepareModifyCast(
+    const ModifyCastAction& action, std::optional<int> mpCost)
+{
+    return {
+        .mpCost = mpCost,
+        .rangeMode = action.rangeMode,
+        .projectileSpeedPct = action.projectileSpeedPct,
+        .minimumSelectDistance = action.minimumSelectDistance,
+        .additionalProjectiles = action.additionalProjectiles,
+        .mobility = action.mobility,
+        .autoUltimate = action.autoUltimate,
+        .replacementPattern = action.replacementPattern,
+        .freeAdditionalCast = action.freeAdditionalCast,
+        .propagation = action.propagation,
+    };
+}
+
+DealDamageEffectCommand prepareDealDamage(
+    const DealDamageAction& action, int amount, int transactionCount)
+{
+    EffectDamageDelivery delivery{
+        .area = action.area,
+        .perCast = action.perCast,
+        .areaProjectiles = action.areaProjectiles,
+    };
+    if (action.areaProjectiles && action.amount.base == EffectNumberBase::SourceMaxHp)
+    {
+        delivery.projectileSourceMaxHpPercent = action.amount.percent;
+        if (!action.amount.multiplierBase && action.amount.flat == 0 && action.amount.percent > 0)
+            delivery.displayedSourceMaxHpPercent = action.amount.percent;
+    }
+    return {
+        .amount = amount,
+        .transactionCount = transactionCount,
+        .kind = action.kind,
+        .appliesDamageModifiers = action.appliesDamageModifiers,
+        .triggersHurtInvincibility = action.triggersHurtInvincibility,
+        .canExecute = action.kind == BattleDamageKind::Execute,
+        .delivery = std::move(delivery),
+    };
+}
+
+ApplyStatusEffectCommand prepareStatusApplication(
+    const ApplyStatusAction& action,
+    int durationFrames,
+    std::shared_ptr<const StatusBehaviorDefinition> behavior)
+{
+    ApplyStatusEffectCommand command;
+    command.status = action.status;
+    command.durationFrames = durationFrames;
+    command.behavior = std::move(behavior);
+    command.poisonSameEventMerge = action.poisonSameEventMerge;
+    const auto quantity = lowerStatusQuantity(action);
+    command.stacks = quantity.stacks;
+    command.stack = lowerStatusReapplication(action);
+    command.stackLimit = quantity.stackLimit;
+    const auto storage = statusCatalogEntry(action.status).storage;
+    if (storage == StatusStorageModel::SharedLayerDebuff)
+    {
+        command.targetTotalLimit = command.stackLimit;
+        command.stackLimit.reset();
+    }
+    else if (storage != StatusStorageModel::ProducerOwnedContributions)
+    {
+        command.stackLimit.reset();
+    }
+    if (action.status == BattleStatusKind::Poison)
+    {
+        // Poison is governed by its explicit strongest/same-event group
+        // reducer. Trigger charges describe the winning group clock rather
+        // than a producer-family capacity and therefore do not participate in
+        // family-limit identity.
+        command.stackLimit.reset();
+    }
+    if (std::holds_alternative<NoStatusQuantity>(action.quantity)
+        && command.behavior
+        && statusCatalogEntry(action.status).storage
+            == StatusStorageModel::ProducerOwnedContributions)
+    {
+        // Duration-only authored behaviors still need a finite holder-local
+        // producer-family allocation. A runtime alias or a newly bound value
+        // can refresh the existing immutable generation's duration, but cannot
+        // accumulate another active copy or replace its bound behavior values.
+        command.stackLimit = 1;
+    }
+    return command;
+}
+
+RemoveStatusEffectCommand prepareStatusRemoval(
+    const RemoveStatusAction& action, const EffectCommandMetadata& metadata)
+{
+    return { {
+        .statuses = action.statuses,
+        .filter = resolveStatusContributionFilter(
+            action.source, metadata.binding, metadata.statusContribution),
+        .negativeOnly = action.negativeOnly,
+        .controlOnly = action.controlOnly,
+        .clearCurrentActionStagger = action.clearCurrentActionStagger,
+        .count = action.count,
+        .order = action.order,
+    } };
+}
+
+const BattleCastProvenance* effectEventCastProvenance(const EffectEventPayload& payload)
+{
+    return std::visit(Overloaded{
+        [](const CastPlanEventData& data) { return &data.provenance; },
+        [](const CastCommitEventData& data) { return &data.provenance; },
+        [](const AttackEventData& data) { return &data.provenance.cast; },
+        [](const HitEventData& data) { return &data.provenance.cast; },
+        [](const CastAggregateEventData& data) { return &data.provenance; },
+        [&](const DamageResultEventData& data) {
+            return effectDamageCastProvenance(data.origin);
+        },
+        [&](const ShieldBreakEventData& data) {
+            return effectDamageCastProvenance(data.cause);
+        },
+        [&](const DeathEventData& data) {
+            return effectDamageCastProvenance(data.cause);
+        },
+        [](const auto&) -> const BattleCastProvenance* { return nullptr; },
+    }, payload);
+}
+
+const BattleCastProvenance* effectCastProvenance(const EffectEventContext& context)
+{
+    if (context.scope.cast) return &*context.scope.cast;
+    return effectEventCastProvenance(context.payload);
+}
+
+const BattleAttackProvenance* effectEventAttackProvenance(const EffectEventPayload& payload)
+{
+    return std::visit(Overloaded{
+        [](const AttackEventData& data) { return &data.provenance; },
+        [](const HitEventData& data) { return &data.provenance; },
+        [&](const DamageResultEventData& data) {
+            return effectDamageAttackProvenance(data.origin);
+        },
+        [&](const ShieldBreakEventData& data) {
+            return effectDamageAttackProvenance(data.cause);
+        },
+        [&](const DeathEventData& data) {
+            return effectDamageAttackProvenance(data.cause);
+        },
+        [](const auto&) -> const BattleAttackProvenance* { return nullptr; },
+    }, payload);
+}
+
+const BattleAttackProvenance* effectAttackProvenance(const EffectEventContext& context)
+{
+    if (context.scope.attack) return &*context.scope.attack;
+    return effectEventAttackProvenance(context.payload);
+}
 
 void BattleEffectSystem::finalizeEventDispatch(
     BattleEffectRuleStore& store,
@@ -3116,7 +3304,7 @@ void BattleEffectSystem::finalizeEventDispatch(
 {
     if (context.event == EffectEvent::CastSettled)
     {
-        const auto* cast = castProvenance(context);
+        const auto* cast = effectCastProvenance(context);
         assert(cast);
         for (auto& [key, runtime] : store.runtimeByRule_)
         {
@@ -3208,6 +3396,218 @@ BattleEffectDispatchResult BattleEffectSystem::dispatch(BattleEffectRuleStore& s
     return dispatchRuleIndices(store, context, random, indices);
 }
 
+namespace
+{
+void evaluateOrdinaryRule(
+    EffectStateAccess state,
+    std::span<const BoundEffectRule> rules,
+    const BoundEffectRuleView& bound,
+    EffectRuleRuntimeState& runtime,
+    const EffectEventContext& context,
+    BattleRuntimeRandom& random,
+    BattleEffectDispatchResult& result,
+    std::uint64_t& nextCommandOrdinal)
+{
+    if (bound.rule.event != context.event
+        || !ruleObservesEvent(bound, context)
+        || !castScopeMatches(bound, context))
+    {
+        return;
+    }
+
+    const EffectEventContext* ruleContext = &context;
+    std::optional<EffectEventContext> rewrittenContext;
+    if (bound.rule.observation != EffectObservationScope::Owner
+        || bound.castScope)
+    {
+        rewrittenContext.emplace(context);
+        rewriteObservedOwner(bound, *rewrittenContext);
+        rewriteScopedRuleContext(bound, *rewrittenContext);
+        ruleContext = &*rewrittenContext;
+    }
+    if (!ruleAllowedByPropagation(bound, *ruleContext)
+        || !ruleMatchesMagicCast(bound, *ruleContext))
+    {
+        return;
+    }
+    if (requiresExactRuntimePhaseQuery(bound.rule))
+    {
+        return;
+    }
+
+    if (bound.rule.maxActivations > 0 && runtime.activationCount >= bound.rule.maxActivations)
+    {
+        return;
+    }
+    if (bound.rule.sharedCooldownFrames > 0)
+    {
+        if (context.header.frame < runtime.sharedCooldownUntilFrame)
+        {
+            return;
+        }
+    }
+    if (bound.rule.intervalFrames > 0)
+    {
+        assert(context.event == EffectEvent::FrameAdvanced);
+        const auto& tick = std::get<FrameTickEventData>(context.payload);
+        assert(tick.deltaFrames > 0);
+        assert(runtime.intervalFramesRemaining > 0);
+        runtime.intervalFramesRemaining -= tick.deltaFrames;
+        if (runtime.intervalFramesRemaining > 0)
+        {
+            return;
+        }
+        runtime.intervalFramesRemaining = bound.rule.intervalFrames;
+    }
+
+    const auto selectedIds = BattleEffectSystem::selectTargets(bound.rule.selector, *ruleContext, random);
+    if (selectedIds.empty())
+    {
+        return;
+    }
+
+    std::vector<const EffectUnitSnapshot*> eligibleTargets;
+    eligibleTargets.reserve(selectedIds.size());
+    for (const auto unitId : selectedIds)
+    {
+        const auto* target = snapshotForTarget(*ruleContext, unitId);
+        if (!target)
+        {
+            throw std::logic_error("selector 傳回了 read view 中不存在的單位");
+        }
+        if (conditionsSatisfied(bound.rule.conditions, *ruleContext, *target, true))
+        {
+            eligibleTargets.push_back(target);
+        }
+    }
+    if (eligibleTargets.empty())
+    {
+        return;
+    }
+    if (bound.rule.everyNthEvent > 0)
+    {
+        ++runtime.eligibleEventCount;
+        if (runtime.eligibleEventCount % bound.rule.everyNthEvent != 0)
+        {
+            return;
+        }
+    }
+
+    std::vector<const EffectUnitSnapshot*> activationTargets;
+    if (bound.rule.activationLimit)
+    {
+        const auto* cast = effectCastProvenance(*ruleContext);
+        if (!cast)
+        {
+            throw std::logic_error("施放範圍觸發限制需要 cast provenance");
+        }
+        activationTargets.reserve(eligibleTargets.size());
+        for (const auto* target : eligibleTargets)
+        {
+            switch (bound.rule.activationLimit->scope)
+            {
+            case EffectActivationScope::PerCastPerTarget:
+            {
+                auto& evaluationCount = activationEvaluation(
+                    runtime,
+                    cast->castId,
+                    target->id);
+                if (evaluationCount >= bound.rule.activationLimit->maxEvaluations)
+                {
+                    continue;
+                }
+                // 先佔用本次判定，機率失敗後同一施放不得重擲。
+                ++evaluationCount;
+                break;
+            }
+            }
+            if (random.chance(bound.rule.chancePct))
+            {
+                activationTargets.push_back(target);
+            }
+        }
+    }
+    else
+    {
+        if (!random.chance(bound.rule.chancePct))
+        {
+            return;
+        }
+        activationTargets = eligibleTargets;
+    }
+    if (activationTargets.empty())
+    {
+        return;
+    }
+
+    ++runtime.activationCount;
+    if (bound.rule.sharedCooldownFrames > 0)
+    {
+        runtime.sharedCooldownUntilFrame =
+            static_cast<std::int64_t>(context.header.frame)
+            + bound.rule.sharedCooldownFrames;
+    }
+    EffectRuleActivation activation{
+        .binding = bound.binding,
+        .ruleId = bound.rule.id,
+    };
+    for (const auto* target : activationTargets)
+    {
+        activation.targetUnitIds.push_back(target->id);
+    }
+    result.activations.push_back(std::move(activation));
+
+    CommandEmitter emitter{
+        .state = state,
+        .rules = rules,
+        .bound = bound,
+        .context = *ruleContext,
+        .random = random,
+        .commands = result.commands,
+        .nextCommandOrdinal = nextCommandOrdinal,
+    };
+    const int repetitionCount = bound.rule.repetitionCount
+        ? emitter.evaluate(*bound.rule.repetitionCount, *ruleContext->scope.owner)
+        : 1;
+    assert(repetitionCount > 0);
+    const auto authoredLeafCount = std::accumulate(
+        bound.rule.actions.begin(),
+        bound.rule.actions.end(),
+        std::uint64_t{},
+        [](std::uint64_t count, const EffectAction& action)
+        {
+            return saturatingAdd(count, authoredActionLeafCount(action));
+        });
+    const auto emittedActionCount = saturatingMultiply(
+        static_cast<std::uint64_t>(repetitionCount),
+        authoredLeafCount);
+    assert(emittedActionCount <= std::numeric_limits<std::uint32_t>::max());
+    for (int repetition = 0; repetition < repetitionCount; ++repetition)
+    {
+        std::uint64_t authoredActionOffset{};
+        for (const auto& action : bound.rule.actions)
+        {
+            const auto actionOrder = static_cast<std::uint32_t>(repetition)
+                * static_cast<std::uint32_t>(authoredLeafCount)
+                + static_cast<std::uint32_t>(authoredActionOffset);
+            for (std::uint32_t targetOrder = 0;
+                 targetOrder < static_cast<std::uint32_t>(activationTargets.size());
+                 ++targetOrder)
+            {
+                emitter.emit(action,
+                             *activationTargets[targetOrder],
+                             actionOrder,
+                             static_cast<std::uint32_t>(authoredActionOffset),
+                             targetOrder);
+            }
+            authoredActionOffset = saturatingAdd(
+                authoredActionOffset,
+                authoredActionLeafCount(action));
+        }
+    }
+}
+}  // namespace
+
 BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
     BattleEffectRuleStore& store,
     const EffectEventContext& context,
@@ -3222,206 +3622,12 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
 
     BattleEffectDispatchResult result;
     std::uint64_t nextCommandOrdinal{};
-    for (const auto* boundRule : orderedBoundRules(store.rules_, ruleIndices))
+    for (const auto* bound : orderedBoundRules(store.rules_, ruleIndices))
     {
-        const auto& bound = *boundRule;
-        if (bound.rule.event != context.event
-            || !ruleObservesEvent(bound, context)
-            || !castScopeMatches(bound, context))
-        {
-            continue;
-        }
-
-        const EffectEventContext* ruleContext = &context;
-        std::optional<EffectEventContext> rewrittenContext;
-        if (bound.rule.observation != EffectObservationScope::Owner
-            || bound.castScope)
-        {
-            rewrittenContext = context;
-            rewriteObservedOwner(bound, *rewrittenContext);
-            rewriteScopedRuleContext(bound, *rewrittenContext);
-            ruleContext = &*rewrittenContext;
-        }
-        if (!ruleAllowedByPropagation(bound, *ruleContext)
-            || !ruleMatchesMagicCast(bound, *ruleContext))
-        {
-            continue;
-        }
-        if (requiresExactRuntimePhaseQuery(bound.rule))
-        {
-            continue;
-        }
-
-        auto& runtime = store.runtimeByRule_.at(runtimeKey(bound.binding, bound.rule.id));
-        if (bound.rule.maxActivations > 0 && runtime.activationCount >= bound.rule.maxActivations)
-        {
-            continue;
-        }
-        if (bound.rule.sharedCooldownFrames > 0)
-        {
-            if (context.header.frame < runtime.sharedCooldownUntilFrame)
-            {
-                continue;
-            }
-        }
-        if (bound.rule.intervalFrames > 0)
-        {
-            assert(context.event == EffectEvent::FrameAdvanced);
-            const auto& tick = std::get<FrameTickEventData>(context.payload);
-            assert(tick.deltaFrames > 0);
-            assert(runtime.intervalFramesRemaining > 0);
-            runtime.intervalFramesRemaining -= tick.deltaFrames;
-            if (runtime.intervalFramesRemaining > 0)
-            {
-                continue;
-            }
-            runtime.intervalFramesRemaining = bound.rule.intervalFrames;
-        }
-
-        const auto selectedIds = selectTargets(bound.rule.selector, *ruleContext, random);
-        if (selectedIds.empty())
-        {
-            continue;
-        }
-
-        std::vector<const EffectUnitSnapshot*> eligibleTargets;
-        eligibleTargets.reserve(selectedIds.size());
-        for (const auto unitId : selectedIds)
-        {
-            const auto* target = snapshotForTarget(*ruleContext, unitId);
-            if (!target)
-            {
-                throw std::logic_error("selector 傳回了 read view 中不存在的單位");
-            }
-            if (conditionsSatisfied(bound.rule.conditions, *ruleContext, *target, true))
-            {
-                eligibleTargets.push_back(target);
-            }
-        }
-        if (eligibleTargets.empty())
-        {
-            continue;
-        }
-        if (bound.rule.everyNthEvent > 0)
-        {
-            ++runtime.eligibleEventCount;
-            if (runtime.eligibleEventCount % bound.rule.everyNthEvent != 0)
-            {
-                continue;
-            }
-        }
-
-        std::vector<const EffectUnitSnapshot*> activationTargets;
-        if (bound.rule.activationLimit)
-        {
-            const auto* cast = castProvenance(*ruleContext);
-            if (!cast)
-            {
-                throw std::logic_error("施放範圍觸發限制需要 cast provenance");
-            }
-            activationTargets.reserve(eligibleTargets.size());
-            for (const auto* target : eligibleTargets)
-            {
-                switch (bound.rule.activationLimit->scope)
-                {
-                case EffectActivationScope::PerCastPerTarget:
-                {
-                    auto& evaluationCount = activationEvaluation(
-                        runtime,
-                        cast->castId,
-                        target->id);
-                    if (evaluationCount >= bound.rule.activationLimit->maxEvaluations)
-                    {
-                        continue;
-                    }
-                    // 先佔用本次判定，機率失敗後同一施放不得重擲。
-                    ++evaluationCount;
-                    break;
-                }
-                }
-                if (random.chance(bound.rule.chancePct))
-                {
-                    activationTargets.push_back(target);
-                }
-            }
-        }
-        else
-        {
-            if (!random.chance(bound.rule.chancePct))
-            {
-                continue;
-            }
-            activationTargets = eligibleTargets;
-        }
-        if (activationTargets.empty())
-        {
-            continue;
-        }
-
-        ++runtime.activationCount;
-        if (bound.rule.sharedCooldownFrames > 0)
-        {
-            runtime.sharedCooldownUntilFrame =
-                static_cast<std::int64_t>(context.header.frame)
-                + bound.rule.sharedCooldownFrames;
-        }
-        EffectRuleActivation activation{
-            .binding = bound.binding,
-            .ruleId = bound.rule.id,
-        };
-        for (const auto* target : activationTargets)
-        {
-            activation.targetUnitIds.push_back(target->id);
-        }
-        result.activations.push_back(std::move(activation));
-
-        CommandEmitter emitter{
-            .store = store,
-            .bound = bound,
-            .context = *ruleContext,
-            .random = random,
-            .commands = result.commands,
-            .nextCommandOrdinal = nextCommandOrdinal,
-        };
-        const int repetitionCount = bound.rule.repetitionCount
-            ? emitter.evaluate(*bound.rule.repetitionCount, *ruleContext->header.owner)
-            : 1;
-        assert(repetitionCount > 0);
-        const auto authoredLeafCount = std::accumulate(
-            bound.rule.actions.begin(),
-            bound.rule.actions.end(),
-            std::uint64_t{},
-            [](std::uint64_t count, const EffectAction& action)
-            {
-                return saturatingAdd(count, authoredActionLeafCount(action));
-            });
-        const auto emittedActionCount = saturatingMultiply(
-            static_cast<std::uint64_t>(repetitionCount),
-            authoredLeafCount);
-        assert(emittedActionCount <= std::numeric_limits<std::uint32_t>::max());
-        for (int repetition = 0; repetition < repetitionCount; ++repetition)
-        {
-            std::uint64_t authoredActionOffset{};
-            for (const auto& action : bound.rule.actions)
-            {
-                const auto actionOrder = static_cast<std::uint32_t>(repetition)
-                    * static_cast<std::uint32_t>(authoredLeafCount)
-                    + static_cast<std::uint32_t>(authoredActionOffset);
-                for (std::uint32_t targetOrder = 0;
-                     targetOrder < static_cast<std::uint32_t>(activationTargets.size());
-                     ++targetOrder)
-                {
-                    emitter.emit(action,
-                                 *activationTargets[targetOrder],
-                                 actionOrder,
-                                 static_cast<std::uint32_t>(authoredActionOffset),
-                                 targetOrder);
-                }
-                authoredActionOffset = saturatingAdd(
-                    authoredActionOffset,
-                    authoredActionLeafCount(action));
-            }
-        }
+        evaluateOrdinaryRule(
+            { store.stateValues_ }, store.rules_, *bound,
+            store.runtimeByRule_.at(runtimeKey(bound->binding, bound->rule.id)),
+            context, random, result, nextCommandOrdinal);
     }
     if (finalizeEvent) finalizeEventDispatch(store, context, result);
     return result;
@@ -3437,6 +3643,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
     const StatusBehaviorDispatchLiveness* reducerLiveness) const
 {
     assert(!includeAllFrameOwners || context.event == EffectEvent::FrameAdvanced);
+    assert(behaviors.empty() || reducerLiveness);
     assert(!reducerLiveness
         || (reducerLiveness->contributionQuantity
             && reducerLiveness->reduceRuleCommands));
@@ -3599,258 +3806,17 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
         pending->precomputed->commands.push_back(std::move(command));
     }
 
-    struct HolderLiveness
+    const auto currentContributionQuantity = [&](const ActiveStatusBehaviorView& behavior)
+        -> std::optional<int>
     {
-        int holderUnitId = -1;
-        BattleStatusUnitState unit;
-        bool hasShield = false;
-    };
-    std::vector<HolderLiveness> liveness;
-    for (const auto& behavior : behaviors)
-    {
-        if (!behavior.holderEffects) continue;
-        if (std::ranges::find(
-                liveness,
-                behavior.holderUnitId,
-                &HolderLiveness::holderUnitId) != liveness.end()) continue;
-        const auto* snapshot = context.header.battle.findUnit(behavior.holderUnitId);
-        assert(snapshot);
-        liveness.push_back({
-            .holderUnitId = behavior.holderUnitId,
-            .unit = {
-                .id = behavior.holderUnitId,
-                .alive = snapshot->alive,
-                .hp = snapshot->hp,
-                .maxHp = snapshot->maxHp,
-                .attack = snapshot->attack,
-                .invincible = snapshot->invincible ? 1 : 0,
-                .effects = *behavior.holderEffects,
-            },
-            .hasShield = snapshot->shield > 0,
-        });
-    }
-
-    const auto holderLiveness = [&](int holderUnitId) -> HolderLiveness*
-    {
-        const auto found = std::ranges::find(
-            liveness,
-            holderUnitId,
-            &HolderLiveness::holderUnitId);
-        return found == liveness.end() ? nullptr : &*found;
-    };
-
-    struct DetachedContributionLiveness
-    {
-        int holderUnitId = -1;
-        std::uint64_t appliedSequence{};
-        BattleStatusKind kind{};
-        int quantity{};
-    };
-    // Direct unit callers may omit a full holder snapshot. Keep enough
-    // contribution state for the same snapshot-plus-liveness contract.
-    std::vector<DetachedContributionLiveness> detachedContributions;
-    for (const auto& behavior : behaviors)
-    {
-        if (holderLiveness(behavior.holderUnitId)) continue;
-        if (std::ranges::find_if(detachedContributions, [&](const auto& candidate)
-            {
-                return candidate.holderUnitId == behavior.holderUnitId
-                    && candidate.appliedSequence == behavior.appliedSequence;
-            }) != detachedContributions.end()) continue;
-        detachedContributions.push_back({
-            .holderUnitId = behavior.holderUnitId,
-            .appliedSequence = behavior.appliedSequence,
-            .kind = behavior.kind,
-            .quantity = behavior.quantity,
-        });
-    }
-    const auto currentContributionQuantity = [&](
-        const ActiveStatusBehaviorView& behavior) -> std::optional<int>
-    {
-        const auto dispatchQuantity = [&](std::optional<int> liveQuantity)
-            -> std::optional<int>
-        {
-            if (!liveQuantity) return std::nullopt;
-            // A shared-layer group that survives remains the same active rule
-            // view.  Layers added earlier in this dispatch affect subsequent
-            // dispatches, while a tick already snapshotted for this dispatch
-            // uses its starting quantity and source.  This preserves the clock
-            // advance without letting newly applied layers act retroactively.
-            if (statusCatalogEntry(behavior.kind).storage
-                == StatusStorageModel::SharedLayerDebuff)
-            {
-                return behavior.quantity;
-            }
-            return liveQuantity;
-        };
-        if (reducerLiveness)
-        {
-            return dispatchQuantity(reducerLiveness->contributionQuantity(
-                behavior.holderUnitId,
-                behavior.appliedSequence,
-                behavior.kind));
-        }
-        if (const auto* holder = holderLiveness(behavior.holderUnitId))
-        {
-            const auto found = std::ranges::find(
-                holder->unit.effects.statuses,
-                behavior.appliedSequence,
-                &BattleStatusContribution::appliedSequence);
-            if (found == holder->unit.effects.statuses.end()
-                || found->kind != behavior.kind) return std::nullopt;
-            return dispatchQuantity(found->stacks);
-        }
-        const auto found = std::ranges::find_if(detachedContributions, [&](const auto& candidate)
-        {
-            return candidate.holderUnitId == behavior.holderUnitId
-                && candidate.appliedSequence == behavior.appliedSequence
-                && candidate.kind == behavior.kind;
-        });
-        if (found == detachedContributions.end() || found->quantity <= 0)
-            return std::nullopt;
-        return dispatchQuantity(found->quantity);
-    };
-
-    const auto applyLivenessStatus = [&](
-        int targetUnitId,
-        const EffectCommandMetadata& metadata,
-        const ApplyStatusEffectCommand& application)
-    {
-        auto* holder = holderLiveness(targetUnitId);
-        if (!holder) return;
-        auto applicationMetadata = metadata;
-        applicationMetadata.targetUnitId = targetUnitId;
-        const BattleEffectCommandContext commandContext{
-            .frame = context.header.frame,
-        };
-        auto applied = BattleEffectCommandSystem::applyStatusCommand(
-            holder->unit,
-            applicationMetadata,
-            application,
-            commandContext,
-            {},
-            holder->hasShield);
-        holder->unit = std::move(applied.target);
-    };
-
-    const auto updateLiveness = [&](const EffectCommand& command)
-    {
-        if (const auto* consumeThis = std::get_if<ConsumeThisStatusEffectCommand>(
-                &command.value))
-        {
-            assert(command.metadata.statusContribution);
-            const auto& contribution = *command.metadata.statusContribution;
-            if (auto* holder = holderLiveness(contribution.holderUnitId))
-            {
-                BattleStatusUnitState unit;
-                unit.id = contribution.holderUnitId;
-                unit.alive = true;
-                unit.effects = holder->unit.effects;
-                auto consumed = BattleStatusSystem({}).consume(
-                    std::move(unit),
-                    {
-                        .kind = contribution.kind,
-                        .stacks = consumeThis->action.quantity,
-                        .filter = {
-                            .holderUnitId = contribution.holderUnitId,
-                            .appliedSequence = contribution.appliedSequence,
-                        },
-                    });
-                const bool depleted = consumed.consumed
-                    && consumed.remainingStacks == 0;
-                holder->unit.effects = std::move(consumed.target.effects);
-                if (depleted && consumeThis->whenDepleted)
-                {
-                    applyLivenessStatus(
-                        command.metadata.targetUnitId,
-                        command.metadata,
-                        *consumeThis->whenDepleted);
-                }
-            }
-            else
-            {
-                const auto found = std::ranges::find_if(
-                    detachedContributions,
-                    [&](const auto& candidate)
-                    {
-                        return candidate.holderUnitId == contribution.holderUnitId
-                            && candidate.appliedSequence == contribution.appliedSequence
-                            && candidate.kind == contribution.kind;
-                    });
-                assert(found != detachedContributions.end());
-                found->quantity = std::max(
-                    0,
-                    found->quantity - consumeThis->action.quantity);
-            }
-            return;
-        }
-        if (const auto* consume = std::get_if<ConsumeStatusEffectCommand>(
-                &command.value))
-        {
-            if (auto* holder = holderLiveness(command.metadata.targetUnitId))
-            {
-                BattleStatusUnitState unit;
-                unit.id = holder->holderUnitId;
-                unit.alive = true;
-                unit.effects = holder->unit.effects;
-                BattleStatusConsumeRequest request{
-                    .kind = consume->action.status,
-                    .stacks = consume->action.quantity,
-                    .filter = resolveStatusContributionFilter(
-                        consume->action.source,
-                        command.metadata.binding,
-                        command.metadata.statusContribution),
-                };
-                auto consumed = BattleStatusSystem({}).consume(
-                    std::move(unit), request);
-                const bool depleted = consumed.consumed
-                    && consumed.remainingStacks == 0;
-                holder->unit.effects = std::move(consumed.target.effects);
-                if (depleted && consume->whenDepleted)
-                {
-                    applyLivenessStatus(
-                        command.metadata.targetUnitId,
-                        command.metadata,
-                        *consume->whenDepleted);
-                }
-            }
-            return;
-        }
-        if (const auto* removal = std::get_if<RemoveStatusEffectCommand>(
-                &command.value))
-        {
-            if (auto* holder = holderLiveness(command.metadata.targetUnitId))
-            {
-                BattleStatusUnitState unit;
-                unit.id = holder->holderUnitId;
-                unit.alive = true;
-                unit.effects = holder->unit.effects;
-                BattleStatusRemoveRequest request{
-                    .statuses = removal->action.statuses,
-                    .filter = resolveStatusContributionFilter(
-                        removal->action.source,
-                        command.metadata.binding,
-                        command.metadata.statusContribution),
-                    .negativeOnly = removal->action.negativeOnly,
-                    .controlOnly = removal->action.controlOnly,
-                    .clearCurrentActionStagger = removal->action.clearCurrentActionStagger,
-                    .count = removal->action.count,
-                    .order = removal->action.order,
-                };
-                auto removed = BattleStatusSystem({}).remove(
-                    std::move(unit), request);
-                holder->unit.effects = std::move(removed.target.effects);
-            }
-            return;
-        }
-        if (const auto* application = std::get_if<ApplyStatusEffectCommand>(
-                &command.value))
-        {
-            applyLivenessStatus(
-                command.metadata.targetUnitId,
-                command.metadata,
-                *application);
-        }
+        assert(reducerLiveness);
+        const auto quantity = reducerLiveness->contributionQuantity(
+            behavior.holderUnitId, behavior.appliedSequence, behavior.kind);
+        if (!quantity) return std::nullopt;
+        // 共用層數存活時沿用事件開始的數量；本次新增層數不能追溯觸發既有 tick。
+        if (statusCatalogEntry(behavior.kind).storage == StatusStorageModel::SharedLayerDebuff)
+            return behavior.quantity;
+        return quantity;
     };
 
     BattleEffectDispatchResult result;
@@ -3874,7 +3840,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
                 const auto* owner = context.header.battle.findUnit(
                     bound.binding.ownerUnitId);
                 assert(owner && owner->alive);
-                configuredContext.header.owner = owner;
+                configuredContext.scope.owner = owner;
             }
             dispatched = dispatchRuleIndices(
                 store,
@@ -3892,19 +3858,11 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
             const auto ruleOrder = pending.behaviorRuleOrder;
             const auto& rule = behavior.behavior->rules[ruleOrder];
 
-            BattleEffectRuleStore activeStore;
-            const auto index = activeStore.append(
-                behavior.binding,
-                rule,
-                isIntrinsicEffectRuleId(rule.id)
-                    ? EffectRuleAuthoringContext::RuntimeIntrinsicStatusBehavior
-                    : EffectRuleAuthoringContext::StatusBehavior);
-            assert(index == 0);
-            activeStore.rules_.front().order = behavior.producerRuleOrder;
-            activeStore.runtimeByRule_.begin()->second = (*behavior.runtime)[ruleOrder];
-
+            // 狀態行為的啟用狀態屬於 contribution；狀態槽維持原本每次規則求值的生命期。
+            std::map<EffectStateKey, std::int64_t> statusStateValues;
+            auto& statusRuntime = (*behavior.runtime)[ruleOrder];
             auto statusContext = context;
-            statusContext.header.statusContribution = EffectStatusContributionContext{
+            statusContext.scope.statusContribution = EffectStatusContributionContext{
                 .holderUnitId = behavior.holderUnitId,
                 .sourceUnitId = behavior.sourceUnitId,
                 .kind = behavior.kind,
@@ -3915,23 +3873,20 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
                 .producerActionOrder = behavior.producerActionOrder,
                 .behaviorRuleOrder = ruleOrder,
             };
-            dispatched = dispatchRuleIndices(
-                activeStore,
-                statusContext,
-                random,
-                std::array<std::size_t, 1>{ 0 },
-                false);
-            auto statusRuntime = activeStore.runtimeByRule_.begin()->second;
+            std::uint64_t nextCommandOrdinal{};
+            evaluateOrdinaryRule(
+                { statusStateValues }, {},
+                { behavior.binding, rule, behavior.producerRuleOrder },
+                statusRuntime, statusContext, random, dispatched, nextCommandOrdinal);
             if (context.event == EffectEvent::CastSettled)
             {
-                const auto* cast = castProvenance(context);
+                const auto* cast = effectCastProvenance(context);
                 assert(cast);
                 std::erase_if(statusRuntime.activationEvaluations, [&](const auto& entry)
                 {
                     return entry.castId == cast->castId.value();
                 });
             }
-            (*behavior.runtime)[ruleOrder] = std::move(statusRuntime);
         }
 
         const bool resolvesInterceptor = std::ranges::any_of(
@@ -3947,10 +3902,6 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
         {
             reducerLiveness->reduceRuleCommands(dispatched.commands);
         }
-        else
-        {
-            for (const auto& command : dispatched.commands) updateLiveness(command);
-        }
 
         std::vector<std::size_t> addedRuleIndices;
         for (const auto& command : dispatched.commands)
@@ -3958,18 +3909,18 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
             const auto* stateMachine = std::get_if<StateMachineEffectCommand>(
                 &command.value);
             if (!stateMachine) continue;
-            const auto* borrow = std::get_if<BorrowEffectRulesAction>(
-                &stateMachine->action);
+            const auto* borrow = std::get_if<BorrowEffectRulesCommand>(
+                &stateMachine->value);
             if (!borrow) continue;
-            const auto* cast = castProvenance(context);
+            const auto* cast = effectCastProvenance(context);
             if (!cast)
                 throw std::logic_error("借用效果規則需要 cast provenance");
             assert(borrow->propagation == CastPropagationPolicy::BorrowedUltimateRules);
             auto added = store.bindBorrowedUltimateRules(
                 cast->castId,
-                context.header.owner->id,
-                context.header.owner->team,
-                stateMachine->selectedSourceUnitIds,
+                context.scope.owner->id,
+                context.scope.owner->team,
+                borrow->sourceUnitIds,
                 borrow->filter,
                 borrow->propagation);
             addedRuleIndices.insert(

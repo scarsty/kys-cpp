@@ -31,7 +31,7 @@ struct HitDefencePenalty final : GameplayEffectDefinition
         {
             return std::format("命中使目標防禦{:+}%，持續{}幀。重複施加刷新持續時間。", 防禦百分比, 持續幀數);
         }
-        return std::format("命中使目標防禦{:+}%，持續{}幀。", 防禦百分比, 持續幀數);
+        return std::format("命中：目標{:+}%防，{}幀", 防禦百分比, 持續幀數);
     }
 };
 
@@ -55,7 +55,11 @@ struct CastStackBlock final : GameplayEffectDefinition
                                                                     .stackLimit = 層數上限}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("每次出招格擋率{:+}%，最多{}層。", 每層格擋百分比, 層數上限); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("出招{:+}%格擋，上限{}層", 每層格擋百分比, 層數上限);
+        return std::format("每次出招格擋率{:+}%，最多{}層。", 每層格擋百分比, 層數上限);
+    }
 };
 
 struct CastStatBuff final : GameplayEffectDefinition
@@ -102,7 +106,7 @@ struct CastStatBuff final : GameplayEffectDefinition
                                持續幀數);
         }
         return std::format(
-            "出招時攻擊{:+}%、防禦{:+}%、速度{:+}%，持續{}幀。", 攻擊百分比, 防禦百分比, 速度百分比, 持續幀數);
+            "出招：攻擊{:+}%、防禦{:+}%、速度{:+}%，{}幀", 攻擊百分比, 防禦百分比, 速度百分比, 持續幀數);
     }
 };
 
@@ -133,7 +137,7 @@ struct SwordAlliesSureHit final : GameplayEffectDefinition
                 "出招時，友方御劍角色獲得必中，持續{}幀。無視閃避與格擋，仍受無敵與護盾限制；重複觸發刷新時間。",
                 持續幀數);
         }
-        return std::format("出招時，友方御劍角色獲得必中，持續{}幀。", 持續幀數);
+        return std::format("出招：御劍友軍必中{}幀", 持續幀數);
     }
 };
 
@@ -162,7 +166,7 @@ struct CastDamageReduction final : GameplayEffectDefinition
         {
             return std::format("出招時傷害減免{:+}%，持續{}幀。重複觸發刷新持續時間。", 減傷百分比, 持續幀數);
         }
-        return std::format("出招時傷害減免{:+}%，持續{}幀。", 減傷百分比, 持續幀數);
+        return std::format("出招：減傷{:+}%，{}幀", 減傷百分比, 持續幀數);
     }
 };
 
@@ -199,7 +203,7 @@ struct CastDodgeCriticalBuff final : GameplayEffectDefinition
             return std::format(
                 "出招時閃避率{:+}%、暴擊率{:+}%，持續{}幀。重複觸發刷新持續時間。", 閃避百分比, 暴擊百分比, 持續幀數);
         }
-        return std::format("出招時閃避率{:+}%、暴擊率{:+}%，持續{}幀。", 閃避百分比, 暴擊百分比, 持續幀數);
+        return std::format("出招：閃避{:+}%、暴擊{:+}%，{}幀", 閃避百分比, 暴擊百分比, 持續幀數);
     }
 };
 
@@ -228,7 +232,7 @@ struct CastTeamAttack final : GameplayEffectDefinition
         {
             return std::format("出招時全隊攻擊{:+}，持續{}幀。重複觸發刷新持續時間。", 攻擊點數, 持續幀數);
         }
-        return std::format("出招時全隊攻擊{:+}，持續{}幀。", 攻擊點數, 持續幀數);
+        return std::format("出招：全隊{:+}攻，{}幀", 攻擊點數, 持續幀數);
     }
 };
 
@@ -303,7 +307,11 @@ struct CastStackCritical final : GameplayEffectDefinition
                                                                     .stackLimit = 層數上限}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("每次出招暴擊率{:+}%、暴擊傷害{:+}%，最多{}層。", 每層暴擊百分比, 每層暴傷百分比, 層數上限); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("出招{:+}%暴擊、{:+}%暴傷，上限{}層", 每層暴擊百分比, 每層暴傷百分比, 層數上限);
+        return std::format("每次出招暴擊率{:+}%、暴擊傷害{:+}%，最多{}層。", 每層暴擊百分比, 每層暴傷百分比, 層數上限);
+    }
 };
 
 struct DefenceBonus final : GameplayEffectDefinition
@@ -337,7 +345,11 @@ struct FlatDamageReduction final : GameplayEffectDefinition
                                                                  .amount = EffectNumber{.flat = 點數}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("每次承受傷害{:+}點，在計算防禦前生效。", 點數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("固定{}傷{}點", 點數 < 0 ? "減" : "增", std::abs(點數));
+        return std::format("每次承受傷害{:+}點，在計算防禦前生效。", 點數);
+    }
 };
 
 struct BlockBonus final : GameplayEffectDefinition
@@ -503,7 +515,7 @@ struct HitStackDamage final : GameplayEffectDefinition
                                持續幀數,
                                層數上限);
         }
-        return std::format("命中後技能傷害{:+}%，持續{}幀，最多{}層。", 每層增傷百分比, 持續幀數, 層數上限);
+        return std::format("命中：技能傷害{:+}%，{}幀，上限{}層", 每層增傷百分比, 持續幀數, 層數上限);
     }
 };
 
@@ -611,7 +623,7 @@ struct LowHealthAttack final : GameplayEffectDefinition
         {
             return std::format("生命低於{}%時，攻擊{:+}。離開低血狀態即失去加成。", 生命門檻百分比, 攻擊點數);
         }
-        return std::format("生命低於{}%時，攻擊{:+}。", 生命門檻百分比, 攻擊點數);
+        return std::format("血量<{}%：{:+}攻", 生命門檻百分比, 攻擊點數);
     }
 };
 
@@ -641,7 +653,7 @@ struct LowHealthAttackPercent final : GameplayEffectDefinition
         {
             return std::format("生命低於{}%時，攻擊{:+}%。離開低血狀態即失去加成。", 生命門檻百分比, 攻擊百分比);
         }
-        return std::format("生命低於{}%時，攻擊{:+}%。", 生命門檻百分比, 攻擊百分比);
+        return std::format("血量<{}%：{:+}%攻", 生命門檻百分比, 攻擊百分比);
     }
 };
 
@@ -677,7 +689,11 @@ struct KillAttackBonus final : GameplayEffectDefinition
                                                                           .amount = EffectNumber{.flat = 點數}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("每次擊殺敵人後，攻擊{:+}。", 點數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("擊殺敵人{:+}攻", 點數);
+        return std::format("每次擊殺敵人後，攻擊{:+}。", 點數);
+    }
 };
 
 struct ReceivedDamagePercent final : GameplayEffectDefinition
@@ -733,7 +749,11 @@ struct MinimumCriticalDamage final : GameplayEffectDefinition
                                                                           .operation = AttributeOperation::AtLeast}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("暴擊傷害至少為{}%。", 百分比); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("暴傷≥{}%", 百分比);
+        return std::format("暴擊傷害至少為{}%。", 百分比);
+    }
 };
 
 struct MaxHitDamageCap final : GameplayEffectDefinition
@@ -759,7 +779,7 @@ struct MaxHitDamageCap final : GameplayEffectDefinition
         {
             return std::format("每次承傷不超過最大生命的{}%。在最終傷害階段生效。", 生命百分比);
         }
-        return std::format("每次承傷不超過最大生命的{}%。", 生命百分比);
+        return std::format("單次承傷≤血上限{}%", 生命百分比);
     }
 };
 
@@ -782,7 +802,11 @@ struct LastAliveAttack final : GameplayEffectDefinition
                                                                           .stack = EffectStackPolicy::Refresh}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("成為己方最後存活角色時，攻擊{:+}%。", 百分比); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("己方僅剩自身：{:+}%攻", 百分比);
+        return std::format("成為己方最後存活角色時，攻擊{:+}%。", 百分比);
+    }
 };
 
 struct LastAliveBlock final : GameplayEffectDefinition
@@ -803,7 +827,11 @@ struct LastAliveBlock final : GameplayEffectDefinition
                                                                           .stack = EffectStackPolicy::Refresh}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("成為己方最後存活角色時，格擋率{:+}%。", 百分比); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("己方僅剩自身：{:+}%格擋", 百分比);
+        return std::format("成為己方最後存活角色時，格擋率{:+}%。", 百分比);
+    }
 };
 
 struct SpeedPercentBonus final : GameplayEffectDefinition
@@ -859,6 +887,8 @@ struct MissingHealthFlatReduction final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         const auto magnitude = 點數 < 0 ? -點數 : 點數;
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("隨失血比例，技能承傷最多{}{}點。", 點數 < 0 ? "減少" : "增加", magnitude);
         auto text = std::format("依已損生命比例，承受技能傷害最多{}{}點。", 點數 < 0 ? "減少" : "增加", magnitude);
         if (style == EffectDescriptionStyle::Full)
         {
@@ -890,6 +920,8 @@ struct MissingHealthPercentReduction final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         const auto magnitude = 百分比 < 0 ? -百分比 : 百分比;
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("隨失血比例，技能承傷最多{}{}%。", 百分比 < 0 ? "減少" : "增加", magnitude);
         auto text = std::format("依已損生命比例，承受技能傷害最多{}{}%。", 百分比 < 0 ? "減少" : "增加", magnitude);
         if (style == EffectDescriptionStyle::Full)
         {

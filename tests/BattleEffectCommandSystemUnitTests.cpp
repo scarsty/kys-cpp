@@ -1,4 +1,7 @@
+#include "EffectCommandTestHelpers.h"
 #include "battle/BattleEffectCommandSystem.h"
+#include "battle/BattleCoreDetail.h"
+#include "battle/BattleFrameContext.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
 #include "battle/BattleRuntimeEffects.h"
 #include "BattleCoreTestHelpers.h"
@@ -102,13 +105,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         action.clearCurrentActionStagger = true;
         const EffectCommand command{
             metadata(2, 2),
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            { .frame = 20 });
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
         REQUIRE(reduced.entries.size() == 1);
         const auto& removal = std::get<BattleStatusRemoveEffectResult>(
@@ -195,13 +195,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         action.negativeOnly = true;
         const EffectCommand command{
             metadata(107, 2),
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            { .frame = 20 });
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
         const auto& removal = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -236,10 +233,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         action.clearCurrentActionStagger = true;
         const EffectCommand command{
             metadata(2, 2),
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
 
-        BattleEffectCommandSystem().reduce(state, command, { .frame = 20 });
+        BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
         CHECK_FALSE(target.status.effects.has(BattleStatusKind::Stun));
         CHECK(target.status.effects.remainingFrames(BattleStatusKind::Poison) == 30);
@@ -258,16 +255,13 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         action.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
         const EffectCommand command{
             metadata(92, 2),
-            ApplyStatusEffectCommand{ action, std::nullopt },
+            KysChess::Battle::Test::statusApplication(action),
         };
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            {
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, {
                 .frame = 20,
                 .controlLowHpImmunityPct = 0,
-            });
+            }));
 
         const auto& applied = std::get<BattleStatusApplyEffectResult>(
             reduced.entries[0].value).status;
@@ -293,13 +287,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
             BattleStatusKind::NextAttackMiss);
         const EffectCommand command{
             metadata(69, 2),
-            ApplyStatusEffectCommand{ action, std::nullopt },
+            KysChess::Battle::Test::statusApplication(action),
         };
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            { .frame = 20 });
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
         const auto& applied = std::get<BattleStatusApplyEffectResult>(
             reduced.entries[0].value).status;
@@ -324,13 +315,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         replace.behavior = poisonStatusBehavior(10);
         const EffectCommand replaceCommand{
             metadata(21, 2),
-            ApplyStatusEffectCommand{ replace, std::nullopt },
+            KysChess::Battle::Test::statusApplication(replace),
         };
 
-        const auto replaced = BattleEffectCommandSystem().reduce(
-            state,
-            replaceCommand,
-            { .frame = 20 });
+        const auto replaced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(replaceCommand, { .frame = 20 }));
 
         const auto& replaceResult = std::get<BattleStatusApplyEffectResult>(
             replaced.entries[0].value).status;
@@ -349,13 +337,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         add.behavior = poisonStatusBehavior(12);
         const EffectCommand addCommand{
             metadata(21, 2, 1),
-            ApplyStatusEffectCommand{ add, std::nullopt },
+            KysChess::Battle::Test::statusApplication(add),
         };
 
-        const auto stacked = BattleEffectCommandSystem().reduce(
-            state,
-            addCommand,
-            { .frame = 21 });
+        const auto stacked = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(addCommand, { .frame = 21 }));
 
         const auto& stackResult = std::get<BattleStatusApplyEffectResult>(
             stacked.entries[0].value).status;
@@ -385,15 +370,12 @@ TEST_CASE("BattleEffectCommandSystem observes every repeated poison application 
     poison.reapplication = StatusReapplicationPolicy::ReplaceExistingPoison;
     poison.behavior = poisonStatusBehavior(10);
     const std::array commands{
-        EffectCommand{ metadata(95, 2, 0), ApplyStatusEffectCommand{ poison, std::nullopt } },
-        EffectCommand{ metadata(95, 2, 1), ApplyStatusEffectCommand{ poison, std::nullopt } },
-        EffectCommand{ metadata(95, 2, 2), ApplyStatusEffectCommand{ poison, std::nullopt } },
+        EffectCommand{ metadata(95, 2, 0), KysChess::Battle::Test::statusApplication(poison) },
+        EffectCommand{ metadata(95, 2, 1), KysChess::Battle::Test::statusApplication(poison) },
+        EffectCommand{ metadata(95, 2, 2), KysChess::Battle::Test::statusApplication(poison) },
     };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        commands,
-        { .frame = 20 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 20 }));
 
     REQUIRE(reduced.entries.size() == 3);
     CHECK(std::get<BattleStatusApplyEffectResult>(reduced.entries[0].value)
@@ -424,12 +406,9 @@ TEST_CASE("BattleEffectCommandSystem does not turn an aggregated poison clock in
     aggregated.behavior = poisonStatusBehavior(12);
     const EffectCommand aggregatedCommand{
         metadata(21, 2),
-        ApplyStatusEffectCommand{ aggregated, std::nullopt },
+        KysChess::Battle::Test::statusApplication(aggregated),
     };
-    const auto first = BattleEffectCommandSystem().reduce(
-        state,
-        aggregatedCommand,
-        { .frame = 20 });
+    const auto first = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(aggregatedCommand, { .frame = 20 }));
 
     REQUIRE(first.entries.size() == 1);
     REQUIRE(target.status.effects.statuses.size() == 1);
@@ -441,12 +420,9 @@ TEST_CASE("BattleEffectCommandSystem does not turn an aggregated poison clock in
     producerAlone.behavior = poisonStatusBehavior(14);
     const EffectCommand producerAloneCommand{
         metadata(21, 2, 1),
-        ApplyStatusEffectCommand{ producerAlone, std::nullopt },
+        KysChess::Battle::Test::statusApplication(producerAlone),
     };
-    const auto second = BattleEffectCommandSystem().reduce(
-        state,
-        producerAloneCommand,
-        { .frame = 21 });
+    const auto second = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(producerAloneCommand, { .frame = 21 }));
 
     REQUIRE(second.entries.size() == 1);
     const auto& applied = std::get<BattleStatusApplyEffectResult>(
@@ -473,15 +449,12 @@ TEST_CASE("BattleEffectCommandSystem preserves all stun reapplication policies",
         action.reapplication = policy;
         const EffectCommand command{
             metadata(92, 2, ordinal++),
-            ApplyStatusEffectCommand{ action, std::nullopt },
+            KysChess::Battle::Test::statusApplication(action),
         };
-        const auto reduced = system.reduce(
-            state,
-            command,
-            {
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(command, {
                 .frame = 20,
                 .controlLowHpImmunityPct = 0,
-            });
+            }));
         REQUIRE(reduced.entries.size() == 1);
         return std::get<BattleStatusApplyEffectResult>(
             reduced.entries.front().value).status;
@@ -548,7 +521,7 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
     auto first = BattleEffectCommandSystem::applyStatusCommand(
         std::move(target),
         firstMetadata,
-        ApplyStatusEffectCommand{ shadowless, std::nullopt },
+        KysChess::Battle::Test::statusApplication(shadowless),
         { .frame = 1 },
         {},
         false);
@@ -563,7 +536,7 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
     auto alias = BattleEffectCommandSystem::applyStatusCommand(
         std::move(first.target),
         aliasMetadata,
-        ApplyStatusEffectCommand{ shadowless, std::nullopt },
+        KysChess::Battle::Test::statusApplication(shadowless),
         { .frame = 2 },
         {},
         false);
@@ -580,7 +553,7 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
     auto refresh = BattleEffectCommandSystem::applyStatusCommand(
         std::move(alias.target),
         aliasMetadata,
-        ApplyStatusEffectCommand{ shadowless, std::nullopt },
+        KysChess::Battle::Test::statusApplication(shadowless),
         { .frame = 3 },
         {},
         false);
@@ -639,7 +612,7 @@ EffectCommand resourceCommand(
     action.kind = kind;
     return {
         metadata(magicId, targetUnitId, commandOrdinal),
-        ChangeResourceEffectCommand{ action, amount },
+        prepareChangeResource(action, amount),
     };
 }
 
@@ -665,7 +638,7 @@ EffectCommand damageModifierCommand(
     commandMetadata.actionOrder = actionOrder;
     return {
         commandMetadata,
-        ModifyDamageEffectCommand{ action, amount },
+        prepareModifyDamage(action, amount),
     };
 }
 
@@ -687,7 +660,7 @@ EffectCommand damageAbsorptionCommand(
     auto commandMetadata = metadata(97, targetUnitId);
     commandMetadata.actionOrder = actionOrder;
     StateMachineEffectCommand command;
-    command.action = StateMachineAction{ action };
+    command.value = action;
     return { commandMetadata, std::move(command) };
 }
 
@@ -708,7 +681,7 @@ TEST_CASE("BattleEffectCommandSystem skips a snapshotted status command after it
     removal.statuses = { BattleStatusKind::TrueQi };
     EffectCommand removeCommand{
         metadata(106, 2, 0),
-        RemoveStatusEffectCommand{ removal },
+        KysChess::Battle::Test::statusRemoval(removal),
     };
 
     DealDamageAction damage;
@@ -726,14 +699,11 @@ TEST_CASE("BattleEffectCommandSystem skips a snapshotted status command after it
     };
     const EffectCommand damageCommand{
         damageMetadata,
-        DealDamageEffectCommand{ damage, 9 },
+        prepareDealDamage(damage, 9),
     };
     const std::array commands{ removeCommand, damageCommand };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        commands,
-        { .frame = 1 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 1 }));
 
     REQUIRE(reduced.entries.size() == 2);
     CHECK(std::holds_alternative<BattleStatusRemoveEffectResult>(
@@ -850,7 +820,12 @@ TEST_CASE("BattleEffectCommandSystem invalidates a snapshotted status command af
     consume.quantity = 1;
     const EffectCommand consumeCommand{
         statusMetadata,
-        ConsumeThisStatusEffectCommand{ consume },
+        ConsumeThisStatusEffectCommand{ {
+            .kind = statusMetadata.statusContribution->kind,
+            .stacks = consume.quantity,
+            .filter = resolveStatusContributionFilter(StatusSourceMatch::CurrentContribution,
+                statusMetadata.binding, statusMetadata.statusContribution),
+        } },
     };
 
     DealDamageAction damage;
@@ -861,14 +836,11 @@ TEST_CASE("BattleEffectCommandSystem invalidates a snapshotted status command af
     damageMetadata.actionOrder = 1;
     const EffectCommand damageCommand{
         damageMetadata,
-        DealDamageEffectCommand{ damage, 9 },
+        prepareDealDamage(damage, 9),
     };
     const std::array commands{ consumeCommand, damageCommand };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        commands,
-        { .frame = 1 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 1 }));
 
     REQUIRE(reduced.entries.size() == 2);
     CHECK(std::holds_alternative<BattleStatusConsumeEffectResult>(
@@ -893,7 +865,7 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
             ResourceChangeKind::Restore,
             70);
 
-        const auto reduced = system.reduce(state, command, { .frame = 10 });
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
         REQUIRE(reduced.entries.size() == 1);
         const auto& resource = std::get<BattleResourceEffectResult>(reduced.entries[0].value);
@@ -918,7 +890,7 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
             ResourceChangeKind::Grant,
             300);
 
-        const auto reduced = system.reduce(state, command, { .frame = 10 });
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
         REQUIRE(reduced.entries.size() == 1);
         const auto& resource = std::get<BattleResourceEffectResult>(reduced.entries[0].value);
@@ -939,10 +911,10 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
         action.behavior = makeCatalogOwnedStatusBehavior(action);
         const EffectCommand command{
             metadata(11, 3),
-            ApplyStatusEffectCommand{ action, std::nullopt },
+            KysChess::Battle::Test::statusApplication(action),
         };
 
-        const auto reduced = system.reduce(state, command, { .frame = 10 });
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
         REQUIRE(reduced.entries.size() == 1);
         const auto& applied = std::get<BattleStatusApplyEffectResult>(reduced.entries[0].value);
@@ -966,24 +938,27 @@ TEST_CASE("BattleEffectCommandSystem reduces the first ultimate vertical slices"
         modifier.attribute = BattleAttribute::Speed;
         modifier.amount.flat = -25;
         modifier.overlap = AreaOverlapPolicy::KeepStrongest;
-        CreateAreaAction action;
-        action.shape = AreaShape::Circle;
-        action.radiusTiles = 6;
-        action.anchor = AreaAnchor::HitPosition;
-        action.durationFrames = 100;
-        action.sourceDeath = AreaSourceDeathPolicy::PersistUntilExpiry;
-        action.merge = AreaMergePolicy::RefreshSameSource;
-        action.modifiers.push_back(modifier);
-        const EffectCommand command{
-            metadata(78, 3),
-            CreateAreaEffectCommand{ action, { -25 } },
-        };
         const Pointf hitPosition{ 120.0f, 240.0f, 0.0f };
+        const auto source = metadata(78, 3);
+        const EffectCommand command{
+            source,
+            CreateAreaEffectCommand{ {
+                .source = source.binding,
+                .ruleId = source.ruleId,
+                .geometry = { AreaShape::Circle, 6, 0 },
+                .anchor = { BattleAreaAnchorKind::FixedWorldPosition, hitPosition, -1 },
+                .currentFrame = 30,
+                .durationFrames = 100,
+                .sourceDeath = AreaSourceDeathPolicy::PersistUntilExpiry,
+                .merge = AreaMergePolicy::RefreshSameSource,
+                .modifiers = { modifier },
+            } },
+        };
 
-        const auto reduced = system.reduce(state, command, {
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(command, {
             .frame = 30,
-            .effectPosition = hitPosition,
-        });
+
+        }));
 
         REQUIRE(reduced.entries.size() == 1);
         const auto& created = std::get<BattleAreaEffectResult>(reduced.entries[0].value);
@@ -1009,14 +984,11 @@ TEST_CASE("BattleEffectCommandSystem preserves order and queries stacked attribu
     action.stackLimit = 5;
 
     const std::vector<EffectCommand> commands{
-        { metadata(44, 1, 8), ModifyAttributeEffectCommand{ action, 7 } },
-        { metadata(44, 1, 9), ModifyAttributeEffectCommand{ action, 7 } },
+        { metadata(44, 1, 8), prepareModifyAttribute(action, 7) },
+        { metadata(44, 1, 9), prepareModifyAttribute(action, 7) },
     };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        commands,
-        { .frame = 40 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 40 }));
 
     REQUIRE(reduced.entries.size() == 2);
     CHECK(reduced.entries[0].inputOrder == 0);
@@ -1051,9 +1023,9 @@ TEST_CASE("runtime attack floors stacked debuffs after all modifiers and recover
     action.stackLimit = 10;
     BattleEffectCommandSystem system;
     for (int stack = 0; stack < 10; ++stack)
-        system.reduce(state, EffectCommand{
-            metadata(44, 1), ModifyAttributeEffectCommand{ action, -22 },
-        }, { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
+            metadata(44, 1), prepareModifyAttribute(action, -22),
+        }, { .frame = 40 }));
 
     REQUIRE(state.effectCommands.attributeModifiers.size() == 1);
     CHECK(state.effectCommands.attributeModifiers.front().stackCount == 10);
@@ -1068,18 +1040,18 @@ TEST_CASE("runtime attack floors stacked debuffs after all modifiers and recover
     SECTION("增益與減益相加後才取下限")
     {
         action.durationFrames = 2;
-        system.reduce(state, EffectCommand{
-            metadata(45, 1), ModifyAttributeEffectCommand{ action, 150 },
-        }, { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
+            metadata(45, 1), prepareModifyAttribute(action, 150),
+        }, { .frame = 40 }));
         CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 100) == 30);
     }
     SECTION("百分比減攻也能超過基礎值")
     {
         state.effectCommands.attributeModifiers.clear();
         action.operation = AttributeOperation::PercentAdd;
-        system.reduce(state, EffectCommand{
-            metadata(45, 1), ModifyAttributeEffectCommand{ action, -150 },
-        }, { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
+            metadata(45, 1), prepareModifyAttribute(action, -150),
+        }, { .frame = 40 }));
         CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 100) == 0);
     }
     SECTION("減攻到期後恢復原值")
@@ -1108,14 +1080,8 @@ TEST_CASE("BattleEffectCommandSystem refresh domains are shared across effect ow
         secondMetadata.eventSourceUnitId = 2;
 
         BattleEffectCommandSystem system;
-        system.reduce(
-            state,
-            EffectCommand{ firstMetadata, ModifyAttributeEffectCommand{ action, -20 } },
-            { .frame = 10 });
-        const auto refreshed = system.reduce(
-            state,
-            EffectCommand{ secondMetadata, ModifyAttributeEffectCommand{ action, -30 } },
-            { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{ firstMetadata, prepareModifyAttribute(action, -20) }, { .frame = 10 }));
+        const auto refreshed = system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{ secondMetadata, prepareModifyAttribute(action, -30) }, { .frame = 40 }));
 
         REQUIRE(state.effectCommands.attributeModifiers.size() == 1);
         CHECK(std::get<BattleAttributeEffectResult>(
@@ -1126,14 +1092,8 @@ TEST_CASE("BattleEffectCommandSystem refresh domains are shared across effect ow
 
         state = makeState();
         action.stackScope = EffectStackScope::EventSource;
-        system.reduce(
-            state,
-            EffectCommand{ firstMetadata, ModifyAttributeEffectCommand{ action, -20 } },
-            { .frame = 10 });
-        system.reduce(
-            state,
-            EffectCommand{ secondMetadata, ModifyAttributeEffectCommand{ action, -30 } },
-            { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{ firstMetadata, prepareModifyAttribute(action, -20) }, { .frame = 10 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{ secondMetadata, prepareModifyAttribute(action, -30) }, { .frame = 40 }));
 
         REQUIRE(state.effectCommands.attributeModifiers.size() == 2);
         CHECK(state.effectCommands.attributeModifiers[0].eventSourceUnitId == 1);
@@ -1161,8 +1121,8 @@ TEST_CASE("BattleEffectCommandSystem refresh domains are shared across effect ow
         second.metadata.eventSourceUnitId = 2;
 
         BattleEffectCommandSystem system;
-        system.reduce(state, first, { .frame = 10 });
-        const auto refreshed = system.reduce(state, second, { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(first, { .frame = 10 }));
+        const auto refreshed = system.reduce(state, KysChess::Battle::Test::commandFixture(second, { .frame = 40 }));
 
         REQUIRE(state.effectCommands.damageModifiers.size() == 1);
         CHECK(std::get<BattleDamageModifierEffectResult>(
@@ -1172,12 +1132,12 @@ TEST_CASE("BattleEffectCommandSystem refresh domains are shared across effect ow
         CHECK(state.effectCommands.damageModifiers[0].expiresFrameExclusive == 130);
 
         state = makeState();
-        std::get<ModifyDamageEffectCommand>(first.value).action.stackScope =
+        std::get<ModifyDamageEffectCommand>(first.value).stackScope =
             EffectStackScope::EventSource;
-        std::get<ModifyDamageEffectCommand>(second.value).action.stackScope =
+        std::get<ModifyDamageEffectCommand>(second.value).stackScope =
             EffectStackScope::EventSource;
-        system.reduce(state, first, { .frame = 10 });
-        system.reduce(state, second, { .frame = 40 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(first, { .frame = 10 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(second, { .frame = 40 }));
 
         REQUIRE(state.effectCommands.damageModifiers.size() == 2);
         CHECK(state.effectCommands.damageModifiers[0].eventSourceUnitId == 1);
@@ -1200,17 +1160,17 @@ TEST_CASE("BattleEffectCommandSystem checks full MP healing after adjusted recov
             modifier.operation = AttributeOperation::PercentagePointAdd;
             modifier.durationFrames = 100;
             BattleEffectCommandSystem system;
-            system.reduce(state, EffectCommand{
-                metadata(133, 2), ModifyAttributeEffectCommand{ modifier, bonus }
-            }, { .frame = 10 });
+            system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
+                metadata(133, 2), prepareModifyAttribute(modifier, bonus)
+            }, { .frame = 10 }));
             auto heal = resourceCommand(133, 2, BattleResource::Hp,
                 ResourceChangeKind::Restore, 99, 1);
-            std::get<ChangeResourceEffectCommand>(heal.value).action.healRequiresFullMp = true;
+            std::get<ChangeResourceEffectCommand>(heal.value).healRequiresFullMp = true;
             const std::array commands{
                 resourceCommand(133, 2, BattleResource::Mp, ResourceChangeKind::Restore, 20),
                 heal,
             };
-            system.reduce(state, commands, { .frame = 10 });
+            system.reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 10 }));
             const int expectedMp = std::min(100, initialMp + 20 * (100 + bonus) / 100);
             CHECK(state.units.requireCore(2).vitals.mp == expectedMp);
             CHECK(state.units.requireCore(2).vitals.hp == (expectedMp == 100 ? 299 : 200));
@@ -1229,13 +1189,10 @@ TEST_CASE("BattleEffectCommandSystem preserves resource transfer and drain seman
         recoveryBonus.attribute = BattleAttribute::MpRecoveryBonus;
         recoveryBonus.operation = AttributeOperation::PercentagePointAdd;
         recoveryBonus.durationFrames = 100;
-        BattleEffectCommandSystem().reduce(
-            state,
-            EffectCommand{
+        BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(72, 2),
-                ModifyAttributeEffectCommand{ recoveryBonus, 50 },
-            },
-            { .frame = 10 });
+                prepareModifyAttribute(recoveryBonus, 50),
+            }, { .frame = 10 }));
 
         auto command = resourceCommand(
             72,
@@ -1246,10 +1203,7 @@ TEST_CASE("BattleEffectCommandSystem preserves resource transfer and drain seman
         auto& transfer = std::get<ChangeResourceEffectCommand>(command.value);
         transfer.transferDestinationUnitIds.push_back(2);
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            { .frame = 10 });
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
         const auto& resource = std::get<BattleResourceEffectResult>(
             reduced.entries[0].value);
@@ -1270,13 +1224,10 @@ TEST_CASE("BattleEffectCommandSystem preserves resource transfer and drain seman
         recoveryBonus.attribute = BattleAttribute::MpRecoveryBonus;
         recoveryBonus.operation = AttributeOperation::PercentagePointAdd;
         recoveryBonus.durationFrames = 100;
-        BattleEffectCommandSystem().reduce(
-            state,
-            EffectCommand{
+        BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(28, 1),
-                ModifyAttributeEffectCommand{ recoveryBonus, 50 },
-            },
-            { .frame = 10 });
+                prepareModifyAttribute(recoveryBonus, 50),
+            }, { .frame = 10 }));
 
         const auto command = resourceCommand(
             28,
@@ -1284,10 +1235,7 @@ TEST_CASE("BattleEffectCommandSystem preserves resource transfer and drain seman
             BattleResource::Mp,
             ResourceChangeKind::Drain,
             24);
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            { .frame = 10 });
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
         const auto& resource = std::get<BattleResourceEffectResult>(
             reduced.entries[0].value);
@@ -1324,7 +1272,7 @@ TEST_CASE("BattleEffectCommandSystem chains anti-combo attributes from their can
     ModifyAttributeAction action;
     action.attribute = BattleAttribute::Attack;
     action.operation = AttributeOperation::PercentAdd;
-    const ModifyAttributeEffectCommand command{ action, 10 };
+    const auto command = prepareModifyAttribute(action, 10);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1335,7 +1283,8 @@ TEST_CASE("BattleEffectCommandSystem chains anti-combo attributes from their can
         1,
         2,
         0,
-        33);
+        33,
+        0);
 
     REQUIRE(transferred.coreAttributeDeltas.size() == 1);
     CHECK(transferred.coreAttributeDeltas[0].attribute == BattleAttribute::Attack);
@@ -1354,7 +1303,8 @@ TEST_CASE("BattleEffectCommandSystem chains anti-combo attributes from their can
         2,
         3,
         1,
-        33);
+        33,
+        0);
     REQUIRE(chained.coreAttributeDeltas.size() == 1);
     CHECK(chained.coreAttributeDeltas[0].delta == 10);
     const auto& chainedBasis = runtime.antiComboAttributeBases.at(
@@ -1380,7 +1330,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo initialized resources 
     ChangeResourceAction action;
     action.resource = BattleResource::Shield;
     action.kind = ResourceChangeKind::Grant;
-    const ChangeResourceEffectCommand command{ action, 75 };
+    const auto command = prepareChangeResource(action, 75);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         state.effectCommands,
         initialized,
@@ -1391,13 +1341,11 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo initialized resources 
         1,
         2,
         0,
-        33);
+        33,
+        0);
 
     REQUIRE(transferred.commands.size() == 1);
-    BattleEffectCommandSystem().reduce(
-        state,
-        transferred.commands,
-        { .frame = 0 });
+    BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(transferred.commands, { .frame = 0 }));
     CHECK(state.units.requireCore(2).shield == 75);
     CHECK(state.effectCommands.antiComboInitializationRecords.size() == 2);
 }
@@ -1424,7 +1372,7 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
     action.stack = EffectStackPolicy::AddStack;
     action.stackLimit = 5;
     action.stackScope = EffectStackScope::EventSource;
-    const ModifyAttributeEffectCommand command{ action, -7 };
+    const auto command = prepareModifyAttribute(action, -7);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1603,7 +1551,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     damageAction.stack = EffectStackPolicy::AddStack;
     damageAction.stackLimit = 4;
     damageAction.stackScope = EffectStackScope::EventSource;
-    const ModifyDamageEffectCommand damageCommand{ damageAction, -8 };
+    const auto damageCommand = prepareModifyDamage(damageAction, -8);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1635,7 +1583,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     ChangeResourceAction statusShieldAction;
     statusShieldAction.resource = BattleResource::StatusShield;
     statusShieldAction.kind = ResourceChangeKind::RefreshToAtLeast;
-    const ChangeResourceEffectCommand statusShieldCommand{ statusShieldAction, 120 };
+    const auto statusShieldCommand = prepareChangeResource(statusShieldAction, 120);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1647,7 +1595,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     statusAction.durationFrames = 180;
     statusAction.quantity = AddStatusLayers{ 2, 5 };
     statusAction.behavior = battleSpiritStatusBehavior(17, 9);
-    const ApplyStatusEffectCommand statusCommand{ statusAction, std::nullopt };
+    const auto statusCommand = KysChess::Battle::Test::statusApplication(statusAction);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         initialized,
@@ -1662,10 +1610,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
     externalStatusAction.status = BattleStatusKind::TrueQi;
     externalStatusAction.quantity = AddStatusLayers{ 1, 1 };
     externalStatusAction.behavior = trueQiStatusBehavior(5);
-    const ApplyStatusEffectCommand externalStatusCommand{
-        externalStatusAction,
-        std::nullopt,
-    };
+    const auto externalStatusCommand = KysChess::Battle::Test::statusApplication(externalStatusAction);
     BattleEffectCommandSystem::recordAntiComboInitialization(
         runtime,
         externalMetadata,
@@ -1675,7 +1620,8 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
         1,
         2,
         0,
-        33);
+        33,
+        0);
     REQUIRE(runtime.damageModifiers.size() == 3);
     const auto& transferredDamage = runtime.damageModifiers[2];
     CHECK(transferredDamage.binding.ownerUnitId == 2);
@@ -1691,10 +1637,7 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
         transferred.commands[1].value));
     CHECK(transferred.commands[1].metadata.binding.ownerUnitId == 2);
     CHECK(transferred.commands[1].metadata.targetUnitId == 2);
-    BattleEffectCommandSystem().reduce(
-        state,
-        transferred.commands,
-        { .frame = 0 });
+    BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(transferred.commands, { .frame = 0 }));
     CHECK(state.units.require(2).status.effects.statusShield == 120);
     REQUIRE(state.units.require(2).status.effects.statuses.size() == 1);
     CHECK(state.units.require(2).status.effects.statuses[0].sourceUnitId == 2);
@@ -1735,10 +1678,7 @@ TEST_CASE("BattleEffectCommandSystem starts refreshes and accumulates damage abs
     auto state = makeState();
     const auto command = damageAbsorptionCommand(1, 80, 3);
 
-    const auto started = BattleEffectCommandSystem().reduce(
-        state,
-        command,
-        { .frame = 10 });
+    const auto started = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
     REQUIRE(started.entries.size() == 1);
     const auto& applied = std::get<BattleDamageAbsorptionEffectResult>(
@@ -1766,10 +1706,7 @@ TEST_CASE("BattleEffectCommandSystem starts refreshes and accumulates damage abs
         applied.absorption.binding,
         EffectStateSlot::AbsorbedDamage) == 24);
 
-    const auto refreshed = BattleEffectCommandSystem().reduce(
-        state,
-        command,
-        { .frame = 20 });
+    const auto refreshed = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
     const auto& refresh = std::get<BattleDamageAbsorptionEffectResult>(
         refreshed.entries[0].value);
     CHECK(refresh.outcome == BattleDamageAbsorptionApplyOutcome::Refreshed);
@@ -1829,14 +1766,14 @@ TEST_CASE("BattleEffectCommandSystem keeps status-owned absorption generations d
     auto second = first;
     second.metadata.statusContribution->appliedSequence = 43;
 
-    const BattleEffectCommandContext context{
+    const EffectExecutionInputs context{
         .frame = 10,
         .cast = triggeringAttack.cast,
         .attack = triggeringAttack,
     };
     BattleEffectCommandSystem system;
-    system.reduce(state, first, context);
-    system.reduce(state, second, context);
+    system.reduce(state, KysChess::Battle::Test::commandFixture(first, context));
+    system.reduce(state, KysChess::Battle::Test::commandFixture(second, context));
 
     REQUIRE(state.effectCommands.damageAbsorptions.size() == 2);
     const auto& firstAbsorption = state.effectCommands.damageAbsorptions[0];
@@ -1855,10 +1792,7 @@ TEST_CASE("BattleEffectCommandSystem keeps status-owned absorption generations d
 TEST_CASE("BattleEffectCommandSystem drains absorption exactly once at expiry or source death", "[battle][effect][command][absorption]")
 {
     auto expiryState = makeState();
-    BattleEffectCommandSystem().reduce(
-        expiryState,
-        damageAbsorptionCommand(1),
-        { .frame = 10 });
+    BattleEffectCommandSystem().reduce(expiryState, KysChess::Battle::Test::commandFixture(damageAbsorptionCommand(1), { .frame = 10 }));
 
     CHECK(BattleEffectCommandSystem::removeExpiredDamageAbsorptions(
         expiryState,
@@ -1875,10 +1809,7 @@ TEST_CASE("BattleEffectCommandSystem drains absorption exactly once at expiry or
         1).empty());
 
     auto deathState = makeState();
-    BattleEffectCommandSystem().reduce(
-        deathState,
-        damageAbsorptionCommand(1),
-        { .frame = 10 });
+    BattleEffectCommandSystem().reduce(deathState, KysChess::Battle::Test::commandFixture(damageAbsorptionCommand(1), { .frame = 10 }));
     const auto died = BattleEffectCommandSystem::removeDamageAbsorptionsForSourceDeath(
         deathState,
         1);
@@ -1899,13 +1830,10 @@ TEST_CASE("BattleEffectCommandSystem emits an explicit damage queue request", "[
     action.area.kind = DamageAreaKind::SingleTarget;
     const EffectCommand command{
         metadata(15, 3),
-        DealDamageEffectCommand{ action, 125 },
+        prepareDealDamage(action, 125),
     };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        command,
-        { .frame = 20 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
     REQUIRE(reduced.entries.size() == 1);
     const auto& output = std::get<BattleEffectDamageRequestOutput>(reduced.entries[0].value);
@@ -1930,13 +1858,10 @@ TEST_CASE("BattleEffectCommandSystem preserves pre-resolved damage without hurt 
     action.triggersHurtInvincibility = false;
     const EffectCommand command{
         metadata(15, 3),
-        DealDamageEffectCommand{ action, 30 },
+        prepareDealDamage(action, 30),
     };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        command,
-        { .frame = 20 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
     REQUIRE(reduced.entries.size() == 1);
     const auto& output = std::get<BattleEffectDamageRequestOutput>(
@@ -1957,13 +1882,10 @@ TEST_CASE("BattleEffectCommandSystem carries typed execute damage through the da
     action.area.kind = DamageAreaKind::SingleTarget;
     const EffectCommand command{
         metadata(67, 3),
-        DealDamageEffectCommand{ action, target.vitals.maxHp },
+        prepareDealDamage(action, target.vitals.maxHp),
     };
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        command,
-        { .frame = 20 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 20 }));
 
     REQUIRE(reduced.entries.size() == 1);
     const auto& output = std::get<BattleEffectDamageRequestOutput>(reduced.entries[0].value);
@@ -2009,15 +1931,16 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
     const EffectCommand consumeCommand{
         metadata(39, 3),
         ConsumeStatusEffectCommand{
-            .action = consume,
-            .whenDepleted = ApplyStatusEffectCommand{ stun, std::nullopt },
+            .request = {
+                .kind = consume.status,
+                .stacks = consume.quantity,
+                .filter = resolveStatusContributionFilter(consume.source, metadata(39, 3).binding, {}),
+            },
+            .whenDepleted = KysChess::Battle::Test::statusApplication(stun),
         },
     };
 
-    const auto first = BattleEffectCommandSystem().reduce(
-        state,
-        consumeCommand,
-        { .frame = 20 });
+    const auto first = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(consumeCommand, { .frame = 20 }));
     const auto& firstConsume = std::get<BattleStatusConsumeEffectResult>(
         first.entries[0].value);
     CHECK(firstConsume.status.consumed);
@@ -2025,10 +1948,7 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
     CHECK_FALSE(firstConsume.depletedStatus);
     CHECK(target.status.effects.statusShield == 100);
 
-    const auto second = BattleEffectCommandSystem().reduce(
-        state,
-        consumeCommand,
-        { .frame = 20 });
+    const auto second = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(consumeCommand, { .frame = 20 }));
     const auto& secondConsume = std::get<BattleStatusConsumeEffectResult>(
         second.entries[0].value);
     CHECK(secondConsume.status.consumed);
@@ -2043,12 +1963,9 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
     damage.kind = BattleDamageKind::Pure;
     const EffectCommand damageCommand{
         metadata(95, 3),
-        DealDamageEffectCommand{ damage, 120, 3 },
+        prepareDealDamage(damage, 120, 3),
     };
-    const auto reducedDamage = BattleEffectCommandSystem().reduce(
-        state,
-        damageCommand,
-        { .frame = 20 });
+    const auto reducedDamage = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(damageCommand, { .frame = 20 }));
     const auto& output = std::get<BattleEffectDamageRequestOutput>(
         reducedDamage.entries[0].value);
     CHECK(output.request.baseDamage == 120);
@@ -2078,10 +1995,7 @@ TEST_CASE("BattleEffectCommandSystem keeps current-hit damage modifiers routed",
             i));
     }
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        commands,
-        { .frame = 20 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 20 }));
 
     REQUIRE(reduced.entries.size() == operations.size());
     CHECK(state.effectCommands.damageModifiers.empty());
@@ -2093,7 +2007,7 @@ TEST_CASE("BattleEffectCommandSystem keeps current-hit damage modifiers routed",
         const auto& routed = std::get<
             BattleRoutedEffectCommand<ModifyDamageEffectCommand>>(
                 reduced.entries[i].value);
-        CHECK(routed.command.action.operation == operations[i]);
+        CHECK(routed.command.operation == operations[i]);
         CHECK(routed.command.amount == static_cast<int>(i + 10));
     }
 }
@@ -2122,10 +2036,7 @@ TEST_CASE("BattleEffectCommandSystem stores and queries persistent damage modifi
             DamageModifierStage::Final));
     }
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        commands,
-        { .frame = 10 });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(commands, { .frame = 10 }));
 
     REQUIRE(reduced.entries.size() == operations.size());
     REQUIRE(state.effectCommands.damageModifiers.size() == operations.size());
@@ -2189,13 +2100,10 @@ TEST_CASE("BattleEffectCommandSystem routes persistent negative modifiers throug
         action.stack = EffectStackPolicy::Refresh;
         const EffectCommand command{
             metadata(59, 3),
-            ModifyAttributeEffectCommand{ action, -30 },
+            prepareModifyAttribute(action, -30),
         };
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            command,
-            { .frame = 10 });
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(command, { .frame = 10 }));
 
         const auto& applied = std::get<BattleAttributeEffectResult>(
             reduced.entries[0].value);
@@ -2214,17 +2122,14 @@ TEST_CASE("BattleEffectCommandSystem routes persistent negative modifiers throug
         auto state = makeState();
         state.units.require(3).status.effects.statusShield = 100;
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            damageModifierCommand(
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -45,
                 70,
                 EffectStackPolicy::Independent,
                 0,
-                DamageChannel::All),
-            { .frame = 10 });
+                DamageChannel::All), { .frame = 10 }));
 
         const auto& blocked = std::get<BattleDamageModifierEffectResult>(
             reduced.entries[0].value);
@@ -2242,17 +2147,14 @@ TEST_CASE("BattleEffectCommandSystem routes persistent negative modifiers throug
         auto state = makeState();
         state.units.require(3).status.effects.statusShield = 49;
 
-        const auto reduced = BattleEffectCommandSystem().reduce(
-            state,
-            damageModifierCommand(
+        const auto reduced = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -20,
                 0,
                 EffectStackPolicy::Refresh,
                 0,
-                DamageChannel::All),
-            { .frame = 10 });
+                DamageChannel::All), { .frame = 10 }));
 
         const auto& applied = std::get<BattleDamageModifierEffectResult>(
             reduced.entries[0].value);
@@ -2264,17 +2166,14 @@ TEST_CASE("BattleEffectCommandSystem routes persistent negative modifiers throug
 
         state = makeState();
         state.units.require(3).status.effects.statusShield = 50;
-        const auto blocked = BattleEffectCommandSystem().reduce(
-            state,
-            damageModifierCommand(
+        const auto blocked = BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -20,
                 0,
                 EffectStackPolicy::Refresh,
                 0,
-                DamageChannel::All),
-            { .frame = 10 });
+                DamageChannel::All), { .frame = 10 }));
         CHECK(std::get<BattleDamageModifierEffectResult>(
                   blocked.entries[0].value).outcome
               == BattleDamageModifierApplyOutcome::BlockedByStatusShield);
@@ -2294,7 +2193,7 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.stack = EffectStackPolicy::Independent;
         return EffectCommand{
             metadata(59, 3),
-            ModifyAttributeEffectCommand{ action, amount },
+            prepareModifyAttribute(action, amount),
         };
     };
 
@@ -2312,27 +2211,24 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
             },
         };
         BattleEffectCommandSystem system;
-        system.reduce(state, makeAttributeCommand(-30, 90), { .frame = 0 });
-        system.reduce(state, makeAttributeCommand(20, 120), { .frame = 0 });
-        system.reduce(
-            state,
-            damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(makeAttributeCommand(-30, 90), { .frame = 0 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(makeAttributeCommand(20, 120), { .frame = 0 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -45,
                 70,
                 EffectStackPolicy::Independent,
                 0,
-                DamageChannel::All),
-            { .frame = 0 });
+                DamageChannel::All), { .frame = 0 }));
 
         RemoveStatusAction action;
         action.negativeOnly = true;
         const EffectCommand cleanse{
             metadata(100, 3),
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
-        const auto reduced = system.reduce(state, cleanse, { .frame = 10 });
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(cleanse, { .frame = 10 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2359,17 +2255,14 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
             },
         };
         BattleEffectCommandSystem system;
-        system.reduce(
-            state,
-            damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -45,
                 70,
                 EffectStackPolicy::Independent,
                 0,
-                DamageChannel::All),
-            { .frame = 0 });
+                DamageChannel::All), { .frame = 0 }));
 
         RemoveStatusAction action;
         action.negativeOnly = true;
@@ -2377,9 +2270,9 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.order = StatusRemovalOrder::LongestRemaining;
         const EffectCommand cleanse{
             metadata(69, 3),
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
-        const auto reduced = system.reduce(state, cleanse, { .frame = 10 });
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(cleanse, { .frame = 10 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2416,10 +2309,9 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.order = StatusRemovalOrder::Oldest;
         const EffectCommand cleanse{
             metadata(70, 3),
-            RemoveStatusEffectCommand{ action },
+            KysChess::Battle::Test::statusRemoval(action),
         };
-        const auto reduced = BattleEffectCommandSystem{}.reduce(
-            state, cleanse, { .frame = 0 });
+        const auto reduced = BattleEffectCommandSystem{}.reduce(state, KysChess::Battle::Test::commandFixture(cleanse, { .frame = 0 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2471,8 +2363,8 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         otherModifier.metadata.binding.ownerUnitId = 2;
         otherModifier.metadata.binding.runtimeInstanceId = 2;
         BattleEffectCommandSystem system;
-        system.reduce(state, ownedModifier, { .frame = 0 });
-        system.reduce(state, otherModifier, { .frame = 0 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(ownedModifier, { .frame = 0 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(otherModifier, { .frame = 0 }));
 
         RemoveStatusAction action;
         action.negativeOnly = true;
@@ -2481,9 +2373,9 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.order = StatusRemovalOrder::Oldest;
         const EffectCommand cleanse{
             metadata(71, 3),
-            RemoveStatusEffectCommand{ action },
+            prepareStatusRemoval(action, metadata(71, 3)),
         };
-        const auto reduced = system.reduce(state, cleanse, { .frame = 0 });
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(cleanse, { .frame = 0 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2501,17 +2393,14 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
     {
         auto state = makeState();
         BattleEffectCommandSystem system;
-        system.reduce(
-            state,
-            damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -20,
                 90,
                 EffectStackPolicy::Independent,
                 0,
-                DamageChannel::All),
-            { .frame = 0 });
+                DamageChannel::All), { .frame = 0 }));
 
         ApplyStatusAction poison;
         poison.status = BattleStatusKind::Poison;
@@ -2519,13 +2408,10 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         poison.quantity = SetStatusTriggerCharges{ 1 };
         poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
         poison.behavior = poisonStatusBehavior(10);
-        system.reduce(
-            state,
-            EffectCommand{
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(72, 3),
-                ApplyStatusEffectCommand{ poison, std::nullopt },
-            },
-            { .frame = 1 });
+                KysChess::Battle::Test::statusApplication(poison),
+            }, { .frame = 1 }));
 
         REQUIRE(state.effectCommands.damageModifiers.size() == 1);
         REQUIRE(state.units.require(3).status.effects.statuses.size() == 1);
@@ -2538,13 +2424,10 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.negativeOnly = true;
         action.count = 1;
         action.order = StatusRemovalOrder::Oldest;
-        const auto reduced = system.reduce(
-            state,
-            EffectCommand{
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(73, 3),
-                RemoveStatusEffectCommand{ action },
-            },
-            { .frame = 2 });
+                KysChess::Battle::Test::statusRemoval(action),
+            }, { .frame = 2 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2565,24 +2448,18 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         poison.quantity = SetStatusTriggerCharges{ 1 };
         poison.reapplication = StatusReapplicationPolicy::KeepHigherDamage;
         poison.behavior = poisonStatusBehavior(10);
-        system.reduce(
-            state,
-            EffectCommand{
+        system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(74, 3),
-                ApplyStatusEffectCommand{ poison, std::nullopt },
-            },
-            { .frame = 0 });
-        system.reduce(
-            state,
-            damageModifierCommand(
+                KysChess::Battle::Test::statusApplication(poison),
+            }, { .frame = 0 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -20,
                 90,
                 EffectStackPolicy::Independent,
                 0,
-                DamageChannel::All),
-            { .frame = 1 });
+                DamageChannel::All), { .frame = 1 }));
 
         REQUIRE(state.effectCommands.damageModifiers.size() == 1);
         REQUIRE(state.units.require(3).status.effects.statuses.size() == 1);
@@ -2595,13 +2472,10 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.negativeOnly = true;
         action.count = 1;
         action.order = StatusRemovalOrder::Newest;
-        const auto reduced = system.reduce(
-            state,
-            EffectCommand{
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(75, 3),
-                RemoveStatusEffectCommand{ action },
-            },
-            { .frame = 2 });
+                KysChess::Battle::Test::statusRemoval(action),
+            }, { .frame = 2 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2620,17 +2494,14 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         effects.setFrames(BattleStatusKind::Stun, 90, 90, 1);
 
         BattleEffectCommandSystem system;
-        system.reduce(
-            state,
-            damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -20,
                 90,
                 EffectStackPolicy::Independent,
                 0,
-                DamageChannel::All),
-            { .frame = 1 });
+                DamageChannel::All), { .frame = 1 }));
 
         REQUIRE(effects.statuses.size() == 1);
         REQUIRE(state.effectCommands.damageModifiers.size() == 1);
@@ -2642,13 +2513,10 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         action.negativeOnly = true;
         action.count = 1;
         action.order = StatusRemovalOrder::Newest;
-        const auto reduced = system.reduce(
-            state,
-            EffectCommand{
+        const auto reduced = system.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
                 metadata(76, 3),
-                RemoveStatusEffectCommand{ action },
-            },
-            { .frame = 2 });
+                KysChess::Battle::Test::statusRemoval(action),
+            }, { .frame = 2 }));
 
         const auto& removed = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
@@ -2667,24 +2535,18 @@ TEST_CASE("BattleEffectCommandSystem applies deterministic damage modifier stack
     {
         auto state = makeState();
         BattleEffectCommandSystem system;
-        const auto first = system.reduce(
-            state,
-            damageModifierCommand(
+        const auto first = system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -20,
                 90,
-                EffectStackPolicy::Refresh),
-            { .frame = 10 });
-        const auto second = system.reduce(
-            state,
-            damageModifierCommand(
+                EffectStackPolicy::Refresh), { .frame = 10 }));
+        const auto second = system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                 3,
                 DamageModifierOperation::PercentAdd,
                 -30,
                 90,
-                EffectStackPolicy::Refresh),
-            { .frame = 40 });
+                EffectStackPolicy::Refresh), { .frame = 40 }));
 
         CHECK(std::get<BattleDamageModifierEffectResult>(first.entries[0].value).outcome
               == BattleDamageModifierApplyOutcome::Applied);
@@ -2701,21 +2563,21 @@ TEST_CASE("BattleEffectCommandSystem applies deterministic damage modifier stack
     {
         auto state = makeState();
         BattleEffectCommandSystem system;
-        system.reduce(state, damageModifierCommand(
-            3, DamageModifierOperation::FlatAdd, 10, 60), { .frame = 0 });
-        system.reduce(state, damageModifierCommand(
-            3, DamageModifierOperation::FlatAdd, 20, 60), { .frame = 1 });
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
+            3, DamageModifierOperation::FlatAdd, 10, 60), { .frame = 0 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
+            3, DamageModifierOperation::FlatAdd, 20, 60), { .frame = 1 }));
         REQUIRE(state.effectCommands.damageModifiers.size() == 2);
         CHECK(state.effectCommands.damageModifiers[0].sequence == 1);
         CHECK(state.effectCommands.damageModifiers[1].sequence == 2);
 
         state = makeState();
-        system.reduce(state, damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
             3, DamageModifierOperation::FlatAdd, 10, 60,
-            EffectStackPolicy::Replace), { .frame = 0 });
-        const auto replaced = system.reduce(state, damageModifierCommand(
+            EffectStackPolicy::Replace), { .frame = 0 }));
+        const auto replaced = system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
             3, DamageModifierOperation::FlatAdd, 20, 60,
-            EffectStackPolicy::Replace), { .frame = 1 });
+            EffectStackPolicy::Replace), { .frame = 1 }));
         REQUIRE(state.effectCommands.damageModifiers.size() == 1);
         CHECK(std::get<BattleDamageModifierEffectResult>(replaced.entries[0].value).outcome
               == BattleDamageModifierApplyOutcome::Replaced);
@@ -2729,15 +2591,12 @@ TEST_CASE("BattleEffectCommandSystem applies deterministic damage modifier stack
         BattleEffectCommandSystem system;
         const auto refresh = [&](int amount, int frame)
         {
-            return system.reduce(
-                state,
-                damageModifierCommand(
+            return system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
                     3,
                     DamageModifierOperation::PercentAdd,
                     amount,
                     90,
-                    EffectStackPolicy::Refresh),
-                { .frame = frame });
+                    EffectStackPolicy::Refresh), { .frame = frame }));
         };
 
         refresh(20, 0);
@@ -2766,23 +2625,88 @@ TEST_CASE("BattleEffectCommandSystem applies deterministic damage modifier stack
     {
         auto state = makeState();
         BattleEffectCommandSystem system;
-        system.reduce(state, damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
             3, DamageModifierOperation::Multiply, 120, 60,
-            EffectStackPolicy::KeepStrongest), { .frame = 0 });
-        const auto stronger = system.reduce(state, damageModifierCommand(
+            EffectStackPolicy::KeepStrongest), { .frame = 0 }));
+        const auto stronger = system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
             3, DamageModifierOperation::Multiply, 150, 60,
-            EffectStackPolicy::KeepStrongest), { .frame = 1 });
+            EffectStackPolicy::KeepStrongest), { .frame = 1 }));
         CHECK(std::get<BattleDamageModifierEffectResult>(stronger.entries[0].value).outcome
               == BattleDamageModifierApplyOutcome::Replaced);
         CHECK(state.effectCommands.damageModifiers[0].amount == 150);
 
         state = makeState();
-        system.reduce(state, damageModifierCommand(
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
             3, DamageModifierOperation::CapSingleHitAtMaxHpPercent, 30, 60,
-            EffectStackPolicy::KeepStrongest), { .frame = 0 });
-        system.reduce(state, damageModifierCommand(
+            EffectStackPolicy::KeepStrongest), { .frame = 0 }));
+        system.reduce(state, KysChess::Battle::Test::commandFixture(damageModifierCommand(
             3, DamageModifierOperation::CapSingleHitAtMaxHpPercent, 15, 60,
-            EffectStackPolicy::KeepStrongest), { .frame = 1 });
+            EffectStackPolicy::KeepStrongest), { .frame = 1 }));
         CHECK(state.effectCommands.damageModifiers[0].amount == 15);
     }
+}
+
+TEST_CASE("Prepared state damage preserves selected target order and skips empty settlement",
+          "[battle][effect][command][settlement][continuation]")
+{
+    auto state = makeState();
+    std::array<std::byte, 4096> storage{};
+    auto frame = BattleFrameContext::begin(state, {}, storage.data(), storage.size());
+    EffectCommand command{
+        metadata(88, 1),
+        StateMachineEffectCommand{ StateDamageEffectCommand{
+            37, BattleDamageKind::Pure, { 3, 2 } } },
+        { .frame = 20 },
+    };
+    CoreDetail::reduceEffectCommand(state, frame, frame.currentFrameDamage(), command, nullptr);
+    const auto& damage = frame.currentFrameDamage();
+    REQUIRE(damage.size() == 2);
+    CHECK(damage[0].request.defenderUnitId == 3);
+    CHECK(damage[1].request.defenderUnitId == 2);
+    CHECK(damage[0].request.baseDamage == 37);
+    CHECK(damage[1].request.baseDamage == 37);
+    CHECK(damage[0].request.damageKind == BattleDamageKind::Pure);
+    CHECK_FALSE(damage[0].request.preResolvedDamage);
+    CHECK(damage[0].request.triggersDefenseEffects);
+    CHECK(state.units.requireCore(3).vitals.hp == 1000);
+    auto& settlement = std::get<StateDamageEffectCommand>(
+        std::get<StateMachineEffectCommand>(command.value).value);
+    settlement.targetUnitIds.clear();
+    const auto skipped = BattleEffectCommandSystem().reduce(state, command);
+    REQUIRE(skipped.entries.size() == 1);
+    CHECK(std::holds_alternative<BattleSkippedEffectResult>(skipped.entries.front().value));
+}
+
+TEST_CASE("Area projectile execution preserves captured damage and formula-derived reporting",
+          "[battle][effect][command][area][presentation]")
+{
+    int flat{};
+    SECTION("純最大生命百分比") {}
+    SECTION("百分比加固定傷害") { flat = 7; }
+    auto state = makeState();
+    std::array<std::byte, 4096> storage{};
+    auto frame = BattleFrameContext::begin(state, {}, storage.data(), storage.size());
+    DealDamageAction action;
+    action.amount.base = EffectNumberBase::SourceMaxHp;
+    action.amount.flat = flat;
+    action.amount.percent = 30;
+    action.kind = BattleDamageKind::Effect;
+    action.appliesDamageModifiers = false;
+    action.triggersHurtInvincibility = false;
+    action.areaProjectiles = AreaProjectileDamageDelivery{
+        .rangeTiles = 2,
+        .maximumTargets = 1,
+        .visual = AreaProjectileVisual::DeathBlast,
+    };
+    EffectCommand command{ metadata(33, 3), prepareDealDamage(action, 300 + flat), { .frame = 20 } };
+    state.units.requireCore(1).vitals.maxHp = 2000;
+    CoreDetail::reduceEffectCommand(state, frame, frame.currentFrameDamage(), command, nullptr);
+    REQUIRE(frame.mutableAreaProjectileFollowUps().size() == 1);
+    const auto& followUp = frame.mutableAreaProjectileFollowUps().front();
+    CHECK(followUp.damage == 300 + flat);
+    CHECK(followUp.damagePct == 30);
+    CHECK_FALSE(followUp.appliesDamageModifiers);
+    CHECK_FALSE(followUp.triggersDefenseEffects);
+    if (flat == 0) CHECK(followUp.logText == "殉爆30%");
+    else CHECK(followUp.logText == "殉爆（307傷害）");
 }

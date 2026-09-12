@@ -740,7 +740,8 @@ TEST_CASE("BattleStartInitializer records only active anti-combo initialization 
         1,
         0,
         0,
-        711);
+        711,
+        0);
     REQUIRE(transfer.coreAttributeDeltas.size() == 1);
     CHECK(transfer.coreAttributeDeltas.front().attribute == BattleAttribute::Attack);
     CHECK(transfer.coreAttributeDeltas.front().delta == 10);

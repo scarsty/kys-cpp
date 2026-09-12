@@ -1,3 +1,4 @@
+#include "EffectDispatchTestHelpers.h"
 #include "battle/BattleEffectSystem.h"
 #include "battle/BattleRuntimeRandom.h"
 #include "BattleCoreTestHelpers.h"
@@ -78,7 +79,7 @@ BattleAttackProvenance attackProvenance(int magicId,
 }
 
 template<class Payload>
-EffectEventContext makeContext(EffectEvent event,
+EffectEventData makeContext(EffectEvent event,
                                EffectSourceBinding binding,
                                const EffectUnitSnapshot& owner,
                                const std::vector<EffectUnitSnapshot>& units,
@@ -264,7 +265,7 @@ TEST_CASE("BattleEffectSystem scales poison explosion once by contribution layer
     auto behavior = std::make_shared<StatusBehaviorDefinition>();
     behavior->rules.push_back(rule);
     std::vector runtime{ EffectRuleRuntimeState{} };
-    const ActiveStatusBehaviorView active{
+    const auto active = statusBehaviorFixture({
         .binding = magicBinding(95),
         .producerRuleId = EffectRuleId{ 95 },
         .producerRuleOrder = 4,
@@ -275,7 +276,7 @@ TEST_CASE("BattleEffectSystem scales poison explosion once by contribution layer
         .appliedSequence = 1,
         .behavior = behavior,
         .runtime = &runtime,
-    };
+    }, nullptr);
     BattleRuntimeRandom random(1);
     const auto context = makeContext(
         EffectEvent::UnitDied,
@@ -288,7 +289,7 @@ TEST_CASE("BattleEffectSystem scales poison explosion once by contribution layer
             .cause = EffectEnvironmentDamageOrigin{},
         });
 
-    const auto dispatched = BattleEffectSystem{}.dispatchStatusBehaviors(
+    const auto dispatched = dispatchStatusFixture(
         context, random, std::span{ &active, std::size_t{ 1 } });
     REQUIRE(dispatched.commands.size() == 2);
     const auto& damageCommand = std::get<DealDamageEffectCommand>(
@@ -375,17 +376,17 @@ TEST_CASE("BattleEffectSystem keeps poison preflight ordering metadata and incom
     CHECK_FALSE(aggregateCommand.metadata.statusContribution);
     const auto& aggregated = std::get<ApplyStatusEffectCommand>(
         aggregateCommand.value);
-    CHECK(poisonDamagePercent(aggregated.action.behavior) == 18);
-    CHECK(aggregated.action.durationFrames == 90);
-    CHECK(std::get<SetStatusTriggerCharges>(aggregated.action.quantity).count == 3);
-    CHECK(aggregated.action.poisonSameEventMerge == PoisonSameEventMerge::None);
+    CHECK(poisonDamagePercent(aggregated.behavior) == 18);
+    CHECK(aggregated.durationFrames == 90);
+    CHECK(aggregated.stacks == 3);
+    CHECK(aggregated.poisonSameEventMerge == PoisonSameEventMerge::None);
 
     const auto& incompatibleCommand = dispatched.commands[2];
     CHECK(incompatibleCommand.metadata.ruleId == incompatibleRule.id);
     const auto& incompatible = std::get<ApplyStatusEffectCommand>(
         incompatibleCommand.value);
-    CHECK(poisonDamagePercent(incompatible.action.behavior) == 13);
-    CHECK(incompatible.action.poisonSameEventMerge == PoisonSameEventMerge::None);
+    CHECK(poisonDamagePercent(incompatible.behavior) == 13);
+    CHECK(incompatible.poisonSameEventMerge == PoisonSameEventMerge::None);
 }
 
 TEST_CASE("BattleEffectSystem aggregates same-event poison across configured source kinds",
@@ -446,7 +447,7 @@ TEST_CASE("BattleEffectSystem aggregates same-event poison across configured sou
         });
     BattleRuntimeRandom random(1);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchMerged(
+    const auto dispatched = dispatchMergedFixture(
         store,
         context,
         random,
@@ -455,9 +456,9 @@ TEST_CASE("BattleEffectSystem aggregates same-event poison across configured sou
     REQUIRE(dispatched.commands.size() == 1);
     const auto& aggregated = std::get<ApplyStatusEffectCommand>(
         dispatched.commands.front().value);
-    CHECK(poisonDamagePercent(aggregated.action.behavior) == 18);
-    CHECK(std::get<SetStatusTriggerCharges>(aggregated.action.quantity).count == 5);
-    CHECK(aggregated.action.poisonSameEventMerge == PoisonSameEventMerge::None);
+    CHECK(poisonDamagePercent(aggregated.behavior) == 18);
+    CHECK(aggregated.stacks == 5);
+    CHECK(aggregated.poisonSameEventMerge == PoisonSameEventMerge::None);
 }
 
 TEST_CASE("BattleEffectSystem aggregates poison only when the complete extra behavior agrees",
@@ -484,9 +485,7 @@ TEST_CASE("BattleEffectSystem aggregates poison only when the complete extra beh
                 hitTargetSelector(),
                 { effectAction(std::move(second)) }));
         BattleRuntimeRandom random(1);
-        return BattleEffectSystem{}.dispatch(
-            store,
-            makeContext(
+        const auto context = makeContext(
                 EffectEvent::HitBeforeDamage,
                 magicBinding(21),
                 owner,
@@ -497,8 +496,8 @@ TEST_CASE("BattleEffectSystem aggregates poison only when the complete extra beh
                     .originalTargetUnitId = enemy.id,
                     .contactPosition = enemy.position,
                     .acceptedHit = true,
-                }),
-            random);
+                });
+        return BattleEffectSystem{}.dispatch(store, context, random);
     };
 
     const auto compatible = dispatch(
@@ -507,18 +506,18 @@ TEST_CASE("BattleEffectSystem aggregates poison only when the complete extra beh
     REQUIRE(compatible.commands.size() == 1);
     const auto& aggregated = std::get<ApplyStatusEffectCommand>(
         compatible.commands.front().value);
-    CHECK(poisonDamagePercent(aggregated.action.behavior) == 18);
-    REQUIRE(aggregated.action.behavior);
-    CHECK(aggregated.action.behavior->rules.size() == 2);
+    CHECK(poisonDamagePercent(aggregated.behavior) == 18);
+    REQUIRE(aggregated.behavior);
+    CHECK(aggregated.behavior->rules.size() == 2);
 
     const auto incompatible = dispatch(
         aggregatingPoisonWithDeathShield(7, 101, 5),
         aggregatingPoisonWithDeathShield(11, 202, 6));
     REQUIRE(incompatible.commands.size() == 2);
     CHECK(poisonDamagePercent(std::get<ApplyStatusEffectCommand>(
-        incompatible.commands[0].value).action.behavior) == 7);
+        incompatible.commands[0].value).behavior) == 7);
     CHECK(poisonDamagePercent(std::get<ApplyStatusEffectCommand>(
-        incompatible.commands[1].value).action.behavior) == 11);
+        incompatible.commands[1].value).behavior) == 11);
 }
 
 TEST_CASE("BattleEffectSystem repetition shares one authored producer-family capacity",
@@ -685,6 +684,11 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after partial self
 
     ConsumeThisStatusAction consume;
     consume.quantity = 1;
+    ApplyStatusAction depleted;
+    depleted.status = BattleStatusKind::Stun;
+    depleted.duration = EffectNumber{ .base = EffectNumberBase::TargetMaxHp, .percent = 10 };
+    depleted.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+    consume.whenDepleted = depleted;
     auto consumingRule = makeRule(
         1,
         EffectEvent::HitBeforeDamage,
@@ -708,7 +712,7 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after partial self
     auto behavior = std::make_shared<StatusBehaviorDefinition>();
     behavior->rules = { consumingRule, staleRule };
     std::vector runtime(2, EffectRuleRuntimeState{});
-    const ActiveStatusBehaviorView active{
+    const auto active = statusBehaviorFixture({
         .binding = magicBinding(106),
         .producerRuleId = EffectRuleId{ 106 },
         .producerRuleOrder = 8,
@@ -719,7 +723,7 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after partial self
         .appliedSequence = 9,
         .behavior = behavior,
         .runtime = &runtime,
-    };
+    }, nullptr);
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
         magicBinding(106),
@@ -731,7 +735,7 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after partial self
         });
     BattleRuntimeRandom random(77);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchStatusBehaviors(
+    const auto dispatched = dispatchStatusFixture(
         context,
         random,
         std::span{ &active, std::size_t{ 1 } });
@@ -739,9 +743,16 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after partial self
     REQUIRE(dispatched.commands.size() == 2);
     CHECK(std::holds_alternative<ConsumeThisStatusEffectCommand>(
         dispatched.commands.front().value));
+    const auto& consumption = std::get<ConsumeThisStatusEffectCommand>(
+        dispatched.commands.front().value);
+    CHECK(consumption.request.filter.holderUnitId == owner.id);
+    CHECK(consumption.request.filter.appliedSequence == 9);
+    CHECK(consumption.request.stacks == 1);
+    REQUIRE(consumption.whenDepleted);
+    CHECK(consumption.whenDepleted->durationFrames == 100);
     const auto& shieldCommand = std::get<ChangeResourceEffectCommand>(
         dispatched.commands.back().value);
-    CHECK(shieldCommand.amount == 1);
+    CHECK(shieldCommand.resolvedAmount() == 1);
     CHECK(random.rawDrawCount() == 0);
     CHECK(runtime[0].activationCount == 1);
     CHECK(runtime[1].activationCount == 1);
@@ -805,7 +816,7 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after a compatible
             .appliedSequence = 1,
         },
     };
-    const ActiveStatusBehaviorView active{
+    const auto active = statusBehaviorFixture({
         .binding = binding,
         .producerRuleId = producer.id,
         .producerRuleOrder = producerOrder,
@@ -815,10 +826,10 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after a compatible
         .kind = BattleStatusKind::TrueQi,
         .quantity = 2,
         .appliedSequence = 1,
-        .holderEffects = &holderEffects,
+
         .behavior = behavior,
         .runtime = &runtime,
-    };
+    }, &holderEffects);
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
         binding,
@@ -830,7 +841,7 @@ TEST_CASE("BattleEffectSystem refreshes contribution quantity after a compatible
         });
     BattleRuntimeRandom random(1);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchMerged(
+    const auto dispatched = dispatchMergedFixture(
         store,
         context,
         random,
@@ -923,7 +934,7 @@ TEST_CASE("BattleEffectSystem replacement invalidates the old generation until t
             .appliedSequence = 1,
         },
     };
-    const ActiveStatusBehaviorView oldActive{
+    const auto oldActive = statusBehaviorFixture({
         .binding = oldBinding,
         .producerRuleId = EffectRuleId{ 90 },
         .producerRuleOrder = 10,
@@ -932,10 +943,10 @@ TEST_CASE("BattleEffectSystem replacement invalidates the old generation until t
         .kind = BattleStatusKind::Poison,
         .quantity = 3,
         .appliedSequence = 1,
-        .holderEffects = &holderEffects,
+
         .behavior = oldBehavior,
         .runtime = &oldRuntime,
-    };
+    }, &holderEffects);
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
         configuredBinding,
@@ -947,7 +958,7 @@ TEST_CASE("BattleEffectSystem replacement invalidates the old generation until t
         });
     BattleRuntimeRandom random(9);
 
-    const auto first = BattleEffectSystem{}.dispatchMerged(
+    const auto first = dispatchMergedFixture(
         store,
         context,
         random,
@@ -959,7 +970,7 @@ TEST_CASE("BattleEffectSystem replacement invalidates the old generation until t
     CHECK(oldRuntime.back() == EffectRuleRuntimeState{});
 
     std::vector newRuntime(newBehavior->rules.size(), EffectRuleRuntimeState{});
-    const ActiveStatusBehaviorView newActive{
+    const auto newActive = statusBehaviorFixture({
         .binding = configuredBinding,
         .producerRuleId = configuredRule.id,
         .producerRuleOrder = store.rules().front().order,
@@ -970,9 +981,9 @@ TEST_CASE("BattleEffectSystem replacement invalidates the old generation until t
         .appliedSequence = 2,
         .behavior = newBehavior,
         .runtime = &newRuntime,
-    };
+    }, nullptr);
     BattleEffectRuleStore emptyStore;
-    const auto next = BattleEffectSystem{}.dispatchMerged(
+    const auto next = dispatchMergedFixture(
         emptyStore,
         context,
         random,
@@ -980,7 +991,7 @@ TEST_CASE("BattleEffectSystem replacement invalidates the old generation until t
     REQUIRE(next.commands.size() == 1);
     const auto& shield = std::get<ChangeResourceEffectCommand>(
         next.commands.front().value);
-    CHECK(shield.amount == 123);
+    CHECK(shield.resolvedAmount() == 123);
 }
 
 TEST_CASE("BattleEffectSystem orders holder-local contribution sequences explicitly",
@@ -1007,7 +1018,7 @@ TEST_CASE("BattleEffectSystem orders holder-local contribution sequences explici
     std::vector firstRuntime(1, EffectRuleRuntimeState{});
     std::vector secondRuntime(1, EffectRuleRuntimeState{});
     const std::array active{
-        ActiveStatusBehaviorView{
+        statusBehaviorFixture({
             .binding = magicBinding(106),
             .producerRuleId = EffectRuleId{ 106 },
             .producerRuleOrder = 8,
@@ -1019,8 +1030,8 @@ TEST_CASE("BattleEffectSystem orders holder-local contribution sequences explici
             .appliedSequence = 1,
             .behavior = behavior,
             .runtime = &secondRuntime,
-        },
-        ActiveStatusBehaviorView{
+        }, nullptr),
+        statusBehaviorFixture({
             .binding = magicBinding(106),
             .producerRuleId = EffectRuleId{ 106 },
             .producerRuleOrder = 8,
@@ -1032,7 +1043,7 @@ TEST_CASE("BattleEffectSystem orders holder-local contribution sequences explici
             .appliedSequence = 1,
             .behavior = behavior,
             .runtime = &firstRuntime,
-        },
+        }, nullptr),
     };
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
@@ -1045,7 +1056,7 @@ TEST_CASE("BattleEffectSystem orders holder-local contribution sequences explici
         });
     BattleRuntimeRandom random(1);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchStatusBehaviors(
+    const auto dispatched = dispatchStatusFixture(
         context,
         random,
         active);
@@ -1093,7 +1104,7 @@ TEST_CASE("BattleEffectSystem merges frame rules before ticking and skips dead o
         },
     };
     std::vector liveRuntime(1, EffectRuleRuntimeState{});
-    const ActiveStatusBehaviorView liveActive{
+    const auto liveActive = statusBehaviorFixture({
         .binding = liveBinding,
         .producerRuleId = EffectRuleId{ 20 },
         .producerRuleOrder = 1,
@@ -1102,10 +1113,10 @@ TEST_CASE("BattleEffectSystem merges frame rules before ticking and skips dead o
         .kind = BattleStatusKind::TrueQi,
         .quantity = 1,
         .appliedSequence = 1,
-        .holderEffects = &liveEffects,
+
         .behavior = behavior,
         .runtime = &liveRuntime,
-    };
+    }, &liveEffects);
 
     RemoveStatusAction remove;
     remove.statuses = { BattleStatusKind::TrueQi };
@@ -1135,7 +1146,7 @@ TEST_CASE("BattleEffectSystem merges frame rules before ticking and skips dead o
 
     BattleStatusEffectState deadEffects = liveEffects;
     std::vector deadRuntime(1, EffectRuleRuntimeState{});
-    const ActiveStatusBehaviorView deadActive{
+    const auto deadActive = statusBehaviorFixture({
         .binding = liveBinding,
         .producerRuleId = EffectRuleId{ 21 },
         .producerRuleOrder = 2,
@@ -1144,10 +1155,10 @@ TEST_CASE("BattleEffectSystem merges frame rules before ticking and skips dead o
         .kind = BattleStatusKind::TrueQi,
         .quantity = 1,
         .appliedSequence = 1,
-        .holderEffects = &deadEffects,
+
         .behavior = behavior,
         .runtime = &deadRuntime,
-    };
+    }, &deadEffects);
     const std::array active{ liveActive, deadActive };
     const auto context = makeContext(
         EffectEvent::FrameAdvanced,
@@ -1157,7 +1168,7 @@ TEST_CASE("BattleEffectSystem merges frame rules before ticking and skips dead o
         FrameTickEventData{ .deltaFrames = 1, .periodOrdinal = 1 });
     BattleRuntimeRandom random(1);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchMerged(
+    const auto dispatched = dispatchMergedFixture(
         store,
         context,
         random,
@@ -1213,7 +1224,7 @@ TEST_CASE("BattleEffectSystem same-name status presence cannot keep another prod
         },
     };
     const std::array active{
-        ActiveStatusBehaviorView{
+        statusBehaviorFixture({
             .binding = magicBinding(105),
             .producerRuleId = EffectRuleId{ 1 },
             .producerRuleOrder = 1,
@@ -1222,11 +1233,11 @@ TEST_CASE("BattleEffectSystem same-name status presence cannot keep another prod
             .kind = BattleStatusKind::Shadowless,
             .quantity = 1,
             .appliedSequence = 1,
-            .holderEffects = &holderEffects,
+
             .behavior = expiredBehavior,
             .runtime = &expiredRuntime,
-        },
-        ActiveStatusBehaviorView{
+        }, &holderEffects),
+        statusBehaviorFixture({
             .binding = magicBinding(105),
             .producerRuleId = EffectRuleId{ 2 },
             .producerRuleOrder = 2,
@@ -1235,10 +1246,10 @@ TEST_CASE("BattleEffectSystem same-name status presence cannot keep another prod
             .kind = BattleStatusKind::Shadowless,
             .quantity = 1,
             .appliedSequence = 2,
-            .holderEffects = &holderEffects,
+
             .behavior = liveBehavior,
             .runtime = &liveRuntime,
-        },
+        }, &holderEffects),
     };
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
@@ -1253,13 +1264,13 @@ TEST_CASE("BattleEffectSystem same-name status presence cannot keep another prod
         });
     BattleRuntimeRandom random(1);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchStatusBehaviors(
+    const auto dispatched = dispatchStatusFixture(
         context, random, active);
 
     REQUIRE(dispatched.commands.size() == 1);
     const auto& shield = std::get<ChangeResourceEffectCommand>(
         dispatched.commands.front().value);
-    CHECK(shield.amount == 22);
+    CHECK(shield.resolvedAmount() == 22);
     CHECK(expiredRuntime.front() == EffectRuleRuntimeState{});
     CHECK(liveRuntime.front().activationCount == 1);
 }
@@ -1309,20 +1320,20 @@ TEST_CASE("BattleEffectSystem skips a later contribution removed by an earlier s
           .stacks = 2, .appliedSequence = 2 },
     };
     const std::array active{
-        ActiveStatusBehaviorView{
+        statusBehaviorFixture({
             .binding = magicBinding(106), .producerRuleId = { 106 },
             .producerRuleOrder = 1, .holderUnitId = holder.id,
             .sourceUnitId = owner.id, .kind = BattleStatusKind::Shadowless,
-            .quantity = 1, .appliedSequence = 1, .holderEffects = &holderEffects,
+            .quantity = 1, .appliedSequence = 1,
             .behavior = removingBehavior, .runtime = &removingRuntime,
-        },
-        ActiveStatusBehaviorView{
+        }, &holderEffects),
+        statusBehaviorFixture({
             .binding = magicBinding(106), .producerRuleId = { 107 },
             .producerRuleOrder = 2, .holderUnitId = holder.id,
             .sourceUnitId = owner.id, .kind = BattleStatusKind::TrueQi,
-            .quantity = 2, .appliedSequence = 2, .holderEffects = &holderEffects,
+            .quantity = 2, .appliedSequence = 2,
             .behavior = staleBehavior, .runtime = &staleRuntime,
-        },
+        }, &holderEffects),
     };
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
@@ -1335,7 +1346,7 @@ TEST_CASE("BattleEffectSystem skips a later contribution removed by an earlier s
         });
     BattleRuntimeRandom random(88);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchStatusBehaviors(
+    const auto dispatched = dispatchStatusFixture(
         context, random, active);
 
     REQUIRE(dispatched.commands.size() == 1);
@@ -1378,20 +1389,20 @@ TEST_CASE("BattleEffectSystem does not evaluate losing attack interceptors",
           .stacks = 1, .appliedSequence = 2 },
     };
     const std::array active{
-        ActiveStatusBehaviorView{
+        statusBehaviorFixture({
             .binding = magicBinding(106), .producerRuleId = { 106 },
             .producerRuleOrder = 1, .holderUnitId = holder.id,
             .sourceUnitId = owner.id, .kind = BattleStatusKind::NextAttackMiss,
-            .quantity = 1, .appliedSequence = 1, .holderEffects = &holderEffects,
+            .quantity = 1, .appliedSequence = 1,
             .behavior = winnerBehavior, .runtime = &winnerRuntime,
-        },
-        ActiveStatusBehaviorView{
+        }, &holderEffects),
+        statusBehaviorFixture({
             .binding = magicBinding(106), .producerRuleId = { 107 },
             .producerRuleOrder = 2, .holderUnitId = holder.id,
             .sourceUnitId = owner.id, .kind = BattleStatusKind::Blinded,
-            .quantity = 1, .appliedSequence = 2, .holderEffects = &holderEffects,
+            .quantity = 1, .appliedSequence = 2,
             .behavior = loserBehavior, .runtime = &loserRuntime,
-        },
+        }, &holderEffects),
     };
     const auto context = makeContext(
         EffectEvent::HitBeforeDamage,
@@ -1404,7 +1415,7 @@ TEST_CASE("BattleEffectSystem does not evaluate losing attack interceptors",
         });
     BattleRuntimeRandom random(99);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchStatusBehaviors(
+    const auto dispatched = dispatchStatusFixture(
         context,
         random,
         active,
@@ -1466,7 +1477,7 @@ TEST_CASE("BattleEffectSystem saturates same-event poison aggregation",
     REQUIRE(dispatched.commands.size() == 1);
     const auto& aggregated = std::get<ApplyStatusEffectCommand>(
         dispatched.commands.front().value);
-    CHECK(poisonDamagePercent(aggregated.action.behavior)
+    CHECK(poisonDamagePercent(aggregated.behavior)
         == std::numeric_limits<int>::max());
 }
 
@@ -1801,12 +1812,11 @@ TEST_CASE("BattleEffectSystem copy state machine applies its own source count af
     const auto result = BattleEffectSystem{}.dispatch(store, context, random);
     REQUIRE(result.commands.size() == 1);
     const auto& command = std::get<StateMachineEffectCommand>(result.commands.front().value);
-    REQUIRE(command.selectedSourceUnitIds.size() == 1);
-    CHECK(command.selectedSourceUnitIds.front() != owner.id);
-    CHECK(command.selectedSourceUnitIds.front() != deadEnemy.id);
-    CHECK((command.selectedSourceUnitIds.front() == ally.id
-        || command.selectedSourceUnitIds.front() == enemy.id));
-    CHECK(command.outputValue == 1);
+    REQUIRE(std::get<CopyAttackDefinitionCommand>(command.value).sourceUnitIds.size() == 1);
+    CHECK(std::get<CopyAttackDefinitionCommand>(command.value).sourceUnitIds.front() != owner.id);
+    CHECK(std::get<CopyAttackDefinitionCommand>(command.value).sourceUnitIds.front() != deadEnemy.id);
+    CHECK((std::get<CopyAttackDefinitionCommand>(command.value).sourceUnitIds.front() == ally.id
+        || std::get<CopyAttackDefinitionCommand>(command.value).sourceUnitIds.front() == enemy.id));
 
     const std::vector noCandidates{ owner, deadEnemy };
     const auto emptyContext = makeContext(
@@ -1821,8 +1831,7 @@ TEST_CASE("BattleEffectSystem copy state machine applies its own source count af
     const auto emptyResult = BattleEffectSystem{}.dispatch(emptyStore, emptyContext, emptyRandom);
     REQUIRE(emptyResult.commands.size() == 1);
     const auto& emptyCommand = std::get<StateMachineEffectCommand>(emptyResult.commands.front().value);
-    CHECK(emptyCommand.selectedSourceUnitIds.empty());
-    CHECK(emptyCommand.outputValue == 0);
+    CHECK(std::get<CopyAttackDefinitionCommand>(emptyCommand.value).sourceUnitIds.empty());
 }
 
 TEST_CASE("BattleEffectSystem copy filter excludes recursive magic before random selection",
@@ -1881,8 +1890,7 @@ TEST_CASE("BattleEffectSystem copy filter excludes recursive magic before random
     REQUIRE(result.commands.size() == 1);
     const auto& command = std::get<StateMachineEffectCommand>(
         result.commands.front().value);
-    CHECK(command.selectedSourceUnitIds.empty());
-    CHECK(command.outputValue == 0);
+    CHECK(std::get<CopyAttackDefinitionCommand>(command.value).sourceUnitIds.empty());
 }
 
 TEST_CASE("BattleEffectSystem gates rules by conditions chance propagation and maximum count", "[battle][effect]")
@@ -2226,7 +2234,7 @@ TEST_CASE("BattleEffectSystem evaluates configured and status chances in structu
     auto behavior = std::make_shared<StatusBehaviorDefinition>();
     behavior->rules = { statusRule };
     std::vector runtime{ EffectRuleRuntimeState{} };
-    const ActiveStatusBehaviorView active{
+    const auto active = statusBehaviorFixture({
         .binding = magicBinding(59),
         .producerRuleId = EffectRuleId{ 2 },
         .producerRuleOrder = 1,
@@ -2237,7 +2245,7 @@ TEST_CASE("BattleEffectSystem evaluates configured and status chances in structu
         .appliedSequence = 1,
         .behavior = behavior,
         .runtime = &runtime,
-    };
+    }, nullptr);
     const auto context = makeContext(
         EffectEvent::UltimateCommitted,
         magicBinding(59),
@@ -2249,7 +2257,7 @@ TEST_CASE("BattleEffectSystem evaluates configured and status chances in structu
         });
     BattleRuntimeRandom random(1);
 
-    const auto dispatched = BattleEffectSystem{}.dispatchMerged(
+    const auto dispatched = dispatchMergedFixture(
         store,
         context,
         random,
@@ -2259,7 +2267,7 @@ TEST_CASE("BattleEffectSystem evaluates configured and status chances in structu
     CHECK(dispatched.commands.front().metadata.binding.kind
         == EffectSourceKind::Combo);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        dispatched.commands.front().value).amount == 1);
+        dispatched.commands.front().value).resolvedAmount() == 1);
     CHECK(random.rawDrawCount() == 2);
     CHECK(store.activationCount(configuredBinding, configuredRule.id) == 1);
     CHECK(runtime.front().activationCount == 0);
@@ -2431,7 +2439,7 @@ TEST_CASE("BattleEffectSystem inserts dynamically borrowed rules at their struct
     store.append(sourceBinding, sourceRule);
     store.append(borrowerBinding, borrowRule);
     BattleRuntimeRandom random(1);
-    const auto result = BattleEffectSystem{}.dispatchMerged(
+    const auto result = dispatchMergedFixture(
         store,
         makeContext(
             EffectEvent::CastPlanned,
@@ -2450,7 +2458,7 @@ TEST_CASE("BattleEffectSystem inserts dynamically borrowed rules at their struct
         result.commands[0].value));
     const auto& borrowed = std::get<ChangeResourceEffectCommand>(
         result.commands[1].value);
-    CHECK(borrowed.amount == 9);
+    CHECK(borrowed.resolvedAmount() == 9);
     CHECK(result.commands[1].metadata.binding.ownerUnitId == owner.id);
     CHECK(result.commands[1].metadata.binding.sourceId == 71);
     CHECK(result.commands[1].metadata.binding.runtimeInstanceId != 0);
@@ -2596,8 +2604,8 @@ TEST_CASE("BattleEffectSystem lets an active magic state observe the owner's lat
     REQUIRE(echoDispatch.commands.size() == 1);
     const auto& echoCommand = std::get<ModifyAttackEffectCommand>(
         echoDispatch.commands.front().value);
-    CHECK(echoCommand.action.strengthPct == 50);
-    CHECK(echoCommand.action.propagation == CastPropagationPolicy::NoEffectRules);
+    CHECK(echoCommand.strengthPct == 50);
+    CHECK(echoCommand.propagation == CastPropagationPolicy::NoEffectRules);
 
     auto foreignCastContext = context;
     std::get<AttackEventData>(foreignCastContext.payload)
@@ -2982,9 +2990,9 @@ TEST_CASE("BattleEffectSystem expands conditional actions in stable action and t
     const auto result = BattleEffectSystem{}.dispatch(store, context, random);
     REQUIRE(result.commands.size() == 2);
     CHECK(result.commands[0].metadata.targetUnitId == 2);
-    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[0].value).action.resource == BattleResource::Shield);
+    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[0].value).resource == BattleResource::Shield);
     CHECK(result.commands[1].metadata.targetUnitId == 3);
-    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[1].value).action.resource == BattleResource::Mp);
+    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[1].value).resource == BattleResource::Mp);
     CHECK(result.commands[0].metadata.commandOrdinal == 0);
     CHECK(result.commands[1].metadata.commandOrdinal == 1);
 }
@@ -3061,9 +3069,7 @@ TEST_CASE("BattleEffectSystem transfers persistent damage memory into one cast",
     REQUIRE(transferred.commands.size() == 1);
     const auto& transferCommand = std::get<StateMachineEffectCommand>(
         transferred.commands[0].value);
-    CHECK(transferCommand.stateValueBefore == 420);
-    CHECK(transferCommand.outputValue == 420);
-    CHECK(transferCommand.stateValueAfter == 0);
+    CHECK(std::holds_alternative<EvaluatedStateEffectCommand>(transferCommand.value));
     CHECK(store.stateValue(binding, EffectStateSlot::MaximumSkillHpDamage) == 0);
     CHECK(store.stateValue(
         binding,
@@ -3089,9 +3095,7 @@ TEST_CASE("BattleEffectSystem transfers persistent damage memory into one cast",
     const auto consumed = system.dispatch(store, hitContext, random);
     REQUIRE(consumed.commands.size() == 1);
     const auto& command = std::get<StateMachineEffectCommand>(consumed.commands[0].value);
-    CHECK(command.stateValueBefore == 420);
-    CHECK(command.outputValue == 420);
-    CHECK(command.stateValueAfter == 420);
+    CHECK(std::get<StateDamageEffectCommand>(command.value).amount == 420);
     CHECK(store.stateValue(
         binding,
         EffectStateSlot::CastMaximumHpDamage,
@@ -3102,8 +3106,7 @@ TEST_CASE("BattleEffectSystem transfers persistent damage memory into one cast",
     REQUIRE(secondHit.commands.size() == 1);
     const auto& secondCommand = std::get<StateMachineEffectCommand>(
         secondHit.commands[0].value);
-    CHECK(secondCommand.outputValue == 420);
-    CHECK(secondCommand.stateValueAfter == 420);
+    CHECK(std::get<StateDamageEffectCommand>(secondCommand.value).amount == 420);
 
     store.removeCastScopedRules(castProvenance(88).castId);
     CHECK(store.stateValue(
@@ -3152,13 +3155,13 @@ TEST_CASE("BattleEffectSystem routes recorded shield output through the typed re
     REQUIRE(result.commands.size() == 2);
     const auto& shield = std::get<ChangeResourceEffectCommand>(result.commands[0].value);
     CHECK(result.commands[0].metadata.actionOrder == 0);
-    CHECK(shield.action.resource == BattleResource::Shield);
-    CHECK(shield.action.kind == ResourceChangeKind::Grant);
-    CHECK(shield.amount == 120);
+    CHECK(shield.resource == BattleResource::Shield);
+    CHECK(shield.kind == ResourceChangeKind::Grant);
+    CHECK(shield.resolvedAmount() == 120);
     const auto& mp = std::get<ChangeResourceEffectCommand>(result.commands[1].value);
     CHECK(result.commands[1].metadata.actionOrder == 1);
-    CHECK(mp.action.resource == BattleResource::Mp);
-    CHECK(mp.amount == 7);
+    CHECK(mp.resource == BattleResource::Mp);
+    CHECK(mp.resolvedAmount() == 7);
     CHECK(store.stateValue(binding, consume.slot) == 0);
 }
 
@@ -3278,7 +3281,7 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
         }), random);
     REQUIRE(hit.commands.size() == 1);
     const auto& stunCommand = std::get<ApplyStatusEffectCommand>(hit.commands[0].value);
-    CHECK(stunCommand.evaluatedDurationFrames == 150);
+    CHECK(stunCommand.durationFrames == 150);
     CHECK(progressStore.stateValue(
         progressBinding,
         EffectStateSlot::PermanentCastProgress) == 5);
@@ -3310,7 +3313,11 @@ TEST_CASE("BattleEffectSystem binds generic consume depletion status behavior at
 
     ApplyStatusAction depleted;
     depleted.status = BattleStatusKind::Shadowless;
-    depleted.durationFrames = 60;
+    depleted.duration = EffectNumber{
+        .base = EffectNumberBase::TargetMaxHp,
+        .percent = 10,
+        .minimum = 1,
+    };
     depleted.quantity = NoStatusQuantity{};
     depleted.reapplication = StatusReapplicationPolicy::RefreshDuration;
     depleted.behavior = std::move(behavior);
@@ -3318,6 +3325,7 @@ TEST_CASE("BattleEffectSystem binds generic consume depletion status behavior at
     ConsumeStatusAction consume;
     consume.status = BattleStatusKind::SevenStarMark;
     consume.quantity = 1;
+    consume.source = StatusSourceMatch::EffectBinding;
     consume.whenDepleted = std::move(depleted);
     const auto rule = makeRule(
         90,
@@ -3347,10 +3355,14 @@ TEST_CASE("BattleEffectSystem binds generic consume depletion status behavior at
     REQUIRE(result.commands.size() == 1);
     const auto& command = std::get<ConsumeStatusEffectCommand>(
         result.commands.front().value);
+    CHECK(command.request.filter.producerBinding == source);
+    CHECK(command.request.stacks == 1);
     REQUIRE(command.whenDepleted);
-    REQUIRE(command.whenDepleted->action.behavior);
+    CHECK(command.whenDepleted->durationFrames == 150);
+    CHECK(command.whenDepleted->stackLimit == 1);
+    REQUIRE(command.whenDepleted->behavior);
     const auto& boundNumber = std::get<ModifyDamageAction>(
-        command.whenDepleted->action.behavior->rules.front().actions.front().value).amount;
+        command.whenDepleted->behavior->rules.front().actions.front().value).amount;
     CHECK(boundNumber.base == EffectNumberBase::BoundRatio);
     CHECK(boundNumber.boundNumerator == target.maxHp);
     CHECK(boundNumber.boundDenominator == 1);
@@ -3387,7 +3399,7 @@ TEST_CASE("BattleEffectSystem emits the four vertical slice command shapes", "[b
         REQUIRE(result.commands.size() == 1);
         const auto& command = std::get<ChangeResourceEffectCommand>(result.commands[0].value);
         CHECK(result.commands[0].metadata.targetUnitId == 2);
-        CHECK(command.amount == 140);
+        CHECK(command.resolvedAmount() == 140);
     }
 
     SECTION("神照功")
@@ -3428,9 +3440,9 @@ TEST_CASE("BattleEffectSystem emits the four vertical slice command shapes", "[b
         const auto result = system.dispatch(store, context, random);
         REQUIRE(result.commands.size() == 1);
         const auto& command = std::get<ApplyStatusEffectCommand>(result.commands[0].value);
-        CHECK(command.action.status == BattleStatusKind::WitheredBone);
-        REQUIRE(command.action.behavior);
-        const auto& persistent = command.action.behavior->rules.front();
+        CHECK(command.status == BattleStatusKind::WitheredBone);
+        REQUIRE(command.behavior);
+        const auto& persistent = command.behavior->rules.front();
         CHECK(std::get<ModifyDamageAction>(persistent.actions[0].value).amount.flat == 25);
         CHECK(std::get<ModifyHealTransactionAction>(persistent.actions[1].value).percent == 25);
     }
@@ -3457,10 +3469,10 @@ TEST_CASE("BattleEffectSystem emits the four vertical slice command shapes", "[b
         const auto result = system.dispatch(store, context, random);
         REQUIRE(result.commands.size() == 1);
         const auto& command = std::get<ModifyAttackEffectCommand>(result.commands[0].value);
-        CHECK(command.action.pattern.kind == AttackPatternKind::Fan);
-        CHECK(command.action.pattern.projectileCount == 5);
-        CHECK(command.action.strengthPct == 60);
-        CHECK(command.action.sameTargetHitLimit == 1);
+        CHECK(command.pattern.kind == AttackPatternKind::Fan);
+        CHECK(command.pattern.projectileCount == 5);
+        CHECK(command.strengthPct == 60);
+        CHECK(command.sameTargetHitLimit == 1);
     }
 }
 
@@ -3566,16 +3578,16 @@ TEST_CASE("BattleEffectSystem couple-blade branch replaces its solo fallback",
         withPartner.commands.front().value);
     REQUIRE(combinedCommand.source);
     CHECK(combinedCommand.source->unitId == ally.id);
-    CHECK(combinedCommand.action.strengthPct == 100);
-    CHECK(combinedCommand.action.mainProjectile);
+    CHECK(combinedCommand.strengthPct == 100);
+    CHECK(combinedCommand.mainProjectile);
 
     const auto solo = dispatch({ owner, enemy });
     REQUIRE(solo.commands.size() == 1);
     const auto& fallbackCommand = std::get<ModifyAttackEffectCommand>(
         solo.commands.front().value);
     CHECK_FALSE(fallbackCommand.source);
-    CHECK(fallbackCommand.action.strengthPct == 50);
-    CHECK_FALSE(fallbackCommand.action.mainProjectile);
+    CHECK(fallbackCommand.strengthPct == 50);
+    CHECK_FALSE(fallbackCommand.mainProjectile);
 }
 
 static_assert(std::variant_size_v<EffectCommandValue> == 16);
@@ -3636,9 +3648,9 @@ TEST_CASE("BattleEffectSystem binds neutralize-force MP recovery to its producer
             random);
         REQUIRE(result.commands.size() == 1);
         const auto& application = std::get<ApplyStatusEffectCommand>(result.commands.front().value);
-        REQUIRE(application.action.behavior);
+        REQUIRE(application.behavior);
         const auto& recovery = std::get<ChangeResourceAction>(
-            application.action.behavior->rules.front().actions.front().value);
+            application.behavior->rules.front().actions.front().value);
         CHECK(recovery.amount.base == EffectNumberBase::BoundRatio);
         CHECK(recovery.amount.boundNumerator == star);
         CHECK(recovery.amount.boundDenominator == 1);

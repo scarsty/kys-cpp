@@ -240,7 +240,7 @@ struct BattleAreaEffectResult
 struct BattleEffectDamageRequestOutput
 {
     BattleDamageRequest request;
-    DealDamageAction action;
+    EffectDamageDelivery delivery;
     EffectSourceBinding source;
     EffectRuleId ruleId;
     std::optional<BattleCastProvenance> triggeringCast;
@@ -249,17 +249,6 @@ struct BattleEffectDamageRequestOutput
     std::uint32_t authoredActionOrder{};
     int transactionCount = 1;
     int eventSourceUnitId = -1;
-};
-
-enum class BattleDeferredHpResourceReason
-{
-    RequiresDamageSettlement,
-};
-
-struct BattleDeferredHpResourceOutput
-{
-    ChangeResourceEffectCommand command;
-    BattleDeferredHpResourceReason reason = BattleDeferredHpResourceReason::RequiresDamageSettlement;
 };
 
 struct BattleSkippedEffectResult {};
@@ -281,15 +270,13 @@ using BattleEffectReductionValue = std::variant<
     BattleStatusRemoveEffectResult,
     BattleAreaEffectResult,
     BattleEffectDamageRequestOutput,
-    BattleDeferredHpResourceOutput,
     BattleRoutedEffectCommand<ModifyDamageEffectCommand>,
     BattleRoutedEffectCommand<ModifyHealTransactionEffectCommand>,
     BattleRoutedEffectCommand<SuppressCurrentCastContactsEffectCommand>,
     BattleRoutedEffectCommand<MakeIncomingAttackMissEffectCommand>,
     BattleRoutedEffectCommand<ModifyAttackEffectCommand>,
     BattleRoutedEffectCommand<ForceMoveEffectCommand>,
-    BattleRoutedEffectCommand<ModifyCastEffectCommand>,
-    BattleRoutedEffectCommand<StateMachineEffectCommand>>;
+    BattleRoutedEffectCommand<ModifyCastEffectCommand>>;
 
 struct BattleEffectReductionEntry
 {
@@ -303,37 +290,27 @@ struct BattleEffectCommandReduction
     std::vector<BattleEffectReductionEntry> entries;
 };
 
-struct BattleEffectCommandContext
-{
-    int frame{};
-    std::optional<Pointf> effectPosition;
-    std::optional<BattleCastProvenance> cast;
-    std::optional<BattleAttackProvenance> attack;
-    bool retainCastUntilDamageDescendants = true;
-    BattleHealKind healKind = BattleHealKind::Direct;
-    BattleHealSourcePolicy healSourcePolicy = BattleHealSourcePolicy::RequireAlive;
-    BattleHealModifierState healModifiers;
-    int controlLowHpImmunityPct = 25;
-    bool bypassStatusShield = false;
-    int areaTargetTeamDomain = -1;
-};
-
 class BattleEffectCommandSystem
 {
 public:
+    static std::optional<int> contributionQuantity(
+        const BattleStatusEffectState& effects, std::uint64_t sequence, BattleStatusKind kind);
+    static BattleRuntimeState copyDispatchState(const BattleRuntimeState& source);
+    static BattleEffectDamageRequestOutput prepareDamageOutput(
+        const EffectCommandMetadata& metadata,
+        const DealDamageEffectCommand& command,
+        const EffectExecutionInputs& inputs);
     static EffectDamageOrigin damageOrigin(
         const BattleEffectDamageRequestOutput& output);
     static BattleStatusProducerProvenance statusProducerProvenance(
         const EffectCommandMetadata& metadata);
     BattleEffectCommandReduction reduce(
         BattleRuntimeState& state,
-        std::span<const EffectCommand> commands,
-        const BattleEffectCommandContext& context) const;
+        std::span<const EffectCommand> commands) const;
 
     BattleEffectCommandReduction reduce(
         BattleRuntimeState& state,
-        const EffectCommand& command,
-        const BattleEffectCommandContext& context) const;
+        const EffectCommand& command) const;
 
     static int queryAttribute(
         const BattleRuntimeState& state,
@@ -363,7 +340,7 @@ public:
         BattleStatusUnitState target,
         const EffectCommandMetadata& metadata,
         const ApplyStatusEffectCommand& command,
-        const BattleEffectCommandContext& context,
+        const EffectExecutionInputs& context,
         BattleStatusSystemConfig statusConfig,
         bool targetHasShield);
 
@@ -388,6 +365,7 @@ public:
         int targetUnitId,
         int targetTeam,
         int comboId,
+        int frame,
         std::uint64_t* nextNegativeEffectSequence = nullptr);
 
     // 回傳順序固定為 instance sequence；All channel 可符合任何實際傷害種類。

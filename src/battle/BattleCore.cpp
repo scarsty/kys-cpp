@@ -472,6 +472,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
             upcomingFrame);
     CoreDetail::appendDamageAbsorptionSettlements(
         state,
+        frame,
         frame.currentFrameDamage(),
         expiredDamageAbsorptions,
         upcomingFrame);
@@ -490,9 +491,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
     auto runtimeAdvance = CoreDetail::advanceRuntimeUnits(state);
     for (auto& batch : runtimeAdvance.cooldownFinishedEffects)
     {
-        frame.queueEffectCommands(
-            std::move(batch.commands),
-            std::move(batch.context));
+        frame.queueEffectCommands(std::move(batch.commands));
     }
     CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
@@ -531,9 +530,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
     CoreDetail::applyLateFrameMpRestores(state, frame);
     for (auto& batch : deferredFrameEffectBatches)
     {
-        frame.queueEffectCommands(
-            std::move(batch.commands),
-            std::move(batch.context));
+        frame.queueEffectCommands(std::move(batch.commands));
     }
     // 週期自動絕招固定在延後效果批次階段執行。
     CoreDetail::reduceEffectCommandBatches(

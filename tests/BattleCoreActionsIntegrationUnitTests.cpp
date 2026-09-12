@@ -1,3 +1,4 @@
+#include "EffectCommandTestHelpers.h"
 #include "battle/BattleCore.h"
 #include "BattleCoreTestHelpers.h"
 
@@ -1524,13 +1525,10 @@ TEST_CASE("BattleFrameRunner_TypedSpiralBleedCarriesCastLineageAndWork", "[battl
     authoredMetadata.ruleId = EffectRuleId{ 9901 };
     authoredMetadata.event = EffectEvent::HitBeforeDamage;
     authoredMetadata.targetUnitId = 1;
-    BattleEffectCommandSystem{}.reduce(
-        state,
-        EffectCommand{
+    BattleEffectCommandSystem{}.reduce(state, KysChess::Battle::Test::commandFixture(EffectCommand{
             authoredMetadata,
-            ApplyStatusEffectCommand{ authoredBleed, std::nullopt },
-        },
-        { .frame = state.movement.frame });
+            KysChess::Battle::Test::statusApplication(authoredBleed),
+        }, { .frame = state.movement.frame }));
 
     const auto& joinedEffects = state.units.require(1).status.effects;
     CHECK(std::ranges::count(joinedEffects.statuses,

@@ -571,7 +571,8 @@ class ChessCliTests(unittest.TestCase):
                     row["break_before"],
                     {"none", "block", "branch", "sequence", "action_group", "qualifier"},
                 )
-                self.assertFalse(row["text"].endswith("。"))
+                self.assertIsInstance(row["text"], str)
+                self.assertTrue(row["text"].strip())
 
         assert_structured_description(role["abilities"][0]["effects"])
         self.assertNotIn("effect_note", role["abilities"][0])
@@ -743,13 +744,18 @@ class ChessCliTests(unittest.TestCase):
         response = json.loads(completed.stdout.splitlines()[-1])
         reward = response["result"]["next_observation"]["pending_reward"]
         sword = next(option for option in reward["options"] if option["label"] == "越女劍")
-        self.assertIn("角色加成(韓小瑩)", sword["description"])
-        self.assertIn("主彈命中：", sword["description"])
-        self.assertIn("25%機率", sword["description"])
-        self.assertIn("對主彈目標", sword["description"])
-        self.assertIn("擊退120像素", sword["description"])
-        self.assertIn("鎖7幀", sword["description"])
-        self.assertIn("\n  閃避+18%", sword["description"])
+        character_heading = "\n角色加成(韓小瑩)：\n"
+        self.assertIn(character_heading, sword["description"])
+        general_effects, character_effects = sword["description"].split(character_heading, 1)
+        self.assertEqual(
+            character_effects.splitlines(),
+            [
+                "  命中有25%機率擊退敵人120像素，鎖定7幀。",
+                "  閃避率+18%。",
+            ],
+        )
+        self.assertNotIn("擊退", general_effects)
+        self.assertNotIn("閃避", general_effects)
         self.assertNotIn("。；", sword["description"])
         self.assertNotIn("鎖定7幀：", sword["description"])
 

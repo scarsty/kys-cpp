@@ -789,5 +789,51 @@ TEST_CASE("piece and star rewards provide full role preview inputs", "[chess][me
 
 TEST_CASE("management role preview starts with zero current MP", "[chess][menu-formatting][role-preview]")
 {
-    CHECK(formatChessRolePreviewMp(999) == "    0/  999");
+    CHECK(formatChessRolePreviewMp(999) == "0/999");
+}
+
+TEST_CASE("synergy group gaps do not change wrapped effect line spacing",
+          "[chess][menu-formatting][panel-text]")
+{
+    const std::vector<std::vector<PanelTextSourceRow>> blocks{
+        {{.text = "紅顏", .spacingAfter = 2},
+         {.text = "受擊時有30%機率，使攻擊者的出招冷卻延長50%", .spacingAfter = 2}},
+        {{.text = "明教", .spacingAfter = 2},
+         {.text = "自身死亡時，其他羈絆成員回復各自最大生命的8%，最低1點", .spacingAfter = 2}},
+    };
+    const auto normal = fitPanelTextBlocks(blocks, 200, 1000, 18, 18);
+    const auto spaced = fitPanelTextBlocks(blocks, 200, 1000, 18, 18, 8);
+    REQUIRE(normal);
+    REQUIRE(spaced);
+    REQUIRE(spaced->columns.size() == 1);
+    const auto& before = normal->columns.front().layout;
+    const auto& after = spaced->columns.front().layout;
+    REQUIRE(after.lines.size() == before.lines.size());
+    CHECK(after.height == before.height + 8);
+    int wrappedContinuations{};
+    for (std::size_t i = 0; i < after.lines.size(); ++i)
+    {
+        CHECK(after.lines[i].text == before.lines[i].text);
+        CHECK(after.lines[i].y == before.lines[i].y + (after.lines[i].sourceRow >= 2 ? 8 : 0));
+        if (i > 0 && after.lines[i].sourceRow == after.lines[i - 1].sourceRow)
+        {
+            ++wrappedContinuations;
+            CHECK(after.lines[i].y - after.lines[i - 1].y == 20);
+        }
+    }
+    CHECK(wrappedContinuations >= 2);
+    const auto columns = fitPanelTextBlocks(blocks, 400, 100, 18, 18, 8);
+    REQUIRE(columns);
+    REQUIRE(columns->columns.size() == 2);
+    for (const auto& column : columns->columns)
+    {
+        CHECK(column.layout.lines.front().y == 0);
+        for (std::size_t i = 1; i < column.layout.lines.size(); ++i)
+        {
+            const auto& line = column.layout.lines[i];
+            const auto& previous = column.layout.lines[i - 1];
+            if (line.sourceRow == previous.sourceRow)
+                CHECK(line.y - previous.y == 20);
+        }
+    }
 }

@@ -38,7 +38,6 @@ struct BattleFrameMpRestore
 struct BattleFrameEffectCommandBatch
 {
     std::vector<EffectCommand> commands;
-    BattleEffectCommandContext context;
     std::uint64_t reductionReceiptId{};
 };
 
@@ -130,7 +129,6 @@ public:
 
     void queueEffectCommands(
         std::vector<EffectCommand> commands,
-        BattleEffectCommandContext context,
         std::uint64_t reductionReceiptId = 0)
     {
         if (commands.empty())
@@ -139,7 +137,6 @@ public:
         }
         effectCommandBatches_.push_back({
             std::move(commands),
-            std::move(context),
             reductionReceiptId,
         });
     }

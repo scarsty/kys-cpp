@@ -189,7 +189,8 @@ inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
     int pixelWidth,
     int pixelHeight,
     int preferredFontSize,
-    int minimumFontSize);
+    int minimumFontSize,
+    int blockGap = 0);
 
 struct LabelValueColumn
 {
@@ -286,7 +287,8 @@ inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
     int pixelWidth,
     int pixelHeight,
     int preferredFontSize,
-    int minimumFontSize)
+    int minimumFontSize,
+    int blockGap)
 {
     assert(!blocks.empty());
     assert(pixelWidth > 0);
@@ -297,7 +299,12 @@ inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
     {
         std::vector<PanelTextSourceRow> result;
         for (std::size_t index = first; index < last; ++index)
+        {
+            const auto firstRow = result.size();
             result.insert(result.end(), blocks[index].begin(), blocks[index].end());
+            if (index > first)
+                result[firstRow].spacingBefore += blockGap;
+        }
         return result;
     };
 

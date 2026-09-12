@@ -1,4 +1,5 @@
 #include "ChessMagicEffectDisplay.h"
+#include "ChessRoleDetailLayout.h"
 #include "ChessBattleEffectTestHelpers.h"
 #include "DisplayText.h"
 #include "Types.h"
@@ -59,7 +60,7 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     }
     CHECK(effectText.find("眩暈") != std::string::npos);
     CHECK(effectText.find("14幀") != std::string::npos);
-    CHECK(effectText.find("回復30內力") != std::string::npos);
+    CHECK(effectText.find("全隊內力+30") != std::string::npos);
 }
 
 TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",
@@ -248,4 +249,66 @@ TEST_CASE("ChessMagicEffectDisplay_NormalPoolFitsTheNarrowSingleColumnViewport",
         }
         CHECK(minimumEffectFontSize >= 14);
     }
+}
+
+TEST_CASE("Role detail keeps proficiencies and equipment within separate bounds", "[chess][ui][layout]")
+{
+    for (const int width : {560, 622, 725})
+    for (const int height : {337, 365, 610})
+    for (const int portraitWidth : {96, 128, 170})
+    for (const int equipmentWidth : {200, 202, 242})
+    {
+        const PanelFrame panel{400, 55, width, height};
+        const auto layout = SessionStatusLayout::build(nullptr, panel, portraitWidth, equipmentWidth);
+        const int speedBottom = layout.topY + 4 * layout.lineHeight + layout.fontSize;
+        CHECK(layout.skillTopY >= speedBottom + 14);
+        CHECK(layout.skillTopY >= layout.avatar.y + layout.avatar.h + 14);
+        CHECK(layout.skillTopY + layout.lineHeight + layout.fontSize < layout.sectionTitleY);
+        CHECK(layout.combo.x + layout.combo.w + layout.gap == layout.equip.x);
+        CHECK(layout.equip.x + layout.equip.w == panel.x + panel.w - layout.pad);
+        // Two equipment rows: 28px stride and a 28px icon beginning 3px above the baseline.
+        CHECK(layout.sectionContentY + 28 - 3 + 28 <= panel.y + panel.h - layout.pad);
+        CHECK(layout.magic.x + layout.magic.w == panel.x + panel.w - layout.pad);
+    }
+}
+
+TEST_CASE("Equipped character values and longest equipment names fit the role card", "[chess][ui][layout][content]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    int equipmentWidth = 200;
+    std::array<int, 8> widestValues{};
+    for (const auto& equipment : content->equipment())
+    {
+        const auto* item = content->item(equipment.itemId);
+        REQUIRE(item);
+        equipmentWidth = std::max(equipmentWidth, 82 + displayTextWidth(item->name) * 10);
+    }
+    for (const int roleId : content->poolRoleIds())
+    for (int star = 1; star <= 3; ++star)
+    for (const auto& weapon : content->equipment())
+    {
+        if (weapon.equipType != 0) continue;
+        for (const auto& armor : content->equipment())
+        {
+            if (armor.equipType != 1) continue;
+            auto stats = chessRoleStats(*content->role(roleId), content->balance(), star, 0);
+            applyChessItemBaseStats(stats, content->item(weapon.itemId));
+            applyChessItemBaseStats(stats, content->item(armor.itemId));
+            const std::array values{stats.maxHp, stats.attack, stats.defence, stats.speed,
+                stats.fist, stats.sword, stats.knife, stats.unusual};
+            for (std::size_t i = 0; i < values.size(); ++i)
+                widestValues[i] = std::max(widestValues[i], displayTextWidth(std::to_string(values[i])) * 11);
+        }
+    }
+    const auto layout = SessionStatusLayout::build(nullptr, {0, 0, 560, 337}, 128, equipmentWidth);
+    INFO("equipment column width: " << equipmentWidth);
+    for (std::size_t i = 0; i < 4; ++i)
+        CHECK(layout.statsColumn.valueX + widestValues[i] + 14 <= layout.magic.x);
+    for (std::size_t i = 4; i < widestValues.size(); ++i)
+    {
+        CHECK(layout.skillCol1.valueX + widestValues[i] + 14 <= layout.skillCol2.labelX);
+        CHECK(layout.skillCol2.valueX + widestValues[i] + 14 <= layout.magic.x);
+    }
+    CHECK(layout.equip.x + equipmentWidth <= 560 - layout.pad);
 }

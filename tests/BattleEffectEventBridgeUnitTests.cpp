@@ -1,3 +1,4 @@
+#include "EffectCommandTestHelpers.h"
 #include "battle/BattleEffectEventBridge.h"
 #include "battle/BattleEffectCommandSystem.h"
 #include "battle/BattleDamageSystem.h"
@@ -5,6 +6,7 @@
 #include "BattleCoreTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
 #include <array>
@@ -187,7 +189,7 @@ std::vector<int> resourceAmounts(const BattleEffectDispatchResult& result)
     {
         if (const auto* resource = std::get_if<ChangeResourceEffectCommand>(&command.value))
         {
-            amounts.push_back(resource->amount);
+            amounts.push_back(resource->resolvedAmount());
         }
     }
     std::ranges::sort(amounts);
@@ -212,8 +214,8 @@ TEST_CASE("BattleRuntimeEffects snapshots include active typed core attributes",
     command.metadata.ruleId = EffectRuleId{ 1 };
     command.metadata.event = EffectEvent::UltimateCommitted;
     command.metadata.targetUnitId = 1;
-    command.value = ModifyAttributeEffectCommand{ buff, 30 };
-    BattleEffectCommandSystem().reduce(runtime, command, { .frame = 5 });
+    command.value = prepareModifyAttribute(buff, 30);
+    BattleEffectCommandSystem().reduce(runtime, KysChess::Battle::Test::commandFixture(command, { .frame = 5 }));
 
     runtime.movement.frame = 6;
     const auto snapshot = makeEffectUnitSnapshot(runtime, runtime.units.require(1));
@@ -267,7 +269,7 @@ TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer
         });
 
     REQUIRE(result.commands.size() == 3);
-    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[0].value).amount == 11);
+    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[0].value).resolvedAmount() == 11);
     CHECK(result.commands[0].metadata.executionLane == EffectExecutionLane::Configured);
     CHECK(result.commands[0].metadata.ruleOrder == runtime.effectRules.rules()[0].order);
 
@@ -280,7 +282,7 @@ TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer
     CHECK(result.commands[1].metadata.statusContribution->appliedSequence
         == effects.statuses.front().appliedSequence);
 
-    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[2].value).amount == 33);
+    CHECK(std::get<ChangeResourceEffectCommand>(result.commands[2].value).resolvedAmount() == 33);
     CHECK(result.commands[2].metadata.executionLane == EffectExecutionLane::Configured);
     CHECK(result.commands[2].metadata.ruleOrder == runtime.effectRules.rules()[1].order);
     CHECK(result.commands[0].metadata.commandOrdinal == 0);
@@ -298,10 +300,9 @@ TEST_CASE("BattleEffectEventBridge preserves hit positions during status livenes
     status.metadata.binding = source;
     status.metadata.ruleId = application.id;
     status.metadata.targetUnitId = 1;
-    status.value = ApplyStatusEffectCommand{
-        std::get<ApplyStatusAction>(application.actions.front().value),
-    };
-    BattleEffectCommandSystem().reduce(runtime, status, { .frame = 0 });
+    status.value = KysChess::Battle::Test::statusApplication(
+        std::get<ApplyStatusAction>(application.actions.front().value));
+    BattleEffectCommandSystem().reduce(runtime, KysChess::Battle::Test::commandFixture(status, { .frame = 0 }));
 
     CreateAreaAction area;
     area.shape = AreaShape::Circle;
@@ -346,13 +347,14 @@ TEST_CASE("BattleEffectEventBridge preserves hit positions during status livenes
         return std::holds_alternative<CreateAreaEffectCommand>(command.value);
     });
     REQUIRE(found != result.commands.end());
-    BattleEffectCommandSystem().reduce(runtime, *found, {
-        .frame = 7,
-        .effectPosition = contactPosition,
-        .cast = provenance.cast,
-        .attack = provenance,
-        .areaTargetTeamDomain = 1,
-    });
+    CHECK(found->execution.frame == 7);
+    REQUIRE(found->execution.attack);
+    CHECK(found->execution.attack->attackId == provenance.attackId);
+    CHECK(found->execution.attack->cast.castId == provenance.cast.castId);
+    CHECK(found->execution.attack->propagation == provenance.propagation);
+    runtime.units.requireCore(2).motion.position = { 800.0f, 900.0f };
+    runtime.movement.frame = 50;
+    BattleEffectCommandSystem().reduce(runtime, *found);
     REQUIRE(runtime.areas.areas.size() == 1);
     CHECK(runtime.areas.areas.front().anchor.fixedPosition.x == contactPosition.x);
     CHECK(runtime.areas.areas.front().anchor.fixedPosition.y == contactPosition.y);
@@ -442,17 +444,14 @@ TEST_CASE("BattleEffectEventBridge uses reducer-equivalent protection state for 
 
     REQUIRE(dispatched.commands.size() == 3);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        dispatched.commands.front().value).action.resource
+        dispatched.commands.front().value).resource
         == BattleResource::StatusShield);
     CHECK(std::holds_alternative<ApplyStatusEffectCommand>(
         dispatched.commands[1].value));
     CHECK(std::get<ChangeResourceEffectCommand>(
-        dispatched.commands.back().value).amount == 99);
+        dispatched.commands.back().value).resolvedAmount() == 99);
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        runtime,
-        dispatched.commands,
-        { .frame = 1 });
+    const auto reduced = BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
     REQUIRE(reduced.entries.size() == 3);
     const auto& blocked = std::get<BattleStatusApplyEffectResult>(
         reduced.entries[1].value);
@@ -546,17 +545,14 @@ TEST_CASE("BattleEffectEventBridge aggregates poison before reducer-backed statu
     REQUIRE(dispatched.commands.size() == 2);
     const auto& aggregated = std::get<ApplyStatusEffectCommand>(
         dispatched.commands.front().value);
-    REQUIRE(aggregated.action.behavior);
+    REQUIRE(aggregated.behavior);
     const auto& periodicDamage = std::get<DealDamageAction>(
-        aggregated.action.behavior->rules.front().actions.front().value);
+        aggregated.behavior->rules.front().actions.front().value);
     CHECK(periodicDamage.amount.percent == 20);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        dispatched.commands.back().value).amount == 99);
+        dispatched.commands.back().value).resolvedAmount() == 99);
 
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        runtime,
-        dispatched.commands,
-        { .frame = 1 });
+    const auto reduced = BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
     REQUIRE(reduced.entries.size() == 2);
     const auto& blocked = std::get<BattleStatusApplyEffectResult>(
         reduced.entries.front().value);
@@ -598,10 +594,7 @@ TEST_CASE("A status created during dispatch becomes active on the next matching 
     {
         return std::holds_alternative<DealDamageEffectCommand>(command.value);
     }));
-    BattleEffectCommandSystem().reduce(
-        runtime,
-        first.commands,
-        { .frame = 1, .attack = provenance });
+    BattleEffectCommandSystem().reduce(runtime, first.commands);
     REQUIRE(runtime.units.require(1).status.effects.has(BattleStatusKind::TrueQi));
 
     const auto second = dispatchHit(2);
@@ -652,10 +645,7 @@ TEST_CASE("Status numbers bind application inputs but keep event inputs live unt
 
     const auto first = dispatchHit(1);
     REQUIRE(first.commands.size() == 1);
-    BattleEffectCommandSystem().reduce(
-        runtime,
-        first.commands,
-        { .frame = 1, .attack = provenance });
+    BattleEffectCommandSystem().reduce(runtime, first.commands);
     const auto& stored = runtime.units.require(1).status.effects.statuses;
     REQUIRE(stored.size() == 1);
     REQUIRE(stored.front().behavior);
@@ -737,7 +727,7 @@ TEST_CASE("BattleEffectEventBridge preserves continuation and settlement payload
     const auto continuationDispatch = bridge.dispatch(runtime, continuation);
     REQUIRE(continuationDispatch.commands.size() == 1);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        continuationDispatch.commands.front().value).amount == 11);
+        continuationDispatch.commands.front().value).resolvedAmount() == 11);
 
     const auto settledEvents = runtime.castLifecycle.drainReadyEvents(runtime.movement.frame);
     REQUIRE(settledEvents.size() == 1);
@@ -759,7 +749,7 @@ TEST_CASE("BattleEffectEventBridge preserves continuation and settlement payload
     const auto settledDispatch = bridge.dispatch(runtime, settled);
     REQUIRE(settledDispatch.commands.size() == 1);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        settledDispatch.commands.front().value).amount == 22);
+        settledDispatch.commands.front().value).resolvedAmount() == 22);
 }
 
 TEST_CASE("BattleEffectEventBridge converts completed attack damage without guessing pre-state",
@@ -844,7 +834,7 @@ TEST_CASE("BattleEffectEventBridge converts completed attack damage without gues
     REQUIRE(dispatched.commands.size() == 1);
     const auto& command =
         std::get<ChangeResourceEffectCommand>(dispatched.commands.front().value);
-    CHECK(command.amount == 55);
+    CHECK(command.resolvedAmount() == 55);
     CHECK(dispatched.commands.front().metadata.targetUnitId == 2);
 }
 
@@ -894,7 +884,7 @@ TEST_CASE("BattleEffectEventBridge preserves explicit attackerless damage origin
     const auto dispatched = bridge.dispatch(runtime, event);
     REQUIRE(dispatched.commands.size() == 1);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        dispatched.commands.front().value).amount == 13);
+        dispatched.commands.front().value).resolvedAmount() == 13);
     CHECK(dispatched.commands.front().metadata.targetUnitId == 2);
 }
 
@@ -918,7 +908,7 @@ TEST_CASE("BattleEffectEventBridge dispatch is deterministically scoped to the s
     CHECK(ownerTwoResult.commands.front().metadata.binding.sourceId == 302);
     CHECK(ownerTwoResult.commands.front().metadata.targetUnitId == 2);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        ownerTwoResult.commands.front().value).amount == 202);
+        ownerTwoResult.commands.front().value).resolvedAmount() == 202);
 
     const auto ownerOneResult = bridge.dispatch(
         runtime,
@@ -930,7 +920,7 @@ TEST_CASE("BattleEffectEventBridge dispatch is deterministically scoped to the s
     CHECK(ownerOneResult.commands.front().metadata.binding.sourceId == 301);
     CHECK(ownerOneResult.commands.front().metadata.targetUnitId == 1);
     CHECK(std::get<ChangeResourceEffectCommand>(
-        ownerOneResult.commands.front().value).amount == 101);
+        ownerOneResult.commands.front().value).resolvedAmount() == 101);
 }
 
 TEST_CASE("BattleEffectEventBridge dispatches production bleed behavior on the merged frame path",
@@ -964,7 +954,7 @@ TEST_CASE("BattleEffectEventBridge dispatches production bleed behavior on the m
     const auto& damage = std::get<DealDamageEffectCommand>(
         dispatched.commands.front().value);
     CHECK(damage.amount == 2);
-    CHECK(damage.action.kind == BattleDamageKind::Bleed);
+    CHECK(damage.kind == BattleDamageKind::Bleed);
     REQUIRE(dispatched.commands.front().metadata.statusContribution);
     CHECK(dispatched.commands.front().metadata.statusContribution->holderUnitId == 2);
     CHECK(dispatched.commands.front().metadata.statusContribution->quantity == 2);
@@ -1020,7 +1010,7 @@ TEST_CASE("Bleed reapplication before a due frame tick preserves the clock and u
     const auto& damage = std::get<DealDamageEffectCommand>(
         dispatched.commands.back().value);
     CHECK(damage.amount == 2);
-    CHECK(damage.action.kind == BattleDamageKind::Bleed);
+    CHECK(damage.kind == BattleDamageKind::Bleed);
     CHECK(dispatched.commands.back().metadata.binding == originalSource);
     REQUIRE(dispatched.commands.back().metadata.statusContribution);
     CHECK(dispatched.commands.back().metadata.statusContribution->quantity == 2);
@@ -1031,10 +1021,7 @@ TEST_CASE("Bleed reapplication before a due frame tick preserves the clock and u
     REQUIRE(bleed);
     CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
 
-    BattleEffectCommandSystem().reduce(
-        runtime,
-        dispatched.commands,
-        { .frame = 10 });
+    BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
     bleed = runtime.units.require(2).status.effects.find(BattleStatusKind::Bleed);
     REQUIRE(bleed);
     CHECK(bleed->stacks == 3);
@@ -1083,10 +1070,7 @@ TEST_CASE("Cloned status rules retain source definition identity and use the clo
     CHECK(command.metadata.binding == cloned.binding);
     CHECK(command.metadata.ruleId == EffectRuleId{ 10 });
 
-    BattleEffectCommandSystem().reduce(
-        runtime,
-        command,
-        { .frame = 1, .attack = provenance });
+    BattleEffectCommandSystem().reduce(runtime, command);
     const auto& statuses = runtime.units.require(2).status.effects.statuses;
     REQUIRE(statuses.size() == 1);
     REQUIRE(statuses.front().producer);
@@ -1154,13 +1138,7 @@ TEST_CASE("Repeated borrowed status bindings share one family cap per holder wit
             });
         REQUIRE(application != dispatched.commands.end());
         CHECK(application->metadata.binding == borrowedBinding);
-        commands.reduce(
-            runtime,
-            *application,
-            {
-                .frame = static_cast<int>(castId.value()),
-                .attack = provenance,
-            });
+        commands.reduce(runtime, *application);
         return borrowedBinding;
     };
 
@@ -1312,12 +1290,11 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
     {
         const auto* stateMachine = std::get_if<StateMachineEffectCommand>(&command.value);
         return stateMachine
-            && std::holds_alternative<BorrowEffectRulesAction>(stateMachine->action);
+            && std::holds_alternative<BorrowEffectRulesCommand>(stateMachine->value);
     });
     REQUIRE(borrowedCommand != planned.commands.end());
     const auto& borrowed = std::get<StateMachineEffectCommand>(borrowedCommand->value);
-    CHECK(borrowed.selectedSourceUnitIds.size() == 2);
-    CHECK(borrowed.outputValue == 2);
+    CHECK(std::get<BorrowEffectRulesCommand>(borrowed.value).sourceUnitIds.size() == 2);
 
     const auto committed = bridge.dispatch(
         runtime,
@@ -1330,7 +1307,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
     {
         const auto* stateMachine = std::get_if<StateMachineEffectCommand>(&command.value);
         return stateMachine
-            && std::holds_alternative<CopyAttackDefinitionAction>(stateMachine->action);
+            && std::holds_alternative<CopyAttackDefinitionCommand>(stateMachine->value);
     }));
     CHECK(std::ranges::none_of(committed.commands, [](const auto& command)
     {
@@ -1485,8 +1462,8 @@ TEST_CASE("BattleEffectEventBridge exposes borrowed planning and exact cast rule
         return std::holds_alternative<StateMachineEffectCommand>(command.value);
     });
     REQUIRE(borrowCommand != planned.commands.end());
-    CHECK(std::get<StateMachineEffectCommand>(borrowCommand->value)
-              .selectedSourceUnitIds == std::vector{ 2 });
+    CHECK(std::get<BorrowEffectRulesCommand>(
+        std::get<StateMachineEffectCommand>(borrowCommand->value).value).sourceUnitIds == std::vector{ 2 });
 
     const auto planningCommand = std::ranges::find_if(planned.commands, [](const auto& command)
     {
@@ -1517,7 +1494,9 @@ TEST_CASE("BattleEffectEventBridge exposes borrowed planning and exact cast rule
     REQUIRE(exactAction.rangeMode);
     CHECK(*exactAction.rangeMode == CastRangeMode::Ranged);
 
-    auto unrelatedContext = plannedEvent.context();
+    const auto plannedContext = plannedEvent.context();
+    auto unrelatedContext = EffectEventData{
+        plannedContext.event, plannedContext.header, plannedContext.payload };
     std::get<CastPlanEventData>(unrelatedContext.payload).provenance = ultimateCast(751);
     CHECK(BattleEffectSystem().queryExactRuntimeRules(
               runtime.effectRules,
@@ -1591,12 +1570,73 @@ TEST_CASE("BattleEffectEventBridge honours borrowed source count and cancellatio
         REQUIRE(planned.commands.size() == 1);
         const auto& borrow = std::get<StateMachineEffectCommand>(
             planned.commands.front().value);
-        CHECK(borrow.selectedSourceUnitIds.size() == expectedSources);
-        CHECK(std::ranges::find(borrow.selectedSourceUnitIds, 4)
-            == borrow.selectedSourceUnitIds.end());
+        CHECK(std::get<BorrowEffectRulesCommand>(borrow.value).sourceUnitIds.size() == expectedSources);
+        CHECK(std::ranges::find(std::get<BorrowEffectRulesCommand>(borrow.value).sourceUnitIds, 4)
+            == std::get<BorrowEffectRulesCommand>(borrow.value).sourceUnitIds.end());
         CHECK(runtime.effectRules.castScopedRuleCount(cast.castId) == expectedSources);
 
         bridge.releaseCastScopedRules(runtime, cast.castId);
         CHECK(runtime.effectRules.castScopedRuleCount(cast.castId) == 0);
+    }
+}
+
+TEST_CASE("Poison settlement prediction defers later status mutations only for scheduled damage",
+          "[battle][effect][bridge][poison][continuation]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const bool scheduled = GENERATE(true, false);
+    const auto source = binding(EffectSourceKind::Magic, 90, 1, 0);
+    auto behavior = std::make_shared<StatusBehaviorDefinition>(*Test::poisonStatusBehavior(10));
+    auto later = resourceRule(91, EffectEvent::HitBeforeDamage, 99);
+    later.observation = EffectObservationScope::StatusHolderEventTarget;
+    later.selector.kind = EffectSelectorKind::StatusHolder;
+    behavior->rules.push_back(later);
+    auto& effects = runtime.units.require(2).status.effects;
+    effects.statuses.push_back({
+        .kind = BattleStatusKind::Poison,
+        .producer = StatusProducerKey{ source, EffectRuleId{ 90 }, 0 },
+        .producerFamily = StatusProducerFamilyKey{
+            source.kind, source.sourceId, source.ownerUnitId, EffectRuleId{ 90 }, 0 },
+        .familyLocalLimit = 1,
+        .behavior = behavior,
+        .behaviorRuntime = std::vector(behavior->rules.size(), EffectRuleRuntimeState{}),
+        .sourceUnitId = 1,
+        .remainingFrames = scheduled ? 40 : 1,
+        .maximumFrames = 40,
+        .stacks = 1,
+        .origin = BattleStatusEffectOrigin{ source, EffectRuleId{ 90 }, 100 },
+        .appliedSequence = effects.nextStatusSequence++,
+    });
+    effects.statuses.front().behaviorRuntime.front().intervalFramesRemaining = 2;
+    EffectRule settle;
+    settle.id = EffectRuleId{ 1 };
+    settle.event = EffectEvent::HitBeforeDamage;
+    settle.selector.kind = EffectSelectorKind::HitTarget;
+    settle.actions.push_back(action(SettleRemainingStatusDamageAction{}));
+    RemoveStatusAction remove;
+    remove.statuses = { BattleStatusKind::Poison };
+    settle.actions.push_back(action(remove));
+    runtime.effectRules.append(binding(EffectSourceKind::Combo, 1, 1, 0), settle);
+    const auto dispatched = BattleEffectEventBridge().dispatch(
+        runtime, { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::HitBeforeDamage,
+        HitEventData{
+            .provenance = attackProvenance(ultimateCast(1, 90)),
+            .targetUnitId = 2,
+            .originalTargetUnitId = 2,
+            .damageKind = BattleDamageKind::Skill,
+        });
+    CHECK(dispatched.commands.size() == (scheduled ? 3 : 2));
+    REQUIRE(effects.statuses.size() == 1);
+    const auto reduction = BattleEffectCommandSystem().reduce(runtime, dispatched.commands.front());
+    if (scheduled)
+    {
+        const auto& prepared = std::get<BattleEffectDamageRequestOutput>(reduction.entries.front().value);
+        CHECK(prepared.request.baseDamage == 9);
+        CHECK(prepared.request.preResolvedModifierPolicy == BattlePreResolvedModifierPolicy::DefenderTypedStatuses);
+    }
+    else
+    {
+        CHECK(std::holds_alternative<BattleSkippedEffectResult>(reduction.entries.front().value));
     }
 }

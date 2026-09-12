@@ -667,8 +667,9 @@ std::vector<int> effectDamageTargetIds(
     const BattleRuntimeState& state,
     const BattleEffectDamageRequestOutput& output)
 {
+    if (output.delivery.targetUnitIds) return *output.delivery.targetUnitIds;
     const auto& center = state.units.requireCore(output.request.defenderUnitId);
-    if (output.action.area.kind == DamageAreaKind::SingleTarget)
+    if (output.delivery.area.kind == DamageAreaKind::SingleTarget)
     {
         return { center.id };
     }
@@ -683,14 +684,14 @@ std::vector<int> effectDamageTargetIds(
         }
 
         bool inside = false;
-        switch (output.action.area.kind)
+        switch (output.delivery.area.kind)
         {
         case DamageAreaKind::SingleTarget:
             inside = candidate.id == center.id;
             break;
         case DamageAreaKind::Circle:
         {
-            const double radius = output.action.area.radiusTiles * state.gridTransform.tileWidth;
+            const double radius = output.delivery.area.radiusTiles * state.gridTransform.tileWidth;
             inside = battlePointSegmentWithinRadius(
                 candidate.motion.position,
                 center.motion.position,
@@ -700,7 +701,7 @@ std::vector<int> effectDamageTargetIds(
         }
         case DamageAreaKind::Square:
         {
-            const int halfSide = output.action.area.squareSideTiles / 2;
+            const int halfSide = output.delivery.area.squareSideTiles / 2;
             inside = std::abs(candidate.grid.x - center.grid.x) <= halfSide
                 && std::abs(candidate.grid.y - center.grid.y) <= halfSide;
             break;
@@ -733,15 +734,12 @@ std::string areaProjectileLogText(
     std::string_view reason,
     int stunFrames)
 {
-    const auto& amount = output.action.amount;
-    if (amount.base == EffectNumberBase::SourceMaxHp
-        && !amount.multiplierBase
-        && amount.flat == 0
-        && amount.percent > 0)
+    if (output.delivery.displayedSourceMaxHpPercent)
     {
+        const int percent = *output.delivery.displayedSourceMaxHpPercent;
         return stunFrames > 0
-            ? std::format("{}{}%（{}幀）", reason, amount.percent, stunFrames)
-            : std::format("{}{}%", reason, amount.percent);
+            ? std::format("{}{}%（{}幀）", reason, percent, stunFrames)
+            : std::format("{}{}%", reason, percent);
     }
     return stunFrames > 0
         ? std::format("{}（{}傷害，{}幀）", reason, output.request.baseDamage, stunFrames)
@@ -753,16 +751,16 @@ void appendAreaProjectileDamageOutput(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
     const BattleEffectDamageRequestOutput& output,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
-    assert(output.action.areaProjectiles);
+    assert(output.delivery.areaProjectiles);
     assert(output.transactionCount > 0);
     if (output.request.baseDamage <= 0)
     {
         return;
     }
 
-    const auto& delivery = *output.action.areaProjectiles;
+    const auto& delivery = *output.delivery.areaProjectiles;
     const auto presentation = areaProjectilePresentation(delivery.visual);
     for (int transaction = 0; transaction < output.transactionCount; ++transaction)
     {
@@ -803,12 +801,10 @@ void appendAreaProjectileDamageOutput(
         followUp.maxTargets = delivery.maximumTargets;
         followUp.effectId = presentation.effectId;
         followUp.damage = output.request.baseDamage;
-        followUp.damagePct = output.action.amount.base == EffectNumberBase::SourceMaxHp
-            ? output.action.amount.percent
-            : 0;
-        followUp.damageKind = output.action.kind;
-        followUp.appliesDamageModifiers = output.action.appliesDamageModifiers;
-        followUp.triggersDefenseEffects = output.action.triggersHurtInvincibility;
+        followUp.damagePct = output.delivery.projectileSourceMaxHpPercent;
+        followUp.damageKind = output.request.damageKind;
+        followUp.appliesDamageModifiers = !output.request.preResolvedDamage;
+        followUp.triggersDefenseEffects = output.request.triggersDefenseEffects;
         followUp.stunFrames = delivery.stunFrames;
         followUp.reason = presentation.reason;
         followUp.logText = areaProjectileLogText(
@@ -1556,6 +1552,7 @@ void applyRuntimeAntiComboTransfer(
                 target->id,
                 target->team,
                 comboId,
+                state.movement.frame,
                 &targetRecord.status.effects.nextNegativeEffectSequence);
         for (const auto& attributeDelta : antiComboTransfer.coreAttributeDeltas)
         {
@@ -1605,12 +1602,7 @@ void applyRuntimeAntiComboTransfer(
                     targetRecord.core.vitals.maxHp);
             }
         }
-        frame.queueEffectCommands(
-            std::move(antiComboTransfer.commands),
-            {
-                .frame = state.movement.frame,
-                .areaTargetTeamDomain = target->team,
-            });
+        frame.queueEffectCommands(std::move(antiComboTransfer.commands));
         state.effectRules.appendAntiComboTransferredRules(
             deadUnitId,
             target->id,
@@ -1788,23 +1780,6 @@ void queueDamageResolvedEffectCommands(
         .resolvedDamage = transaction.resolvedDamageBeforeDefense,
     };
 
-    BattleEffectCommandContext context{
-        .frame = state.movement.frame,
-    };
-    if (const auto* attack = effectDamageAttackProvenance(intent.effectOrigin))
-    {
-        context.cast = attack->cast;
-        context.attack = *attack;
-    }
-    else if (const auto* cast = effectDamageCastProvenance(intent.effectOrigin))
-    {
-        context.cast = *cast;
-    }
-    if (std::holds_alternative<EffectAttackDamageOrigin>(intent.effectOrigin))
-    {
-        context.healKind = BattleHealKind::Lifesteal;
-    }
-
     const std::array owners{
         transaction.attacker.id,
         transaction.defender.id,
@@ -1823,10 +1798,8 @@ void queueDamageResolvedEffectCommands(
             transaction,
             intent.effectOrigin,
             input);
-        context.areaTargetTeamDomain = state.units.requireCore(ownerUnitId).team;
-        frame.queueEffectCommands(
-            std::move(dispatched.commands),
-            context);
+
+        frame.queueEffectCommands(std::move(dispatched.commands));
         CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 }
@@ -1864,22 +1837,6 @@ void queueShieldAndDeathEffectCommands(
     const auto defenderAfter = makeEffectUnitSnapshot(
         state,
         state.units.require(transaction.defender.id));
-    BattleEffectCommandContext context{
-        .frame = state.movement.frame,
-        .areaTargetTeamDomain = transaction.defender.id >= 0
-            ? state.units.requireCore(transaction.defender.id).team
-            : -1,
-    };
-    if (const auto* attack = effectDamageAttackProvenance(intent.effectOrigin))
-    {
-        context.cast = attack->cast;
-        context.attack = *attack;
-    }
-    else if (const auto* cast = effectDamageCastProvenance(intent.effectOrigin))
-    {
-        context.cast = *cast;
-    }
-
     if (defenderBefore.shield > 0
         && defenderAfter.shield == 0
         && transaction.shieldAbsorbed > 0)
@@ -1895,7 +1852,7 @@ void queueShieldAndDeathEffectCommands(
             CoreDetail::nextEffectEventHeader(state, transaction.defender.id),
             EffectEvent::ShieldBroken,
             std::move(payload));
-        frame.queueEffectCommands(std::move(dispatched.commands), context);
+        frame.queueEffectCommands(std::move(dispatched.commands));
         CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 
@@ -1918,7 +1875,7 @@ void queueShieldAndDeathEffectCommands(
         CoreDetail::nextEffectEventHeader(state, transaction.defender.id),
         EffectEvent::UnitDied,
         death);
-    frame.queueEffectCommands(std::move(dispatched.commands), context);
+    frame.queueEffectCommands(std::move(dispatched.commands));
     CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
 
     auto deathDamageAbsorptions =
@@ -1927,6 +1884,7 @@ void queueShieldAndDeathEffectCommands(
             transaction.defender.id);
     CoreDetail::appendDamageAbsorptionSettlements(
         state,
+        frame,
         frame.currentFrameDamage(),
         deathDamageAbsorptions,
         state.movement.frame);
@@ -1946,11 +1904,7 @@ void queueShieldAndDeathEffectCommands(
             CoreDetail::nextEffectEventHeader(state, ally.id()),
             EffectEvent::AllyDied,
             std::move(allyDeath));
-        auto allyContext = context;
-        allyContext.areaTargetTeamDomain = ally.core.team;
-        frame.queueEffectCommands(
-            std::move(allyDispatched.commands),
-            std::move(allyContext));
+        frame.queueEffectCommands(std::move(allyDispatched.commands));
         CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 }
@@ -2011,6 +1965,7 @@ void appendFramePendingDamage(
 
 void appendDamageAbsorptionSettlements(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::span<const BattleDamageAbsorptionInstance> absorptions,
     int settlementFrame)
@@ -2039,34 +1994,32 @@ void appendDamageAbsorptionSettlements(
             EffectEvent::FrameAdvanced,
             FrameTickEventData{});
         auto context = event.context();
-        context.header.binding = absorption.binding;
+        context.scope.binding = absorption.binding;
         const auto targets = BattleEffectSystem::selectTargets(
             absorption.settlementTarget,
             context,
             state.random);
-        for (int targetUnitId : targets)
-        {
-            BattleDamageRequest request;
-            request.attackerUnitId = absorption.binding.ownerUnitId;
-            request.defenderUnitId = targetUnitId;
-            request.baseDamage = damage;
-            request.damageKind = absorption.settlementDamageKind;
-            appendFramePendingDamage(
-                state,
-                pendingDamage,
-                std::move(request),
-                std::nullopt,
-                false,
-                false,
-                {},
-                makeEffectDamageOrigin(
-                    absorption.binding,
-                    absorption.ruleId,
-                    absorption.authoredActionOrder,
-                    absorption.statusContribution,
-                    absorption.triggeringCast,
-                    absorption.triggeringAttack));
-        }
+        EffectCommandMetadata metadata{
+            .binding = absorption.binding,
+            .ruleId = absorption.ruleId,
+            .authoredActionOrder = absorption.authoredActionOrder,
+            .targetUnitId = absorption.targetUnitId,
+            .statusContribution = absorption.statusContribution,
+        };
+        DealDamageEffectCommand command;
+        command.amount = damage;
+        command.kind = absorption.settlementDamageKind;
+        command.delivery.statusTickPresentation = false;
+        command.delivery.inheritAttackProvenance = false;
+        command.delivery.targetUnitIds = targets;
+        const EffectExecutionInputs inputs{
+            .frame = settlementFrame,
+            .cast = absorption.triggeringCast,
+            .attack = absorption.triggeringAttack,
+            .retainCastUntilDamageDescendants = false,
+        };
+        const auto output = BattleEffectCommandSystem::prepareDamageOutput(metadata, command, inputs);
+        appendEffectDamageOutput(state, frame, pendingDamage, output, inputs);
     }
 }
 
@@ -2400,16 +2353,16 @@ void appendEffectDamageOutput(
     BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     const BattleEffectDamageRequestOutput& output,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
-    if (output.action.areaProjectiles)
+    if (output.delivery.areaProjectiles)
     {
         appendAreaProjectileDamageOutput(state, frame, output, context);
         return;
     }
     for (int targetUnitId : effectDamageTargetIds(state, output))
     {
-        if (context.cast && output.action.perCast.perTargetLimit > 0)
+        if (context.cast && output.delivery.perCast.perTargetLimit > 0)
         {
             const BattleEffectPerCastDamageKey key{
                 .castId = context.cast->castId,
@@ -2430,24 +2383,25 @@ void appendEffectDamageOutput(
         {
             auto request = output.request;
             request.defenderUnitId = targetUnitId;
-            auto provenance = output.triggeringAttack.value_or(
-                BattleAttackProvenance{});
+            const auto provenance = output.delivery.inheritAttackProvenance
+                ? output.triggeringAttack.value_or(BattleAttackProvenance{})
+                : BattleAttackProvenance{};
             std::optional<BattleDamagePresentationInput> presentation;
             auto damageOrigin = BattleEffectCommandSystem::damageOrigin(output);
-            if (output.statusContribution)
+            if (output.statusContribution && output.delivery.statusTickPresentation)
             {
-                if (output.action.kind == BattleDamageKind::Poison
-                    || output.action.kind == BattleDamageKind::Bleed)
+                if (output.request.damageKind == BattleDamageKind::Poison
+                    || output.request.damageKind == BattleDamageKind::Bleed)
                 {
                     BattleDamagePresentationInput statusPresentation;
                     statusPresentation.segments = battleLogText(
-                        output.action.kind == BattleDamageKind::Poison
+                        output.request.damageKind == BattleDamageKind::Poison
                             ? "中毒"
                             : "流血",
                         BattleLogTextTone::SkillName);
                     applyStatusTickDamagePresentation(
                         state,
-                        output.action.kind,
+                        output.request.damageKind,
                         targetUnitId,
                         statusPresentation);
                     presentation = std::move(statusPresentation);
@@ -2473,7 +2427,7 @@ void appendPoisonEffectLogEvents(
     const ApplyStatusEffectCommand& command,
     const BattleStatusApplyEffectResult& result)
 {
-    if (command.action.status != BattleStatusKind::Poison)
+    if (command.status != BattleStatusKind::Poison)
     {
         return;
     }
@@ -2482,9 +2436,9 @@ void appendPoisonEffectLogEvents(
     payload.type = BattleLogEventType::Status;
     payload.sourceUnitId = metadata.binding.ownerUnitId;
     payload.targetUnitId = metadata.targetUnitId;
-    const int damagePercent = poisonDamagePercent(command.action.behavior);
+    const int damagePercent = poisonDamagePercent(command.behavior);
     payload.amount = damagePercent;
-    const int triggerCount = lowerStatusQuantity(command.action).stacks;
+    const int triggerCount = command.stacks;
     payload.secondaryAmount = triggerCount;
     payload.statusId = BattleStatusSemanticId::PoisonPayload;
     payload.segments = battleLogText(
@@ -2566,7 +2520,7 @@ BattleCooldownState makeBattleFrameCooldownStateImpl(const BattleRuntimeUnit& un
 
 CastWorkToken reserveEffectDamageDescendantWork(
     BattleRuntimeState& state,
-    const BattleEffectCommandContext& context,
+    const EffectExecutionInputs& context,
     const BattleAttackProvenance& provenance)
 {
     if (provenance.valid()

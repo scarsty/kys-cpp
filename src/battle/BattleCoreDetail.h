@@ -96,6 +96,7 @@ void completeCastCommitBarriers(
     BattleFrameContext& frame);
 void appendDamageAbsorptionSettlements(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::span<const BattleDamageAbsorptionInstance> absorptions,
     int settlementFrame);
@@ -110,7 +111,6 @@ void reduceEffectCommand(
     BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     const EffectCommand& command,
-    const BattleEffectCommandContext& context,
     BattleEffectCommandReduction* reductionReceipt = nullptr);
 void completeEffectDamageContinuation(
     BattleRuntimeState& state,
@@ -225,7 +225,7 @@ void appendPoisonEffectLogEvents(
 
 CastWorkToken reserveEffectDamageDescendantWork(
     BattleRuntimeState& state,
-    const BattleEffectCommandContext& context,
+    const EffectExecutionInputs& context,
     const BattleAttackProvenance& provenance);
 
 void appendEffectDamageOutput(
@@ -233,7 +233,7 @@ void appendEffectDamageOutput(
     BattleFrameContext& frame,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     const BattleEffectDamageRequestOutput& output,
-    const BattleEffectCommandContext& context);
+    const EffectExecutionInputs& context);
 
 
 void updateFrameBattleResultAfterDamage(BattleRuntimeState& state, BattleFrameContext& frame);

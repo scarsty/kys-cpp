@@ -20,21 +20,20 @@ template <class T> struct Parameter
 
 template <class T> GameplayEffectRegistration registration()
 {
-    constexpr auto count = T::Parameters.size();
     // 每個效果型別只有一份登錄資料。
     static constexpr auto parameters = []
     {
-        std::array<GameplayEffectParameter, count> result{};
-        for (std::size_t i = 0; i < count; ++i) { result[i] = T::Parameters[i].info; }
+        std::array<GameplayEffectParameter, T::Parameters.size()> result{};
+        for (std::size_t i = 0; i < result.size(); ++i) { result[i] = T::Parameters[i].info; }
         return result;
     }();
     return {T::Name,
             parameters,
             [](std::span<const int> values) -> GameplayEffect
             {
-                assert(values.size() == count);
+                assert(values.size() == T::Parameters.size());
                 auto effect = std::make_shared<T>();
-                for (std::size_t i = 0; i < count; ++i) { effect.get()->*T::Parameters[i].member = values[i]; }
+                for (std::size_t i = 0; i < T::Parameters.size(); ++i) { effect.get()->*T::Parameters[i].member = values[i]; }
                 return effect;
             }};
 }

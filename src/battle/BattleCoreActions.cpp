@@ -269,12 +269,12 @@ std::vector<BattleCopiedAttackDefinitionRequest> collectCopiedAttackDefinitionRe
             {
                 continue;
             }
-            const auto* copy = std::get_if<CopyAttackDefinitionAction>(&stateMachine->action);
+            const auto* copy = std::get_if<CopyAttackDefinitionCommand>(&stateMachine->value);
             if (!copy)
             {
                 continue;
             }
-            for (int unitId : stateMachine->selectedSourceUnitIds)
+            for (int unitId : copy->sourceUnitIds)
             {
                 result.push_back({ unitId, copy->propagation });
             }
@@ -1497,16 +1497,9 @@ void queueCopiedAttackDefinitionChildCast(
         .skill = copiedSkill,
         .operationType = operationType,
     };
-    const BattleEffectCommandContext context{
-        .frame = state.movement.frame,
-        .cast = child.provenance,
-        .areaTargetTeamDomain = copier.core.team,
-    };
     for (auto& committedEffect : committedEffects)
     {
-        frame.queueEffectCommands(
-            std::move(committedEffect.commands),
-            context);
+        frame.queueEffectCommands(std::move(committedEffect.commands));
     }
     frame.queueCastCommitBarrier(child.commitBarrier);
     for (auto& attack : cast.attackSpawnRequests)
@@ -1625,7 +1618,7 @@ void appendRuntimeSpiralBleedCastEffects(
                 continue;
             }
             const auto* spiral = std::get_if<ExpandingSpiralAttackBehavior>(
-                &modifyAttack->action.runtimeBehavior);
+                &modifyAttack->runtimeBehavior);
             if (!spiral)
             {
                 continue;
@@ -1861,16 +1854,9 @@ void advanceActionFrameUnits(
                         .skill = committedSkill,
                         .operationType = actionInput.cast.decision.operationType,
                     };
-                    const BattleEffectCommandContext committedEffectContext{
-                        .frame = state.movement.frame,
-                        .cast = trackedCast.provenance,
-                        .areaTargetTeamDomain = unit.team,
-                    };
                     for (auto& committedEffect : committedEffects)
                     {
-                        frame.queueEffectCommands(
-                            std::move(committedEffect.commands),
-                            committedEffectContext);
+                        frame.queueEffectCommands(std::move(committedEffect.commands));
                     }
                     queueCopiedAttackDefinitionChildCasts(
                         state,
@@ -2150,16 +2136,9 @@ bool tryCommitAutoUltimate(
         .skill = castInput.ultimateSkill,
         .operationType = operationType,
     };
-    const BattleEffectCommandContext committedEffectContext{
-        .frame = state.movement.frame,
-        .cast = trackedCast.provenance,
-        .areaTargetTeamDomain = unit.team,
-    };
     for (auto& committedEffect : committedEffects)
     {
-        frame.queueEffectCommands(
-            std::move(committedEffect.commands),
-            committedEffectContext);
+        frame.queueEffectCommands(std::move(committedEffect.commands));
     }
     queueCopiedAttackDefinitionChildCasts(
         state,

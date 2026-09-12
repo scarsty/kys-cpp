@@ -23,6 +23,7 @@
 #include "ChessPreparedBattleAnalysis.h"
 #include "ChessPvp.h"
 #include "ChessScreenLayout.h"
+#include "ChessRoleDetailLayout.h"
 #include "ChessSessionCheckpoint.h"
 #include "ChessStandaloneBattle.h"
 #include "ChessSystemSettingsMenu.h"
@@ -74,10 +75,7 @@ constexpr int kContextMenuFontSize = 36;
 constexpr int kContextMenuRowSpacing = 45;
 constexpr int kAvatarMinWidth = 96;
 constexpr int kAvatarHeight = 128;
-constexpr int kStatsDetailOffsetY = 4;
-constexpr int kSkillTopGap = 14;
 constexpr int kOwnedTextInset = 8;
-constexpr int kMagicBottomReserve = 10;
 constexpr int kMagicEffectInset = 10;
 constexpr int kComboRowGap = 2;
 constexpr int kEquipIconOffsetX = 46;
@@ -86,12 +84,27 @@ constexpr int kEquipIconTopAdjust = 3;
 constexpr int kEquipFallbackTopAdjust = 2;
 constexpr int kEquipNameGap = 8;
 
-struct StatusBlock
+class ComboDetailsButton : public Button
 {
-    int x{};
-    int y{};
-    int w{};
-    int h{};
+public:
+    bool expanded = false;
+
+    ComboDetailsButton()
+    {
+        resize_with_text_ = false;
+        setFontSize(20);
+        setSize(144, 44);
+        setTextPosition(12, 12);
+        setTextColor({210, 220, 210, 255});
+        updateLabel();
+    }
+
+    void updateLabel() { setText(expanded ? "收起未啟動" : "展開未啟動"); }
+    void onPressedOK() override
+    {
+        expanded = !expanded;
+        updateLabel();
+    }
 };
 
 struct PanelColumnFlow
@@ -128,88 +141,6 @@ struct PanelColumnFlow
     }
 };
 
-struct SessionStatusLayout
-{
-    int fontSize = 22;
-    int smallFontSize = 20;
-    int titleFontSize = 24;
-    int pad = 12;
-    int gap = 14;
-    int lineHeight = fontSize + 4;
-    int topY{};
-    int bottomY{};
-    int sectionTitleY{};
-    int sectionContentY{};
-    int magicStartY{};
-    int magicAvailableHeight = 1;
-    int comboRows = 2;
-    int comboCols = 1;
-    int comboColWidth{};
-    StatusBlock panel{};
-    StatusBlock avatar{};
-    StatusBlock magic{};
-    StatusBlock owned{};
-    StatusBlock combo{};
-    StatusBlock equip{};
-    LabelValueColumn statsColumn{};
-    LabelValueColumn skillCol1{};
-    LabelValueColumn skillCol2{};
-
-    static SessionStatusLayout build(Font* font, const StatusBlock& panel, int avatarWidth)
-    {
-        constexpr int kTopTextY = 18;
-        constexpr int kAvatarTop = 14;
-        constexpr int kStatValueOffset = 62;
-        constexpr int kSkillValueOffset = 44;
-        constexpr int kSkillSecondColumnX = 118;
-        constexpr int kMagicStartOffsetX = 210;
-        constexpr int kMagicHeaderHeight = 30;
-        constexpr int kBottomSectionMinHeight = 96;
-        constexpr int kBottomSectionMaxHeight = 128;
-        constexpr int kBottomSectionTitleTop = 6;
-        constexpr int kBottomSectionHeaderHeight = 28;
-        constexpr int kOwnedSectionWidth = 150;
-        constexpr int kEquipSectionWidth = 200;
-        constexpr int kComboSectionMinWidth = 160;
-
-        SessionStatusLayout layout;
-        layout.panel = panel;
-        layout.topY = panel.y + kTopTextY;
-        layout.avatar = {panel.x + layout.pad, panel.y + kAvatarTop, avatarWidth, kAvatarHeight};
-
-        const int bottomHeight = std::clamp(panel.h / 3, kBottomSectionMinHeight, kBottomSectionMaxHeight);
-        layout.bottomY = panel.y + panel.h - layout.pad - bottomHeight;
-        layout.sectionTitleY = layout.bottomY + kBottomSectionTitleTop;
-        layout.sectionContentY = layout.sectionTitleY + kBottomSectionHeaderHeight;
-
-        const int statsX = layout.avatar.x + layout.avatar.w + layout.gap;
-        layout.statsColumn = {font, layout.fontSize, statsX, statsX + kStatValueOffset, {255, 250, 205, 255}};
-        layout.skillCol1 = {font, layout.fontSize, layout.avatar.x, layout.avatar.x + kSkillValueOffset, {255, 250, 205, 255}};
-        layout.skillCol2 = {font, layout.fontSize, layout.avatar.x + kSkillSecondColumnX, layout.avatar.x + kSkillSecondColumnX + kSkillValueOffset, {255, 250, 205, 255}};
-
-        const int magicX = statsX + kMagicStartOffsetX;
-        layout.magic = {magicX, layout.topY, panel.x + panel.w - layout.pad - magicX, layout.bottomY - layout.topY};
-        layout.magicStartY = layout.magic.y + kMagicHeaderHeight;
-        layout.magicAvailableHeight = std::max(
-            1,
-            layout.bottomY - kMagicBottomReserve - layout.magicStartY);
-
-        const int innerW = panel.w - layout.pad * 2;
-        const int comboW = std::max(kComboSectionMinWidth, innerW - kOwnedSectionWidth - kEquipSectionWidth - layout.gap * 2);
-        layout.owned = {panel.x + layout.pad, layout.sectionTitleY, kOwnedSectionWidth, bottomHeight};
-        layout.combo = {layout.owned.x + layout.owned.w + layout.gap, layout.sectionTitleY, comboW, bottomHeight};
-        layout.equip = {layout.combo.x + layout.combo.w + layout.gap, layout.sectionTitleY, kEquipSectionWidth, bottomHeight};
-        return layout;
-    }
-
-    void finalizeComboColumns(int comboCount)
-    {
-        comboRows = std::max(2, (combo.h - 32) / (smallFontSize + 2));
-        comboCols = comboCount > comboRows ? 2 : 1;
-        constexpr int kComboMinColumnWidth = 90;
-        comboColWidth = comboCols == 1 ? combo.w : std::max(kComboMinColumnWidth, (combo.w - gap) / 2);
-    }
-};
 
 struct SessionMenuData
 {
@@ -1052,7 +983,8 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
     int star,
     int instanceId,
     const PanelFrame& frame,
-    int magicScrollOffset)
+    int magicScrollOffset,
+    bool hasComboPanel)
 {
     const auto* role = session.content().role(roleId);
     assert(role);
@@ -1095,7 +1027,19 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
         }
     }
 
-    auto layout = SessionStatusLayout::build(font, {frame.x, frame.y, frame.w, frame.h}, avatarWidth);
+    int equipmentWidth = 200;
+    if (piece)
+    {
+        for (const int equipmentId : {piece->weaponInstanceId, piece->armorInstanceId})
+        {
+            const auto* instance = equipmentInstance(session.state(), equipmentId);
+            const auto* item = instance ? session.content().item(instance->itemId) : nullptr;
+            if (item)
+                equipmentWidth = std::max(equipmentWidth,
+                    kEquipIconOffsetX + kEquipIconSize + kEquipNameGap + Font::getTextDrawSize(item->name) * 20 / 2);
+        }
+    }
+    auto layout = SessionStatusLayout::build(font, frame, avatarWidth, equipmentWidth);
     if (headTexture)
     {
         const int renderH = std::max(1, layout.avatar.h);
@@ -1117,27 +1061,31 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
     Color mpColor = colorWhite;
     if (role->MPType == 0) mpColor = colorPurple;
     else if (role->MPType == 1) mpColor = colorMagic;
-    layout.statsColumn.line(statsY + layout.lineHeight * 0, "生命", std::format("{:5}/{:5}", stats.maxHp, stats.maxHp), colorWhite);
-    layout.statsColumn.line(
-        statsY + layout.lineHeight * 1,
-        "內力",
-        formatChessRolePreviewMp(GameUtil::MAX_MP),
-        mpColor);
-    layout.statsColumn.line(statsY + layout.lineHeight * 2 + kStatsDetailOffsetY, "攻擊", std::format("{:5}", stats.attack), selectStatColor(stats.attack, Role::getMaxValue()->Attack));
-    layout.statsColumn.line(statsY + layout.lineHeight * 3 + kStatsDetailOffsetY, "防禦", std::format("{:5}", stats.defence), selectStatColor(stats.defence, Role::getMaxValue()->Defence));
-    layout.statsColumn.line(statsY + layout.lineHeight * 4 + kStatsDetailOffsetY, "輕功", std::format("{:5}", stats.speed), selectStatColor(stats.speed, Role::getMaxValue()->Speed));
+    layout.statsColumn.line(statsY, "血", std::to_string(stats.maxHp), colorWhite);
+    layout.statsColumn.line(statsY + layout.lineHeight, "內", formatChessRolePreviewMp(GameUtil::MAX_MP), mpColor);
+    layout.statsColumn.line(statsY + layout.lineHeight * 2, "攻", std::to_string(stats.attack), selectStatColor(stats.attack, Role::getMaxValue()->Attack));
+    layout.statsColumn.line(statsY + layout.lineHeight * 3, "防", std::to_string(stats.defence), selectStatColor(stats.defence, Role::getMaxValue()->Defence));
+    layout.statsColumn.line(statsY + layout.lineHeight * 4, "輕", std::to_string(stats.speed), selectStatColor(stats.speed, Role::getMaxValue()->Speed));
+
+    const int skillY = layout.skillTopY;
+    layout.skillCol1.line(skillY, "拳", std::to_string(stats.fist), selectStatColor(stats.fist, Role::getMaxValue()->Fist));
+    layout.skillCol2.line(skillY, "劍", std::to_string(stats.sword), selectStatColor(stats.sword, Role::getMaxValue()->Sword));
+    layout.skillCol1.line(skillY + layout.lineHeight, "刀", std::to_string(stats.knife), selectStatColor(stats.knife, Role::getMaxValue()->Knife));
+    layout.skillCol2.line(skillY + layout.lineHeight, "特", std::to_string(stats.unusual), selectStatColor(stats.unusual, Role::getMaxValue()->Unusual));
 
     if (piece && piece->luckStacks > 0)
-        font->draw(std::format("賭運 {} 層 · {}%", piece->luckStacks,
+    {
+        const int luckX = hasComboPanel ? layout.combo.x : layout.avatar.x;
+        const int luckY = hasComboPanel ? layout.sectionContentY : skillY + layout.lineHeight * 2 + 4;
+        if (hasComboPanel)
+            font->draw("賭運", layout.titleFontSize, luckX, layout.sectionTitleY, colorName);
+        font->draw("運", layout.fontSize, luckX, luckY, colorName);
+        font->draw(std::format("{}層 · {}%", piece->luckStacks,
             session.content().balance().talent(session.state().talent).luckChance(piece->luckStacks)),
-            18, layout.avatar.x, layout.avatar.y + layout.avatar.h + 2, {255, 192, 136, 255});
-    const int skillY = layout.avatar.y + layout.avatar.h + kSkillTopGap;
-    layout.skillCol1.line(skillY + layout.lineHeight * 0, "拳掌", std::format("{:5}", stats.fist), selectStatColor(stats.fist, Role::getMaxValue()->Fist));
-    layout.skillCol2.line(skillY + layout.lineHeight * 0, "御劍", std::format("{:5}", stats.sword), selectStatColor(stats.sword, Role::getMaxValue()->Sword));
-    layout.skillCol1.line(skillY + layout.lineHeight * 1, "耍刀", std::format("{:5}", stats.knife), selectStatColor(stats.knife, Role::getMaxValue()->Knife));
-    layout.skillCol2.line(skillY + layout.lineHeight * 1, "特殊", std::format("{:5}", stats.unusual), selectStatColor(stats.unusual, Role::getMaxValue()->Unusual));
+            18, luckX + 30, luckY + 2, {255, 192, 136, 255});
+    }
 
-    font->draw("武學摘要", layout.titleFontSize, layout.magic.x, layout.magic.y, colorName);
+    font->draw("武學", layout.titleFontSize, layout.magic.x, layout.magic.y, colorName);
     const auto selectedMagics = chessRoleMagicsForStar(session.content(), *role, star);
     std::vector<const MagicSave*> magics;
     magics.reserve(selectedMagics.size());
@@ -1236,7 +1184,7 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
         if (piece)
         {
             ownedCursor.line(
-                std::format("勝場 {}（成長）", fightsWon),
+                std::format("勝場 {}", fightsWon),
                 layout.smallFontSize,
                 colorAbility,
                 4);
@@ -1245,7 +1193,7 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
     if (starCounts.empty() && piece)
     {
         font->draw(
-            std::format("勝場 {}（成長）", fightsWon),
+            std::format("勝場 {}", fightsWon),
             layout.smallFontSize,
             layout.owned.x + kOwnedTextInset,
             layout.sectionContentY + layout.smallFontSize + 8,
@@ -1260,12 +1208,13 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
             roleCombos.push_back(&combo);
         }
     }
-    font->draw("羈絆", layout.titleFontSize, layout.combo.x, layout.sectionTitleY, colorName);
-    if (roleCombos.empty())
+    if (!hasComboPanel)
+        font->draw("羈絆", layout.titleFontSize, layout.combo.x, layout.sectionTitleY, colorName);
+    if (!hasComboPanel && roleCombos.empty())
     {
         font->draw("無", layout.smallFontSize, layout.combo.x + kOwnedTextInset, layout.sectionContentY, colorInactive);
     }
-    else
+    else if (!hasComboPanel)
     {
         layout.finalizeComboColumns(static_cast<int>(roleCombos.size()));
         for (int index = 0; index < static_cast<int>(roleCombos.size()); ++index)
@@ -1299,12 +1248,13 @@ ChessMagicEffectDisplayLayout drawRoleDetail(
                 if (auto* itemTexture = TextureManager::getInstance()->getTexture("item", item->id))
                 {
                     itemTexture->load();
-                    const int renderH = kEquipIconSize;
-                    const int renderW = itemTexture->h > 0 ? itemTexture->w * renderH / itemTexture->h : renderH;
+                    const double scale = static_cast<double>(kEquipIconSize) / std::max(itemTexture->w, itemTexture->h);
+                    const int renderW = static_cast<int>(itemTexture->w * scale);
+                    const int renderH = static_cast<int>(itemTexture->h * scale);
                     TextureManager::getInstance()->renderTexture(
                         itemTexture,
-                        iconX + itemTexture->dx,
-                        rowY - kEquipIconTopAdjust + itemTexture->dy,
+                        iconX + (kEquipIconSize - renderW) / 2,
+                        rowY - kEquipIconTopAdjust + (kEquipIconSize - renderH) / 2,
                         TextureManager::RenderInfo{colorWhite, 255},
                         renderW,
                         renderH);
@@ -1337,7 +1287,8 @@ std::shared_ptr<DrawableOnCall> makeRoleDetailPanel(
     std::vector<int> roleIds,
     std::vector<int> starsByRow = {},
     std::vector<int> instanceIds = {},
-    std::optional<PanelFrame> requestedFrame = std::nullopt)
+    std::optional<PanelFrame> requestedFrame = std::nullopt,
+    bool hasComboPanel = false)
 {
     const auto frame = requestedFrame.value_or(ChessScreenLayout::browseDetailRegion());
     std::vector<bool> visibleRows;
@@ -1360,6 +1311,7 @@ std::shared_ptr<DrawableOnCall> makeRoleDetailPanel(
             starsByRow = std::move(starsByRow),
             instanceIds = std::move(instanceIds),
             visibleRows = std::move(visibleRows),
+            hasComboPanel,
             scroll](DrawableOnCall* self) {
             const int row = self->getItemIndex();
             if (!isPanelRowInRange(row, static_cast<int>(visibleRows.size()))
@@ -1386,7 +1338,8 @@ std::shared_ptr<DrawableOnCall> makeRoleDetailPanel(
                 star,
                 instanceId,
                 frame,
-                scroll->offset);
+                scroll->offset,
+                hasComboPanel);
             scroll->offset = clampChessMagicEffectDisplayScrollOffset(
                 *scroll->layout,
                 scroll->offset);
@@ -1421,11 +1374,13 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
     std::vector<int> roleIds,
     PanelFrame frame)
 {
-    return std::make_shared<DrawableOnCall>(
-        [&session, roleIds = std::move(roleIds), frame](DrawableOnCall* self) {
+    auto details = std::make_shared<ComboDetailsButton>();
+    auto panel = std::make_shared<DrawableOnCall>(
+        [&session, roleIds = std::move(roleIds), frame, details](DrawableOnCall* self) {
             const int row = self->getItemIndex();
             if (row < 0 || row >= static_cast<int>(roleIds.size()) || roleIds[row] < 0)
             {
+                details->setVisible(false);
                 return;
             }
 
@@ -1439,17 +1394,17 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
             }
             if (roleCombos.empty())
             {
+                details->setVisible(false);
                 return;
             }
 
+            details->setVisible(true);
             ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
             auto* font = Font::getInstance();
             constexpr int preferredFontSize = 19;
             constexpr int minimumFontSize = 12;
-            font->draw("羈絆摘要", preferredFontSize + 5,
-                frame.x + 10, frame.y + 5, {255, 255, 100, 255});
-            font->draw("完整規則：棋局總覽→效果全覽", 16,
-                frame.x + 120, frame.y + 9, {200, 200, 200, 255});
+            font->draw("羈絆", preferredFontSize + 5,
+                frame.x + 10, frame.y + 12, {255, 255, 100, 255});
 
             std::vector<std::vector<PanelVisualTextRow>> blocks;
             blocks.reserve(roleCombos.size());
@@ -1480,7 +1435,7 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     0,
                     0,
                     2);
-                if (shownThreshold)
+                if (shownThreshold && (progress.active || details->expanded))
                 {
                     const auto& document = shownThreshold->effects;
                     const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Compact);
@@ -1502,7 +1457,7 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     result.insert(result.end(), blocks[index].begin(), blocks[index].end());
                 return result;
             };
-            constexpr int contentTop = 30;
+            constexpr int contentTop = 54;
             constexpr int contentBottomInset = 10;
             const int availableHeight = frame.h - contentTop - contentBottomInset;
             std::vector<std::vector<PanelTextSourceRow>> layoutBlocks;
@@ -1514,7 +1469,8 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                 frame.w - 20,
                 availableHeight,
                 preferredFontSize,
-                minimumFontSize);
+                minimumFontSize,
+                8);
             assert(chosen && "formal Compact combo descriptions must fit two readable columns");
             for (std::size_t columnIndex = 0; columnIndex < chosen->columns.size(); ++columnIndex)
             {
@@ -1528,6 +1484,16 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     frame.y + contentTop);
             }
         });
+    panel->addChild(details, frame.x + frame.w - 154, frame.y + 4);
+    panel->setEventHandler([details](DrawableOnCall*, EngineEvent& event) {
+        if ((event.type == EVENT_KEY_UP && event.key.key == K_TAB)
+            || (event.type == EVENT_GAMEPAD_BUTTON_UP && event.gbutton.button == GAMEPAD_BUTTON_WEST))
+        {
+            details->onPressedOK();
+            event.type = EVENT_FIRST;
+        }
+    });
+    return panel;
 }
 
 std::shared_ptr<DrawableOnCall> makeRosterPanel(
@@ -2948,7 +2914,7 @@ void ChessGuiSessionAdapter::showShop()
             static_cast<int>(data.labels.size()),
             ChessScreenLayout::contentMenuAnchor(),
             {
-                makeRoleDetailPanel(session_, roleIds, starRows, instanceRows, panels.status),
+                makeRoleDetailPanel(session_, roleIds, starRows, instanceRows, panels.status, true),
                 makeRosterPanel(session_, panels.owned),
                 makeComboInfoPanel(session_, roleIds, panels.combo),
             },
@@ -3028,7 +2994,7 @@ void ChessGuiSessionAdapter::chooseChess(ChessActionType actionType)
             12,
             anchor,
             {
-                makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status),
+                makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status, true),
                 makeComboInfoPanel(session_, roleIds, panels.combo),
             },
             false);
@@ -3128,7 +3094,7 @@ void ChessGuiSessionAdapter::chooseDeployment()
             12,
             anchor,
             {
-                makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status),
+                makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status, true),
                 makeComboInfoPanel(session_, roleIds, panels.combo),
             },
             false);
@@ -4089,7 +4055,7 @@ void ChessGuiSessionAdapter::viewChessPool()
         kChessCompactMenuPresentation.itemsPerPage,
         anchor,
         {
-            makeRoleDetailPanel(session_, roleIds, {}, {}, panels.status),
+            makeRoleDetailPanel(session_, roleIds, {}, {}, panels.status, true),
             makeComboInfoPanel(session_, roleIds, panels.combo),
         },
         false);
@@ -4590,7 +4556,8 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 roleIds,
                 starRows,
                 instanceIds,
-                panels.status));
+                panels.status,
+                chessRewardShowsComboPanel(pending.kind)));
             if (chessRewardShowsComboPanel(pending.kind))
             {
                 detailPanels.push_back(makeComboInfoPanel(session_, std::move(roleIds), panels.combo));

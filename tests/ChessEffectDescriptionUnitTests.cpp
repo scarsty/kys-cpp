@@ -27,7 +27,7 @@ TEST_CASE("Descriptions belong to reusable effects and follow their parameters",
     CHECK(first.front()->describe(EffectDescriptionStyle::Compact) == "技能傷害+15%。");
     CHECK(second.front()->describe(EffectDescriptionStyle::Compact) == "技能傷害+25%。");
     CHECK(joinEffectDescriptionRows(describeGameplayEffects(first, EffectDescriptionStyle::Compact))
-        == "技能傷害+15%。");
+        == "技能傷害+15%");
     CHECK(first.front()->describe(EffectDescriptionStyle::Full) == "技能傷害+15%。");
 }
 
@@ -46,6 +46,25 @@ TEST_CASE("Descriptions distinguish damage channels and explain debuff consequen
     CHECK(text.find("承受傷害增加25%、受到治療減少75%") != std::string::npos);
     CHECK(text.find("寒毒") == std::string::npos);
     CHECK(text.find("枯骨") == std::string::npos);
+}
+
+TEST_CASE("Compact cards omit terminal punctuation and retain mechanical qualifiers", "[chess][effects][description]")
+{
+    auto effects = configured(R"(
+- {類型: 固定承傷修正, 點數: -15}
+- {類型: 命中禁療減速, 持續幀數: 90}
+- {類型: 保護低血友軍, 友軍數: 5, 承傷上限百分比: 15}
+)");
+    const auto rows = effectDescriptionTextRows(describeGameplayEffects(effects, EffectDescriptionStyle::Compact));
+    REQUIRE(rows.size() == 3);
+    for (const auto& row : rows) CHECK_FALSE(row.ends_with("。"));
+    CHECK(rows[0] == "固定減傷15點");
+    CHECK(rows[1] == "命中：禁療、速度-25%，90幀");
+    CHECK(rows[2] == "出招：血比最低5名友軍，下次承傷≤各自生命上限15%");
+    const auto full = joinEffectDescriptionRows(describeGameplayEffects(effects, EffectDescriptionStyle::Full));
+    CHECK(full.find("在計算防禦前生效。") != std::string::npos);
+    CHECK(full.find("無法恢復生命且速度降低25%") != std::string::npos);
+    CHECK(full.find("每人抵擋一次傷害") != std::string::npos);
 }
 
 TEST_CASE("Compound effects describe their complete lifecycle without runtime reconstruction", "[chess][effects][description]")
@@ -82,7 +101,7 @@ TEST_CASE("Ratio descriptions reflect the actual integer combat result", "[chess
     EffectUnitSnapshot owner;
     owner.maxHp = 100;
     owner.maxMp = 100;
-    EffectEventContext context;
+    EffectEventData context;
     context.header.owner = &owner;
 
     struct Sample
@@ -121,4 +140,18 @@ TEST_CASE("Ratio descriptions reflect the actual integer combat result", "[chess
         owner.mp = 100;
         CHECK(BattleEffectSystem::evaluateNumber(amount, context, owner) == sample.fullResult);
     }
+}
+
+TEST_CASE("Short compact descriptions preserve full explanations and area qualifiers", "[chess][effects][description]")
+{
+    auto effects = configured(R"(
+- {類型: 出招全隊回內, 回復內力: 30}
+- {類型: 目標周圍純粹傷害, 每星傷害: 100, 方形邊長: 5}
+)");
+    const auto rows = effectDescriptionTextRows(describeGameplayEffects(effects, EffectDescriptionStyle::Compact));
+    REQUIRE(rows.size() == 2);
+    CHECK(rows[0] == "出招：全隊內力+30");
+    CHECK(rows[1] == "出招：目標周圍方形邊長5格，每星100純粹傷害");
+    CHECK(effects[0]->describe(EffectDescriptionStyle::Full) == "出招時全隊回復30內力。");
+    CHECK(effects[1]->describe(EffectDescriptionStyle::Full).find("同次出招對每名目標最多生效一次") != std::string::npos);
 }

@@ -125,13 +125,7 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
             .targetUnitId = 1,
         });
     REQUIRE(dispatched.commands.size() == 2);
-    const auto reduced = BattleEffectCommandSystem().reduce(
-        state,
-        dispatched.commands,
-        {
-            .frame = state.movement.frame,
-            .cast = producerCast.provenance,
-        });
+    const auto reduced = BattleEffectCommandSystem().reduce(state, dispatched.commands);
     REQUIRE(reduced.entries.size() == 2);
 
     const auto& statuses = state.units.require(0).status.effects.statuses;
@@ -226,19 +220,11 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
         {},
         frameMemory.data(),
         frameMemory.size());
-    const BattleEffectCommandContext commandContext{
-        .frame = state.movement.frame,
-        .effectPosition = targetPosition,
-        .cast = hitProvenance.cast,
-        .attack = hitProvenance,
-        .areaTargetTeamDomain = state.units.requireCore(1).team,
-    };
     CoreDetail::reduceEffectCommand(
         state,
         effectFrame,
         effectFrame.currentFrameDamage(),
-        trueQiCommand,
-        commandContext);
+        trueQiCommand);
     REQUIRE(effectFrame.currentFrameDamage().size() == 1);
     const auto& pending = effectFrame.currentFrameDamage().front();
     CHECK(pending.request.baseDamage == 9);

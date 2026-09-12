@@ -82,11 +82,9 @@ EffectCommand attackCommand(
     EffectCommand command;
     command.metadata = metadata(targetOrder, commandOrdinal);
     command.metadata.targetUnitId = targetUnitId;
-    command.value = ModifyAttackEffectCommand{
-        std::move(action),
+    command.value = prepareModifyAttack(std::move(action),
         damageOverride,
-        source,
-    };
+        source);
     return command;
 }
 
@@ -94,7 +92,7 @@ EffectCommand castCommand(ModifyCastAction action, std::optional<int> mpCost)
 {
     EffectCommand command;
     command.metadata = metadata();
-    command.value = ModifyCastEffectCommand{ std::move(action), mpCost };
+    command.value = prepareModifyCast(std::move(action), mpCost);
     return command;
 }
 

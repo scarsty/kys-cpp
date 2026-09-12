@@ -86,28 +86,6 @@ BattleEffectEventHeaderInput nextHealEffectHeader(BattleRuntimeState& state, int
     };
 }
 
-BattleEffectCommandContext healEffectCommandContext(
-    BattleRuntimeState& state,
-    const BattleHealRequest& request)
-{
-    const auto& target = state.units.requireCore(request.targetUnitId);
-    BattleEffectCommandContext context{
-        .frame = state.movement.frame,
-        .effectPosition = target.motion.position,
-        .healKind = request.kind,
-        .healSourcePolicy = request.sourcePolicy,
-        .areaTargetTeamDomain = target.team,
-    };
-    if (request.castId)
-    {
-        const BattleCastId castId{ *request.castId };
-        assert(castId.valid());
-        assert(state.castLifecycle.containsCast(castId));
-        context.cast = state.castLifecycle.runtime(castId).provenance;
-    }
-    return context;
-}
-
 void appendAttemptedEffectModifiers(
     BattleRuntimeState& state,
     const BattleHealRequest& request,
@@ -131,13 +109,11 @@ void appendAttemptedEffectModifiers(
         nextHealEffectHeader(state, request.targetUnitId),
         EffectEvent::HealAttempted,
         std::move(payload));
-    const auto commandContext = healEffectCommandContext(state, request);
     for (const auto& command : dispatched.commands)
     {
         auto reduction = BattleEffectCommandSystem().reduce(
             state,
-            command,
-            commandContext);
+            command);
         assert(reduction.entries.size() == 1);
         const auto& reduced = reduction.entries.front().value;
         const auto* routed = std::get_if<
@@ -202,10 +178,8 @@ void queueAppliedEffectCommands(
         return;
     }
 
-    auto context = healEffectCommandContext(state, result.request);
     state.effectIntegration.queuedCommandBatches.push_back({
         .commands = std::move(dispatched.commands),
-        .context = std::move(context),
     });
 }
 

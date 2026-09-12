@@ -37,7 +37,7 @@ struct MultiTargetTeamHaste final : GameplayEffectDefinition
                                速度百分比,
                                持續幀數);
         }
-        return std::format("一次出招命中至少{}名敵人後，全隊速度{:+}%，持續{}幀。", 命中人數, 速度百分比, 持續幀數);
+        return std::format("單次出招命中≥{}敵：全隊速度{:+}%，{}幀", 命中人數, 速度百分比, 持續幀數);
     }
 };
 
@@ -77,7 +77,7 @@ struct ShareAllyDamageArea final : GameplayEffectDefinition
                 持續幀數,
                 轉移減傷百分比);
         }
-        return std::format("出招建立半徑{}格的區域，持續{}幀；替區域內友軍承受傷害，轉移傷害減少{}%。",
+        return std::format("出招：半徑{}格、{}幀；代友軍承傷，轉移傷害-{}%",
                            半徑格數,
                            持續幀數,
                            轉移減傷百分比);
@@ -183,7 +183,7 @@ struct ProtectiveArea final : GameplayEffectDefinition
                 格擋百分比,
                 敵方傷害百分比);
         }
-        return std::format("出招建立半徑{}格的護陣，持續{}幀；友軍格擋率{:+}%且免疫擊退，敵人造成傷害{:+}%。",
+        return std::format("出招：護陣半徑{}格、{}幀；友軍格擋{:+}%、免擊退，敵人傷害{:+}%",
                            半徑格數,
                            持續幀數,
                            格擋百分比,
@@ -229,7 +229,7 @@ struct LowHealthMemberTeamAttack final : GameplayEffectDefinition
                 持續幀數);
         }
         return std::format(
-            "任一成員生命首次低於{}%時，所有成員攻擊{:+}%，持續{}幀。", 生命門檻百分比, 攻擊百分比, 持續幀數);
+            "任一成員首次血量<{}%：全員攻擊{:+}%，{}幀", 生命門檻百分比, 攻擊百分比, 持續幀數);
     }
 };
 
@@ -261,7 +261,7 @@ struct HitOutgoingDamagePenalty final : GameplayEffectDefinition
                                傷害百分比,
                                持續幀數);
         }
-        return std::format("造成生命傷害後，使目標造成傷害{:+}%，持續{}幀。", 傷害百分比, 持續幀數);
+        return std::format("造成生命傷害：目標傷害{:+}%，{}幀", 傷害百分比, 持續幀數);
     }
 };
 
@@ -296,7 +296,7 @@ struct AdaptToAttacker final : GameplayEffectDefinition
                 每層承傷百分比,
                 層數上限);
         }
-        return std::format("每次被命中後，來自該攻擊者的技能傷害{:+}%，最多{}層。", 每層承傷百分比, 層數上限);
+        return std::format("被命中：該敵對你的技能傷害{:+}%，上限{}層", 每層承傷百分比, 層數上限);
     }
 };
 
@@ -404,7 +404,7 @@ struct ShieldBreakRageAndRenewal final : GameplayEffectDefinition
                 陣亡人數,
                 補盾生命百分比);
         }
-        return std::format("開場獲得最大生命{}%護盾；破盾時免費施放絕招、回復{}內力，攻擊{:+}，持續{}幀。",
+        return std::format("開場血上限{}%護盾；破盾免費絕招、回{}內，{:+}攻持續{}幀",
                            護盾生命百分比,
                            回復內力,
                            攻擊點數,
@@ -432,7 +432,11 @@ struct ReceivedHitDelayCounter final : GameplayEffectDefinition
                                                                     .amount = EffectNumber{.flat = 冷卻百分比}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("受擊時有{}%機率，使攻擊者的出招冷卻延長{}%。", 機率百分比, 冷卻百分比); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("受擊{}%機率：攻擊者出招冷卻+{}%", 機率百分比, 冷卻百分比);
+        return std::format("受擊時有{}%機率，使攻擊者的出招冷卻延長{}%。", 機率百分比, 冷卻百分比);
+    }
 };
 
 struct HitDelayEnemyCooldown final : GameplayEffectDefinition
@@ -455,7 +459,11 @@ struct HitDelayEnemyCooldown final : GameplayEffectDefinition
                                                                     .amount = EffectNumber{.flat = 冷卻百分比}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("攻擊有{}%機率使目標出招冷卻延長{}%。", 機率百分比, 冷卻百分比); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("攻擊{}%機率：目標出招冷卻+{}%", 機率百分比, 冷卻百分比);
+        return std::format("攻擊有{}%機率使目標出招冷卻延長{}%。", 機率百分比, 冷卻百分比);
+    }
 };
 
 struct AdaptDodgeToAttacker final : GameplayEffectDefinition
@@ -485,7 +493,7 @@ struct AdaptDodgeToAttacker final : GameplayEffectDefinition
             return std::format(
                 "每次被命中後，對該攻擊者的閃避率{:+}%，最多{}層。每名攻擊者分別累積。", 每層閃避百分比, 層數上限);
         }
-        return std::format("每次被命中後，對該攻擊者的閃避率{:+}%，最多{}層。", 每層閃避百分比, 層數上限);
+        return std::format("被命中：對該敵閃避{:+}%，上限{}層", 每層閃避百分比, 層數上限);
     }
 };
 
@@ -526,7 +534,7 @@ struct WeakenStrongestEnemies final : GameplayEffectDefinition
                 攻擊點數,
                 防禦點數);
         }
-        return std::format("持續壓制最強的{}名敵人，使其攻擊{:+}、防禦{:+}。", 敵人數, 攻擊點數, 防禦點數);
+        return std::format("壓制最強{}敵：攻擊{:+}、防禦{:+}", 敵人數, 攻擊點數, 防禦點數);
     }
 };
 
@@ -550,7 +558,11 @@ struct AllyDeathStats final : GameplayEffectDefinition
                                                                           .amount = EffectNumber{.flat = 防禦點數}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("每名同羈絆友軍死亡時，自身攻擊{:+}、防禦{:+}。", 攻擊點數, 防禦點數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("同羈絆友軍陣亡：{:+}攻、{:+}防", 攻擊點數, 防禦點數);
+        return std::format("每名同羈絆友軍死亡時，自身攻擊{:+}、防禦{:+}。", 攻擊點數, 防禦點數);
+    }
 };
 
 struct PeriodicFreeUltimate final : GameplayEffectDefinition
@@ -568,7 +580,11 @@ struct PeriodicFreeUltimate final : GameplayEffectDefinition
                                .value = ModifyCastAction{.autoUltimate = AutoUltimateCastRequest{.announce = true}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("每{}幀免費施放絕招。", 間隔幀數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("每{}幀免費絕招", 間隔幀數);
+        return std::format("每{}幀免費施放絕招。", 間隔幀數);
+    }
 };
 
 struct RescueReposition final : GameplayEffectDefinition
@@ -585,6 +601,8 @@ struct RescueReposition final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("友軍受擊血量<25%：移至安全處、回血上限10%、無敵10幀；每場{}次", 次數);
         return std::format("友軍受擊降至25%生命以下時，將其挪至安全位置，回復10%最大生命並獲得10幀無敵；每場最多{}次。",
                            次數);
     }
@@ -605,6 +623,8 @@ struct ExecuteReposition final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("敵人受傷血量<15%、附近無我方：拉近並普攻；每場{}次", 次數);
         return std::format("敵人受傷降至15%生命以下且附近沒有我方角色時，將其拉至身旁並追加普通攻擊；每場最多{}次。",
                            次數);
     }

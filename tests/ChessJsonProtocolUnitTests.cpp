@@ -230,7 +230,7 @@ TEST_CASE("JSON protocol role detail selects the contained effect-description st
         R"({"id":2,"method":"inspect_role","params":{"role_id":69,"detail":"compact"}})"));
     REQUIRE(compact.ok);
     REQUIRE(compact.result);
-    CHECK(compact.result->str.contains("每次出招增加1層，最多10層"));
+    CHECK(compact.result->str.contains("出招疊1層（上限10）"));
     CHECK_FALSE(compact.result->str.contains("此來源獨立累積層數"));
 
     const auto full = parseResponse(protocol.handleLine(

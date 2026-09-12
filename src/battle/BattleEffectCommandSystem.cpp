@@ -100,8 +100,8 @@ bool sameAttributeStackDomain(
         && modifier.ruleId == metadata.ruleId
         && modifier.actionOrder == metadata.actionOrder
         && modifier.targetUnitId == metadata.targetUnitId
-        && modifier.attribute == command.action.attribute
-        && modifier.eventSourceUnitId == (command.action.stackScope == EffectStackScope::EventSource
+        && modifier.attribute == command.attribute
+        && modifier.eventSourceUnitId == (command.stackScope == EffectStackScope::EventSource
             ? metadata.eventSourceUnitId
             : -1);
 }
@@ -115,10 +115,10 @@ bool sameDamageStackDomain(
         && modifier.ruleId == metadata.ruleId
         && modifier.actionOrder == metadata.actionOrder
         && modifier.targetUnitId == metadata.targetUnitId
-        && modifier.stage == command.action.stage
-        && modifier.channel == command.action.channel
-        && modifier.perspective == command.action.perspective
-        && modifier.eventSourceUnitId == (command.action.stackScope == EffectStackScope::EventSource
+        && modifier.stage == command.stage
+        && modifier.channel == command.channel
+        && modifier.perspective == command.perspective
+        && modifier.eventSourceUnitId == (command.stackScope == EffectStackScope::EventSource
             ? metadata.eventSourceUnitId
             : -1);
 }
@@ -396,7 +396,7 @@ BattleAttributeModifierInstance makeAttributeModifier(
     std::uint64_t* nextNegativeEffectSequence)
 {
     const bool negative = attributeModifierIsNegative(
-        command.action.operation,
+        command.operation,
         command.amount);
     return {
         .sequence = runtime.nextAttributeSequence++,
@@ -407,15 +407,15 @@ BattleAttributeModifierInstance makeAttributeModifier(
         .ruleId = metadata.ruleId,
         .actionOrder = metadata.actionOrder,
         .targetUnitId = metadata.targetUnitId,
-        .attribute = command.action.attribute,
-        .operation = command.action.operation,
+        .attribute = command.attribute,
+        .operation = command.operation,
         .amount = command.amount,
         .appliedFrame = frame,
-        .expiresFrameExclusive = modifierExpiry(frame, command.action.durationFrames),
-        .stack = command.action.stack,
-        .stackLimit = command.action.stackLimit,
+        .expiresFrameExclusive = modifierExpiry(frame, command.durationFrames),
+        .stack = command.stack,
+        .stackLimit = command.stackLimit,
         .stackCount = 1,
-        .eventSourceUnitId = command.action.stackScope == EffectStackScope::EventSource
+        .eventSourceUnitId = command.stackScope == EffectStackScope::EventSource
             ? metadata.eventSourceUnitId
             : -1,
         .negative = negative,
@@ -429,10 +429,10 @@ BattleAttributeEffectResult applyAttribute(
     int frame,
     std::uint64_t* nextNegativeEffectSequence)
 {
-    const auto expiry = modifierExpiry(frame, command.action.durationFrames);
+    const auto expiry = modifierExpiry(frame, command.durationFrames);
     const auto [outcome, modifier] = applyStackPolicy(
         runtime.attributeModifiers,
-        command.action.stack,
+        command.stack,
         [&](const auto& candidate)
         {
             return sameAttributeStackDomain(candidate, metadata, command);
@@ -448,15 +448,15 @@ BattleAttributeEffectResult applyAttribute(
         },
         [&](auto& current)
         {
-            current.operation = command.action.operation;
+            current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
-            current.stackLimit = command.action.stackLimit;
+            current.stackLimit = command.stackLimit;
             updateModifierPolarity(
                 current,
                 attributeModifierIsNegative(
-                    command.action.operation,
+                    command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
         },
@@ -464,7 +464,7 @@ BattleAttributeEffectResult applyAttribute(
         {
             return attributeStrength(current.operation, current.amount);
         },
-        attributeStrength(command.action.operation, command.amount),
+        attributeStrength(command.operation, command.amount),
         [&](const auto& current)
         {
             return expiryLater(expiry, current.expiresFrameExclusive);
@@ -476,16 +476,16 @@ BattleAttributeEffectResult applyAttribute(
         },
         [&](auto& current)
         {
-            assert(command.action.stackLimit);
-            current.stackCount = std::min(current.stackCount + 1, *command.action.stackLimit);
-            current.operation = command.action.operation;
+            assert(command.stackLimit);
+            current.stackCount = std::min(current.stackCount + 1, *command.stackLimit);
+            current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
             updateModifierPolarity(
                 current,
                 attributeModifierIsNegative(
-                    command.action.operation,
+                    command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
         });
@@ -500,8 +500,8 @@ BattleDamageModifierInstance makeDamageModifier(
     std::uint64_t* nextNegativeEffectSequence)
 {
     const bool negative = damageModifierIsNegative(
-        command.action.perspective,
-        command.action.operation,
+        command.perspective,
+        command.operation,
         command.amount);
     return {
         .sequence = runtime.nextDamageSequence++,
@@ -512,18 +512,18 @@ BattleDamageModifierInstance makeDamageModifier(
         .ruleId = metadata.ruleId,
         .actionOrder = metadata.actionOrder,
         .targetUnitId = metadata.targetUnitId,
-        .eventSourceUnitId = command.action.stackScope == EffectStackScope::EventSource
+        .eventSourceUnitId = command.stackScope == EffectStackScope::EventSource
             ? metadata.eventSourceUnitId
             : -1,
-        .perspective = command.action.perspective,
-        .stage = command.action.stage,
-        .channel = command.action.channel,
-        .operation = command.action.operation,
+        .perspective = command.perspective,
+        .stage = command.stage,
+        .channel = command.channel,
+        .operation = command.operation,
         .amount = command.amount,
         .appliedFrame = frame,
-        .expiresFrameExclusive = modifierExpiry(frame, command.action.durationFrames),
-        .stack = command.action.stack,
-        .stackLimit = command.action.stackLimit,
+        .expiresFrameExclusive = modifierExpiry(frame, command.durationFrames),
+        .stack = command.stack,
+        .stackLimit = command.stackLimit,
         .stackCount = 1,
         .negative = negative,
     };
@@ -536,10 +536,10 @@ BattleDamageModifierEffectResult applyDamageModifier(
     int frame,
     std::uint64_t* nextNegativeEffectSequence)
 {
-    const auto expiry = modifierExpiry(frame, command.action.durationFrames);
+    const auto expiry = modifierExpiry(frame, command.durationFrames);
     const auto [outcome, modifier] = applyStackPolicy(
         runtime.damageModifiers,
-        command.action.stack,
+        command.stack,
         [&](const auto& candidate)
         {
             return sameDamageStackDomain(candidate, metadata, command);
@@ -555,16 +555,16 @@ BattleDamageModifierEffectResult applyDamageModifier(
         },
         [&](auto& current)
         {
-            current.operation = command.action.operation;
+            current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
-            current.stackLimit = command.action.stackLimit;
+            current.stackLimit = command.stackLimit;
             updateModifierPolarity(
                 current,
                 damageModifierIsNegative(
-                    command.action.perspective,
-                    command.action.operation,
+                    command.perspective,
+                    command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
         },
@@ -572,7 +572,7 @@ BattleDamageModifierEffectResult applyDamageModifier(
         {
             return damageStrength(current.operation, current.amount);
         },
-        damageStrength(command.action.operation, command.amount),
+        damageStrength(command.operation, command.amount),
         [&](const auto& current)
         {
             return expiryLater(expiry, current.expiresFrameExclusive);
@@ -584,27 +584,40 @@ BattleDamageModifierEffectResult applyDamageModifier(
         },
         [&](auto& current)
         {
-            assert(command.action.stackLimit);
-            current.stackCount = std::min(current.stackCount + 1, *command.action.stackLimit);
-            current.operation = command.action.operation;
+            assert(command.stackLimit);
+            current.stackCount = std::min(current.stackCount + 1, *command.stackLimit);
+            current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
-            current.stackLimit = command.action.stackLimit;
+            current.stackLimit = command.stackLimit;
             updateModifierPolarity(
                 current,
                 damageModifierIsNegative(
-                    command.action.perspective,
-                    command.action.operation,
+                    command.perspective,
+                    command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
         });
     return { outcome, modifier };
 }
 
+// 狀態與保護轉移只依賴單位、持續修正與狀態規則；真實執行和 prediction 共用此邊界。
+struct StatusProtectionState
+{
+    BattleRuntimeUnits& units;
+    BattleEffectCommandRuntimeState& effectCommands;
+    BattleStatusSystemConfig config;
+};
+
+StatusProtectionState statusProtectionState(BattleRuntimeState& state)
+{
+    return { state.units, state.effectCommands, state.status.config };
+}
+
 template<class Command, class Apply>
 auto applyProtectedPersistentModifier(
-    BattleRuntimeState& state,
+    StatusProtectionState state,
     const EffectCommandMetadata& metadata,
     const Command& command,
     int frame,
@@ -612,14 +625,14 @@ auto applyProtectedPersistentModifier(
     Apply&& apply)
 {
     using Result = std::invoke_result_t<Apply, const Command&>;
-    const int requestedDurationFrames = command.action.durationFrames;
+    const int requestedDurationFrames = command.durationFrames;
     int appliedDurationFrames = requestedDurationFrames;
     int statusShieldAbsorbed{};
     Command effective = command;
     if (negative)
     {
         auto& target = state.units.require(metadata.targetUnitId);
-        const auto protection = BattleStatusSystem(state.status.config)
+        const auto protection = BattleStatusSystem(state.config)
             .protectNegativeEffect(
                 target.statusDamageState(),
                 requestedDurationFrames);
@@ -635,7 +648,7 @@ auto applyProtectedPersistentModifier(
             result.statusShieldAbsorbed = statusShieldAbsorbed;
             return result;
         }
-        effective.action.durationFrames = appliedDurationFrames;
+        effective.durationFrames = appliedDurationFrames;
     }
 
     auto result = apply(effective);
@@ -649,7 +662,7 @@ BattleDamageAbsorptionEffectResult applyDamageAbsorption(
     BattleRuntimeState& state,
     const EffectCommandMetadata& metadata,
     const StartDamageAbsorptionAction& action,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
     const int frame = context.frame;
     assert(action.durationFrames > 0);
@@ -831,10 +844,10 @@ BattleResourceEffectResult commitHeal(
     BattleRuntimeState& state,
     const EffectCommandMetadata& metadata,
     const ChangeResourceEffectCommand& command,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
     const auto& target = state.units.requireCore(metadata.targetUnitId);
-    if (command.action.healRequiresFullMp
+    if (command.healRequiresFullMp
         && target.vitals.mp < target.vitals.maxMp)
     {
         BattleResourceEffectResult result;
@@ -850,10 +863,10 @@ BattleResourceEffectResult commitHeal(
     {
         request.castId = context.cast->castId.value();
     }
-    assert(command.action.healKind != EffectHealKind::Count);
-    request.kind = command.action.healKind;
-    request.amount = fixedHealAmount(command.amount);
-    request.sourcePolicy = command.action.healSourcePolicy == EffectHealSourcePolicy::AllowDead
+    assert(command.healKind != EffectHealKind::Count);
+    request.kind = command.healKind;
+    request.amount = fixedHealAmount(command.resolvedAmount());
+    request.sourcePolicy = command.healSourcePolicy == EffectHealSourcePolicy::AllowDead
         ? BattleHealSourcePolicy::AllowDead
         : BattleHealSourcePolicy::RequireAlive;
 
@@ -887,12 +900,12 @@ BattleResourceEffectResult changeDirectResource(
 
     const auto removeFrom = [&](int unitId, int requested)
     {
-        const int available = resourceValue(state.units.require(unitId), command.action.resource);
+        const int available = resourceValue(state.units.require(unitId), command.resource);
         const int removed = std::min(requested, std::max(0, available));
         result.deltas.push_back(applyResourceDelta(
             state,
             unitId,
-            command.action.resource,
+            command.resource,
             -removed,
             false));
         return removed;
@@ -902,39 +915,39 @@ BattleResourceEffectResult changeDirectResource(
         result.deltas.push_back(applyResourceDelta(
             state,
             unitId,
-            command.action.resource,
+            command.resource,
             amount,
             restore));
     };
 
-    switch (command.action.kind)
+    switch (command.kind)
     {
     case ResourceChangeKind::Restore:
-        addTo(metadata.targetUnitId, command.amount, true);
+        addTo(metadata.targetUnitId, command.resolvedAmount(), true);
         break;
     case ResourceChangeKind::Grant:
-        addTo(metadata.targetUnitId, command.amount, false);
+        addTo(metadata.targetUnitId, command.resolvedAmount(), false);
         break;
     case ResourceChangeKind::Remove:
-        removeFrom(metadata.targetUnitId, command.amount);
+        removeFrom(metadata.targetUnitId, command.resolvedAmount());
         break;
     case ResourceChangeKind::Drain:
     {
-        const int removed = removeFrom(metadata.targetUnitId, command.amount);
+        const int removed = removeFrom(metadata.targetUnitId, command.resolvedAmount());
         addTo(metadata.binding.ownerUnitId, removed, true);
         break;
     }
     case ResourceChangeKind::Transfer:
     {
         assert(command.transferDestinationUnitIds.size() == 1);
-        const int removed = removeFrom(metadata.targetUnitId, command.amount);
+        const int removed = removeFrom(metadata.targetUnitId, command.resolvedAmount());
         addTo(command.transferDestinationUnitIds.front(), removed, false);
         break;
     }
     case ResourceChangeKind::RefreshToAtLeast:
     {
-        const int before = resourceValue(target, command.action.resource);
-        addTo(metadata.targetUnitId, std::max(0, command.amount - before), false);
+        const int before = resourceValue(target, command.resource);
+        addTo(metadata.targetUnitId, std::max(0, command.resolvedAmount() - before), false);
         break;
     }
     }
@@ -949,14 +962,14 @@ BattleResourceEffectResult changeDirectResource(
 }
 
 BattleStatusApplyEffectResult applyStatus(
-    BattleRuntimeState& state,
+    StatusProtectionState state,
     const EffectCommandMetadata& metadata,
     const ApplyStatusEffectCommand& command,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
     auto& record = state.units.require(metadata.targetUnitId);
     record.status.effects.freezeReductionPct = BattleEffectCommandSystem::queryAttribute(
-        state,
+        state.effectCommands,
         {
             .unitId = metadata.targetUnitId,
             .attribute = BattleAttribute::StaggerResistance,
@@ -968,114 +981,65 @@ BattleStatusApplyEffectResult applyStatus(
         metadata,
         command,
         context,
-        state.status.config,
+        state.config,
         record.core.shield > 0);
     record.writeStatusDamageResult(result.target);
     return { std::move(result) };
 }
 
-BattleStatusConsumeEffectResult consumeStatus(
-    BattleRuntimeState& state,
+BattleStatusConsumeEffectResult consumeStatusContribution(
+    StatusProtectionState state,
     const EffectCommandMetadata& metadata,
-    const ConsumeStatusEffectCommand& command,
-    const BattleEffectCommandContext& context)
+    int holderUnitId,
+    const BattleStatusConsumeRequest& request,
+    const std::optional<ApplyStatusEffectCommand>& whenDepleted,
+    const EffectExecutionInputs& context)
 {
-    auto& record = state.units.require(metadata.targetUnitId);
-    BattleStatusConsumeRequest request;
-    request.kind = command.action.status;
-    request.stacks = command.action.quantity;
-    request.filter = resolveStatusContributionFilter(
-        command.action.source,
-        metadata.binding,
-        metadata.statusContribution);
-
-    auto statusConfig = state.status.config;
-    statusConfig.frame = context.frame;
-    BattleStatusSystem statusSystem(statusConfig);
-    auto consumed = statusSystem.consume(record.statusDamageState(), request);
+    auto& record = state.units.require(holderUnitId);
+    auto config = state.config;
+    config.frame = context.frame;
+    auto consumed = BattleStatusSystem(config).consume(record.statusDamageState(), request);
     record.writeStatusDamageResult(consumed.target);
 
     std::optional<BattleStatusApplyResult> depleted;
-    if (consumed.consumed
-        && consumed.remainingStacks == 0
-        && command.whenDepleted)
-    {
-        auto applied = applyStatus(
-            state,
-            metadata,
-            *command.whenDepleted,
-            context);
-        depleted = std::move(applied.status);
-    }
-    return {
-        .status = std::move(consumed),
-        .depletedStatus = std::move(depleted),
-    };
+    if (consumed.consumed && consumed.remainingStacks == 0 && whenDepleted)
+        depleted = applyStatus(state, metadata, *whenDepleted, context).status;
+    return { .status = std::move(consumed), .depletedStatus = std::move(depleted) };
+}
+
+BattleStatusConsumeEffectResult consumeStatus(
+    StatusProtectionState state,
+    const EffectCommandMetadata& metadata,
+    const ConsumeStatusEffectCommand& command,
+    const EffectExecutionInputs& context)
+{
+    return consumeStatusContribution(state, metadata, metadata.targetUnitId,
+        command.request, command.whenDepleted, context);
 }
 
 BattleStatusConsumeEffectResult consumeThisStatus(
-    BattleRuntimeState& state,
+    StatusProtectionState state,
     const EffectCommandMetadata& metadata,
     const ConsumeThisStatusEffectCommand& command,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
     assert(metadata.statusContribution);
     const auto& contribution = *metadata.statusContribution;
-    auto& record = state.units.require(contribution.holderUnitId);
-    auto statusConfig = state.status.config;
-    statusConfig.frame = context.frame;
-    BattleStatusSystem statusSystem(statusConfig);
-    auto consumed = statusSystem.consume(
-        record.statusDamageState(),
-        {
-            .kind = contribution.kind,
-            .stacks = command.action.quantity,
-            .filter = {
-                .holderUnitId = contribution.holderUnitId,
-                .appliedSequence = contribution.appliedSequence,
-            },
-        });
-    record.writeStatusDamageResult(consumed.target);
-
-    std::optional<BattleStatusApplyResult> depleted;
-    if (consumed.consumed
-        && consumed.remainingStacks == 0
-        && command.whenDepleted)
-    {
-        auto applied = applyStatus(
-            state,
-            metadata,
-            *command.whenDepleted,
-            context);
-        depleted = std::move(applied.status);
-    }
-    return {
-        .status = std::move(consumed),
-        .depletedStatus = std::move(depleted),
-    };
+    return consumeStatusContribution(state, metadata, contribution.holderUnitId,
+        command.request, command.whenDepleted, context);
 }
 
 BattleStatusRemoveEffectResult removeStatus(
-    BattleRuntimeState& state,
+    StatusProtectionState state,
     const EffectCommandMetadata& metadata,
     const RemoveStatusEffectCommand& command,
     int frame)
 {
     assert(frame >= 0);
     auto& record = state.units.require(metadata.targetUnitId);
-    BattleStatusRemoveRequest request;
-    request.statuses = command.action.statuses;
-    request.filter = resolveStatusContributionFilter(
-        command.action.source,
-        metadata.binding,
-        metadata.statusContribution);
-    request.negativeOnly = command.action.negativeOnly;
-    request.controlOnly = command.action.controlOnly;
-    request.clearCurrentActionStagger = command.action.clearCurrentActionStagger;
-    request.count = command.action.count;
-    request.order = command.action.order;
+    const auto& request = command.request;
 
-    BattleStatusSystem statusSystem(state.status.config);
+    BattleStatusSystem statusSystem(state.config);
     BattleStatusRemoveEffectResult result;
     const bool removeGenericNegatives = request.negativeOnly
         && request.statuses.empty()
@@ -1329,105 +1293,110 @@ BattleStatusRemoveEffectResult removeStatus(
 
 BattleAreaEffectResult createArea(
     BattleRuntimeState& state,
-    const EffectCommandMetadata& metadata,
-    const CreateAreaEffectCommand& command,
-    const BattleEffectCommandContext& context)
+    const CreateAreaEffectCommand& command)
 {
-    assert(command.modifierAmounts.size() == command.action.modifiers.size());
-    BattleAreaCreateRequest request;
-    request.source = metadata.binding;
-    request.ruleId = metadata.ruleId;
-    request.targetTeamDomain = context.areaTargetTeamDomain;
-    request.geometry = {
-        command.action.shape,
-        command.action.radiusTiles,
-        command.action.squareSideTiles,
-    };
-    switch (command.action.anchor)
-    {
-    case AreaAnchor::HitPosition:
-        assert(context.effectPosition);
-        request.anchor = {
-            BattleAreaAnchorKind::FixedWorldPosition,
-            *context.effectPosition,
-            -1,
-        };
-        break;
-    case AreaAnchor::FollowSourceUnit:
-        request.anchor = {
-            BattleAreaAnchorKind::FollowSourceUnit,
-            {},
-            metadata.binding.ownerUnitId,
-        };
-        break;
-    }
-    request.currentFrame = context.frame;
-    request.durationFrames = command.action.durationFrames;
-    request.sourceDeath = command.action.sourceDeath;
-    request.merge = command.action.merge;
-    request.modifiers = command.action.modifiers;
-    for (std::size_t i = 0; i < request.modifiers.size(); ++i)
-    {
-        if (request.modifiers[i].kind != AreaModifierKind::Attribute
-            && request.modifiers[i].kind != AreaModifierKind::PeriodicDamage)
-        {
-            continue;
-        }
-        request.modifiers[i].amount = {};
-        request.modifiers[i].amount.flat = command.modifierAmounts[i];
-    }
-    return { BattleAreaEffectSystem::create(state.areas, std::move(request)) };
+    return { BattleAreaEffectSystem::create(state.areas, command.request) };
 }
 
-BattleEffectDamageRequestOutput makeDamageRequest(
-    const EffectCommandMetadata& metadata,
-    const DealDamageEffectCommand& command,
-    const BattleEffectCommandContext& context)
+int remainingPoisonDamage(const BattleRuntimeState& state, int targetUnitId)
 {
-    assert(command.transactionCount > 0);
-    BattleDamageRequest request;
-    request.attackerUnitId = metadata.binding.ownerUnitId;
-    request.defenderUnitId = metadata.targetUnitId;
-    request.baseDamage = command.amount;
-    request.damageKind = command.action.kind;
-    request.preResolvedDamage = !command.action.appliesDamageModifiers;
-    request.triggersDefenseEffects = command.action.triggersHurtInvincibility;
-    // 「處決」動作本身代表直接斬殺；生命門檻等規則條件已在命令產生前篩選。
-    request.canExecute = command.action.kind == BattleDamageKind::Execute;
-    request.executeThresholdPct = request.canExecute ? 100 : 0;
-    request.acceptedHit = false;
-
-    return {
-        .request = request,
-        .action = command.action,
-        .source = metadata.binding,
-        .ruleId = metadata.ruleId,
-        .triggeringCast = context.cast,
-        .triggeringAttack = context.attack,
-        .statusContribution = metadata.statusContribution,
-        .authoredActionOrder = metadata.authoredActionOrder,
-        .transactionCount = command.transactionCount,
-        .eventSourceUnitId = metadata.eventSourceUnitId,
+    auto& target = state.units.require(targetUnitId);
+    struct PendingPoisonTick
+    {
+        std::int64_t nextTickFrame{};
+        std::int64_t remainingTicks{};
+        int intervalFrames{};
+        int damagePct{};
+        EffectExecutionOrderKey order;
     };
+    std::vector<PendingPoisonTick> pendingTicks;
+    for (const auto& poison : target.status.effects.statuses)
+    {
+        if (poison.kind != BattleStatusKind::Poison) continue;
+        assert(poison.remainingFrames > 0);
+        assert(poison.stacks > 0);
+        assert(poison.behavior);
+        assert(poison.behaviorRuntime.size() == poison.behavior->rules.size());
+        assert(poison.producer);
+        assert(poison.origin);
+
+        const auto capability = canonicalPoisonDamageCapability(
+            *poison.behavior);
+        assert(capability && capability->rule && capability->damage);
+        const auto ruleIndex = static_cast<std::size_t>(
+            capability->rule - poison.behavior->rules.data());
+        assert(ruleIndex < poison.behavior->rules.size());
+        const auto& rule = poison.behavior->rules[ruleIndex];
+        const auto& runtime = poison.behaviorRuntime[ruleIndex];
+        assert(runtime.intervalFramesRemaining > 0);
+        assert(runtime.intervalFramesRemaining <= rule.intervalFrames);
+        if (runtime.intervalFramesRemaining > poison.remainingFrames)
+            continue;
+        const std::int64_t scheduledTicks = 1
+            + (static_cast<std::int64_t>(poison.remainingFrames)
+                - runtime.intervalFramesRemaining)
+                / rule.intervalFrames;
+        pendingTicks.push_back({
+            .nextTickFrame = runtime.intervalFramesRemaining,
+            .remainingTicks = std::min<std::int64_t>(
+                scheduledTicks,
+                poison.stacks),
+            .intervalFrames = rule.intervalFrames,
+            .damagePct = capability->damage->amount.percent,
+            .order = statusBehaviorExecutionOrderKey(
+                poison.producer->binding,
+                poison.origin->ruleOrder,
+                poison.producer->actionOrder,
+                static_cast<std::uint32_t>(ruleIndex),
+                target.core.id,
+                poison.appliedSequence,
+                0),
+        });
+    }
+
+    int settlementDamage{};
+    int projectedHp = target.core.vitals.hp;
+    while (projectedHp > 0 && !pendingTicks.empty())
+    {
+        const auto next = std::ranges::min_element(
+            pendingTicks,
+            {},
+            [](const PendingPoisonTick& tick)
+            {
+                return std::pair{ tick.nextTickFrame, tick.order };
+            });
+        assert(next != pendingTicks.end());
+        const int tickDamage = static_cast<int>(std::max<std::int64_t>(
+            1,
+            static_cast<std::int64_t>(projectedHp) * next->damagePct / 100));
+        const int appliedDamage = std::min(projectedHp, tickDamage);
+        settlementDamage += appliedDamage;
+        projectedHp -= appliedDamage;
+        --next->remainingTicks;
+        if (next->remainingTicks == 0)
+        {
+            pendingTicks.erase(next);
+        }
+        else
+        {
+            next->nextTickFrame += next->intervalFrames;
+        }
+    }
+    return settlementDamage;
 }
 
 BattleEffectReductionValue reduceCommand(
     BattleRuntimeState& state,
     const EffectCommand& effectCommand,
-    const BattleEffectCommandContext& context)
+    const EffectExecutionInputs& context)
 {
     if (effectCommand.metadata.statusContribution)
     {
         const auto& status = *effectCommand.metadata.statusContribution;
         const auto& holder = state.units.require(status.holderUnitId);
-        const auto live = std::ranges::find(
-            holder.status.effects.statuses,
-            status.appliedSequence,
-            &BattleStatusContribution::appliedSequence);
-        if (live == holder.status.effects.statuses.end()
-            || live->kind != status.kind
-            || live->stacks <= 0
-            || live->stacks != status.quantity)
+        const auto quantity = BattleEffectCommandSystem::contributionQuantity(
+            holder.status.effects, status.appliedSequence, status.kind);
+        if (!quantity || *quantity != status.quantity)
         {
             return BattleSkippedEffectResult{};
         }
@@ -1436,12 +1405,12 @@ BattleEffectReductionValue reduceCommand(
         [&](const ModifyAttributeEffectCommand& command) -> BattleEffectReductionValue
         {
             return applyProtectedPersistentModifier(
-                state,
+                statusProtectionState(state),
                 effectCommand.metadata,
                 command,
                 context.frame,
                 attributeModifierIsNegative(
-                    command.action.operation,
+                    command.operation,
                     command.amount),
                 [&](const auto& effective)
                 {
@@ -1458,18 +1427,18 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const ModifyDamageEffectCommand& command) -> BattleEffectReductionValue
         {
-            if (command.action.durationFrames > 0
-                || command.action.stack != EffectStackPolicy::Independent
+            if (command.durationFrames > 0
+                || command.stack != EffectStackPolicy::Independent
                 || effectCommand.metadata.event == EffectEvent::BattleInitialized)
             {
                 return applyProtectedPersistentModifier(
-                    state,
+                    statusProtectionState(state),
                     effectCommand.metadata,
                     command,
                     context.frame,
                     damageModifierIsNegative(
-                        command.action.perspective,
-                        command.action.operation,
+                        command.perspective,
+                        command.operation,
                         command.amount),
                     [&](const auto& effective)
                     {
@@ -1488,15 +1457,19 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const ChangeResourceEffectCommand& command) -> BattleEffectReductionValue
         {
-            assert(command.amount >= 0);
-            if (command.action.resource == BattleResource::Hp)
+            assert(command.resolvedAmount() >= 0);
+            if (command.resource == BattleResource::Hp)
             {
-                if (command.action.kind == ResourceChangeKind::Restore
-                    || command.action.kind == ResourceChangeKind::Grant)
+                if (command.kind == ResourceChangeKind::Restore
+                    || command.kind == ResourceChangeKind::Grant)
                 {
                     return commitHeal(state, effectCommand.metadata, command, context);
                 }
-                return BattleDeferredHpResourceOutput{ command };
+                DealDamageEffectCommand damage;
+                damage.amount = command.resolvedAmount();
+                damage.kind = BattleDamageKind::Effect;
+                damage.delivery.statusTickPresentation = false;
+                return BattleEffectCommandSystem::prepareDamageOutput(effectCommand.metadata, damage, context);
             }
             return changeDirectResource(state, effectCommand.metadata, command);
         },
@@ -1506,20 +1479,20 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const ApplyStatusEffectCommand& command) -> BattleEffectReductionValue
         {
-            return applyStatus(state, effectCommand.metadata, command, context);
+            return applyStatus(statusProtectionState(state), effectCommand.metadata, command, context);
         },
         [&](const ConsumeStatusEffectCommand& command) -> BattleEffectReductionValue
         {
-            return consumeStatus(state, effectCommand.metadata, command, context);
+            return consumeStatus(statusProtectionState(state), effectCommand.metadata, command, context);
         },
         [&](const ConsumeThisStatusEffectCommand& command) -> BattleEffectReductionValue
         {
-            return consumeThisStatus(state, effectCommand.metadata, command, context);
+            return consumeThisStatus(statusProtectionState(state), effectCommand.metadata, command, context);
         },
         [&](const RemoveStatusEffectCommand& command) -> BattleEffectReductionValue
         {
             return removeStatus(
-                state,
+                statusProtectionState(state),
                 effectCommand.metadata,
                 command,
                 context.frame);
@@ -1527,7 +1500,7 @@ BattleEffectReductionValue reduceCommand(
         [&](const DealDamageEffectCommand& command) -> BattleEffectReductionValue
         {
             assert(command.amount >= 0);
-            return makeDamageRequest(effectCommand.metadata, command, context);
+            return BattleEffectCommandSystem::prepareDamageOutput(effectCommand.metadata, command, context);
         },
         [&](const SuppressCurrentCastContactsEffectCommand& command)
             -> BattleEffectReductionValue
@@ -1551,7 +1524,7 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const CreateAreaEffectCommand& command) -> BattleEffectReductionValue
         {
-            return createArea(state, effectCommand.metadata, command, context);
+            return createArea(state, command);
         },
         [&](const ModifyCastEffectCommand& command) -> BattleEffectReductionValue
         {
@@ -1559,34 +1532,117 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const StateMachineEffectCommand& command) -> BattleEffectReductionValue
         {
-            if (const auto* start = std::get_if<StartDamageAbsorptionAction>(&command.action))
+            if (const auto* start = std::get_if<StartDamageAbsorptionAction>(&command.value))
+                return applyDamageAbsorption(state, effectCommand.metadata, *start, context);
+            DealDamageEffectCommand damage;
+            damage.delivery.statusTickPresentation = false;
+            if (const auto* settlement = std::get_if<StateDamageEffectCommand>(&command.value))
             {
-                return applyDamageAbsorption(
-                    state,
-                    effectCommand.metadata,
-                    *start,
-                    context);
+                if (settlement->targetUnitIds.empty()) return BattleSkippedEffectResult{};
+                damage.amount = settlement->amount;
+                damage.kind = settlement->kind;
+                damage.delivery.targetUnitIds = settlement->targetUnitIds;
             }
-            return BattleRoutedEffectCommand<StateMachineEffectCommand>{ command };
+            else if (const auto* poison = std::get_if<SettleRemainingStatusDamageAction>(&command.value))
+            {
+                assert(poison->status == BattleStatusKind::Poison);
+                damage.amount = remainingPoisonDamage(state, effectCommand.metadata.targetUnitId);
+                damage.kind = BattleDamageKind::Poison;
+                damage.appliesDamageModifiers = false;
+                damage.applyDefenderTypedStatuses = true;
+            }
+            else
+            {
+                return BattleSkippedEffectResult{};
+            }
+            if (damage.amount <= 0) return BattleSkippedEffectResult{};
+            return BattleEffectCommandSystem::prepareDamageOutput(effectCommand.metadata, damage, context);
         },
     }, effectCommand.value);
 }
 
 }  // namespace
 
+BattleEffectDamageRequestOutput BattleEffectCommandSystem::prepareDamageOutput(
+    const EffectCommandMetadata& metadata,
+    const DealDamageEffectCommand& command,
+    const EffectExecutionInputs& context)
+{
+    assert(command.transactionCount > 0);
+    BattleDamageRequest request;
+    request.attackerUnitId = metadata.binding.ownerUnitId;
+    request.defenderUnitId = metadata.targetUnitId;
+    request.baseDamage = command.amount;
+    request.damageKind = command.kind;
+    request.preResolvedDamage = !command.appliesDamageModifiers;
+    request.triggersDefenseEffects = command.triggersHurtInvincibility;
+    // 「處決」動作本身代表直接斬殺；生命門檻等規則條件已在命令產生前篩選。
+    request.canExecute = command.canExecute;
+    request.executeThresholdPct = request.canExecute ? 100 : 0;
+    request.preResolvedModifierPolicy = command.applyDefenderTypedStatuses
+        ? BattlePreResolvedModifierPolicy::DefenderTypedStatuses
+        : BattlePreResolvedModifierPolicy::None;
+    request.acceptedHit = false;
+
+    return {
+        .request = request,
+        .delivery = command.delivery,
+        .source = metadata.binding,
+        .ruleId = metadata.ruleId,
+        .triggeringCast = context.cast,
+        .triggeringAttack = context.attack,
+        .statusContribution = metadata.statusContribution,
+        .authoredActionOrder = metadata.authoredActionOrder,
+        .transactionCount = command.transactionCount,
+        .eventSourceUnitId = metadata.eventSourceUnitId,
+    };
+}
+
+
+
+std::optional<int> BattleEffectCommandSystem::contributionQuantity(
+    const BattleStatusEffectState& effects, std::uint64_t sequence, BattleStatusKind kind)
+{
+    const auto found = std::ranges::find(effects.statuses, sequence,
+        &BattleStatusContribution::appliedSequence);
+    if (found == effects.statuses.end() || found->kind != kind || found->stacks <= 0)
+        return std::nullopt;
+    return found->stacks;
+}
+
+BattleRuntimeState BattleEffectCommandSystem::copyDispatchState(const BattleRuntimeState& source)
+{
+    // 完整 reducer 仍處理補血和區域；補血可能巢狀 dispatch，不能只複製狀態陣列。
+    // 不複製攻擊世界、物理地形、救援搜尋或未執行的佇列，也不複製已輸出的事件。
+    BattleRuntimeState state;
+    state.gridTransform = source.gridTransform;
+    state.units = source.units;
+    state.movement.frame = source.movement.frame;
+    state.castLifecycle = source.castLifecycle;
+    state.heals.nextTransactionId = source.heals.nextTransactionId;
+    state.heals.committedTransactions = source.heals.committedTransactions;
+    state.random = source.random;
+    state.areas = source.areas;
+    state.effectRules = source.effectRules;
+    state.effectCommands = source.effectCommands;
+    state.effectIntegration.nextEventOrdinal = source.effectIntegration.nextEventOrdinal;
+    state.status = source.status;
+    return state;
+}
+
 BattleEffectCommandReduction BattleEffectCommandSystem::reduce(
     BattleRuntimeState& state,
-    std::span<const EffectCommand> commands,
-    const BattleEffectCommandContext& context) const
+    std::span<const EffectCommand> commands) const
 {
-    assert(context.frame >= 0);
-    removeExpiredAttributeModifiers(state, context.frame);
-    removeExpiredDamageModifiers(state, context.frame);
 
     BattleEffectCommandReduction result;
     result.entries.reserve(commands.size());
     for (std::size_t i = 0; i < commands.size(); ++i)
     {
+        const auto& context = commands[i].execution;
+        assert(context.frame >= 0);
+        removeExpiredAttributeModifiers(state, context.frame);
+        removeExpiredDamageModifiers(state, context.frame);
         result.entries.push_back({
             .inputOrder = i,
             .metadata = commands[i].metadata,
@@ -1598,10 +1654,9 @@ BattleEffectCommandReduction BattleEffectCommandSystem::reduce(
 
 BattleEffectCommandReduction BattleEffectCommandSystem::reduce(
     BattleRuntimeState& state,
-    const EffectCommand& command,
-    const BattleEffectCommandContext& context) const
+    const EffectCommand& command) const
 {
-    return reduce(state, std::span{ &command, std::size_t{ 1 } }, context);
+    return reduce(state, std::span{ &command, std::size_t{ 1 } });
 }
 
 int BattleEffectCommandSystem::queryAttribute(
@@ -1723,53 +1778,23 @@ BattleStatusApplyResult BattleEffectCommandSystem::applyStatusCommand(
     BattleStatusUnitState target,
     const EffectCommandMetadata& metadata,
     const ApplyStatusEffectCommand& command,
-    const BattleEffectCommandContext& context,
+    const EffectExecutionInputs& context,
     BattleStatusSystemConfig statusConfig,
     bool targetHasShield)
 {
     BattleStatusApplyRequest request;
-    request.kind = command.action.status;
+    request.kind = command.status;
     const auto provenance = statusProducerProvenance(metadata);
     request.producer = provenance.producer;
     request.producerFamily = provenance.producerFamily;
-    request.behavior = command.action.behavior;
+    request.behavior = command.behavior;
     request.sourceUnitId = provenance.sourceUnitId;
-    request.durationFrames = command.evaluatedDurationFrames.value_or(
-        command.action.durationFrames);
-    const auto quantity = lowerStatusQuantity(command.action);
-    request.stacks = quantity.stacks;
     request.origin = provenance.origin;
-    request.stack = lowerStatusReapplication(command.action);
-    request.stackLimit = quantity.stackLimit;
-    const auto storage = statusCatalogEntry(command.action.status).storage;
-    if (storage == StatusStorageModel::SharedLayerDebuff)
-    {
-        request.targetTotalLimit = request.stackLimit;
-        request.stackLimit.reset();
-    }
-    else if (storage != StatusStorageModel::ProducerOwnedContributions)
-    {
-        request.stackLimit.reset();
-    }
-    if (command.action.status == BattleStatusKind::Poison)
-    {
-        // Poison is governed by its explicit strongest/same-event group
-        // reducer. Trigger charges describe the winning group clock rather
-        // than a producer-family capacity and therefore do not participate in
-        // family-limit identity.
-        request.stackLimit.reset();
-    }
-    if (std::holds_alternative<NoStatusQuantity>(command.action.quantity)
-        && command.action.behavior
-        && statusCatalogEntry(command.action.status).storage
-            == StatusStorageModel::ProducerOwnedContributions)
-    {
-        // Duration-only authored behaviors still need a finite holder-local
-        // producer-family allocation. A runtime alias or a newly bound value
-        // can refresh the existing immutable generation's duration, but cannot
-        // accumulate another active copy or replace its bound behavior values.
-        request.stackLimit = 1;
-    }
+    request.durationFrames = command.durationFrames;
+    request.stacks = command.stacks;
+    request.stack = command.stack;
+    request.stackLimit = command.stackLimit;
+    request.targetTotalLimit = command.targetTotalLimit;
     request.targetHasShield = targetHasShield;
     request.controlLowHpImmunityPct = context.controlLowHpImmunityPct;
     request.bypassStatusShield = context.bypassStatusShield;
@@ -1872,6 +1897,7 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
     int targetUnitId,
     int targetTeam,
     int comboId,
+    int frame,
     std::uint64_t* nextNegativeEffectSequence)
 {
     assert(sourceUnitId >= 0);
@@ -1909,12 +1935,12 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
         if (const auto* attribute = std::get_if<ModifyAttributeEffectCommand>(
                 &transferred.value))
         {
-            if (!isAntiComboCoreAttribute(attribute->action.attribute))
+            if (!isAntiComboCoreAttribute(attribute->attribute))
             {
                 continue;
             }
-            auto& total = incomingTotals[attribute->action.attribute];
-            switch (attribute->action.operation)
+            auto& total = incomingTotals[attribute->attribute];
+            switch (attribute->operation)
             {
             case AttributeOperation::FlatAdd:
                 total.flat += attribute->amount;
@@ -1938,13 +1964,13 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
         if (const auto* resource = std::get_if<ChangeResourceEffectCommand>(
                 &transferred.value))
         {
-            result.commands.push_back({ transferred.metadata, *resource });
+            result.commands.push_back({ transferred.metadata, *resource, { .frame = frame } });
             continue;
         }
         const auto* status = std::get_if<ApplyStatusEffectCommand>(
             &transferred.value);
         assert(status);
-        result.commands.push_back({ transferred.metadata, *status });
+        result.commands.push_back({ transferred.metadata, *status, { .frame = frame } });
     }
 
     for (const auto& [attribute, incoming] : incomingTotals)
@@ -1979,7 +2005,7 @@ BattleAntiComboTransfer BattleEffectCommandSystem::transferAntiComboInitializati
                 const auto* attribute = std::get_if<ModifyAttributeEffectCommand>(
                     &transferred.value);
                 return attribute
-                    && !isAntiComboCoreAttribute(attribute->action.attribute)
+                    && !isAntiComboCoreAttribute(attribute->attribute)
                     && transferred.metadata.ruleId == sourceModifier.ruleId
                     && transferred.metadata.actionOrder == sourceModifier.actionOrder;
             });

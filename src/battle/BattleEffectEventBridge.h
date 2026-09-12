@@ -20,6 +20,7 @@ struct BattleEffectEventHeaderInput
     std::uint64_t eventOrdinal{};
     int ownerUnitId = -1;
     EffectFormulaInputs formulaInputs;
+    std::optional<int> executionFrame;
 };
 
 // BattleCastLifecycle intentionally tracks only lineage and aggregate values.
@@ -55,6 +56,11 @@ public:
         EffectEvent event,
         EffectEventPayload payload);
 
+    BattleEffectOwnedEvent(const BattleEffectOwnedEvent&) = delete;
+    BattleEffectOwnedEvent& operator=(const BattleEffectOwnedEvent&) = delete;
+    BattleEffectOwnedEvent(BattleEffectOwnedEvent&&) = default;
+    BattleEffectOwnedEvent& operator=(BattleEffectOwnedEvent&&) = default;
+
     EffectEvent event() const;
     const EffectEventPayload& payload() const;
     EffectEventContext context() const &;
@@ -63,9 +69,23 @@ public:
 
 private:
     BattleEffectRuntimeSnapshot battle_;
-    BattleEffectEventHeaderInput header_;
-    EffectEvent event_{};
-    EffectEventPayload payload_;
+    EffectEventData data_;
+};
+
+// 生產 dispatch 與測試使用相同的 reducer；不維護第二套命令模擬器。
+class BattleEffectDispatchPrediction
+{
+public:
+    explicit BattleEffectDispatchPrediction(const BattleRuntimeState& source);
+    ~BattleEffectDispatchPrediction();
+    BattleEffectDispatchPrediction(const BattleEffectDispatchPrediction&) = delete;
+    BattleEffectDispatchPrediction& operator=(const BattleEffectDispatchPrediction&) = delete;
+    const StatusBehaviorDispatchLiveness& hooks() const { return hooks_; }
+
+private:
+    void reduceRuleCommands(std::span<const EffectCommand> commands);
+    std::unique_ptr<BattleRuntimeState> runtime_;
+    StatusBehaviorDispatchLiveness hooks_;
 };
 
 class BattleEffectEventBridge

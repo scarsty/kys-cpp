@@ -442,7 +442,6 @@ struct BattleEffectPerCastDamageKey
 struct BattleQueuedEffectCommandBatch
 {
     std::vector<EffectCommand> commands;
-    BattleEffectCommandContext context;
 };
 
 struct BattleEffectDamageContinuationRuntime
