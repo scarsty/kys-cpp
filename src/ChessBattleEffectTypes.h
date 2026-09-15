@@ -461,6 +461,7 @@ struct ChangeResourceAction
     EffectHealKind healKind = EffectHealKind::Direct;
     EffectHealSourcePolicy healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
     bool healRequiresFullMp = false;
+    std::optional<EffectNumber> additionalAmount;
 };
 
 enum class HealModifierOperation

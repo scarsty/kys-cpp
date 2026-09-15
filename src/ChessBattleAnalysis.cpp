@@ -150,7 +150,8 @@ std::string battleEffectType(const BattleReportEvent& event)
     case Battle::BattleStatusSemanticId::DeathPrevented: return "death_prevented";
     case Battle::BattleStatusSemanticId::ExecuteTriggered: return "execute_triggered";
     case Battle::BattleStatusSemanticId::Knockback: return "knockback_applied";
-    case Battle::BattleStatusSemanticId::EnemyTopDebuff: return "enemy_top_debuff_changed";
+    case Battle::BattleStatusSemanticId::EnemyTopAttackDebuff: return "enemy_top_attack_debuff_changed";
+    case Battle::BattleStatusSemanticId::EnemyTopDefenceDebuff: return "enemy_top_defence_debuff_changed";
     case Battle::BattleStatusSemanticId::MagicPointsDrained: return "magic_points_drained";
     case Battle::BattleStatusSemanticId::PoisonPayload: return "poison_payload";
     case Battle::BattleStatusSemanticId::BlockedByDualWield: return "blocked_by_dual_wield";
@@ -204,7 +205,8 @@ ChessBattleEffectActivation battleEffectActivation(const BattleReportEvent& even
         result.opposingValueAfter = std::max(0, event.secondaryValue - event.value);
         return result;
     }
-    if (event.statusId == Battle::BattleStatusSemanticId::EnemyTopDebuff)
+    if (event.statusId == Battle::BattleStatusSemanticId::EnemyTopAttackDebuff
+        || event.statusId == Battle::BattleStatusSemanticId::EnemyTopDefenceDebuff)
     {
         result.previousValue = event.previousValue;
         result.newValue = event.newValue;
@@ -324,7 +326,7 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
 
     std::map<int, UnitCombatAggregate> combatByUnit;
     std::optional<int> openingEnemyTopDebuffFrame;
-    std::map<int, int> openingEnemyTopDebuffByUnit;
+    std::map<std::pair<int, Battle::BattleStatusSemanticId>, int> openingEnemyTopDebuffByUnit;
     for (const auto& event : battle.report.events())
     {
         if (event.type == BattleReportEventType::Damage && event.sourceId >= 0)
@@ -346,7 +348,8 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
         else if (event.type == BattleReportEventType::Status)
         {
             result.effectActivations.push_back(battleEffectActivation(event));
-            if (event.statusId == Battle::BattleStatusSemanticId::EnemyTopDebuff)
+            if (event.statusId == Battle::BattleStatusSemanticId::EnemyTopAttackDebuff
+                || event.statusId == Battle::BattleStatusSemanticId::EnemyTopDefenceDebuff)
             {
                 if (!openingEnemyTopDebuffFrame)
                 {
@@ -356,7 +359,7 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
                     && event.previousValue == 0
                     && event.newValue < 0)
                 {
-                    openingEnemyTopDebuffByUnit[event.targetId] = event.newValue;
+                    openingEnemyTopDebuffByUnit[{ event.targetId, event.statusId }] = event.newValue;
                 }
             }
             const int unitId = event.sourceId >= 0 ? event.sourceId : event.targetId;
@@ -388,18 +391,19 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
             &Battle::BattleInitializationRoleDelta::unitId);
         assert(initialized != battle.initialization.roleDeltas.end());
         stats.initialCombatStats = chessInitializedCombatStats(*initialized);
-        if (const auto debuff = openingEnemyTopDebuffByUnit.find(unit.unitId);
-            debuff != openingEnemyTopDebuffByUnit.end())
+        const auto applyOpeningDebuff = [&](Battle::BattleStatusSemanticId status, int& amount, int& stat)
         {
-            stats.enemyAttackDebuff = debuff->second;
-            stats.enemyDefenceDebuff = debuff->second;
-            stats.initialCombatStats.attack = std::max(
-                0,
-                stats.initialCombatStats.attack + debuff->second);
-            stats.initialCombatStats.defence = std::max(
-                0,
-                stats.initialCombatStats.defence + debuff->second);
-        }
+            if (const auto debuff = openingEnemyTopDebuffByUnit.find({ unit.unitId, status });
+                debuff != openingEnemyTopDebuffByUnit.end())
+            {
+                amount = debuff->second;
+                stat = std::max(0, stat + amount);
+            }
+        };
+        applyOpeningDebuff(Battle::BattleStatusSemanticId::EnemyTopAttackDebuff,
+            stats.enemyAttackDebuff, stats.initialCombatStats.attack);
+        applyOpeningDebuff(Battle::BattleStatusSemanticId::EnemyTopDefenceDebuff,
+            stats.enemyDefenceDebuff, stats.initialCombatStats.defence);
         stats.initialStatDeltaFromSpecialEffects = chessStatDelta(
             stats.initialCombatStats,
             baseline);

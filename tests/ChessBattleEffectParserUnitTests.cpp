@@ -48,7 +48,7 @@ TEST_CASE("Named effect loading rejects malformed parameters atomically", "[ches
         R"([{時機: 開場, 屬性修正: {屬性: 技能傷害, 數值: 15}}])",
         R"([{類型: 機率命中眩暈, 機率百分比: 101, 持續幀數: 20}])",
         R"([{類型: 定時生命回復, 間隔幀數: 0, 生命百分比: 5}])",
-        R"([{類型: 出招疊加格擋, 每層格擋百分比: 2, 層數上限: 0}])",
+        R"([{類型: 出招疊加屬性, 屬性: 格擋率, 每層百分比: 2, 層數上限: 0}])",
         R"([{類型: 技能增傷, 百分比: 15}, {類型: 不存在的效果}])",
     };
     for (const auto text : invalid)
@@ -108,5 +108,30 @@ TEST_CASE("Magic loader rejects duplicate identities and invalid source attachme
         auto invalid = YAML::Load("絕招: [{武功: 1, 名稱: 測試, 效果: []}]");
         invalid["絕招"][0]["效果"] = YAML::Load(effect);
         CHECK_FALSE(parseMagicEffects(invalid, definitions, "不相容的效果來源"));
+    }
+}
+
+TEST_CASE("Composable effects validate named choices and default omitted formula terms", "[chess][effects][composition]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load("[{類型: 出招護盾, 每星護盾: 70}]"), effects, rules, id, "可選數值"));
+    REQUIRE(rules.size() == 1);
+    const auto& shield = std::get<ChangeResourceAction>(rules[0].actions[0].value);
+    CHECK(shield.amount.flat == 0);
+    CHECK(shield.amount.percent == 0);
+    REQUIRE(shield.additionalAmount);
+    CHECK(shield.additionalAmount->base == EffectNumberBase::SourceStar);
+    CHECK(shield.additionalAmount->percent == 7000);
+    CHECK(effects[0]->describe(EffectDescriptionStyle::Compact).find("70×星級") != std::string::npos);
+    for (const auto invalid : {
+        "[{類型: 出招臨時屬性加成, 屬性: 不存在, 百分比: 25, 持續幀數: 60}]",
+        "[{類型: 出招臨時屬性加成, 屬性: 3, 百分比: 25, 持續幀數: 60}]",
+        "[{類型: 出招臨時屬性加成, 百分比: 25, 持續幀數: 60}]",
+        "[{類型: 出招護盾, 每星護盾: -1}]",
+        "[{類型: 出招格擋護盾, 格擋百分比: 25, 持續幀數: 60, 每星護盾: 70}]"})
+    {
+        CHECK_FALSE(parseGameplayEffects(YAML::Load(invalid), effects, rules, id, "錯誤組合"));
     }
 }

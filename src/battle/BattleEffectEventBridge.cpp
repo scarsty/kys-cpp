@@ -5,7 +5,6 @@
 #include <cassert>
 #include <algorithm>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -55,10 +54,8 @@ EffectUnitSnapshot defenderAfterSnapshot(
     const BattleDamageTransactionResult& transaction)
 {
     const auto& after = transaction.defender;
-    if (before.id != after.id || transaction.defenderStatus.id != after.id)
-    {
-        throw std::invalid_argument("傷害結果與防守方事件快照的單位不一致");
-    }
+    assert(before.id == after.id);
+    assert(transaction.defenderStatus.id == after.id);
 
     auto result = before;
     result.alive = after.alive;
@@ -77,40 +74,6 @@ bool damageWasBlocked(const BattleDamageTransactionResult& transaction)
     return transaction.blockedByInvincible
         || transaction.blockedByDualWield
         || transaction.blockedByDamageLayer;
-}
-
-void validateDamageSnapshots(
-    const BattleDamageTransactionResult& transaction,
-    const EffectDamageOrigin& origin,
-    const BattleDamageResolvedEffectInput& input)
-{
-    const auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin);
-    if (attack && !attack->provenance.valid())
-    {
-        throw std::invalid_argument("攻擊傷害事件缺少完整 provenance");
-    }
-    if (attack && !input.attackerBefore)
-    {
-        throw std::invalid_argument("攻擊傷害事件缺少攻擊方事件快照");
-    }
-    if (input.attackerBefore
-        && input.attackerBefore->id != transaction.attacker.id)
-    {
-        throw std::invalid_argument("傷害結果與攻擊方事件快照的單位不一致");
-    }
-    if (!input.attackerBefore
-        && transaction.attacker.id != OptionalDamageAttackerUnitId)
-    {
-        throw std::invalid_argument("傷害結果有攻擊方卻缺少事件快照");
-    }
-    if (input.defenderBefore.id != transaction.defender.id)
-    {
-        throw std::invalid_argument("傷害結果與防守方事件快照的單位不一致");
-    }
-    if (input.rawDamage < 0 || input.resolvedDamage < 0)
-    {
-        throw std::invalid_argument("傷害事件的原始與結算傷害不可為負數");
-    }
 }
 
 void sortDispatchCommands(BattleEffectDispatchResult& result)
@@ -223,10 +186,7 @@ BattleEffectOwnedEvent::BattleEffectOwnedEvent(
     , data_{ .event = event, .payload = std::move(payload) }
 {
     const auto* owner = battle_.readView().findUnit(header.ownerUnitId);
-    if (!owner)
-    {
-        throw std::invalid_argument("效果事件指定了不存在的 owner 單位");
-    }
+    assert(owner);
 
     data_.header = {
         .frame = header.frame,
@@ -238,15 +198,14 @@ BattleEffectOwnedEvent::BattleEffectOwnedEvent(
         .executionFrame = header.executionFrame,
     };
 
-    const auto* heal = std::get_if<HealRequestEventData>(&data_.payload);
-    if (const auto* result = std::get_if<HealResultEventData>(&data_.payload)) heal = &result->request;
-    if (heal && heal->castId)
-        data_.header.healCast = runtime.castLifecycle.runtime(*heal->castId).provenance;
-
-    if (!BattleEffectSystem::eventPayloadMatches(context()))
+    if (const auto* cast = effectEventCastProvenance(data_.payload))
     {
-        throw std::invalid_argument("EffectEvent 與 typed payload 不相符");
+        // 規劃階段尚未分配施放 ID，結算後也不再持有可保留的工作。
+        data_.header.retainCastUntilDamageDescendants =
+            runtime.castLifecycle.containsCast(cast->castId);
     }
+
+    assert(BattleEffectSystem::eventPayloadMatches(context()));
 }
 
 EffectEvent BattleEffectOwnedEvent::event() const
@@ -374,10 +333,7 @@ BattleEffectOwnedEvent BattleEffectEventBridge::makeCastLifecycleEvent(
     const BattleCastLifecycleEvent& event,
     BattleCastLifecycleEffectInput input) const
 {
-    if (!event.provenance.valid())
-    {
-        throw std::invalid_argument("施放生命週期事件缺少完整 provenance");
-    }
+    assert(event.provenance.valid());
 
     CastAggregateEventData payload;
     payload.provenance = event.provenance;
@@ -412,7 +368,14 @@ BattleEffectOwnedEvent BattleEffectEventBridge::makeDamageResolvedEvent(
     EffectDamageOrigin origin,
     BattleDamageResolvedEffectInput input) const
 {
-    validateDamageSnapshots(transaction, origin, input);
+    if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(&origin))
+    {
+        assert(attack->provenance.valid());
+        assert(input.attackerBefore);
+    }
+    assert(input.attackerBefore
+        ? input.attackerBefore->id == transaction.attacker.id
+        : transaction.attacker.id == OptionalDamageAttackerUnitId);
 
     DamageResultEventData payload;
     payload.transactionId = input.transactionId;
@@ -420,7 +383,9 @@ BattleEffectOwnedEvent BattleEffectEventBridge::makeDamageResolvedEvent(
     payload.attackerBefore = std::move(input.attackerBefore);
     payload.defenderBefore = input.defenderBefore;
     payload.defenderAfter = defenderAfterSnapshot(input.defenderBefore, transaction);
+    assert(input.rawDamage >= 0);
     payload.rawDamage = input.rawDamage;
+    assert(input.resolvedDamage >= 0);
     payload.resolvedDamage = input.resolvedDamage;
     payload.shieldAbsorbed = transaction.shieldAbsorbed;
     payload.finalHpDamage = transaction.finalHpDamage;

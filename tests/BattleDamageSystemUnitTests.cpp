@@ -293,6 +293,27 @@ TEST_CASE("BattleDamageSystem_ScriptedHitRequestCarriesAcceptedStatusPayloads", 
     CHECK(request.bleedMaxStacks == 9);
 }
 
+TEST_CASE("Flat damage reduction cannot produce negative resolved damage", "[battle][damage][regression]")
+{
+    for (const auto kind : { BattleDamageKind::Physical, BattleDamageKind::Poison, BattleDamageKind::Bleed })
+    {
+        for (const int reduction : { 14, 15, 16, 100 })
+        {
+            CAPTURE(kind, reduction);
+            auto input = preResolvedDamageInput(0, 1, 100, 15);
+            input.request.preResolvedDamage = false;
+            input.request.damageKind = kind;
+            input.defenderModifiers.flatDamageReduction = reduction;
+            input.defenderModifiers.damageTakenIncreasePct = 100;
+            const auto result = BattleDamageSystem().resolveTransaction(input);
+            const int expectedDamage = reduction < 15 ? 2 : 0;
+            CHECK(result.resolvedDamageBeforeDefense == expectedDamage);
+            CHECK(result.finalHpDamage == expectedDamage);
+            CHECK(result.defender.vitals.hp == 100 - expectedDamage);
+        }
+    }
+}
+
 TEST_CASE("BattleDamageSystem_Modifiers_RespectIgnoreDefenseAndMaxHitCap", "[battle][damage][unit]")
 {
     BattleDamageModifierInput input;

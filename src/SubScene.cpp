@@ -2,6 +2,7 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "ChessApplicationSessionHost.h"
+#include "ChessEffectDescription.h"
 #include "ChessGameSession.h"
 #include "ChessMenuFormatting.h"
 #include "ChessModHook.h"
@@ -488,15 +489,21 @@ void SubScene::draw()
                     iconX -= 22;
                     TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4,
                         TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 0.35, 0.35 });
+                    std::vector<ChessHeaderDetail> details{
+                        {"層級：", std::format("{}階", ng.tier), {255, 235, 135, 255}},
+                    };
+                    const auto effectRows = effectDescriptionTextRows(
+                        describeGameplayEffects(ng.effects, EffectDescriptionStyle::Full));
+                    for (const auto& row : effectRows)
+                    {
+                        details.push_back({"", row, {235, 226, 208, 255}});
+                    }
                     chess_header_segments_.push_back({
                         iconX,
                         iconX + 22,
                         ng.name,
                         {255, 235, 135, 255},
-                        {
-                            {"狀態：", "已獲得", {255, 235, 135, 255}},
-                            {"層級：", std::format("{}階", ng.tier), {255, 235, 135, 255}},
-                        },
+                        std::move(details),
                         ChessHeaderSegmentKind::Standard,
                     });
                     break;

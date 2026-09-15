@@ -40,6 +40,7 @@ struct ApplierFixture
         std::vector<int> effectSounds;
         std::vector<int> attackSounds;
         std::vector<BattleFrameRumbleEvent> rumbles;
+        int frameCount = 1;
 
         void playEffectSound(int soundId)
         {
@@ -63,7 +64,7 @@ struct ApplierFixture
 
         int effectFrameCount(const std::string&)
         {
-            return 1;
+            return frameCount;
         }
     } effects;
 
@@ -210,6 +211,66 @@ TEST_CASE("BattleSceneFrameApplier_AppliesProjectileVisualEventsToSceneAttackEff
     CHECK(effect.Tint.r == 255);
     CHECK(effect.Tint.g == 255);
     CHECK(effect.Tint.b == 255);
+}
+
+TEST_CASE("BattleSceneFrameApplier_SemanticCuesPlayOnceWithoutStackingOrRestarting", "[battle][scene_frame_applier][effect_cue]")
+{
+    ApplierFixture fixture;
+    fixture.effects.frameCount = 10;
+    BattlePresentationFrame frame;
+    BattleVisualEvent cue;
+    cue.type = BattleVisualEventType::RoleEffect;
+    cue.targetUnitId = 1;
+    cue.visualPath = BattleCuePositiveVisualPath;
+    cue.roleEffectType = BattleRoleEffectType::StatusCue;
+    cue.durationFrames = 48;
+    frame.visualEvents = { cue, cue };
+    fixture.applier.apply(frame, fixture.effects);
+    REQUIRE(fixture.attackEffects.size() == 1);
+    CHECK(fixture.attackEffects.front().TotalFrame == 10);
+    for (int i = 0; i < 9; ++i)
+        advanceBattlePresentationEffects(fixture.attackEffects, true);
+    // 相同提示換素材也不能繞過合併規則。
+    frame.visualEvents.front().visualPath = "alternate-status-art";
+    fixture.applier.apply(frame, fixture.effects);
+    REQUIRE(fixture.attackEffects.size() == 1);
+    CHECK(fixture.attackEffects.front().Frame == 9);
+    advanceBattlePresentationEffects(fixture.attackEffects, true);
+    CHECK(fixture.attackEffects.empty());
+
+    frame.visualEvents.resize(1);
+    fixture.applier.apply(frame, fixture.effects);
+    REQUIRE(fixture.attackEffects.size() == 1);
+    CHECK(fixture.attackEffects.front().Frame == 0);
+}
+
+TEST_CASE("BattleSceneFrameApplier_HealingRetainsOriginalDurationAndIndependentPlayback", "[battle][scene_frame_applier][effect_cue]")
+{
+    ApplierFixture fixture;
+    fixture.effects.frameCount = 10;
+    BattlePresentationFrame frame;
+    BattleVisualEvent heal;
+    heal.type = BattleVisualEventType::RoleEffect;
+    heal.targetUnitId = 1;
+    heal.effectId = 0;
+    heal.durationFrames = 48;
+    frame.visualEvents = { heal, heal };
+    fixture.applier.apply(frame, fixture.effects);
+    REQUIRE(fixture.attackEffects.size() == 2);
+    CHECK(fixture.attackEffects.front().Path == "eft/eft000");
+    CHECK(fixture.attackEffects.front().TotalFrame == 48);
+    CHECK(fixture.attackEffects.front().TotalEffectFrame == 10);
+    // 一般效果即使使用提示素材，仍保留原有播放規則。
+    frame.visualEvents.front().visualPath = BattleCuePositiveVisualPath;
+    for (int i = 0; i < 10; ++i)
+        advanceBattlePresentationEffects(fixture.attackEffects, true);
+    REQUIRE(fixture.attackEffects.size() == 2);
+    frame.visualEvents.resize(1);
+    fixture.applier.apply(frame, fixture.effects);
+    REQUIRE(fixture.attackEffects.size() == 3);
+    CHECK(fixture.attackEffects.front().Frame == 10);
+    CHECK(fixture.attackEffects.back().Frame == 0);
+    CHECK(fixture.attackEffects.back().TotalFrame == 48);
 }
 
 TEST_CASE("BattleSceneFrameApplier_AppliesSemanticCuePathTintAndAreaSnapshot", "[battle][scene_frame_applier][effect_cue][area]")

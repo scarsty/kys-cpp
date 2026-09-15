@@ -696,6 +696,8 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     {
         damage -= BattleFixed::fromInteger(input.defender.flatDamageReduction);
     }
+    // 固定減傷可完全抵消傷害，後續倍率不可放大負值。
+    damage = std::max(BattleFixed{}, damage);
     if (input.defender.damageReductionPct > 0)
     {
         applyDamageReduction(

@@ -3,6 +3,9 @@
 #include "battle/BattleRuntimeRandom.h"
 #include "BattleCoreTestHelpers.h"
 #include "ChessBattleEffectValidation.h"
+#include "ChessGameplayEffect.h"
+
+#include <yaml-cpp/yaml.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -3663,5 +3666,233 @@ TEST_CASE("BattleEffectSystem binds neutralize-force MP recovery to its producer
                 .damageKind = BattleDamageKind::Skill,
             });
         CHECK(BattleEffectSystem::evaluateNumber(recovery.amount, context, owner) == 40 + 10 * star);
+    }
+}
+
+namespace
+{
+std::vector<EffectRule> namedRules(const YAML::Node& configured)
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(configured, effects, rules, id, "組合效果測試"));
+    return rules;
+}
+
+std::vector<EffectRule> magicContractRules(int magicId)
+{
+    const auto contracts = YAML::LoadFile("tests/data/gameplay-effect-contracts.yaml");
+    for (const auto& entry : contracts)
+    {
+        if (entry["來源"].as<std::string>() == "magic:" + std::to_string(magicId))
+            return namedRules(entry["效果"]);
+    }
+    FAIL("找不到武功契約");
+    return {};
+}
+}
+
+TEST_CASE("Huanhua heals only two lowest HP allies using the caster star",
+          "[battle][effect][ultimate][healing]")
+{
+    const auto rules = magicContractRules(134);
+    REQUIRE(rules.size() == 1);
+    for (int star : { 1, 2, 3 })
+    {
+        CAPTURE(star);
+        auto owner = makeUnit(1, 0, 900, 1000);
+        owner.star = star;
+        auto first = makeUnit(2, 0, 100, 2000);
+        first.star = 5;
+        const auto second = makeUnit(3, 0, 100, 1000);
+        const auto third = makeUnit(4, 0, 200, 1000);
+        const auto enemy = makeUnit(5, 1, 1, 1000);
+        const std::vector units{ owner, first, second, third, enemy };
+        const auto source = magicBinding(134);
+        BattleEffectRuleStore store;
+        store.append(source, rules.front());
+        BattleRuntimeRandom random(1);
+        const auto result = BattleEffectSystem{}.dispatch(
+            store, makeContext(EffectEvent::AttackCommitted, source, owner, units,
+                               CastCommitEventData{ .provenance = castProvenance(134), .targetUnitId = 5 }),
+            random);
+        REQUIRE(result.commands.size() == 4);
+        int firstHealing{};
+        int secondHealing{};
+        int cleanses{};
+        for (const auto& command : result.commands)
+        {
+            const int target = command.metadata.targetUnitId;
+            REQUIRE((target == 2 || target == 3));
+            if (const auto* heal = std::get_if<ChangeResourceEffectCommand>(&command.value))
+            {
+                (target == 2 ? firstHealing : secondHealing) += heal->resolvedAmount();
+            }
+            else
+            {
+                ++cleanses;
+            }
+        }
+        CHECK(firstHealing == 30 * star + 120);
+        CHECK(secondHealing == 30 * star + 60);
+        CHECK(cleanses == 2);
+    }
+}
+
+TEST_CASE("Yijin shield scales with the caster star", "[battle][effect][ultimate][shield]")
+{
+    const auto rules = magicContractRules(108);
+    REQUIRE(rules.size() == 2);
+    for (int star : { 1, 2, 3 })
+    {
+        CAPTURE(star);
+        auto owner = makeUnit(1, 0, 100, 100);
+        owner.star = star;
+        const std::vector units{ owner };
+        const auto source = magicBinding(108);
+        BattleEffectRuleStore store;
+        for (const auto& rule : rules) store.append(source, rule);
+        BattleRuntimeRandom random(1);
+        const auto result = BattleEffectSystem{}.dispatch(
+            store, makeContext(EffectEvent::AttackCommitted, source, owner, units,
+                               CastCommitEventData{ .provenance = castProvenance(108), .targetUnitId = 1 }),
+            random);
+        REQUIRE(result.commands.size() == 2);
+        const auto& shield = std::get<ChangeResourceEffectCommand>(result.commands.back().value);
+        CHECK(result.commands.back().metadata.targetUnitId == owner.id);
+        CHECK(shield.resource == BattleResource::Shield);
+        CHECK(shield.resolvedAmount() == 70 * star);
+    }
+}
+
+TEST_CASE("Composed resource formulas issue one transaction before healing modifiers", "[battle][effect][composition]")
+{
+    for (const auto resource : { BattleResource::Hp, BattleResource::Shield })
+    {
+        const auto configured = resource == BattleResource::Hp
+            ? "[{類型: 出招治療自身, 固定治療: 11, 每星治療: 30, 生命治療百分比: 6}]"
+            : "[{類型: 出招護盾, 固定護盾: 11, 每星護盾: 30, 生命護盾百分比: 6}]";
+        const auto rules = namedRules(YAML::Load(configured));
+        for (int star : { 1, 2, 3 })
+        {
+            auto owner = makeUnit(1, 0, 100, 1500);
+            owner.star = star;
+            const std::vector units{owner};
+            const auto source = magicBinding(108);
+            BattleEffectRuleStore store;
+            for (const auto& rule : rules) store.append(source, rule);
+            BattleRuntimeRandom random(1);
+            const auto result = BattleEffectSystem{}.dispatch(
+                store, makeContext(EffectEvent::AttackCommitted, source, owner, units,
+                    CastCommitEventData{.provenance = castProvenance(108), .targetUnitId = 1}), random);
+            REQUIRE(result.commands.size() == 1);
+            const auto& command = std::get<ChangeResourceEffectCommand>(result.commands.front().value);
+            CHECK(command.resource == resource);
+            CHECK(command.resolvedAmount() == 11 + 30 * star + 90);
+        }
+    }
+}
+
+TEST_CASE("Independent cast attributes preserve refresh duration and stacking caps", "[battle][effect][composition]")
+{
+    const auto rules = namedRules(YAML::Load(R"(
+- {類型: 出招臨時屬性加成, 屬性: 格擋率, 百分比: 25, 持續幀數: 60}
+- {類型: 出招臨時屬性加成, 屬性: 速度, 百分比: 40, 持續幀數: 100}
+- {類型: 出招疊加屬性, 屬性: 暴擊率, 每層百分比: 7, 層數上限: 5}
+- {類型: 出招疊加屬性, 屬性: 暴擊傷害, 每層百分比: 9, 層數上限: 3}
+)"));
+    REQUIRE(rules.size() == 4);
+    const auto& block = std::get<ModifyAttributeAction>(rules[0].actions.front().value);
+    const auto& speed = std::get<ModifyAttributeAction>(rules[1].actions.front().value);
+    const auto& critical = std::get<ModifyAttributeAction>(rules[2].actions.front().value);
+    const auto& criticalDamage = std::get<ModifyAttributeAction>(rules[3].actions.front().value);
+    CHECK(block.attribute == BattleAttribute::BlockChance);
+    CHECK(block.operation == AttributeOperation::PercentagePointAdd);
+    CHECK(block.durationFrames == 60);
+    CHECK(block.stack == EffectStackPolicy::Refresh);
+    CHECK(speed.operation == AttributeOperation::PercentAdd);
+    CHECK(speed.durationFrames == 100);
+    CHECK(critical.stack == EffectStackPolicy::AddStack);
+    CHECK(critical.stackLimit == 5);
+    CHECK(criticalDamage.attribute == BattleAttribute::CriticalDamage);
+    CHECK(criticalDamage.stackLimit == 3);
+}
+
+TEST_CASE("Decoupled hit weakening retains its original event and modifier stage", "[battle][effect][composition]")
+{
+    const auto rules = namedRules(YAML::Load(R"(
+- {類型: 主彈命中弱化傷害, 傷害百分比: -20, 持續幀數: 90}
+- {類型: 命中削弱敵方傷害, 傷害百分比: -45, 持續幀數: 70}
+)"));
+    REQUIRE(rules.size() == 2);
+    const auto& before = std::get<ModifyDamageAction>(rules[0].actions.front().value);
+    const auto& after = std::get<ModifyDamageAction>(rules[1].actions.front().value);
+    CHECK(rules[0].event == EffectEvent::MainProjectileBeforeDamage);
+    CHECK(rules[0].conditions.empty());
+    CHECK(before.stage == DamageModifierStage::Final);
+    CHECK(before.stack == EffectStackPolicy::Refresh);
+    CHECK(rules[1].event == EffectEvent::DamageResolved);
+    CHECK(rules[1].conditions.size() == 2);
+    CHECK(after.stage == DamageModifierStage::BeforeDefense);
+    CHECK(after.stack == EffectStackPolicy::Independent);
+}
+
+TEST_CASE("Separated shield-break reactions fire in authored order without an initial shield component", "[battle][effect][composition]")
+{
+    const auto rules = namedRules(YAML::Load(R"(
+- {類型: 破盾攻擊加成, 攻擊點數: 70, 持續幀數: 90}
+- {類型: 破盾免費絕招}
+- {類型: 破盾回內, 回復內力: 50}
+)"));
+    const auto owner = makeUnit(1, 0, 100, 100);
+    const std::vector units{owner};
+    const auto source = magicBinding(108);
+    BattleEffectRuleStore store;
+    for (const auto& rule : rules) store.append(source, rule);
+    BattleRuntimeRandom random(1);
+    const auto result = BattleEffectSystem{}.dispatch(
+        store, makeContext(EffectEvent::ShieldBroken, source, owner, units,
+            ShieldBreakEventData{.targetBefore = owner, .targetAfter = owner, .brokenAmount = 40,
+                                 .cause = EffectEnvironmentDamageOrigin{}}), random);
+    REQUIRE(result.commands.size() == 3);
+    CHECK(std::holds_alternative<ModifyAttributeEffectCommand>(result.commands[0].value));
+    REQUIRE(std::holds_alternative<ModifyCastEffectCommand>(result.commands[1].value));
+    CHECK(std::get<ModifyCastEffectCommand>(result.commands[1].value).autoUltimate.has_value());
+    const auto& mana = std::get<ChangeResourceEffectCommand>(result.commands[2].value);
+    CHECK(mana.resource == BattleResource::Mp);
+    CHECK(mana.resolvedAmount() == 50);
+}
+
+TEST_CASE("Separate aura components keep aligned periods and exclude their owner", "[battle][effect][composition]")
+{
+    const auto rules = namedRules(YAML::Load(R"(
+- {類型: 友軍治療光環, 半徑格數: 6, 間隔幀數: 3, 治療點數: 25}
+- {類型: 友軍減冷卻光環, 半徑格數: 6, 間隔幀數: 3, 冷卻百分比: 30}
+)"));
+    const auto owner = makeUnit(1, 0, 100, 100);
+    auto ally = makeUnit(2, 0, 50, 100);
+    const auto enemy = makeUnit(3, 1, 100, 100);
+    const std::vector units{owner, ally, enemy};
+    const auto source = magicBinding(108);
+    BattleEffectRuleStore store;
+    for (const auto& rule : rules) store.append(source, rule);
+    BattleRuntimeRandom random(1);
+    for (int tick = 1; tick <= 6; ++tick)
+    {
+        const auto result = BattleEffectSystem{}.dispatch(
+            store, makeContext(EffectEvent::FrameAdvanced, source, owner, units,
+                FrameTickEventData{.deltaFrames = 1}), random);
+        if (tick % 3 != 0) CHECK(result.commands.empty());
+        else
+        {
+            REQUIRE(result.commands.size() == 2);
+            for (const auto& command : result.commands) CHECK(command.metadata.targetUnitId == ally.id);
+            const auto& heal = std::get<ChangeResourceEffectCommand>(result.commands[0].value);
+            CHECK(heal.resource == BattleResource::Hp);
+            CHECK(heal.healKind == EffectHealKind::Aura);
+            CHECK(heal.resolvedAmount() == 25);
+            CHECK(std::get<ChangeResourceEffectCommand>(result.commands[1].value).resource == BattleResource::ActiveCooldown);
+        }
     }
 }

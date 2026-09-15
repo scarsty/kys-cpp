@@ -9,6 +9,7 @@
 #include "BattleRuntimeRecordTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <array>
@@ -504,7 +505,7 @@ TEST_CASE("BattleRuntimeScenario_ProjectileCancellationDigest", "[battle][scenar
     CHECK(digest.projectileCancelWeakenByAttackId.at(20) == 25);
 }
 
-TEST_CASE("BattleRuntimeScenario_RealQingnangHealsLowestHpAlly", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_ConfiguredHealTargetsLowestHpRatioAlly", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
     BattleRuntimeSessionCreationInput input;
     input.rules = scenarioRules();
@@ -520,8 +521,15 @@ TEST_CASE("BattleRuntimeScenario_RealQingnangHealsLowestHpAlly", "[battle][scena
         2, 0, 300, 1000, 0, { 140, 120, 0 }));
     input.units.push_back(verticalSliceUnit(
         3, 1, 10000, 10000, 0, { 300, 100, 0 }));
-    input.setup.magicEffectDefinitions.push_back(
-        realUltimateDefinition(127));
+    REQUIRE(parseMagicEffects(YAML::Load(R"(
+絕招:
+  - 武功: 127
+    名稱: 測試低血比例治療
+    效果:
+      - 類型: 治療解毒止血
+        友軍數: 1
+        生命治療百分比: 7
+)"), input.setup.magicEffectDefinitions, "低血比例治療測試"));
 
     auto state = initializedVerticalSliceState(std::move(input));
     const auto committed = runUntil(state, 180, [](const auto& runtime, const auto&)
@@ -690,6 +698,50 @@ TEST_CASE("BattleRuntimeScenario_RealShenzhaoSpends75MpAndGrantsStarShield", "[b
     REQUIRE(committed);
     CHECK(state.units.requireCore(0).vitals.mp == 25);
     CHECK(state.units.requireCore(0).shield == 300);
+}
+
+TEST_CASE("BattleRuntimeScenario_SingleSkillShenzhaoRequiresFullMpForUltimateEffects", "[battle][scenario][runtime][ultimate-effect][vertical]")
+{
+    for (const int openingMp : {0, 75, 99, 100})
+    {
+        CAPTURE(openingMp);
+        auto input = singleUltimateInput(94, 3, 1, { 220, 100, 0 });
+        // 避開第 0 幀回內，讓首次出招確實以指定內力判定。
+        input.battleFrame = 1;
+        auto& caster = input.units.front();
+        caster.vitals.mp = openingMp;
+        caster.actionPlan->normalSkill = caster.actionPlan->ultimateSkill;
+        auto state = initializedVerticalSliceState(std::move(input));
+
+        REQUIRE(runUntil(state, 180, [](const auto& runtime, const auto&)
+        {
+            return std::ranges::any_of(runtime.attacks.attacks, [](const auto& attack)
+            {
+                return attack.provenance.valid()
+                    && attack.provenance.cast.sourceUnitId == 0
+                    && attack.provenance.cast.magicId == 94;
+            });
+        }));
+
+        const bool fullMp = openingMp == 100;
+        for (const auto& attack : state.attacks.attacks)
+        {
+            if (attack.provenance.valid() && attack.provenance.cast.sourceUnitId == 0)
+            {
+                CHECK(attack.provenance.cast.ultimate == fullMp);
+            }
+        }
+        const auto& runtimeCaster = state.units.requireCore(0);
+        CHECK(runtimeCaster.shield == (fullMp ? 300 : 0));
+        if (fullMp)
+        {
+            CHECK(runtimeCaster.vitals.mp == 25);
+        }
+        else
+        {
+            CHECK(runtimeCaster.vitals.mp >= openingMp);
+        }
+    }
 }
 
 TEST_CASE("BattleRuntimeScenario_RealWitheredBoneModifiesHitAndHealTransactions", "[battle][scenario][runtime][ultimate-effect][vertical]")

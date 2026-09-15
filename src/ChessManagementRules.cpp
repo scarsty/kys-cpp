@@ -123,9 +123,9 @@ void mergeAvailablePieces(
             upgraded.star = star + 1;
             upgraded.deployed = deployed;
             upgraded.fightsWon = fightsWon;
-            upgraded.luckStacks = luckStacks;
+            upgraded.luckStacks = std::min(luckStacks, content.balance().talent(state.talent).luckStackCap);
             milestones.push_back({roleId, star, star + 1});
-            if (luckStacks > 0) events.push_back({ChessSemanticEventType::LuckMerged, upgraded.instanceId, roleId, luckStacks});
+            if (luckStacks > 0) events.push_back({ChessSemanticEventType::LuckMerged, upgraded.instanceId, roleId, upgraded.luckStacks});
             const auto equipmentOrder = [&](int lhs, int rhs) {
                 const auto* lhsDefinition = equipmentDefinition(
                     content,
@@ -626,17 +626,25 @@ void ChessManagementRules::apply(
         if (state.talent == ChessTalentId::Gambler && cost > 0 && state.fight + 1 <= talent.luckLastFight)
         {
             std::vector<int> candidates;
+            std::vector<int> deployedCandidates;
             for (const auto& [id, piece] : state.roster)
             {
                 const int tier = content.role(piece.roleId)->Cost;
-                if (tier >= talent.luckMinTier && tier <= talent.luckMaxTier) candidates.push_back(id);
+                if (tier >= talent.luckMinTier && tier <= talent.luckMaxTier
+                    && piece.luckStacks < talent.luckStackCap)
+                {
+                    candidates.push_back(id);
+                    if (piece.deployed) deployedCandidates.push_back(id);
+                }
             }
+            if (!deployedCandidates.empty()) candidates = std::move(deployedCandidates);
             if (!candidates.empty())
             {
                 auto& piece = state.roster.at(candidates[random.nextInt(ChessRngStream::TalentManagement,
                     static_cast<int>(candidates.size()))]);
-                piece.luckStacks += talent.luckPerRefresh;
-                events.push_back({ChessSemanticEventType::LuckGranted, piece.instanceId, piece.roleId, talent.luckPerRefresh});
+                const int granted = std::min(talent.luckPerRefresh, talent.luckStackCap - piece.luckStacks);
+                piece.luckStacks += granted;
+                events.push_back({ChessSemanticEventType::LuckGranted, piece.instanceId, piece.roleId, granted});
             }
         }
         events.push_back({ChessSemanticEventType::ShopRefreshed, {}, {}, cost, {}});

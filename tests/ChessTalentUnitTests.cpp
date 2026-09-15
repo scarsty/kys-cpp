@@ -15,13 +15,15 @@ using namespace KysChess;
 
 namespace
 {
-std::shared_ptr<const ChessGameContent> talentContent()
+std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
 {
     ChessGameContentData data;
     data.difficulty = Difficulty::Hard;
     REQUIRE(loadBalanceConfig("config/chess_balance_hard.yaml", "config/chess_challenge.yaml",
         {}, {}, data.balance));
     data.balance.initialMoney = 1000;
+    data.balance.talents.at(ChessTalentId::Gambler).luckPerRefresh = luckPerRefresh;
+    data.balance.talents.at(ChessTalentId::Gambler).openingBans = 3;
     for (int tier = 1; tier <= 5; ++tier)
         for (int number = 0; number < 8; ++number)
         {
@@ -108,7 +110,8 @@ TEST_CASE("opening bans preserve first shop until finished then refresh once", "
     CHECK(gambler.state().shop == ordinary.state().shop);
     CHECK(gambler.random().streamState(ChessRngStream::Shop) == ordinary.random().streamState(ChessRngStream::Shop));
     CHECK(gambler.state().phase == ChessSessionPhase::RewardChoice);
-    CHECK(gambler.state().pendingRewards.front().parameter == 6);
+    REQUIRE_FALSE(gambler.state().pendingRewards.empty());
+    CHECK(gambler.state().pendingRewards.front().parameter == 3);
     CHECK_FALSE(gambler.submitAndDrain(Test::buySlot(0)).accepted);
     for (const auto& option : gambler.state().pendingRewards.front().options)
         CHECK(content->role(option.value)->Cost <= 2);
@@ -136,7 +139,7 @@ TEST_CASE("paid refresh luck cutoff eligibility inheritance and isolated RNG", "
     ChessSessionState state;
     state.talent = ChessTalentId::Gambler;
     state.money = 100;
-    state.fight = 15;
+    state.fight = content->balance().talent(state.talent).luckLastFight - 1;
     state.roster.emplace(1, ChessSessionPiece{1, 300, 1, true});
     state.roster.emplace(2, ChessSessionPiece{2, 300, 1, false});
     state.roster.emplace(3, ChessSessionPiece{3, 400, 1, false});
@@ -147,14 +150,15 @@ TEST_CASE("paid refresh luck cutoff eligibility inheritance and isolated RNG", "
     ordinary.talent = ChessTalentId::DivineArms;
     ChessManagementRules::apply(state, *content, random, action(ChessActionType::RefreshShop), events);
     ChessManagementRules::apply(ordinary, *content, baseline, action(ChessActionType::RefreshShop), events);
-    CHECK(state.roster.at(1).luckStacks + state.roster.at(2).luckStacks == 1);
+    CHECK(state.roster.at(1).luckStacks == 1);
+    CHECK(state.roster.at(2).luckStacks == 0);
     CHECK(state.roster.at(3).luckStacks == 0);
     CHECK(random.streamState(ChessRngStream::Shop) == baseline.streamState(ChessRngStream::Shop));
     const auto talentRng = random.streamState(ChessRngStream::TalentManagement);
-    state.fight = 16;
+    state.fight = content->balance().talent(state.talent).luckLastFight;
     ChessManagementRules::apply(state, *content, random, action(ChessActionType::RefreshShop), events);
     CHECK(random.streamState(ChessRngStream::TalentManagement) == talentRng);
-    state.fight = 15;
+    state.fight = content->balance().talent(state.talent).luckLastFight - 1;
     state.freeShopRefreshAvailable = true;
     ChessManagementRules::apply(state, *content, random, action(ChessActionType::RefreshShop), events);
     CHECK(random.streamState(ChessRngStream::TalentManagement) == talentRng);
@@ -164,11 +168,48 @@ TEST_CASE("paid refresh luck cutoff eligibility inheritance and isolated RNG", "
     const auto merged = std::ranges::find_if(state.roster, [](const auto& entry) { return entry.second.roleId == 300; });
     REQUIRE(merged != state.roster.end());
     CHECK(merged->second.star == 2);
-    CHECK(merged->second.luckStacks == 6);
+    CHECK(merged->second.luckStacks == 5);
     ChessManagementRules::apply(state, *content, random,
         {.type = ChessActionType::SellChess, .chessInstanceId = merged->first}, events);
     CHECK(state.roster.size() == 1);
-    CHECK(content->balance().talent(state.talent).luckChance(100) == 70);
+    CHECK(content->balance().talent(state.talent).luckChance(100) == 75);
+}
+
+TEST_CASE("paid refresh prioritizes deployed uncapped pieces and stops at the stack cap", "[chess][talent][gambler]")
+{
+    const auto content = talentContent(3);
+    const auto& talent = content->balance().talent(ChessTalentId::Gambler);
+    ChessSessionState state;
+    state.talent = ChessTalentId::Gambler;
+    state.money = 100;
+    state.roster.emplace(1, ChessSessionPiece{1, 100, 1, true});
+    state.roster.emplace(2, ChessSessionPiece{2, 200, 1, true});
+    state.roster.emplace(3, ChessSessionPiece{3, 300, 1, false});
+    state.roster.emplace(4, ChessSessionPiece{4, 400, 1, true});
+    state.roster.at(1).luckStacks = talent.luckStackCap;
+    state.roster.at(2).luckStacks = talent.luckStackCap - 1;
+    ChessRunRandom random(5);
+    std::vector<ChessSemanticEvent> events;
+    const auto refresh = [&] {
+        events.clear();
+        ChessManagementRules::apply(state, *content, random, action(ChessActionType::RefreshShop), events);
+    };
+    refresh();
+    CHECK(state.roster.at(1).luckStacks == talent.luckStackCap);
+    CHECK(state.roster.at(2).luckStacks == talent.luckStackCap);
+    CHECK(state.roster.at(3).luckStacks == 0);
+    const auto granted = std::ranges::find(events, ChessSemanticEventType::LuckGranted, &ChessSemanticEvent::type);
+    REQUIRE(granted != events.end());
+    CHECK(granted->value == 1);
+    refresh();
+    CHECK(state.roster.at(3).luckStacks == 3);
+    refresh();
+    CHECK(state.roster.at(3).luckStacks == talent.luckStackCap);
+    const auto talentRng = random.streamState(ChessRngStream::TalentManagement);
+    refresh();
+    CHECK(eventCount(events, ChessSemanticEventType::LuckGranted) == 0);
+    CHECK(random.streamState(ChessRngStream::TalentManagement) == talentRng);
+    CHECK(state.roster.at(4).luckStacks == 0);
 }
 
 TEST_CASE("gambler checkpoint preserves invested luck and deterministic continuation", "[chess][talent][replay]")
@@ -343,10 +384,10 @@ TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[c
     CHECK(battle.units[0].amplifiedGrowthPercent == 100);
     CHECK(battle.units.back().amplifiedGrowthPercent == 0);
     state.talent = ChessTalentId::Gambler;
-    state.roster.at(1).luckStacks = 9;
+    state.roster.at(1).luckStacks = 5;
     battle = ChessBattlePlanner::prepareChallenge(state, *content, random, challenge);
     REQUIRE(battle.units[0].lethalRecovery);
-    CHECK(battle.units[0].lethalRecovery->chancePercent == 70);
+    CHECK(battle.units[0].lethalRecovery->chancePercent == 75);
     CHECK_FALSE(battle.units.back().lethalRecovery);
 }
 

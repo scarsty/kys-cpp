@@ -4,6 +4,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <yaml-cpp/yaml.h>
+#include <algorithm>
+#include <regex>
 
 using namespace KysChess;
 using namespace KysChess::Test;
@@ -18,6 +20,44 @@ std::vector<GameplayEffect> configured(std::string_view yaml)
     REQUIRE(parseGameplayEffects(YAML::Load(std::string(yaml)), effects, rules, id, "描述測試"));
     return effects;
 }
+}
+
+TEST_CASE("Every registered compact effect follows the same wording conventions", "[chess][effects][description][catalog]")
+{
+    const std::regex periodicPrefix("^每[0-9]+幀[^：]");
+    for (const auto& entry : gameplayEffectCatalog())
+    {
+        std::vector<int> values;
+        for (const auto& parameter : entry.parameters)
+            values.push_back(parameter.choices.empty() ? std::clamp(20, parameter.minimum, parameter.maximum) : 0);
+
+        const auto checkDescription = [&] {
+            const auto effect = entry.create(values);
+            const auto text = joinEffectDescriptionRows(describeGameplayEffects(
+                std::span<const GameplayEffect>(&effect, 1), EffectDescriptionStyle::Compact));
+            INFO(entry.name << " | " << text);
+            CHECK_FALSE(text.empty());
+            for (const auto trigger : {"出招", "命中", "技能命中", "主彈命中", "受擊", "擊殺", "開場", "破盾", "陣亡", "絕招"})
+            {
+                if (text.starts_with(trigger) && !text.starts_with("出招結束：") && !text.starts_with("絕招就緒："))
+                    CHECK(text.starts_with(std::string(trigger) + "："));
+            }
+            CHECK_FALSE(std::regex_search(text, periodicPrefix));
+            for (const auto detail : {"。", "至少1", "最低1", "每次最低", "重複施加", "刷新時間", "此來源", "保留當前", "不影響自身", "遇障礙停止", "，持續"})
+                CHECK_FALSE(text.contains(detail));
+        };
+        checkDescription();
+        for (std::size_t index = 0; index < entry.parameters.size(); ++index)
+        {
+            const auto& parameter = entry.parameters[index];
+            for (int choice = 1; choice < static_cast<int>(parameter.choices.size()); ++choice)
+            {
+                values[index] = choice;
+                checkDescription();
+            }
+            if (!parameter.choices.empty()) values[index] = 0;
+        }
+    }
 }
 
 TEST_CASE("Descriptions belong to reusable effects and follow their parameters", "[chess][effects][description]")
@@ -60,7 +100,7 @@ TEST_CASE("Compact cards omit terminal punctuation and retain mechanical qualifi
     for (const auto& row : rows) CHECK_FALSE(row.ends_with("。"));
     CHECK(rows[0] == "固定減傷15點");
     CHECK(rows[1] == "命中：禁療、速度-25%，90幀");
-    CHECK(rows[2] == "出招：血比最低5名友軍，下次承傷≤各自生命上限15%");
+    CHECK(rows[2] == "出招：血比最低5名友軍，下次承傷≤血上限15%");
     const auto full = joinEffectDescriptionRows(describeGameplayEffects(effects, EffectDescriptionStyle::Full));
     CHECK(full.find("在計算防禦前生效。") != std::string::npos);
     CHECK(full.find("無法恢復生命且速度降低25%") != std::string::npos);
@@ -150,7 +190,7 @@ TEST_CASE("Short compact descriptions preserve full explanations and area qualif
 )");
     const auto rows = effectDescriptionTextRows(describeGameplayEffects(effects, EffectDescriptionStyle::Compact));
     REQUIRE(rows.size() == 2);
-    CHECK(rows[0] == "出招：全隊內力+30");
+    CHECK(rows[0] == "出招：全隊回30內");
     CHECK(rows[1] == "出招：目標周圍方形邊長5格，每星100純粹傷害");
     CHECK(effects[0]->describe(EffectDescriptionStyle::Full) == "出招時全隊回復30內力。");
     CHECK(effects[1]->describe(EffectDescriptionStyle::Full).find("同次出招對每名目標最多生效一次") != std::string::npos);

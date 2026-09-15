@@ -36,11 +36,11 @@ bool rejectUnknownFields(
     return true;
 }
 
-void appendGrowthPart(std::vector<std::string>& parts, std::string_view name, int value)
+void appendGrowthPart(std::vector<std::string>& parts, std::string_view name, int value, bool valueFirst)
 {
     if (value != 0)
     {
-        parts.push_back(std::format("{}{:+}", name, value));
+        parts.push_back(valueFirst ? std::format("{:+}{}", value, name) : std::format("{}{:+}", name, value));
     }
 }
 
@@ -233,27 +233,27 @@ std::string chessNonBattleRuleDescription(const ChessNonBattleRule& rule, bool c
             if constexpr (std::is_same_v<T, VictoryGoldRule>)
             {
                 return compact
-                    ? std::format("勝利+{}×最高存活星級金幣", value.perHighestSurvivorStar)
+                    ? std::format("勝利：+{}×最高存活星級金幣", value.perHighestSurvivorStar)
                     : std::format(
                         "勝利時，若至少一名本羈絆成員存活，獲得最高存活棋子星級×{}金幣",
                         value.perHighestSurvivorStar);
             }
             if constexpr (std::is_same_v<T, FreeShopRefreshRule>)
             {
-                return compact ? "勝利後免費刷新1次" : "勝利後獲得一次免費商店刷新；尚未使用時不重複累積";
+                return compact ? "勝利：免費刷新1次" : "勝利後獲得一次免費商店刷新；尚未使用時不重複累積";
             }
             if constexpr (std::is_same_v<T, BattleMapChoiceRule>)
             {
-                return compact ? "戰前可選戰場" : "戰鬥開始前可從合適的戰場中選擇一個";
+                return compact ? "戰前：可選戰場" : "戰鬥開始前可從合適的戰場中選擇一個";
             }
             if constexpr (std::is_same_v<T, FightWinGrowthRule>)
             {
                 std::vector<std::string> parts;
-                appendGrowthPart(parts, "生命", value.maxHp);
-                appendGrowthPart(parts, "攻擊", value.attack);
-                appendGrowthPart(parts, "防禦", value.defence);
+                appendGrowthPart(parts, compact ? "血上限" : "生命", value.maxHp, false);
+                appendGrowthPart(parts, compact ? "攻" : "攻擊", value.attack, compact);
+                appendGrowthPart(parts, compact ? "防" : "防禦", value.defence, compact);
                 return compact
-                    ? std::format("每勝{}", joinParts(parts, "／"))
+                    ? std::format("每勝：{}", joinParts(parts, "、"))
                     : std::format("本羈絆成員每個勝場使{}", joinParts(parts, "、"));
             }
         },

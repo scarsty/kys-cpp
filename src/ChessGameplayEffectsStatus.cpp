@@ -35,7 +35,7 @@ struct HitArmorBreakMarks final : GameplayEffectDefinition
                 持續幀數);
         }
         return std::format(
-            "命中施加{}枚穿甲印記，持續{}幀；友軍技能命中時忽略50%防禦並消耗1枚，耗盡時眩暈30幀。", 印記數, 持續幀數);
+            "命中：穿甲印記{}枚，{}幀；友軍技能命中：忽略50%防禦、消耗1枚；耗盡：眩暈30幀", 印記數, 持續幀數);
     }
 };
 
@@ -82,7 +82,7 @@ struct ProtectLowestHealth final : GameplayEffectDefinition
                 友軍數,
                 承傷上限百分比);
         }
-        return std::format("出招：血比最低{}名友軍，下次承傷≤各自生命上限{}%", 友軍數, 承傷上限百分比);
+        return std::format("出招：血比最低{}名友軍，下次承傷≤血上限{}%", 友軍數, 承傷上限百分比);
     }
 };
 
@@ -244,7 +244,7 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
                 中毒次數,
                 中毒生命百分比);
         }
-        return std::format("出招疊{}層（上限{}）；陣亡逐層引爆{}格，每層每星{}傷害並施毒",
+        return std::format("出招：疊{}層，上限{}層；陣亡：逐層引爆{}格，每層每星{}傷害並施毒",
                            每次層數,
                            層數上限,
                            半徑格數,
@@ -288,82 +288,55 @@ struct CastStackDamageBlocks final : GameplayEffectDefinition
     }
 };
 
-struct HasteDodgeAfterimages final : GameplayEffectDefinition
+struct CastAfterimages final : GameplayEffectDefinition
 {
-    int 速度百分比{};
-    int 閃避百分比{};
     int 持續幀數{};
     int 敵人數{};
     int 殘影數{};
     int 殘影傷害百分比{};
-    static constexpr std::string_view Name = "加速閃避與殘影攻擊";
-    static constexpr auto Parameters = std::array<Parameter<HasteDodgeAfterimages>, 6>{
-        {Parameter<HasteDodgeAfterimages>{{"速度百分比", -1000000, 1000000}, &HasteDodgeAfterimages::速度百分比},
-         Parameter<HasteDodgeAfterimages>{{"閃避百分比", -1000000, 1000000}, &HasteDodgeAfterimages::閃避百分比},
-         Parameter<HasteDodgeAfterimages>{{"持續幀數", 1, 1000000}, &HasteDodgeAfterimages::持續幀數},
-         Parameter<HasteDodgeAfterimages>{{"敵人數", 1, 1000}, &HasteDodgeAfterimages::敵人數},
-         Parameter<HasteDodgeAfterimages>{{"殘影數", 0, 1000000}, &HasteDodgeAfterimages::殘影數},
-         Parameter<HasteDodgeAfterimages>{{"殘影傷害百分比", 0, 1000000}, &HasteDodgeAfterimages::殘影傷害百分比}}};
+    static constexpr std::string_view Name = "出招殘影攻擊";
+    static constexpr auto Parameters = std::array<Parameter<CastAfterimages>, 4>{
+        { Parameter<CastAfterimages>{ { "持續幀數", 1, 1000000 }, &CastAfterimages::持續幀數 },
+            Parameter<CastAfterimages>{ { "敵人數", 1, 1000 }, &CastAfterimages::敵人數 },
+            Parameter<CastAfterimages>{ { "殘影數", 0, 1000000 }, &CastAfterimages::殘影數 },
+            Parameter<CastAfterimages>{ { "殘影傷害百分比", 0, 1000000 }, &CastAfterimages::殘影傷害百分比 } }
+    };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{
+        return { EffectRule{
             .event = EffectEvent::AttackCommitted,
             .actions
-            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Speed,
-                                                           .amount = EffectNumber{.flat = 速度百分比},
-                                                           .operation = AttributeOperation::PercentAdd,
-                                                           .durationFrames = 持續幀數,
-                                                           .stack = EffectStackPolicy::Refresh}},
-               EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::DodgeChance,
-                                                           .amount = EffectNumber{.flat = 閃避百分比},
-                                                           .operation = AttributeOperation::PercentagePointAdd,
-                                                           .durationFrames = 持續幀數,
-                                                           .stack = EffectStackPolicy::Refresh}},
-               EffectAction{
-                   .value = ApplyStatusAction{
-                       .status = BattleStatusKind::Shadowless,
-                       .durationFrames = 持續幀數,
-                       .reapplication = StatusReapplicationPolicy::RefreshDuration,
-                       .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
-                           .rules = {EffectRule{
-                               .id = EffectRuleId{.value = 1},
-                               .event = EffectEvent::AttackSpawned,
-                               .observation = EffectObservationScope::StatusHolderEventSource,
-                               .selector = EffectSelector{.kind = EffectSelectorKind::NearestEnemies, .count = 敵人數},
-                               .conditions = {IsRootAttackCondition{}},
-                               .actions = {EffectAction{
-                                   .value = ModifyAttackAction{
-                                       .pattern = AttackPattern{.kind = AttackPatternKind::EchoNearestOthers,
-                                                                .projectileCount = 殘影數},
-                                       .strengthPct = 殘影傷害百分比,
-                                       .mainProjectile = false,
-                                       .targets = AttackTargetPolicy::SelectedTargets,
-                                       .propagation = CastPropagationPolicy::NoEffectRules,
-                                       .addToBaseAttack = true}}}}}})}}}}};
+            = { EffectAction{
+                .value = ApplyStatusAction{
+                    .status = BattleStatusKind::Shadowless,
+                    .durationFrames = 持續幀數,
+                    .reapplication = StatusReapplicationPolicy::RefreshDuration,
+                    .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
+                        .rules = { EffectRule{
+                            .id = EffectRuleId{ .value = 1 },
+                            .event = EffectEvent::AttackSpawned,
+                            .observation = EffectObservationScope::StatusHolderEventSource,
+                            .selector = EffectSelector{ .kind = EffectSelectorKind::NearestEnemies, .count = 敵人數 },
+                            .conditions = { IsRootAttackCondition{ } },
+                            .actions = { EffectAction{
+                                .value = ModifyAttackAction{
+                                    .pattern = AttackPattern{ .kind = AttackPatternKind::EchoNearestOthers,
+                                        .projectileCount = 殘影數 },
+                                    .strengthPct = 殘影傷害百分比,
+                                    .mainProjectile = false,
+                                    .targets = AttackTargetPolicy::SelectedTargets,
+                                    .propagation = CastPropagationPolicy::NoEffectRules,
+                                    .addToBaseAttack = true } } } } } }) } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
-        if (style == EffectDescriptionStyle::Full)
+        if (style == EffectDescriptionStyle::Compact)
         {
-            return std::format(
-                "出招時速度{:+}%、閃避率{:+}%，持續{}幀；期間攻擊向最近{}名敵人各追加{}道殘影，每道{}%"
-                "傷害。殘影不觸發追加效果，重複施加刷新時間。",
-                速度百分比,
-                閃避百分比,
-                持續幀數,
-                敵人數,
-                殘影數,
-                殘影傷害百分比);
+            return std::format("出招：{}幀內攻擊對最近{}敵各加{}道{}%殘影", 持續幀數, 敵人數, 殘影數, 殘影傷害百分比);
         }
-        return std::format(
-            "出招時速度{:+}%、閃避率{:+}%，持續{}幀；期間攻擊向最近{}名敵人各追加{}道殘影，每道{}%傷害。",
-            速度百分比,
-            閃避百分比,
-            持續幀數,
-            敵人數,
-            殘影數,
-            殘影傷害百分比);
+        return std::format("出招：{}幀內攻擊向最近{}名敵人各追加{}道殘影，每道{}%傷害；殘影不觸發追加效果，重複施加刷新時間。",
+            持續幀數, 敵人數, 殘影數, 殘影傷害百分比);
     }
 };
 
@@ -525,7 +498,7 @@ struct AbsorbAndReturnDamage final : GameplayEffectDefinition
                 返還百分比,
                 敵人數);
         }
-        return std::format("出招{}幀內吸收{}%承傷，結束以累積值{}%純粹傷害反擊隨機{}敵",
+        return std::format("出招：{}幀內吸收{}%承傷，結束以累積值{}%純粹傷害反擊隨機{}敵",
                            持續幀數,
                            吸收百分比,
                            返還百分比,
@@ -579,7 +552,7 @@ struct GrowingHitStun final : GameplayEffectDefinition
                 每層延長幀數,
                 最長幀數);
         }
-        return std::format("出招疊{}層（上限{}）；命中眩暈{}幀，每層+{}幀，上限{}幀",
+        return std::format("出招：疊{}層，上限{}層；命中：眩暈{}幀，每層+{}幀，上限{}幀",
                            每次層數,
                            層數上限,
                            基礎幀數,
@@ -679,7 +652,7 @@ struct CastStackDamageAndReduction final : GameplayEffectDefinition
                                每層增傷百分比,
                                每層承傷百分比);
         }
-        return std::format("出招疊{}層（上限{}）：每層技能傷害{:+}%、承傷{:+}%",
+        return std::format("出招：疊{}層，上限{}層；每層技能傷害{:+}%、承傷{:+}%",
                            每次層數,
                            層數上限,
                            每層增傷百分比,
@@ -789,7 +762,7 @@ struct InitialStatusShield final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("開場狀態盾≥{}", 護盾點數);
+            return std::format("開場：狀態盾≥{}", 護盾點數);
         return std::format("開場時狀態護盾至少為{}。", 護盾點數);
     }
 };
@@ -868,7 +841,7 @@ struct HitPoison final : GameplayEffectDefinition
                 生命傷害百分比,
                 中毒次數);
         }
-        return std::format("命中中毒{}幀：每{}幀傷當前血量{}%，共{}次",
+        return std::format("命中：中毒{}幀，每{}幀傷當前血量{}%，共{}次",
                            中毒次數 * 中毒間隔幀數,
                            中毒間隔幀數,
                            生命傷害百分比,
@@ -930,7 +903,7 @@ struct ChanceHitSilence final : GameplayEffectDefinition
                 機率百分比,
                 持續幀數);
         }
-        return std::format("命中{}%機率：封內{}幀", 機率百分比, 持續幀數);
+        return std::format("命中：{}%機率封內{}幀", 機率百分比, 持續幀數);
     }
 };
 
@@ -965,7 +938,7 @@ struct ChanceHitStun final : GameplayEffectDefinition
             return std::format(
                 "技能有效命中非無敵目標後，有{}%機率使其眩暈{}幀。重複眩暈延長時間。", 機率百分比, 持續幀數);
         }
-        return std::format("技能命中{}%機率：眩暈{}幀", 機率百分比, 持續幀數);
+        return std::format("技能命中：{}%機率眩暈{}幀", 機率百分比, 持續幀數);
     }
 };
 
@@ -1005,7 +978,7 @@ struct ChanceHitBleed final : GameplayEffectDefinition
                 層數,
                 目標層數上限);
         }
-        return std::format("技能傷血{}%機率：流血+{}層，上限{}層", 機率百分比, 層數, 目標層數上限);
+        return std::format("技能傷血：{}%機率流血+{}層，上限{}層", 機率百分比, 層數, 目標層數上限);
     }
 };
 
@@ -1029,7 +1002,7 @@ struct DamageInvincibility final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("傷血後無敵+{}幀", 持續幀數);
+            return std::format("受到血傷：無敵+{}幀", 持續幀數);
         return std::format("受到生命傷害後，增加{}幀無敵。", 持續幀數);
     }
 };
@@ -1124,7 +1097,7 @@ void appendStatusEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<CastStunEnemies>());
     entries.push_back(registration<StackDeathPoisonExplosion>());
     entries.push_back(registration<CastStackDamageBlocks>());
-    entries.push_back(registration<HasteDodgeAfterimages>());
+    entries.push_back(registration<CastAfterimages>());
     entries.push_back(registration<HitHealingBlockSlow>());
     entries.push_back(registration<DetonateAndPoisonEnemies>());
     entries.push_back(registration<HitRestoreVictimMp>());

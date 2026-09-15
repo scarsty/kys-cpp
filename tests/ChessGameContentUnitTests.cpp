@@ -157,6 +157,29 @@ TEST_CASE("immutable content keeps independent difficulty snapshots", "[chess][c
     CHECK(hard.gameVersion() == "dev");
 }
 
+TEST_CASE("star skill selection ignores empty slots even when magic zero exists", "[chess][content]")
+{
+    auto data = syntheticContentData(Difficulty::Normal);
+    ChessMagicDefinition emptySlotMagic;
+    emptySlotMagic.ID = 0;
+    emptySlotMagic.Name = "普通攻擊";
+    data.magics.emplace(0, emptySlotMagic);
+    const ChessGameContent content(std::move(data));
+    ChessRoleDefinition role;
+
+    for (int star = 1; star <= 3; ++star)
+    {
+        CHECK(chessRoleMagicsForStar(content, role, star).empty());
+        const int slot = RoleSave::getMagicSlotStart(star);
+        role.MagicID[slot] = 5;
+        role.MagicPower[slot] = 800;
+        const auto magics = chessRoleMagicsForStar(content, role, star);
+        REQUIRE(magics.size() == 1);
+        CHECK(magics.front().first->ID == 5);
+        CHECK(magics.front().second == 800);
+    }
+}
+
 TEST_CASE("immutable content carries the exact game version", "[chess][content][version]")
 {
     const ChessGameContent content(syntheticContentData(Difficulty::Normal), "1.2.3");
@@ -426,7 +449,7 @@ TEST_CASE("talent configuration rejects malformed identities ranges and legacy k
     SECTION("unknown catalog field") { talents["棋手天賦"]["神兵"]["未知"] = 1; }
     SECTION("unknown catalog root") { talents["未知"] = 1; }
     SECTION("growth percentage") { talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = 101; }
-    SECTION("chance percentage") { talents["棋手天賦"]["賭徒"]["賭運"]["觸發機率上限"] = -1; }
+    SECTION("stack cap") { talents["棋手天賦"]["賭徒"]["賭運"]["層數上限"] = 0; }
     SECTION("ban range") { talents["棋手天賦"]["賭徒"]["開局額外禁棋"]["最低費用"] = 3; }
     SECTION("zero guarantee count") { talents["棋手天賦"]["中堅"]["刷新保證"]["每次數量"] = 0; }
     SECTION("equipment range") { balance["玩家裝備獎勵"]["基本"][0]["最低層級"] = 4; }

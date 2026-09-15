@@ -143,8 +143,8 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     std::optional<EffectDescriptionStyle> descriptionStyle)
 {
     auto result = projectPreparedChessBattle(prepared, content);
-    result.baselineStatsNote = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
-    result.initializedStatsNote = "已計入星級、勝場成長、裝備基礎屬性、羈絆、內功與裝備特殊效果的開戰數值";
+    result.baselineStatsNote = "已計入星級與勝場成長；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
+    result.initializedStatsNote = "已計入星級、勝場成長、羈絆、內功與裝備特殊效果的開戰數值";
     for (std::size_t index = 0; index < prepared.units.size(); ++index)
     {
         const auto& source = prepared.units[index];

@@ -77,7 +77,7 @@ struct PiercingFan final : GameplayEffectDefinition
                 展開角度);
         }
         return std::format(
-            "改為{}道貫穿攻擊，每道{}%傷害，展開{}度；每名敵人最多命中一次。", 彈道數, 傷害百分比, 展開角度);
+            "改為{}道貫穿攻擊，各{}%傷害，展開{}度；每敵至多命中1次", 彈道數, 傷害百分比, 展開角度);
     }
 };
 
@@ -124,7 +124,8 @@ struct RangedAttack final : GameplayEffectDefinition
         return {EffectRule{.event = EffectEvent::CastPlanned,
                            .actions = {EffectAction{.value = ModifyCastAction{.rangeMode = CastRangeMode::Ranged}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return "武功改為遠程攻擊。"; }
+    std::string describe(EffectDescriptionStyle style) const override { return "武功改為遠程攻擊。";
+    }
 };
 
 struct HitIgnoreDefence final : GameplayEffectDefinition
@@ -167,7 +168,7 @@ struct HitFlatSkillDamage final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("技能命中：固定加傷{}點", 傷害點數);
+            return std::format("技能命中：固定傷害+{}點", 傷害點數);
         return std::format("技能命中在計算防禦前附加{}點傷害。", 傷害點數);
     }
 };
@@ -193,7 +194,7 @@ struct MissingHealthPureDamage final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中純粹加傷=攻×失血比例×{}%", 攻擊轉換百分比);
+            return std::format("命中：純粹加傷=攻×失血比例×{}%", 攻擊轉換百分比);
         return std::format("命中追加純粹傷害，等於攻擊×已損生命比例×{}%。", 攻擊轉換百分比);
     }
 };
@@ -266,7 +267,7 @@ struct ChanceExecuteWounded final : GameplayEffectDefinition
                 機率百分比,
                 處決生命百分比);
         }
-        return std::format("命中血量≤{}%敵人：{}%機率處決其血上限{}%",
+        return std::format("命中：血量≤{}%敵人，{}%機率處決其血上限{}%",
                            生命門檻百分比,
                            機率百分比,
                            處決生命百分比);
@@ -367,7 +368,7 @@ struct DelayedSameTargetAttacks final : GameplayEffectDefinition
                 追加次數,
                 傷害百分比);
         }
-        return std::format("出招後每{}幀追擊同一落點，共{}次，各{}%傷害", 間隔幀數, 追加次數, 傷害百分比);
+        return std::format("出招：每{}幀追擊同一落點，共{}次，各{}%傷害", 間隔幀數, 追加次數, 傷害百分比);
     }
 };
 
@@ -450,42 +451,27 @@ struct MatchingAllyFollowup final : GameplayEffectDefinition
     }
 };
 
-struct HitKnockbackWeaken final : GameplayEffectDefinition
+struct HitKnockback final : GameplayEffectDefinition
 {
     int 距離格數{};
-    int 傷害百分比{};
-    int 持續幀數{};
-    static constexpr std::string_view Name = "命中擊退弱化";
-    static constexpr auto Parameters = std::array<Parameter<HitKnockbackWeaken>, 3>{
-        {Parameter<HitKnockbackWeaken>{{"距離格數", 0, 1000000}, &HitKnockbackWeaken::距離格數},
-         Parameter<HitKnockbackWeaken>{{"傷害百分比", -1000000, 1000000}, &HitKnockbackWeaken::傷害百分比},
-         Parameter<HitKnockbackWeaken>{{"持續幀數", 1, 1000000}, &HitKnockbackWeaken::持續幀數}}};
+    static constexpr std::string_view Name = "主彈命中擊退";
+    static constexpr auto Parameters = std::array<Parameter<HitKnockback>, 1>{ { { { "距離格數", 0, 1000000 }, &HitKnockback::距離格數 } } };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{.event = EffectEvent::MainProjectileBeforeDamage,
-                           .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
-                           .actions
-                           = {EffectAction{.value = ForceMoveAction{.distanceTiles = 距離格數,
-                                                                    .collision = ForceMoveCollision::StopBeforeBlocked,
-                                                                    .blocked = ForceMoveBlockedResult::Shorten}},
-                              EffectAction{.value = ModifyDamageAction{.stage = DamageModifierStage::Final,
-                                                                       .channel = DamageChannel::All,
-                                                                       .amount = EffectNumber{.flat = 傷害百分比},
-                                                                       .operation = DamageModifierOperation::PercentAdd,
-                                                                       .durationFrames = 持續幀數,
-                                                                       .stack = EffectStackPolicy::Refresh}}}}};
+        return { EffectRule{ .event = EffectEvent::MainProjectileBeforeDamage,
+            .selector = EffectSelector{ .kind = EffectSelectorKind::HitTarget },
+            .actions
+            = { EffectAction{ .value = ForceMoveAction{ .distanceTiles = 距離格數,
+                                  .collision = ForceMoveCollision::StopBeforeBlocked,
+                                  .blocked = ForceMoveBlockedResult::Shorten } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("命中擊退目標{}格，並使其造成傷害{:+}%，持續{}幀。擊退遇障礙停止，重複弱化刷新時間。",
-                               距離格數,
-                               傷害百分比,
-                               持續幀數);
-        }
-        return std::format("命中：擊退{}格，目標傷害{:+}%持續{}幀", 距離格數, 傷害百分比, 持續幀數);
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("命中：擊退{}格", 距離格數);
+
+        return std::format("命中：擊退{}格，遇障礙停止。", 距離格數);
     }
 };
 
@@ -505,7 +491,7 @@ struct FixedCastMpCost final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招：內力-{}", 消耗內力);
+            return std::format("出招：耗{}內", 消耗內力);
         return std::format("出招消耗{}內力。", 消耗內力);
     }
 };
@@ -538,7 +524,7 @@ struct FarthestPureTracking final : GameplayEffectDefinition
         {
             return std::format("出招向最遠敵人追加追蹤攻擊，造成每星{}純粹傷害。追加攻擊不觸發絕招效果。", 每星傷害);
         }
-        return std::format("出招追擊最遠敵人：每星{}純粹傷害。", 每星傷害);
+        return std::format("出招：追擊最遠敵人，每星{}純粹傷害", 每星傷害);
     }
 };
 
@@ -690,7 +676,7 @@ struct DelayedAlternateFollowup final : GameplayEffectDefinition
                 傷害百分比,
                 抵擋機率百分比);
         }
-        return std::format("出招{}幀後以{}%傷害追擊附近其他敵人；追擊時有{}%機率獲得一次傷害抵擋。",
+        return std::format("出招：{}幀後追擊附近其他敵人，{}%傷害；追擊：{}%機率抵擋+1次",
                            延遲幀數,
                            傷害百分比,
                            抵擋機率百分比);
@@ -725,7 +711,7 @@ struct ChanceHitKnockback final : GameplayEffectDefinition
         {
             return std::format("命中有{}%機率擊退敵人{}像素，鎖定{}幀。遇障礙停止。", 機率百分比, 距離像素, 鎖定幀數);
         }
-        return std::format("命中有{}%機率擊退敵人{}像素，鎖定{}幀。", 機率百分比, 距離像素, 鎖定幀數);
+        return std::format("命中：{}%機率擊退{}像素，鎖定{}幀", 機率百分比, 距離像素, 鎖定幀數);
     }
 };
 
@@ -831,6 +817,9 @@ struct ChanceExecuteAfterDamage final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("命中：{}%機率處決傷後血量<{}%目標", 機率百分比, 生命門檻百分比);
+
         return std::format(
             "命中有{}%機率在普通傷害結算後，處決生命低於最大生命{}%的目標。", 機率百分比, 生命門檻百分比);
     }
@@ -915,7 +904,7 @@ struct MissingHealthAttackDamage final : GameplayEffectDefinition
         {
             return std::format("技能傷害增加攻擊×已損生命比例×{}%點。在計算防禦前生效。", 攻擊百分比);
         }
-        return std::format("技能增傷＝攻擊×失血比例×{}%。", 攻擊百分比);
+        return std::format("技能加傷=攻×失血比例×{}%", 攻擊百分比);
     }
 };
 
@@ -949,7 +938,7 @@ struct ChanceSpiralBleedAttack final : GameplayEffectDefinition
                 彈道數,
                 流血層數);
         }
-        return std::format("出招{}%機率：追加{}道擴張螺旋，命中流血{}層", 機率百分比, 彈道數, 流血層數);
+        return std::format("出招：{}%機率追加{}道擴張螺旋；命中：流血+{}層", 機率百分比, 彈道數, 流血層數);
     }
 };
 
@@ -1028,7 +1017,7 @@ struct BlinkAttack final : GameplayEffectDefinition
             return "出招時瞬移至敵人附近攻擊，交替選擇隨機敵人與較脆弱的非無敵敵人。脆弱程度由最大生命與防禦判定。敵人"
                    "附近須有可站立的空位。";
         }
-        return "出招瞬移攻擊：隨機、脆弱敵人交替";
+        return "出招：瞬移攻擊，隨機、脆弱敵人交替";
     }
 };
 
@@ -1073,6 +1062,9 @@ struct MpRatioDamage final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("技能傷害{}%至{}%（隨內力比例提高）", 基礎傷害百分比, 基礎傷害百分比 + 滿內增傷百分比);
+
         auto text = std::format(
             "技能傷害為{}%至{}%，當前內力比例越高，傷害越高。", 基礎傷害百分比, 基礎傷害百分比 + 滿內增傷百分比);
         if (style == EffectDescriptionStyle::Full)
@@ -1106,7 +1098,7 @@ struct BouncingAttacks final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中{}%機率：{}像素內彈射，追加至多{}次", 機率百分比, 範圍像素, 追加命中次數);
+            return std::format("命中：{}%機率在{}像素內彈射，追加至多{}次", 機率百分比, 範圍像素, 追加命中次數);
         return std::format("攻擊命中時有{}%機率在{}像素內彈射，最多追加命中{}次。", 機率百分比, 範圍像素, 追加命中次數);
     }
 };
@@ -1125,7 +1117,11 @@ struct AdditionalUltimateProjectiles final : GameplayEffectDefinition
                            .actions = {EffectAction{.value = ModifyCastAction{.additionalProjectiles = 彈道數}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("絕招追加{}道彈道。", 彈道數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("絕招：追加{}道彈道", 彈道數);
+        return std::format("絕招追加{}道彈道。", 彈道數);
+    }
 };
 
 struct DeathExplosionTracking final : GameplayEffectDefinition
@@ -1194,7 +1190,7 @@ void appendAttackEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<DelayedSameTargetAttacks>());
     entries.push_back(registration<AttackOrdinalStun>());
     entries.push_back(registration<MatchingAllyFollowup>());
-    entries.push_back(registration<HitKnockbackWeaken>());
+    entries.push_back(registration<HitKnockback>());
     entries.push_back(registration<FixedCastMpCost>());
     entries.push_back(registration<FarthestPureTracking>());
     entries.push_back(registration<HitPullStunGroup>());

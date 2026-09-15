@@ -765,18 +765,12 @@ void appendAreaProjectileDamageOutput(
     for (int transaction = 0; transaction < output.transactionCount; ++transaction)
     {
         BattleAreaProjectileFollowUp followUp;
-        if (output.triggeringAttack)
-        {
-            assert(output.triggeringAttack->valid());
-            followUp.cast = output.triggeringAttack->cast;
-            followUp.sourceAttack = *output.triggeringAttack;
-            followUp.expansionWork = state.castLifecycle.reserveDelayedEffectCommand(
-                followUp.cast.castId);
-        }
-        else if (context.cast && context.retainCastUntilDamageDescendants)
+        if (context.cast && context.retainCastUntilDamageDescendants
+            && context.cast->sourceUnitId == output.request.attackerUnitId)
         {
             assert(context.cast->valid());
             followUp.cast = *context.cast;
+            followUp.sourceAttack = output.triggeringAttack;
             followUp.expansionWork = state.castLifecycle.reserveDelayedEffectCommand(
                 followUp.cast.castId);
         }
@@ -1453,6 +1447,7 @@ void expandFrameDamageFollowUpCommands(BattleRuntimeState& state, BattleFrameCon
             auto& request = projectile->request;
             assert(!request.provenance.valid());
             assert(!request.castWork.valid());
+            assert(request.initial.attackSourceUnitId == followUp.cast.sourceUnitId);
 
             BattleAttackReservationRequest reservationRequest;
             if (followUp.sourceAttack)
@@ -1818,7 +1813,7 @@ void recordResolvedDamageHeals(
                 &intent.effectOrigin))
         {
             assert(attack->provenance.valid());
-            resolved.result.request.castId = attack->provenance.cast.castId.value();
+            resolved.result.request.cast = attack->provenance.cast;
         }
         healSystem.recordResolved(state, std::move(resolved));
         CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
@@ -1931,6 +1926,7 @@ void appendFramePendingDamage(
     CastWorkToken delayedCastWork)
 {
     assert(request.defenderUnitId >= 0);
+    assert(!provenance.valid() || request.attackerUnitId == provenance.cast.sourceUnitId);
 
     state.units.requireCore(request.defenderUnitId);
     if (request.attackerUnitId >= 0)
@@ -2010,7 +2006,6 @@ void appendDamageAbsorptionSettlements(
         command.amount = damage;
         command.kind = absorption.settlementDamageKind;
         command.delivery.statusTickPresentation = false;
-        command.delivery.inheritAttackProvenance = false;
         command.delivery.targetUnitIds = targets;
         const EffectExecutionInputs inputs{
             .frame = settlementFrame,
@@ -2121,6 +2116,7 @@ void applyDamageAndLifecycle(
                 0, false, {}, EffectEnvironmentDamageOrigin{});
             auto guardCue = roleEffectEvent(redirect->guardianUnitId, -1, 12);
             guardCue.visualPath = BattleCueGuardianVisualPath;
+            guardCue.roleEffectType = BattleRoleEffectType::GuardianCue;
             frame.visualEvents.push_back(std::move(guardCue));
             appendStatusEventLog(frame.logEvents, redirect->guardianUnitId,
                 request.defenderUnitId, "護衛承傷");
@@ -2247,6 +2243,7 @@ void reserveTrackedProjectileFollowUps(
         assert(projectile->sourceAttack);
         const auto& sourceAttack = *projectile->sourceAttack;
         assert(sourceAttack.valid());
+        assert(request.initial.attackSourceUnitId == sourceAttack.cast.sourceUnitId);
         const auto reservation = state.castLifecycle.reserveAttack(
             sourceAttack.cast.castId,
             {
@@ -2319,6 +2316,8 @@ bool tryAppendFrameDamageTransaction(
     request.defenderUnitId = command.targetUnitId;
     request.acceptedHit = true;
 
+    // 受擊反制可作用於原攻擊者；保留觸發來源，但不把非傷害副作用計入命中傷害。
+    assert(request.baseDamage == 0 && request.mpDamage == 0);
     appendFramePendingDamage(
         state,
         pendingDamage,
@@ -2326,7 +2325,8 @@ bool tryAppendFrameDamageTransaction(
         std::nullopt,
         false,
         false,
-        command.provenance);
+        {},
+        EffectAttackDamageOrigin{ command.provenance });
     return true;
 }
 
@@ -2383,8 +2383,9 @@ void appendEffectDamageOutput(
         {
             auto request = output.request;
             request.defenderUnitId = targetUnitId;
-            const auto provenance = output.delivery.inheritAttackProvenance
-                ? output.triggeringAttack.value_or(BattleAttackProvenance{})
+            const auto provenance = output.hitDamageCredit
+                && output.hitDamageCredit->targetUnitId == targetUnitId
+                ? output.hitDamageCredit->provenance
                 : BattleAttackProvenance{};
             std::optional<BattleDamagePresentationInput> presentation;
             auto damageOrigin = BattleEffectCommandSystem::damageOrigin(output);

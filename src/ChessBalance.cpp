@@ -133,7 +133,7 @@ bool loadBalanceConfig(
         case ChessTalentId::Gambler:
             keys(n, {"說明", "開局額外禁棋", "賭運"});
             keys(n["開局額外禁棋"], {"次數", "最低費用", "最高費用"});
-            keys(n["賭運"], {"累積截止關卡", "目標最低費用", "目標最高費用", "每次增加層數", "每層觸發機率百分點", "觸發機率上限", "觸發後生命", "無敵幀數"});
+            keys(n["賭運"], {"累積截止關卡", "目標最低費用", "目標最高費用", "每次增加層數", "每層觸發機率百分點", "層數上限", "觸發後生命", "無敵幀數"});
             break;
         case ChessTalentId::Backbone:
             keys(n, {"說明", "目標費用", "額外星級加成", "刷新保證"});
@@ -170,7 +170,7 @@ bool loadBalanceConfig(
             def.luckMaxTier = number(luck, "目標最高費用", def.luckMinTier, 5);
             def.luckPerRefresh = number(luck, "每次增加層數", 1, 100);
             def.luckChancePerStack = number(luck, "每層觸發機率百分點", 0, 100);
-            def.luckChanceCap = number(luck, "觸發機率上限", 0, 100);
+            def.luckStackCap = number(luck, "層數上限", 1, 100);
             def.luckSurvivalHp = number(luck, "觸發後生命", 1, 100000);
             def.luckInvincibleFrames = number(luck, "無敵幀數", 0, 100000);
             break;

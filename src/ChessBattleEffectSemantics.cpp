@@ -52,6 +52,12 @@ std::int64_t roundEffectRatio(
     return quotient;
 }
 
+int sumResourceAmounts(int first, int second)
+{
+    return static_cast<int>(std::clamp<std::int64_t>(static_cast<std::int64_t>(first) + second,
+        std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
+}
+
 std::optional<int> effectiveConstantEffectNumberValue(
     const EffectNumber& number,
     int contributionQuantity)
@@ -562,6 +568,8 @@ void visitActionNumbers(
             || std::is_same_v<T, ChangeResourceAction>)
         {
             visitor(typed.amount);
+            if constexpr (std::is_same_v<T, ChangeResourceAction>)
+                if (typed.additionalAmount) visitor(*typed.additionalAmount);
         }
         else if constexpr (std::is_same_v<T, ApplyStatusAction>)
         {

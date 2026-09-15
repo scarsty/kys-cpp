@@ -260,7 +260,6 @@ struct EquipmentInfoDto
     std::string name;
     int tier{};
     std::string type;
-    std::optional<std::vector<std::string>> base_stat_effects;
     std::optional<EffectDescriptionDto> special_effects;
     std::optional<std::vector<std::string>> counts_as_combos;
     std::optional<std::vector<CharacterBonus>> character_bonuses;

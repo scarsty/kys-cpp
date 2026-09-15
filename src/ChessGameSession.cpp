@@ -191,7 +191,7 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.talentDescription = chessTalentDescription(content_->balance(), state_.talent);
     observation.talentHasLegendaryShop = talent.legendaryShop;
     observation.luckChancePerStack = talent.luckChancePerStack;
-    observation.luckChanceCap = talent.luckChanceCap;
+    observation.luckStackCap = talent.luckStackCap;
     const auto nextReward = [&](const auto& rewards) -> std::optional<BalanceConfig::PlayerEquipmentReward> {
         for (const auto& reward : rewards) if (reward.fight > state_.fight) return reward;
         return std::nullopt;

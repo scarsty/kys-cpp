@@ -362,6 +362,15 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     shield.resource = BattleResource::Shield;
     shield.kind = ResourceChangeKind::Grant;
     shield.amount.flat = 45;
+    int expectedShield = 45;
+    SECTION("固定護盾") {}
+    SECTION("附加星級項與初始化生命上限共同求值")
+    {
+        shield.amount.base = EffectNumberBase::TargetMaxHp;
+        shield.amount.percent = 10;
+        shield.additionalAmount = EffectNumber{.base = EffectNumberBase::SourceStar, .percent = 7000};
+        expectedShield = 125;
+    }
 
     ChangeResourceAction statusShield;
     statusShield.resource = BattleResource::StatusShield;
@@ -408,7 +417,7 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     CHECK(source.damage.hurtInvincFrames == 0);
     CHECK_FALSE(source.damage.deathPreventionUsed);
     CHECK_FALSE(source.status.effects.has(BattleStatusKind::Poison));
-    CHECK(source.unit.shield == 45);
+    CHECK(source.unit.shield == expectedShield);
     CHECK(source.status.effects.statusShield == 80);
 
     auto expectedCloneStatus = source.status;

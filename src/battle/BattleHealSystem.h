@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ChessBattleEffectTypes.h"
+#include "BattleCastLifecycle.h"
 
 #include <compare>
 #include <cstdint>
@@ -21,8 +22,6 @@ struct HealTransactionId
 
     auto operator<=>(const HealTransactionId&) const = default;
 };
-
-using BattleHealCastId = std::uint64_t;
 
 using BattleHealKind = EffectHealKind;
 
@@ -60,7 +59,7 @@ struct BattleHealRequest
     int sourceUnitId{};
     int targetUnitId{};
     EffectSourceBinding source{};
-    std::optional<BattleHealCastId> castId;
+    std::optional<BattleCastProvenance> cast;
     BattleHealKind kind{};
     BattleHealAmount amount{};
     BattleHealSourcePolicy sourcePolicy{};

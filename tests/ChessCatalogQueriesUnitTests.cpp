@@ -158,11 +158,11 @@ TEST_CASE("catalog queries keep map identity and stat scopes authoritative", "[c
     unit.fightsWon = 3;
     unit.weaponItemId = 500;
     const auto baseline = chessPreparedUnitBaselineStats(content, unit);
-    CHECK(baseline.maxHp == 555);
-    CHECK(baseline.attack == 79);
+    CHECK(baseline.maxHp == 530);
+    CHECK(baseline.attack == 71);
     CHECK(baseline.defence == 46);
     CHECK(baseline.speed == 33);
-    CHECK(baseline.sword == 33);
+    CHECK(baseline.sword == 27);
 }
 
 TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "[chess][catalog][metadata]")
@@ -178,7 +178,6 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
     CHECK(role.combos == std::vector<std::string>{"共用羈絆"});
 
     const auto equipment = chessEquipmentMetadata(content, 500);
-    CHECK(equipment.baseStatEffects == std::vector<std::string>{"生命+25", "攻擊+8", "御劍+6"});
     CHECK(effectDescriptionTextRows(equipment.specialEffects)
         == std::vector<std::string>{"防禦+7。"});
     REQUIRE(equipment.specialEffects.sections.size() == 1);
@@ -230,18 +229,21 @@ TEST_CASE("catalog combo and challenge metadata retain provenance and ordering",
     CHECK(challenge.rewards == std::vector<std::string>{"獲取9金幣"});
 }
 
-TEST_CASE("equipment panel includes base stats, membership and exclusive effects",
+TEST_CASE("equipment panel excludes SQLite bonuses and retains compact configured effects",
           "[chess][catalog][effects][panel-text]")
 {
     const auto content = catalogContent();
-    const auto rows = panelTextRowsForEquipment(chessEquipmentMetadata(content, 500));
+    const auto rows = panelTextRowsForEquipment(chessEquipmentMetadata(content, 500, EffectDescriptionStyle::Compact));
     std::string text;
     for (const auto& row : rows) text += row.text + "\n";
-    CHECK(text.contains("生命+25、攻擊+8、御劍+6"));
-    CHECK(text.contains("防禦+7"));
-    CHECK(text.contains("計作「共用羈絆」羈絆的一名成員"));
+    CHECK_FALSE(text.contains("基礎屬性"));
+    CHECK_FALSE(text.contains("生命+25"));
+    CHECK_FALSE(text.contains("攻擊+8"));
+    CHECK_FALSE(text.contains("御劍+6"));
+    CHECK(text.contains("+7防"));
+    CHECK(text.contains("計作共用羈絆"));
     CHECK(text.contains("共用查詢棋子專屬"));
-    CHECK(text.contains("計作「角色羈絆」羈絆的一名成員"));
+    CHECK(text.contains("計作角色羈絆"));
     CHECK(text.contains("速度+5"));
 }
 

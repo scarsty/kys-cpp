@@ -900,10 +900,10 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         event.header.owner = owner;
         event.header.battle = resourceReadView;
         event.payload = InitializationEventData{};
-        const int amount = BattleEffectSystem::evaluateNumber(
-            std::get<InitializationResourceAmount>(resource->amount).formula,
-            event,
-            *target);
+        const auto& formula = std::get<InitializationResourceAmount>(resource->amount);
+        const int amount = sumResourceAmounts(
+            BattleEffectSystem::evaluateNumber(formula.formula, event, *target),
+            formula.additionalFormula ? BattleEffectSystem::evaluateNumber(*formula.additionalFormula, event, *target) : 0);
         assert(amount >= 0);
         auto initializedResource = *resource;
         initializedResource.amount = amount;

@@ -1482,9 +1482,11 @@ EffectExecutionInputs executionInputs(const EffectEventContext& context)
         .frame = context.header.executionFrame.value_or(context.header.frame),
     };
     if (const auto* cast = effectEventCastProvenance(context.payload)) inputs.cast = *cast;
-    else inputs.cast = context.header.healCast;
     if (const auto* attack = effectEventAttackProvenance(context.payload)) inputs.attack = *attack;
-    inputs.retainCastUntilDamageDescendants = context.event != EffectEvent::CastSettled;
+    if (const auto* hit = std::get_if<HitEventData>(&context.payload); hit && hit->acceptedHit)
+        inputs.hitDamageCredit = EffectHitDamageCredit{ hit->provenance, hit->targetUnitId };
+    inputs.retainCastUntilDamageDescendants = context.header.retainCastUntilDamageDescendants
+        && context.event != EffectEvent::CastSettled;
     return inputs;
 }
 
@@ -1747,8 +1749,9 @@ struct CommandEmitter
                     ? BattleEffectSystem::selectTargets(*action.transferDestination, context, random)
                     : std::vector<int>{};
                 ResourceEffectAmount amount = context.event == EffectEvent::BattleInitialized
-                    ? ResourceEffectAmount{ InitializationResourceAmount{ action.amount } }
-                    : ResourceEffectAmount{ evaluate(action.amount, target) };
+                    ? ResourceEffectAmount{ InitializationResourceAmount{ action.amount, action.additionalAmount } }
+                    : ResourceEffectAmount{ sumResourceAmounts(evaluate(action.amount, target),
+                        action.additionalAmount ? evaluate(*action.additionalAmount, target) : 0) };
                 append(metadata, prepareChangeResource(action,
                     std::move(amount), std::move(destinations)));
             },
@@ -3254,6 +3257,8 @@ const BattleCastProvenance* effectEventCastProvenance(const EffectEventPayload& 
         [](const AttackEventData& data) { return &data.provenance.cast; },
         [](const HitEventData& data) { return &data.provenance.cast; },
         [](const CastAggregateEventData& data) { return &data.provenance; },
+        [](const HealRequestEventData& data) { return data.cast ? &*data.cast : nullptr; },
+        [](const HealResultEventData& data) { return data.request.cast ? &*data.request.cast : nullptr; },
         [&](const DamageResultEventData& data) {
             return effectDamageCastProvenance(data.origin);
         },
@@ -3270,6 +3275,9 @@ const BattleCastProvenance* effectEventCastProvenance(const EffectEventPayload& 
 const BattleCastProvenance* effectCastProvenance(const EffectEventContext& context)
 {
     if (context.scope.cast) return &*context.scope.cast;
+    // 治療的施放來源只用於後續命令歸因，不限制受療者的武功規則。
+    if (std::holds_alternative<HealRequestEventData>(context.payload)
+        || std::holds_alternative<HealResultEventData>(context.payload)) return nullptr;
     return effectEventCastProvenance(context.payload);
 }
 

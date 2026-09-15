@@ -25,14 +25,6 @@ const EquipmentDef& requireEquipment(const ChessGameContent& content, int itemId
     return *found;
 }
 
-void appendItemStat(std::vector<std::string>& effects, std::string_view name, int value)
-{
-    if (value != 0)
-    {
-        effects.push_back(std::format("{}{:+}", name, value));
-    }
-}
-
 RenderedEffectDescription magicEffects(
     const ChessGameContent& content,
     int magicId,
@@ -209,47 +201,14 @@ ChessCalculatedStats chessRoleStats(
     };
 }
 
-void applyChessItemBaseStats(ChessCalculatedStats& stats, const ChessItemDefinition* item)
-{
-    if (!item)
-    {
-        return;
-    }
-    stats.maxHp += item->addMaxHP;
-    stats.attack += item->addAttack;
-    stats.defence += item->addDefence;
-    stats.speed += item->addSpeed;
-    stats.fist += item->addFist;
-    stats.sword += item->addSword;
-    stats.knife += item->addKnife;
-    stats.unusual += item->addUnusual;
-    stats.hiddenWeapon += item->addHiddenWeapon;
-}
-
 ChessCalculatedStats chessPieceStats(
     const ChessGameContent& content,
     const ChessSessionPiece& piece,
-    const std::vector<ChessEquipmentInstance>& equipmentInventory,
     int amplifiedGrowthPercent)
 {
     const auto* role = content.role(piece.roleId);
     assert(role);
-    auto stats = chessRoleStats(*role, content.balance(), piece.star, piece.fightsWon, amplifiedGrowthPercent);
-    const auto addEquipment = [&](int equipmentInstanceId) {
-        if (equipmentInstanceId < 0)
-        {
-            return;
-        }
-        const auto equipment = std::ranges::find(
-            equipmentInventory,
-            equipmentInstanceId,
-            &ChessEquipmentInstance::instanceId);
-        assert(equipment != equipmentInventory.end());
-        applyChessItemBaseStats(stats, content.item(equipment->itemId));
-    };
-    addEquipment(piece.weaponInstanceId);
-    addEquipment(piece.armorInstanceId);
-    return stats;
+    return chessRoleStats(*role, content.balance(), piece.star, piece.fightsWon, amplifiedGrowthPercent);
 }
 
 ChessCalculatedStats chessPreparedUnitBaselineStats(
@@ -258,14 +217,7 @@ ChessCalculatedStats chessPreparedUnitBaselineStats(
 {
     const auto* role = content.role(unit.roleId);
     assert(role);
-    auto stats = chessRoleStats(*role, content.balance(), unit.star, unit.fightsWon, unit.amplifiedGrowthPercent);
-    applyChessItemBaseStats(
-        stats,
-        unit.weaponItemId >= 0 ? content.item(unit.weaponItemId) : nullptr);
-    applyChessItemBaseStats(
-        stats,
-        unit.armorItemId >= 0 ? content.item(unit.armorItemId) : nullptr);
-    return stats;
+    return chessRoleStats(*role, content.balance(), unit.star, unit.fightsWon, unit.amplifiedGrowthPercent);
 }
 
 ChessCalculatedStats chessInitializedCombatStats(
@@ -415,15 +367,6 @@ ChessEquipmentMetadata chessEquipmentMetadata(
     result.name = item->name;
     result.tier = definition.tier;
     result.equipType = definition.equipType;
-    appendItemStat(result.baseStatEffects, "生命", item->addMaxHP);
-    appendItemStat(result.baseStatEffects, "攻擊", item->addAttack);
-    appendItemStat(result.baseStatEffects, "防禦", item->addDefence);
-    appendItemStat(result.baseStatEffects, "速度", item->addSpeed);
-    appendItemStat(result.baseStatEffects, "拳掌", item->addFist);
-    appendItemStat(result.baseStatEffects, "御劍", item->addSword);
-    appendItemStat(result.baseStatEffects, "耍刀", item->addKnife);
-    appendItemStat(result.baseStatEffects, "特殊", item->addUnusual);
-    appendItemStat(result.baseStatEffects, "暗器", item->addHiddenWeapon);
     const auto& equipmentDocument = definition.effects;
     result.specialEffects = describeGameplayEffects(equipmentDocument, descriptionStyle);
     result.countsAsCombos = countsAsComboNames(definition.managementRules);
@@ -507,7 +450,7 @@ ChessComboMetadata chessComboMetadata(
         {
             appendStandaloneDescriptionRow(
                 metadata.effects,
-                chessNonBattleRuleDescription(rule));
+                chessNonBattleRuleDescription(rule, descriptionStyle == EffectDescriptionStyle::Compact));
         }
         result.thresholds.push_back(std::move(metadata));
     }

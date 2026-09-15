@@ -176,9 +176,8 @@ PieceDto pieceDto(
     dto.current_stats = roleStatsDto(chessPieceStats(
         content,
         piece,
-        observation.equipmentInventory,
         content.balance().talent(observation.talent).amplifiedGrowthPercent));
-    dto.current_stats_note = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果於開戰時套用";
+    dto.current_stats_note = "已計入星級與勝場成長；羈絆與裝備特殊效果於開戰時套用";
     return dto;
 }
 
@@ -328,10 +327,6 @@ EquipmentInfoDto equipmentInfoDtoFromMetadata(const ChessEquipmentMetadata& meta
     dto.name = metadata.name;
     dto.tier = metadata.tier;
     dto.type = chessEquipmentTypeName(metadata.equipType);
-    if (!metadata.baseStatEffects.empty())
-    {
-        dto.base_stat_effects = metadata.baseStatEffects;
-    }
     if (!metadata.specialEffects.sections.empty())
     {
         dto.special_effects = effectDescriptionDto(metadata.specialEffects);
@@ -696,10 +691,6 @@ RewardOptionDto rewardOptionDto(
             dto.description += "\n";
             dto.description += std::move(line);
         };
-        for (const auto& effect : equipmentMetadata.baseStatEffects)
-        {
-            appendDescriptionLine("基礎：" + effect);
-        }
         for (const auto& effect : effectDescriptionTextRows(
             equipmentMetadata.specialEffects))
         {
@@ -1661,7 +1652,7 @@ ChessInstanceInspectionDto chessInstanceInspectionDto(
     dto.chess.luck_stacks = analysis.piece.luckStacks;
     dto.chess.luck_chance_percent = analysis.luckChancePercent;
     dto.chess.current_stats = roleStatsDto(analysis.currentStats);
-    dto.chess.current_stats_note = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果於開戰時套用";
+    dto.chess.current_stats_note = "已計入星級與勝場成長；羈絆與裝備特殊效果於開戰時套用";
     dto.one_star_equivalent_copies = analysis.oneStarEquivalentCopies;
     dto.same_star_copies = analysis.sameStarCopies;
     dto.copies_required_for_next_star = analysis.copiesRequiredForNextStar;

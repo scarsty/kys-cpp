@@ -89,7 +89,8 @@ enum class BattleStatusSemanticId : std::int16_t
     DeathPrevented = 9,
     ExecuteTriggered = 10,
     Knockback = 11,
-    EnemyTopDebuff = 12,
+    EnemyTopAttackDebuff = 12,
+    EnemyTopDefenceDebuff = 20,
     MagicPointsDrained = 13,
     PoisonPayload = 14,
     BlockedByDualWield = 15,
@@ -187,9 +188,18 @@ struct BattleGameplayEvent
     BattleResourceSemanticId resourceId = BattleResourceSemanticId::None;
 };
 
+enum class BattleRoleEffectType : std::uint8_t
+{
+    Standard,
+    StatusCue,
+    GuardianCue,
+    FireCue,
+};
+
 struct BattleVisualEvent
 {
     BattleVisualEventType type = BattleVisualEventType::FloatingText;
+    BattleRoleEffectType roleEffectType = BattleRoleEffectType::Standard;
     int frame = BattlePresentationCurrentFrame;
     int sourceUnitId = -1;
     int targetUnitId = -1;

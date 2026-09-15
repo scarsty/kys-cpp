@@ -60,7 +60,7 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     }
     CHECK(effectText.find("眩暈") != std::string::npos);
     CHECK(effectText.find("14幀") != std::string::npos);
-    CHECK(effectText.find("全隊內力+30") != std::string::npos);
+    CHECK(effectText.find("全隊回30內") != std::string::npos);
 }
 
 TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",
@@ -286,20 +286,12 @@ TEST_CASE("Equipped character values and longest equipment names fit the role ca
     }
     for (const int roleId : content->poolRoleIds())
     for (int star = 1; star <= 3; ++star)
-    for (const auto& weapon : content->equipment())
     {
-        if (weapon.equipType != 0) continue;
-        for (const auto& armor : content->equipment())
-        {
-            if (armor.equipType != 1) continue;
-            auto stats = chessRoleStats(*content->role(roleId), content->balance(), star, 0);
-            applyChessItemBaseStats(stats, content->item(weapon.itemId));
-            applyChessItemBaseStats(stats, content->item(armor.itemId));
-            const std::array values{stats.maxHp, stats.attack, stats.defence, stats.speed,
-                stats.fist, stats.sword, stats.knife, stats.unusual};
-            for (std::size_t i = 0; i < values.size(); ++i)
-                widestValues[i] = std::max(widestValues[i], displayTextWidth(std::to_string(values[i])) * 11);
-        }
+        const auto stats = chessRoleStats(*content->role(roleId), content->balance(), star, 0);
+        const std::array values{stats.maxHp, stats.attack, stats.defence, stats.speed,
+            stats.fist, stats.sword, stats.knife, stats.unusual};
+        for (std::size_t i = 0; i < values.size(); ++i)
+            widestValues[i] = std::max(widestValues[i], displayTextWidth(std::to_string(values[i])) * 11);
     }
     const auto layout = SessionStatusLayout::build(nullptr, {0, 0, 560, 337}, 128, equipmentWidth);
     INFO("equipment column width: " << equipmentWidth);

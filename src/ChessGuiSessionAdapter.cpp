@@ -645,7 +645,7 @@ void drawEquipmentDetail(
     std::vector<PanelVisualTextRow> bodyRows;
     const int bodyWidth = frame.w - 20;
     const auto metadata = chessEquipmentMetadata(
-        session.content(), equipment.itemId, EffectDescriptionStyle::Full);
+        session.content(), equipment.itemId, EffectDescriptionStyle::Compact);
     for (auto& row : panelTextRowsForEquipment(metadata))
     {
         const Color color = row.fontSizeDelta > 0
@@ -1494,6 +1494,25 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
         }
     });
     return panel;
+}
+
+std::shared_ptr<DrawableOnCall> makeRosterPanel(const ChessGameSession& session, PanelFrame frame);
+
+std::vector<std::shared_ptr<DrawableOnCall>> makeCharacterPreviewPanels(
+    const ChessGameSession& session,
+    const ShopPanelLayout& frames,
+    const std::vector<int>& roleIds,
+    const std::vector<int>& stars = {},
+    const std::vector<int>& instanceIds = {},
+    bool showRoster = false)
+{
+    std::vector<std::shared_ptr<DrawableOnCall>> panels{
+        makeRoleDetailPanel(session, roleIds, stars, instanceIds, frames.status, true),
+        makeComboInfoPanel(session, roleIds, frames.combo),
+    };
+    if (showRoster)
+        panels.push_back(makeRosterPanel(session, frames.owned));
+    return panels;
 }
 
 std::shared_ptr<DrawableOnCall> makeRosterPanel(
@@ -2913,11 +2932,7 @@ void ChessGuiSessionAdapter::showShop()
             32,
             static_cast<int>(data.labels.size()),
             ChessScreenLayout::contentMenuAnchor(),
-            {
-                makeRoleDetailPanel(session_, roleIds, starRows, instanceRows, panels.status, true),
-                makeRosterPanel(session_, panels.owned),
-                makeComboInfoPanel(session_, roleIds, panels.combo),
-            },
+            makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceRows, true),
             false,
             false);
         if (selected < 0)
@@ -2993,10 +3008,7 @@ void ChessGuiSessionAdapter::chooseChess(ChessActionType actionType)
             32,
             12,
             anchor,
-            {
-                makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status, true),
-                makeComboInfoPanel(session_, roleIds, panels.combo),
-            },
+            makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceIds),
             false);
         if (selected < 0)
         {
@@ -3093,10 +3105,7 @@ void ChessGuiSessionAdapter::chooseDeployment()
             32,
             12,
             anchor,
-            {
-                makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status, true),
-                makeComboInfoPanel(session_, roleIds, panels.combo),
-            },
+            makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceIds),
             false);
         if (selected < 0)
         {
@@ -3177,7 +3186,7 @@ void ChessGuiSessionAdapter::showBanManagement()
             32,
             12,
             anchor,
-            {makeRoleDetailPanel(session_, roleIds, {}, {}, panels.status)},
+            makeCharacterPreviewPanels(session_, panels, roleIds),
             false);
         if (choice < 0)
         {
@@ -3265,7 +3274,7 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
         32,
         12,
         anchor,
-        {makeRoleDetailPanel(session_, roleIds, {}, {}, panels.status)},
+        makeCharacterPreviewPanels(session_, panels, roleIds),
         false,
         true,
         true,
@@ -3525,7 +3534,7 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
         32,
         12,
         anchor,
-        {makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status)},
+        makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceIds),
         false);
     if (selected < 0)
     {
@@ -4054,10 +4063,7 @@ void ChessGuiSessionAdapter::viewChessPool()
         kChessCompactMenuPresentation.fontSize,
         kChessCompactMenuPresentation.itemsPerPage,
         anchor,
-        {
-            makeRoleDetailPanel(session_, roleIds, {}, {}, panels.status, true),
-            makeComboInfoPanel(session_, roleIds, panels.combo),
-        },
+        makeCharacterPreviewPanels(session_, panels, roleIds),
         false);
 }
 
@@ -4551,17 +4557,8 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 data.labels,
                 menuPresentation.fontSize,
                 8);
-            detailPanels.push_back(makeRoleDetailPanel(
-                session_,
-                roleIds,
-                starRows,
-                instanceIds,
-                panels.status,
-                chessRewardShowsComboPanel(pending.kind)));
-            if (chessRewardShowsComboPanel(pending.kind))
-            {
-                detailPanels.push_back(makeComboInfoPanel(session_, std::move(roleIds), panels.combo));
-            }
+            detailPanels = makeCharacterPreviewPanels(
+                session_, panels, roleIds, starRows, instanceIds);
         }
 
         std::string title = "選擇獎勵";

@@ -88,11 +88,6 @@ inline ChessMenuPresentation chessRewardMenuPresentation(
     return {36, displayedRows};
 }
 
-inline bool chessRewardShowsComboPanel(ChessRewardKind kind)
-{
-    return kind == ChessRewardKind::Piece;
-}
-
 inline std::string chessStarUpgradeRewardTitle(
     const ChessSessionState& state,
     const ChessPendingReward& pending)

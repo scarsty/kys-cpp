@@ -86,7 +86,6 @@ struct ChessEquipmentMetadata
     std::string name;
     int tier{};
     int equipType{};
-    std::vector<std::string> baseStatEffects;
     RenderedEffectDescription specialEffects;
     std::vector<std::string> countsAsCombos;
     std::vector<ChessEquipmentCharacterBonusMetadata> characterBonuses;
@@ -184,11 +183,9 @@ ChessCalculatedStats chessRoleStats(
     int star,
     int fightsWon,
     int amplifiedGrowthPercent = 0);
-void applyChessItemBaseStats(ChessCalculatedStats& stats, const ChessItemDefinition* item);
 ChessCalculatedStats chessPieceStats(
     const ChessGameContent& content,
     const ChessSessionPiece& piece,
-    const std::vector<ChessEquipmentInstance>& equipmentInventory,
     int amplifiedGrowthPercent = 0);
 ChessCalculatedStats chessPreparedUnitBaselineStats(
     const ChessGameContent& content,

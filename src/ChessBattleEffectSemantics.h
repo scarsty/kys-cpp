@@ -15,6 +15,8 @@
 namespace KysChess
 {
 
+int sumResourceAmounts(int first, int second);
+
 void forEachEffectNumber(
     EffectRule& rule,
     const std::function<void(EffectNumber&)>& visitor);

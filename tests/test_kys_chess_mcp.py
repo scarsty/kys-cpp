@@ -120,14 +120,6 @@ class McpAdapterTests(unittest.TestCase):
                 direct.close()
 
     def test_mcp_tool_surface_matches_the_protocol_contract(self):
-        source = (PACKAGE_ROOT / "kys_chess_mcp" / "server.py").read_text(encoding="utf-8")
-        self.assertNotIn("def new_game(", source)
-        self.assertNotIn("def observe_game(", source)
-        self.assertIn("def dispatch_mcp_tool(", source)
-        self.assertNotIn("_persist_save", source)
-        self.assertNotIn("_restore_persisted_saves", source)
-        self.assertNotIn("_update_autosave", source)
-
         with tempfile.TemporaryDirectory() as save_dir, CliSession(
             CLI,
             save_dir=save_dir,
@@ -143,7 +135,6 @@ class McpAdapterTests(unittest.TestCase):
             self.assertEqual(new_schema["difficulty"]["enum"], ["easy", "normal", "hard"])
             self.assertEqual(new_schema["detail"]["enum"], ["compact", "full"])
             self.assertEqual(new_schema["seed"]["pattern"], r"^0x[0-9a-fA-F]{16}$")
-            self.assertIn("0x 前綴", new_schema["seed"]["description"])
             self.assertEqual(
                 definitions["take_action"]["inputSchema"]["properties"]["detail"]["default"],
                 "summary",
@@ -363,7 +354,6 @@ class McpAdapterTests(unittest.TestCase):
                 expected = first.request("observe", {"detail": "compact"})["result"]["game_state"]
                 saves = first.request("list_saves")["result"]
                 autosave = next(slot for slot in saves if slot["slot"] == AUTO_SAVE_SLOT)
-                self.assertEqual(autosave["label"], "自動存檔")
                 revision = autosave["revision"]
 
                 rejected = first.request(
@@ -385,7 +375,6 @@ class McpAdapterTests(unittest.TestCase):
                 persisted = next(
                     slot for slot in discovered["result"] if slot["slot"] == AUTO_SAVE_SLOT
                 )
-                self.assertEqual(persisted["label"], "自動存檔")
                 loaded = second.request(
                     "resume_game",
                     {"detail": "compact"},

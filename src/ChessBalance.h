@@ -345,7 +345,7 @@ inline ChessTalentPresentation buildChessTalentPresentation(
             "賭運",
             "取得方式",
             std::format(
-                "第1～{}關付費刷新；隨機選{}～{}費場上棋子 +{}層",
+                "第1～{}關付費刷新；隨機選{}～{}費未滿層棋子 +{}層，優先上場棋子",
                 talent.luckLastFight,
                 talent.luckMinTier,
                 talent.luckMaxTier,
@@ -354,9 +354,10 @@ inline ChessTalentPresentation buildChessTalentPresentation(
             "賭運",
             "觸發機率",
             std::format(
-                "每層 +{}%，最高{}%",
+                "每層 +{}%，最多{}層（{}%）",
                 talent.luckChancePerStack,
-                talent.luckChanceCap));
+                talent.luckStackCap,
+                talent.luckChance(talent.luckStackCap)));
         appendMechanic(
             "致命傷害",
             "成功效果",

@@ -292,7 +292,7 @@ struct HealRequestEventData
     EffectUnitSnapshot sourceBefore;
     EffectUnitSnapshot targetBefore;
     int calculatedAmount{};
-    std::optional<BattleCastId> castId;
+    std::optional<BattleCastProvenance> cast;
 };
 
 struct HealResultEventData
@@ -353,7 +353,8 @@ struct EffectEventHeader
     BattleEffectReadView battle;
     EffectFormulaInputs formulaInputs;
     std::optional<EffectStatusContributionContext> statusContribution;
-    std::optional<BattleCastProvenance> healCast;
+    // 事件可攜帶已結算的施放來源，但不能替已退役的施放保留工作。
+    bool retainCastUntilDamageDescendants = true;
     std::optional<int> executionFrame;
 };
 
@@ -400,12 +401,20 @@ const BattleAttackProvenance* effectEventAttackProvenance(const EffectEventPaylo
 const BattleCastProvenance* effectCastProvenance(const EffectEventContext& context);
 const BattleAttackProvenance* effectAttackProvenance(const EffectEventContext& context);
 
+// 只有已接受的接觸可授予命中傷害記帳；觸發來源本身不代表命中。
+struct EffectHitDamageCredit
+{
+    BattleAttackProvenance provenance;
+    int targetUnitId{};
+};
+
 // 求值後由命令持有；來源事件的 lineage 與規則 binding 各自保留原本語義。
 struct EffectExecutionInputs
 {
     int frame{};
     std::optional<BattleCastProvenance> cast;
     std::optional<BattleAttackProvenance> attack;
+    std::optional<EffectHitDamageCredit> hitDamageCredit;
     bool retainCastUntilDamageDescendants = true;
     BattleHealModifierState healModifiers;
     int controlLowHpImmunityPct = 25;
@@ -496,6 +505,7 @@ ModifyDamageEffectCommand prepareModifyDamage(
 struct InitializationResourceAmount
 {
     EffectNumber formula;
+    std::optional<EffectNumber> additionalFormula;
 };
 
 using ResourceEffectAmount = std::variant<int, InitializationResourceAmount>;
@@ -567,8 +577,6 @@ struct EffectDamageDelivery
     int projectileSourceMaxHpPercent{};
     std::optional<int> displayedSourceMaxHpPercent;
     bool statusTickPresentation = true;
-    // 過期吸收保留傷害來源，但不延續已完成攻擊的工作生命期。
-    bool inheritAttackProvenance = true;
     std::optional<std::vector<int>> targetUnitIds;
 };
 

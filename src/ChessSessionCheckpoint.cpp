@@ -70,7 +70,9 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
     }
     for (const auto& [id, piece] : state.roster)
     {
-        if (piece.luckStacks < 0 || (state.talent != ChessTalentId::Gambler && piece.luckStacks != 0))
+        if (piece.luckStacks < 0
+            || piece.luckStacks > session.content_->balance().talent(state.talent).luckStackCap
+            || (state.talent != ChessTalentId::Gambler && piece.luckStacks != 0))
             return ChessCheckpointError::UnrepresentableSnapshot;
     }
     for (int roleId : state.shopGuarantees)

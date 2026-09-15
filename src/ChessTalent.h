@@ -57,7 +57,7 @@ struct ChessTalentDefinition
     int luckMaxTier{};
     int luckPerRefresh{};
     int luckChancePerStack{};
-    int luckChanceCap{};
+    int luckStackCap{};
     int luckSurvivalHp{};
     int luckInvincibleFrames{};
     int targetTier{};
@@ -68,8 +68,8 @@ struct ChessTalentDefinition
 
     int luckChance(int stacks) const
     {
-        return static_cast<int>((std::min)(static_cast<std::int64_t>(stacks) * luckChancePerStack,
-            static_cast<std::int64_t>(luckChanceCap)));
+        return static_cast<int>((std::min)(static_cast<std::int64_t>((std::min)(stacks, luckStackCap)) * luckChancePerStack,
+            std::int64_t{100}));
     }
 };
 }

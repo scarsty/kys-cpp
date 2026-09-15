@@ -365,7 +365,8 @@ ChessSha256 actionContentHash(const EffectAction& action)
                     static_cast<int>(typed.kind),
                     typed.transferDestination ? std::optional{ selectorContentHash(*typed.transferDestination) } : std::nullopt,
                     static_cast<int>(typed.healKind), static_cast<int>(typed.healSourcePolicy),
-                    typed.healRequiresFullMp);
+                    typed.healRequiresFullMp,
+                    typed.additionalAmount ? std::optional{effectNumberContentHash(*typed.additionalAmount)} : std::nullopt);
             else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     static_cast<int>(typed.operation), typed.kinds, typed.percent);
@@ -778,6 +779,10 @@ std::vector<std::pair<const ChessMagicDefinition*, int>> chessRoleMagicsForStar(
          index < RoleSave::getMagicSlotEnd(star);
          ++index)
     {
+        if (role.MagicID[index] <= 0)
+        {
+            continue;
+        }
         if (const auto* magic = content.magic(role.MagicID[index]))
         {
             result.emplace_back(magic, role.MagicPower[index]);

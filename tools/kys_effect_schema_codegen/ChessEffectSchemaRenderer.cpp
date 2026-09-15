@@ -208,10 +208,16 @@ std::expected<JsonValue, std::string> commonDefinitions()
         std::vector<std::string_view> required{"類型"};
         for (const auto& field : entry.parameters)
         {
-            properties.emplace_back(field.name, object({
-                {"type", "integer"}, {"minimum", field.minimum}, {"maximum", field.maximum},
-            }));
-            required.push_back(field.name);
+            auto property = field.choices.empty()
+                ? object({{"type", "integer"}, {"minimum", field.minimum}, {"maximum", field.maximum}})
+                : object({{"type", "string"}, {"enum", stringArray(field.choices)}});
+            if (field.defaultValue)
+            {
+                appendProperty(property, "default", field.choices.empty()
+                    ? JsonValue(*field.defaultValue) : JsonValue(field.choices[*field.defaultValue]));
+            }
+            else required.push_back(field.name);
+            properties.emplace_back(field.name, std::move(property));
         }
         definitions.emplace_back(entry.name, objectSchema(std::move(properties), std::move(required)));
         choices.push_back(reference(entry.name));

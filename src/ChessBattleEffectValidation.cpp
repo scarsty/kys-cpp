@@ -1273,6 +1273,12 @@ bool validateActionPayload(
                 if (!validateEffectNumberAtEvent(typed.amount, event, context, error)) return false;
                 if (!effectNumberCannotBeNegative(typed.amount))
                     return reject("資源變更數值不可產生負數");
+                if (typed.additionalAmount)
+                {
+                    if (!validateEffectNumberAtEvent(*typed.additionalAmount, event, context, error)) return false;
+                    if (!effectNumberCannotBeNegative(*typed.additionalAmount))
+                        return reject("資源變更附加數值不可產生負數");
+                }
                 if ((typed.kind == ResourceChangeKind::Transfer) != typed.transferDestination.has_value())
                     return reject("只有轉移資源需要且必須提供轉移目標");
                 if (typed.kind == ResourceChangeKind::RefreshToAtLeast
@@ -1917,6 +1923,7 @@ bool validateBattleInitializedAction(
         else if constexpr (std::is_same_v<T, ChangeResourceAction>)
         {
             if (!validateBattleInitializedNumber(typed.amount, error)) return false;
+            if (typed.additionalAmount && !validateBattleInitializedNumber(*typed.additionalAmount, error)) return false;
             if (typed.kind == ResourceChangeKind::Drain
                 || typed.kind == ResourceChangeKind::Transfer)
                 return reject("戰鬥初始化不支援奪取或轉移資源");

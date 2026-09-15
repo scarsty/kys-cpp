@@ -466,7 +466,7 @@ struct BattleEffectIntegrationRuntimeState
     std::set<BattleEffectPerCastDamageKey> appliedPerCastDamage;
     std::vector<BattleQueuedEffectCommandBatch> queuedCommandBatches;
     std::map<std::uint64_t, BattleEffectDamageContinuationRuntime> damageContinuations;
-    std::map<int, BattleEnemyTopDebuffReportState> reportedEnemyTopDebuffs;
+    std::map<std::pair<int, BattleAttribute>, BattleEnemyTopDebuffReportState> reportedEnemyTopDebuffs;
 };
 
 // Persistent battle facts live here. One-frame queues and presentation accumulation

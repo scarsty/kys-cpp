@@ -145,12 +145,7 @@ ChessInstanceAnalysis queryChessInstance(
     ChessInstanceAnalysis result;
     result.piece = foundPiece->second;
     result.luckChancePercent = content.balance().talent(state.talent).luckChance(result.piece.luckStacks);
-    std::vector<ChessEquipmentInstance> equipmentInventory;
-    for (const auto& [id, equipment] : state.equipmentInventory)
-    {
-        equipmentInventory.push_back(equipment);
-    }
-    result.currentStats = chessPieceStats(content, result.piece, equipmentInventory, content.balance().talent(state.talent).amplifiedGrowthPercent);
+    result.currentStats = chessPieceStats(content, result.piece, content.balance().talent(state.talent).amplifiedGrowthPercent);
     for (const auto& [instanceId, owned] : state.roster)
     {
         if (owned.roleId != result.piece.roleId)

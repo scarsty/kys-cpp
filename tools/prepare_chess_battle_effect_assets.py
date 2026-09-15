@@ -25,6 +25,8 @@ AREA_FRAME_COUNT = 16
 CUE_FRAME_COUNT = 15
 FIRE_FRAME_COUNT = 20
 SHORT_CUE_FRAME_COUNT = 12
+POSITIVE_CUE_SOURCE_SCALE = 0.1
+MASTER_CUE_SIZE = 38
 EXPECTED_GROUPS = {
     "cue-positive": (CUE_FRAME_COUNT, True),
     "cue-negative": (CUE_FRAME_COUNT, True),
@@ -257,7 +259,7 @@ def centered_scale(image: Image.Image, scale: float) -> Image.Image:
 
 def prepare_master_cue(master_name: str, output_name: str) -> None:
     source = black_composite_to_rgba(Image.open(SOURCE_ROOT / master_name))
-    source = source.resize((192, 192), Image.Resampling.LANCZOS)
+    source = source.resize((MASTER_CUE_SIZE, MASTER_CUE_SIZE), Image.Resampling.LANCZOS)
     output = RUNTIME_ROOT / output_name
     reset_directory(output)
     indices = []
@@ -268,7 +270,7 @@ def prepare_master_cue(master_name: str, output_name: str) -> None:
         envelope = math.sin(math.pi * (frame + 0.5) / SHORT_CUE_FRAME_COUNT) ** 1.4
         image.putalpha(image.getchannel("A").point(lambda alpha: round(alpha * envelope)))
         save_webp(image, output / f"{frame}.webp")
-        indices.append(f"{frame}: 96, 96")
+        indices.append(f"{frame}: {MASTER_CUE_SIZE // 2}, {MASTER_CUE_SIZE // 2}")
     (output / "index.txt").write_text("\n".join(indices) + "\n", encoding="utf-8")
 
 
@@ -320,17 +322,20 @@ def main() -> None:
     if not args.validate_only:
         RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
         generators = {
-            "cue-positive": lambda: prepare_cue(args.eft_root, 100, "cue-positive"),
+            "cue-positive": lambda: prepare_cue(args.eft_root, 100, "cue-positive",
+                scale=POSITIVE_CUE_SOURCE_SCALE),
             "cue-negative": lambda: prepare_cue(args.eft_root, 65, "cue-negative"),
             "cue-bleed": lambda: prepare_cue(args.eft_root, 35, "cue-bleed", scale=1.0),
             "cue-control": lambda: prepare_cue(args.eft_root, 98, "cue-control",
                 anchor_y_adjustment=-ROLE_STATUS_EFT_Z_OFFSET),
-            "cue-cleanse": lambda: prepare_cue(args.eft_root, 101, "cue-cleanse"),
+            "cue-cleanse": lambda: prepare_cue(args.eft_root, 101, "cue-cleanse",
+                scale=POSITIVE_CUE_SOURCE_SCALE),
             "area-sand": lambda: prepare_area("area_sand.png", "area-sand", ward=False),
             "area-ward": lambda: prepare_area("area_ward.png", "area-ward", ward=True),
             "area-fire": lambda: prepare_area("area_fire.png", "area-fire", ward=False,
                 frame_count=FIRE_FRAME_COUNT, inset=0.84),
             "cue-sword": lambda: prepare_cue(args.eft_root, 100, "cue-sword",
+                scale=POSITIVE_CUE_SOURCE_SCALE,
                 frame_count=SHORT_CUE_FRAME_COUNT),
             "cue-guardian": lambda: prepare_master_cue("guardian_qi.png", "cue-guardian"),
             "cue-fire": lambda: prepare_master_cue("area_fire.png", "cue-fire"),

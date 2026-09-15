@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Point.h"
 #include "TextureManager.h"
+#include "battle/BattlePresentation.h"
 
 #include <algorithm>
 #include <cassert>
@@ -17,6 +18,7 @@ struct BattleAttackEffect
     Pointf Velocity;
     Pointf Acceleration;
     Color Tint{ 255, 255, 255, 255 };
+    KysChess::Battle::BattleRoleEffectType RoleEffectType = KysChess::Battle::BattleRoleEffectType::Standard;
     int Frame = 0;
     int TotalFrame = 1;
     int TotalEffectFrame = 1;

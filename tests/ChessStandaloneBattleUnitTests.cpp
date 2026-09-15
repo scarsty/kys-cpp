@@ -56,7 +56,7 @@ std::shared_ptr<const ChessGameContent> standaloneContent()
     data.roles.emplace(enemy.ID, enemy);
     data.poolRoleIds = {ally.ID};
 
-    for (const auto [id, power] : {std::pair{101, 100}, {102, 300}, {103, 200}})
+    for (const auto [id, power] : {std::pair{0, 0}, {101, 100}, {102, 300}, {103, 200}})
     {
         ChessMagicDefinition magic;
         magic.ID = id;
@@ -180,6 +180,28 @@ TEST_CASE("ChessStandaloneBattle_ClassicProfileUsesCurrentRoleStatsWithoutAutoCh
     CHECK(input.units[0].actionPlan->normalSkill.id == 102);
     CHECK(input.units[0].actionPlan->ultimateSkill.id == 103);
     CHECK(input.setup.comboDefinitions.empty());
+}
+
+TEST_CASE("ChessStandaloneBattle_EmptySkillSlotDoesNotEquipMagicZero", "[chess][standalone]")
+{
+    std::string error;
+    auto built = ChessStandaloneBattle::prepare(standaloneContent(), basicRequest(), error);
+    REQUIRE(built);
+    REQUIRE(built->content->magic(0));
+
+    const auto input = BattleSetupFactory::build(
+        built->preparedBattle,
+        *built->content,
+        kChessBattleFrameLimit);
+    REQUIRE(input.units.size() == 2);
+    for (const auto& unit : input.units)
+    {
+        CHECK(unit.skillNames == "測試武學101");
+        REQUIRE(unit.actionPlan);
+        CHECK(unit.actionPlan->hasEquippedSkill);
+        CHECK(unit.actionPlan->normalSkill.id == 101);
+        CHECK(unit.actionPlan->ultimateSkill.id == 101);
+    }
 }
 
 TEST_CASE("ChessStandaloneBattle_SessionIsEphemeralAndHasNoCampaignProgression", "[chess][standalone]")

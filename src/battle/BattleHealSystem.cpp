@@ -100,9 +100,7 @@ void appendAttemptedEffectModifiers(
         .sourceBefore = sourceBefore,
         .targetBefore = targetBefore,
         .calculatedAmount = calculatedAmount,
-        .castId = request.castId
-            ? std::optional<BattleCastId>{ BattleCastId{ *request.castId } }
-            : std::nullopt,
+        .cast = request.cast,
     };
     auto dispatched = BattleEffectEventBridge().dispatch(
         state,
@@ -161,9 +159,7 @@ void queueAppliedEffectCommands(
         .sourceBefore = sourceBefore,
         .targetBefore = targetBefore,
         .calculatedAmount = result.calculatedAmount,
-        .castId = result.request.castId
-            ? std::optional<BattleCastId>{ BattleCastId{ *result.request.castId } }
-            : std::nullopt,
+        .cast = result.request.cast,
     };
     payload.targetAfter = std::move(targetAfter);
     payload.modifiedAmount = result.modifiedAmount;

@@ -5,25 +5,101 @@ namespace KysChess::GameplayEffects
 namespace
 {
 
+// 屬性以有限名稱選擇；加成運算由屬性語意決定。
+constexpr std::array<std::string_view, 7> AttributeNames{
+    "攻擊", "防禦", "速度", "格擋率", "閃避率", "暴擊率", "暴擊傷害"
+};
+constexpr std::array<BattleAttribute, 7> Attributes{
+    BattleAttribute::Attack, BattleAttribute::Defence, BattleAttribute::Speed,
+    BattleAttribute::BlockChance, BattleAttribute::DodgeChance,
+    BattleAttribute::CriticalChance, BattleAttribute::CriticalDamage
+};
+
+ModifyAttributeAction percentAttribute(int attribute, int percent)
+{
+    return ModifyAttributeAction{
+        .attribute = Attributes[attribute],
+        .amount = EffectNumber{ .flat = percent },
+        .operation = attribute < 3 ? AttributeOperation::PercentAdd : AttributeOperation::PercentagePointAdd
+    };
+}
+
+template <bool Team>
+struct CastTemporaryAttribute final : GameplayEffectDefinition
+{
+    int 屬性{ };
+    int 百分比{ };
+    int 持續幀數{};
+    static constexpr std::string_view Name = Team ? "出招全隊臨時屬性加成" : "出招臨時屬性加成";
+    static constexpr auto Parameters = std::array<Parameter<CastTemporaryAttribute>, 3>{ { { { "屬性", 0, 6, AttributeNames }, &CastTemporaryAttribute::屬性 },
+        { { "百分比", -1000000, 1000000 }, &CastTemporaryAttribute::百分比 },
+        { { "持續幀數", 1, 1000000 }, &CastTemporaryAttribute::持續幀數 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        auto modifier = percentAttribute(屬性, 百分比);
+        modifier.durationFrames = 持續幀數;
+        modifier.stack = EffectStackPolicy::Refresh;
+        return { EffectRule{ .event = EffectEvent::AttackCommitted,
+            .selector = EffectSelector{ .kind = Team ? EffectSelectorKind::Allies : EffectSelectorKind::Self },
+            .actions = { EffectAction{ .value = modifier } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("出招：{}{}，{}幀", Team ? "全隊" : "", compactAttributeDescription(Attributes[屬性], 百分比, true), 持續幀數);
+
+        return std::format("出招：{}{}{:+}%，持續{}幀{}", Team ? "全隊" : "", AttributeNames[屬性],
+            百分比, 持續幀數, style == EffectDescriptionStyle::Full ? "；重複施加刷新時間。" : "");
+    }
+};
+
+struct CastStackAttribute final : GameplayEffectDefinition
+{
+    int 屬性{ };
+    int 每層百分比{ };
+    int 層數上限{};
+    static constexpr std::string_view Name = "出招疊加屬性";
+    static constexpr auto Parameters = std::array<Parameter<CastStackAttribute>, 3>{ { { { "屬性", 0, 6, AttributeNames }, &CastStackAttribute::屬性 },
+        { { "每層百分比", -1000000, 1000000 }, &CastStackAttribute::每層百分比 },
+        { { "層數上限", 1, 1000 }, &CastStackAttribute::層數上限 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        auto modifier = percentAttribute(屬性, 每層百分比);
+        modifier.stack = EffectStackPolicy::AddStack;
+        modifier.stackLimit = 層數上限;
+        return { EffectRule{ .event = EffectEvent::AttackCommitted, .actions = { EffectAction{ .value = modifier } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("出招：{}，上限{}層", compactAttributeDescription(Attributes[屬性], 每層百分比, true), 層數上限);
+
+        return std::format("出招：{}{:+}%，上限{}層", AttributeNames[屬性], 每層百分比, 層數上限);
+    }
+};
+
 struct HitDefencePenalty final : GameplayEffectDefinition
 {
     int 防禦百分比{};
     int 持續幀數{};
     static constexpr std::string_view Name = "命中降低防禦";
     static constexpr auto Parameters = std::array<Parameter<HitDefencePenalty>, 2>{
-        {Parameter<HitDefencePenalty>{{"防禦百分比", -1000000, 1000000}, &HitDefencePenalty::防禦百分比},
-         Parameter<HitDefencePenalty>{{"持續幀數", 1, 1000000}, &HitDefencePenalty::持續幀數}}};
+        { Parameter<HitDefencePenalty>{ { "防禦百分比", -1000000, 1000000 }, &HitDefencePenalty::防禦百分比 },
+            Parameter<HitDefencePenalty>{ { "持續幀數", 1, 1000000 }, &HitDefencePenalty::持續幀數 } }
+    };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{.event = EffectEvent::MainProjectileBeforeDamage,
-                           .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
-                           .actions
-                           = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Defence,
-                                                                          .amount = EffectNumber{.flat = 防禦百分比},
-                                                                          .operation = AttributeOperation::PercentAdd,
-                                                                          .durationFrames = 持續幀數,
-                                                                          .stack = EffectStackPolicy::Refresh}}}}};
+        return { EffectRule{ .event = EffectEvent::MainProjectileBeforeDamage,
+            .selector = EffectSelector{ .kind = EffectSelectorKind::HitTarget },
+            .actions
+            = { EffectAction{ .value = ModifyAttributeAction{ .attribute = BattleAttribute::Defence,
+                                  .amount = EffectNumber{ .flat = 防禦百分比 },
+                                  .operation = AttributeOperation::PercentAdd,
+                                  .durationFrames = 持續幀數,
+                                  .stack = EffectStackPolicy::Refresh } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
@@ -32,81 +108,6 @@ struct HitDefencePenalty final : GameplayEffectDefinition
             return std::format("命中使目標防禦{:+}%，持續{}幀。重複施加刷新持續時間。", 防禦百分比, 持續幀數);
         }
         return std::format("命中：目標{:+}%防，{}幀", 防禦百分比, 持續幀數);
-    }
-};
-
-struct CastStackBlock final : GameplayEffectDefinition
-{
-    int 每層格擋百分比{};
-    int 層數上限{};
-    static constexpr std::string_view Name = "出招疊加格擋";
-    static constexpr auto Parameters = std::array<Parameter<CastStackBlock>, 2>{
-        {Parameter<CastStackBlock>{{"每層格擋百分比", -1000000, 1000000}, &CastStackBlock::每層格擋百分比},
-         Parameter<CastStackBlock>{{"層數上限", 1, 1000}, &CastStackBlock::層數上限}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{
-            .event = EffectEvent::AttackCommitted,
-            .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::BlockChance,
-                                                                    .amount = EffectNumber{.flat = 每層格擋百分比},
-                                                                    .operation = AttributeOperation::PercentagePointAdd,
-                                                                    .stack = EffectStackPolicy::AddStack,
-                                                                    .stackLimit = 層數上限}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招{:+}%格擋，上限{}層", 每層格擋百分比, 層數上限);
-        return std::format("每次出招格擋率{:+}%，最多{}層。", 每層格擋百分比, 層數上限);
-    }
-};
-
-struct CastStatBuff final : GameplayEffectDefinition
-{
-    int 攻擊百分比{};
-    int 防禦百分比{};
-    int 速度百分比{};
-    int 持續幀數{};
-    static constexpr std::string_view Name = "出招強化攻防速度";
-    static constexpr auto Parameters = std::array<Parameter<CastStatBuff>, 4>{
-        {Parameter<CastStatBuff>{{"攻擊百分比", -1000000, 1000000}, &CastStatBuff::攻擊百分比},
-         Parameter<CastStatBuff>{{"防禦百分比", -1000000, 1000000}, &CastStatBuff::防禦百分比},
-         Parameter<CastStatBuff>{{"速度百分比", -1000000, 1000000}, &CastStatBuff::速度百分比},
-         Parameter<CastStatBuff>{{"持續幀數", 1, 1000000}, &CastStatBuff::持續幀數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{.event = EffectEvent::AttackCommitted,
-                           .actions
-                           = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                          .amount = EffectNumber{.flat = 攻擊百分比},
-                                                                          .operation = AttributeOperation::PercentAdd,
-                                                                          .durationFrames = 持續幀數,
-                                                                          .stack = EffectStackPolicy::Refresh}},
-                              EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Defence,
-                                                                          .amount = EffectNumber{.flat = 防禦百分比},
-                                                                          .operation = AttributeOperation::PercentAdd,
-                                                                          .durationFrames = 持續幀數,
-                                                                          .stack = EffectStackPolicy::Refresh}},
-                              EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Speed,
-                                                                          .amount = EffectNumber{.flat = 速度百分比},
-                                                                          .operation = AttributeOperation::PercentAdd,
-                                                                          .durationFrames = 持續幀數,
-                                                                          .stack = EffectStackPolicy::Refresh}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("出招時攻擊{:+}%、防禦{:+}%、速度{:+}%，持續{}幀。重複觸發刷新持續時間。",
-                               攻擊百分比,
-                               防禦百分比,
-                               速度百分比,
-                               持續幀數);
-        }
-        return std::format(
-            "出招：攻擊{:+}%、防禦{:+}%、速度{:+}%，{}幀", 攻擊百分比, 防禦百分比, 速度百分比, 持續幀數);
     }
 };
 
@@ -170,42 +171,6 @@ struct CastDamageReduction final : GameplayEffectDefinition
     }
 };
 
-struct CastDodgeCriticalBuff final : GameplayEffectDefinition
-{
-    int 閃避百分比{};
-    int 暴擊百分比{};
-    int 持續幀數{};
-    static constexpr std::string_view Name = "出招強化閃避暴擊";
-    static constexpr auto Parameters = std::array<Parameter<CastDodgeCriticalBuff>, 3>{
-        {Parameter<CastDodgeCriticalBuff>{{"閃避百分比", -1000000, 1000000}, &CastDodgeCriticalBuff::閃避百分比},
-         Parameter<CastDodgeCriticalBuff>{{"暴擊百分比", -1000000, 1000000}, &CastDodgeCriticalBuff::暴擊百分比},
-         Parameter<CastDodgeCriticalBuff>{{"持續幀數", 1, 1000000}, &CastDodgeCriticalBuff::持續幀數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{
-            .event = EffectEvent::AttackCommitted,
-            .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::DodgeChance,
-                                                                    .amount = EffectNumber{.flat = 閃避百分比},
-                                                                    .operation = AttributeOperation::PercentagePointAdd,
-                                                                    .durationFrames = 持續幀數,
-                                                                    .stack = EffectStackPolicy::Refresh}},
-                        EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::CriticalChance,
-                                                                    .amount = EffectNumber{.flat = 暴擊百分比},
-                                                                    .operation = AttributeOperation::PercentagePointAdd,
-                                                                    .durationFrames = 持續幀數,
-                                                                    .stack = EffectStackPolicy::Refresh}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "出招時閃避率{:+}%、暴擊率{:+}%，持續{}幀。重複觸發刷新持續時間。", 閃避百分比, 暴擊百分比, 持續幀數);
-        }
-        return std::format("出招：閃避{:+}%、暴擊{:+}%，{}幀", 閃避百分比, 暴擊百分比, 持續幀數);
-    }
-};
 
 struct CastTeamAttack final : GameplayEffectDefinition
 {
@@ -276,43 +241,10 @@ struct BurningArea final : GameplayEffectDefinition
                                每次傷害);
         }
         return std::format(
-            "出招建立半徑{}格的區域，持續{}幀；每{}幀對區域內敵人造成{}傷害。", 半徑格數, 持續幀數, 間隔幀數, 每次傷害);
+            "出招：火陣半徑{}格，{}幀；每{}幀傷敵{}", 半徑格數, 持續幀數, 間隔幀數, 每次傷害);
     }
 };
 
-struct CastStackCritical final : GameplayEffectDefinition
-{
-    int 每層暴擊百分比{};
-    int 層數上限{};
-    int 每層暴傷百分比{};
-    static constexpr std::string_view Name = "出招疊加暴擊";
-    static constexpr auto Parameters = std::array<Parameter<CastStackCritical>, 3>{
-        {Parameter<CastStackCritical>{{"每層暴擊百分比", -1000000, 1000000}, &CastStackCritical::每層暴擊百分比},
-         Parameter<CastStackCritical>{{"層數上限", 1, 1000}, &CastStackCritical::層數上限},
-         Parameter<CastStackCritical>{{"每層暴傷百分比", -1000000, 1000000}, &CastStackCritical::每層暴傷百分比}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{
-            .event = EffectEvent::AttackCommitted,
-            .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::CriticalChance,
-                                                                    .amount = EffectNumber{.flat = 每層暴擊百分比},
-                                                                    .operation = AttributeOperation::PercentagePointAdd,
-                                                                    .stack = EffectStackPolicy::AddStack,
-                                                                    .stackLimit = 層數上限}},
-                        EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::CriticalDamage,
-                                                                    .amount = EffectNumber{.flat = 每層暴傷百分比},
-                                                                    .operation = AttributeOperation::PercentagePointAdd,
-                                                                    .stack = EffectStackPolicy::AddStack,
-                                                                    .stackLimit = 層數上限}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招{:+}%暴擊、{:+}%暴傷，上限{}層", 每層暴擊百分比, 每層暴傷百分比, 層數上限);
-        return std::format("每次出招暴擊率{:+}%、暴擊傷害{:+}%，最多{}層。", 每層暴擊百分比, 每層暴傷百分比, 層數上限);
-    }
-};
 
 struct DefenceBonus final : GameplayEffectDefinition
 {
@@ -327,7 +259,12 @@ struct DefenceBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Defence,
                                                                           .amount = EffectNumber{.flat = 點數}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("防禦{:+}。", 點數); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::Defence, 點數, false);
+        return std::format("防禦{:+}。", 點數);
+    }
 };
 
 struct FlatDamageReduction final : GameplayEffectDefinition
@@ -365,7 +302,12 @@ struct BlockBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::BlockChance,
                                                                           .amount = EffectNumber{.flat = 百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("格擋率{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::BlockChance, 百分比, true);
+        return std::format("格擋率{:+}%。", 百分比);
+    }
 };
 
 struct SkillReflectBonus final : GameplayEffectDefinition
@@ -381,7 +323,8 @@ struct SkillReflectBonus final : GameplayEffectDefinition
             .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::SkillReflectPercent,
                                                                     .amount = EffectNumber{.flat = 百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("技能反彈{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("技能反彈{:+}%。", 百分比);
+    }
 };
 
 struct MaxHealthBonus final : GameplayEffectDefinition
@@ -396,7 +339,12 @@ struct MaxHealthBonus final : GameplayEffectDefinition
         return {EffectRule{.actions
                            = {EffectAction{.value = ModifyAttributeAction{.amount = EffectNumber{.flat = 點數}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("最大生命{:+}。", 點數); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("血上限{:+}", 點數);
+        return std::format("最大生命{:+}。", 點數);
+    }
 };
 
 struct AttackPercentBonus final : GameplayEffectDefinition
@@ -413,7 +361,12 @@ struct AttackPercentBonus final : GameplayEffectDefinition
                                                                     .amount = EffectNumber{.flat = 百分比},
                                                                     .operation = AttributeOperation::PercentAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("攻擊{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::Attack, 百分比, true);
+        return std::format("攻擊{:+}%。", 百分比);
+    }
 };
 
 struct SpeedBonus final : GameplayEffectDefinition
@@ -429,7 +382,8 @@ struct SpeedBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Speed,
                                                                           .amount = EffectNumber{.flat = 點數}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("速度{:+}。", 點數); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("速度{:+}。", 點數);
+    }
 };
 
 struct StaggerResistanceBonus final : GameplayEffectDefinition
@@ -446,7 +400,8 @@ struct StaggerResistanceBonus final : GameplayEffectDefinition
                                                               .amount = EffectNumber{.flat = 百分比},
                                                               .operation = AttributeOperation::PercentagePointAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("僵直抗性{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("僵直抗性{:+}%。", 百分比);
+    }
 };
 
 struct CooldownReductionBonus final : GameplayEffectDefinition
@@ -463,7 +418,8 @@ struct CooldownReductionBonus final : GameplayEffectDefinition
                                                               .amount = EffectNumber{.flat = 百分比},
                                                               .operation = AttributeOperation::PercentagePointAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("冷卻縮減{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("冷卻縮減{:+}%。", 百分比);
+    }
 };
 
 struct MpRecoveryBonus final : GameplayEffectDefinition
@@ -481,7 +437,11 @@ struct MpRecoveryBonus final : GameplayEffectDefinition
                                                               .operation = AttributeOperation::PercentagePointAdd}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("內力回復加成{:+}%。", 百分比); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("回內加成{:+}%", 百分比);
+        return std::format("內力回復加成{:+}%。", 百分比);
+    }
 };
 
 struct HitStackDamage final : GameplayEffectDefinition
@@ -532,7 +492,12 @@ struct AttackBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
                                                                           .amount = EffectNumber{.flat = 點數}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("攻擊{:+}。", 點數); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::Attack, 點數, false);
+        return std::format("攻擊{:+}。", 點數);
+    }
 };
 
 struct DefencePercentBonus final : GameplayEffectDefinition
@@ -549,7 +514,12 @@ struct DefencePercentBonus final : GameplayEffectDefinition
                                                                     .amount = EffectNumber{.flat = 百分比},
                                                                     .operation = AttributeOperation::PercentAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("防禦{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::Defence, 百分比, true);
+        return std::format("防禦{:+}%。", 百分比);
+    }
 };
 
 struct DodgeBonus final : GameplayEffectDefinition
@@ -565,7 +535,12 @@ struct DodgeBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::DodgeChance,
                                                                           .amount = EffectNumber{.flat = 百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("閃避率{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::DodgeChance, 百分比, true);
+        return std::format("閃避率{:+}%。", 百分比);
+    }
 };
 
 struct CriticalAfterDodge final : GameplayEffectDefinition
@@ -579,7 +554,12 @@ struct CriticalAfterDodge final : GameplayEffectDefinition
             .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::CriticalAfterDodge,
                                                                     .amount = EffectNumber{.flat = 1}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return "成功閃避後，下次命中必定暴擊。"; }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return "閃避：下次命中必暴擊";
+        return "成功閃避後，下次命中必定暴擊。";
+    }
 };
 
 struct MaxHealthPercentBonus final : GameplayEffectDefinition
@@ -595,7 +575,12 @@ struct MaxHealthPercentBonus final : GameplayEffectDefinition
             .actions = {EffectAction{.value = ModifyAttributeAction{.amount = EffectNumber{.flat = 百分比},
                                                                     .operation = AttributeOperation::PercentAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("最大生命{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("血上限{:+}%", 百分比);
+        return std::format("最大生命{:+}%。", 百分比);
+    }
 };
 
 struct LowHealthAttack final : GameplayEffectDefinition
@@ -670,7 +655,8 @@ struct SkillDamageBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::SkillDamage,
                                                                           .amount = EffectNumber{.flat = 百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("技能傷害{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("技能傷害{:+}%。", 百分比);
+    }
 };
 
 struct KillAttackBonus final : GameplayEffectDefinition
@@ -691,7 +677,7 @@ struct KillAttackBonus final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("擊殺敵人{:+}攻", 點數);
+            return std::format("擊殺：{:+}攻", 點數);
         return std::format("每次擊殺敵人後，攻擊{:+}。", 點數);
     }
 };
@@ -714,7 +700,7 @@ struct ReceivedDamagePercent final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Full) { return std::format("承受傷害{:+}%。在計算防禦前生效。", 百分比); }
-        return std::format("承受傷害{:+}%。", 百分比);
+        return std::format("承傷{:+}%", 百分比);
     }
 };
 
@@ -731,7 +717,12 @@ struct CriticalBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::CriticalChance,
                                                                           .amount = EffectNumber{.flat = 百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("暴擊率{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return compactAttributeDescription(BattleAttribute::CriticalChance, 百分比, true);
+        return std::format("暴擊率{:+}%。", 百分比);
+    }
 };
 
 struct MinimumCriticalDamage final : GameplayEffectDefinition
@@ -829,7 +820,7 @@ struct LastAliveBlock final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("己方僅剩自身：{:+}%格擋", 百分比);
+            return std::format("己方僅剩自身：格擋{:+}%", 百分比);
         return std::format("成為己方最後存活角色時，格擋率{:+}%。", 百分比);
     }
 };
@@ -848,7 +839,8 @@ struct SpeedPercentBonus final : GameplayEffectDefinition
                                                                     .amount = EffectNumber{.flat = 百分比},
                                                                     .operation = AttributeOperation::PercentAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("速度{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("速度{:+}%。", 百分比);
+    }
 };
 
 struct SlidingChanceBonus final : GameplayEffectDefinition
@@ -864,7 +856,8 @@ struct SlidingChanceBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::DashChance,
                                                                           .amount = EffectNumber{.flat = 百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("滑步機率{:+}%。", 百分比); }
+    std::string describe(EffectDescriptionStyle style) const override { return std::format("滑步機率{:+}%。", 百分比);
+    }
 };
 
 struct MissingHealthFlatReduction final : GameplayEffectDefinition
@@ -945,7 +938,11 @@ struct TeamMaxHealthBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.amount = EffectNumber{.flat = 點數}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("全隊最大生命{:+}。", 點數); }
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("全隊血上限{:+}", 點數);
+        return std::format("全隊最大生命{:+}。", 點數);
+    }
 };
 
 struct TeamAttackBonus final : GameplayEffectDefinition
@@ -962,7 +959,12 @@ struct TeamAttackBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
                                                                           .amount = EffectNumber{.flat = 點數}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("全隊攻擊{:+}。", 點數); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("全隊{:+}攻", 點數);
+        return std::format("全隊攻擊{:+}。", 點數);
+    }
 };
 
 struct TeamDefenceBonus final : GameplayEffectDefinition
@@ -979,7 +981,12 @@ struct TeamDefenceBonus final : GameplayEffectDefinition
                            = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Defence,
                                                                           .amount = EffectNumber{.flat = 點數}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return std::format("全隊防禦{:+}。", 點數); }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("全隊{:+}防", 點數);
+        return std::format("全隊防禦{:+}。", 點數);
+    }
 };
 
 struct BlockCounterChance final : GameplayEffectDefinition
@@ -996,7 +1003,8 @@ struct BlockCounterChance final : GameplayEffectDefinition
                                                               .amount = EffectNumber{.flat = 百分比}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("格擋反招機率{:+}%。", 百分比); }
+    { return std::format("格擋反招機率{:+}%。", 百分比);
+    }
 };
 
 struct ProjectileReflectBonus final : GameplayEffectDefinition
@@ -1013,22 +1021,22 @@ struct ProjectileReflectBonus final : GameplayEffectDefinition
                                                               .amount = EffectNumber{.flat = 百分比}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
-    { return std::format("彈道反射率{:+}%。", 百分比); }
+    { return std::format("彈道反射率{:+}%。", 百分比);
+    }
 };
 
 }    // namespace
 
 void appendAttributeEffects(std::vector<GameplayEffectRegistration>& entries)
 {
+    entries.push_back(registration<CastTemporaryAttribute<false>>());
+    entries.push_back(registration<CastTemporaryAttribute<true>>());
+    entries.push_back(registration<CastStackAttribute>());
     entries.push_back(registration<HitDefencePenalty>());
-    entries.push_back(registration<CastStackBlock>());
-    entries.push_back(registration<CastStatBuff>());
     entries.push_back(registration<SwordAlliesSureHit>());
     entries.push_back(registration<CastDamageReduction>());
-    entries.push_back(registration<CastDodgeCriticalBuff>());
     entries.push_back(registration<CastTeamAttack>());
     entries.push_back(registration<BurningArea>());
-    entries.push_back(registration<CastStackCritical>());
     entries.push_back(registration<DefenceBonus>());
     entries.push_back(registration<FlatDamageReduction>());
     entries.push_back(registration<BlockBonus>());

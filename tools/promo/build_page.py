@@ -104,6 +104,8 @@ def render_tip(role_id: str, roles, magics, id2combo, convert_ui_text, convert_d
     r = roles[int(role_id)]
     skills = []
     for m in r["skills"]:
+        if m <= 0:
+            continue
         name = convert_db_text(magics.get(m, ""))
         if name and name not in skills:
             skills.append(name)

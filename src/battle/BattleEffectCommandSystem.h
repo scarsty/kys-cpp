@@ -245,6 +245,7 @@ struct BattleEffectDamageRequestOutput
     EffectRuleId ruleId;
     std::optional<BattleCastProvenance> triggeringCast;
     std::optional<BattleAttackProvenance> triggeringAttack;
+    std::optional<EffectHitDamageCredit> hitDamageCredit;
     std::optional<EffectStatusContributionContext> statusContribution;
     std::uint32_t authoredActionOrder{};
     int transactionCount = 1;

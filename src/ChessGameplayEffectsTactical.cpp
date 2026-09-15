@@ -5,6 +5,121 @@ namespace KysChess::GameplayEffects
 namespace
 {
 
+struct ShieldBreakAttack final : GameplayEffectDefinition
+{
+    int 攻擊點數{ };
+    int 持續幀數{ };
+    static constexpr std::string_view Name = "破盾攻擊加成";
+    static constexpr auto Parameters = std::array<Parameter<ShieldBreakAttack>, 2>{ { { { "攻擊點數", -1000000, 1000000 }, &ShieldBreakAttack::攻擊點數 },
+        { { "持續幀數", 1, 1000000 }, &ShieldBreakAttack::持續幀數 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::ShieldBroken,
+            .actions = { EffectAction{ .value = ModifyAttributeAction{ .attribute = BattleAttribute::Attack,
+                                           .amount = EffectNumber{ .flat = 攻擊點數 },
+                                           .durationFrames = 持續幀數,
+                                           .stack = EffectStackPolicy::Refresh } } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("破盾：{:+}攻，{}幀", 攻擊點數, 持續幀數);
+
+        return std::format("破盾：攻擊{:+}，持續{}幀；重複施加刷新時間。", 攻擊點數, 持續幀數);
+    }
+};
+
+struct ShieldBreakUltimate final : GameplayEffectDefinition
+{
+    static constexpr std::string_view Name = "破盾免費絕招";
+    static constexpr auto Parameters = std::array<Parameter<ShieldBreakUltimate>, 0>{ };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::ShieldBroken,
+            .actions = { EffectAction{ .value = ModifyCastAction{ .autoUltimate = AutoUltimateCastRequest{ } } } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return "破盾：免費絕招";
+        return "破盾：免費施放絕招。";
+    }
+};
+
+struct ShieldBreakMp final : GameplayEffectDefinition
+{
+    int 回復內力{ };
+    static constexpr std::string_view Name = "破盾回內";
+    static constexpr auto Parameters = std::array<Parameter<ShieldBreakMp>, 1>{ { { { "回復內力", 0, 1000000 }, &ShieldBreakMp::回復內力 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::ShieldBroken,
+            .actions = { EffectAction{ .value = ChangeResourceAction{ .resource = BattleResource::Mp,
+                                           .amount = EffectNumber{ .flat = 回復內力 } } } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("破盾：回{}內", 回復內力);
+        return std::format("破盾：回復{}內力。", 回復內力);
+    }
+};
+
+struct MemberDeathShield final : GameplayEffectDefinition
+{
+    int 陣亡人數{ };
+    int 生命百分比{ };
+    static constexpr std::string_view Name = "同羈絆陣亡補盾";
+    static constexpr auto Parameters = std::array<Parameter<MemberDeathShield>, 2>{ { { { "陣亡人數", 1, 1000 }, &MemberDeathShield::陣亡人數 },
+        { { "生命百分比", 0, 1000000 }, &MemberDeathShield::生命百分比 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::AllyDied,
+            .conditions = { EventTargetBelongsToBoundSourceCondition{ } },
+            .everyNthEvent = 陣亡人數,
+            .actions = { EffectAction{ .value = ChangeResourceAction{ .resource = BattleResource::Shield,
+                                           .amount = EffectNumber{ .base = EffectNumberBase::TargetMaxHp, .percent = 生命百分比 },
+                                           .kind = ResourceChangeKind::Grant } } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("每{}名同羈絆友軍陣亡：護盾+血上限{}%", 陣亡人數, 生命百分比);
+
+        return std::format("每{}名同羈絆友軍陣亡：自身獲得血上限{}%護盾。", 陣亡人數, 生命百分比);
+    }
+};
+
+struct MemberDeathAttribute final : GameplayEffectDefinition
+{
+    int 屬性{ };
+    int 點數{ };
+    static constexpr std::array<std::string_view, 2> Choices{ "攻擊", "防禦" };
+    static constexpr std::string_view Name = "同羈絆陣亡屬性加成";
+    static constexpr auto Parameters = std::array<Parameter<MemberDeathAttribute>, 2>{ { { { "屬性", 0, 1, Choices }, &MemberDeathAttribute::屬性 },
+        { { "點數", -1000000, 1000000 }, &MemberDeathAttribute::點數 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::AllyDied,
+            .conditions = { EventTargetBelongsToBoundSourceCondition{ } },
+            .actions = { EffectAction{ .value = ModifyAttributeAction{
+                                           .attribute = 屬性 == 0 ? BattleAttribute::Attack : BattleAttribute::Defence,
+                                           .amount = EffectNumber{ .flat = 點數 } } } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("同羈絆友軍陣亡：{}", compactAttributeDescription(屬性 == 0 ? BattleAttribute::Attack : BattleAttribute::Defence, 點數, false));
+
+        return std::format("同羈絆友軍陣亡：自身{}{:+}。", Choices[屬性], 點數);
+    }
+};
+
 struct MultiTargetTeamHaste final : GameplayEffectDefinition
 {
     int 命中人數{};
@@ -77,7 +192,7 @@ struct ShareAllyDamageArea final : GameplayEffectDefinition
                 持續幀數,
                 轉移減傷百分比);
         }
-        return std::format("出招：半徑{}格、{}幀；代友軍承傷，轉移傷害-{}%",
+        return std::format("出招：半徑{}格，{}幀；代友軍承傷，轉移傷害-{}%",
                            半徑格數,
                            持續幀數,
                            轉移減傷百分比);
@@ -128,6 +243,9 @@ struct HitDisruptionArea final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("命中：半徑{}格，{}幀；敵人速度{:+}%，敵方彈速{:+}%、彈道壓制{:+}%、禁止追蹤", 半徑格數, 持續幀數, 速度百分比, 彈速百分比, 彈道壓制百分比);
+
         return std::format(
             "命中建立半徑{}格的區域，持續{}幀；敵人速度{:+}%，敵方彈速{:+}%、彈道壓制{:+}%，並禁止追蹤。",
             半徑格數,
@@ -183,7 +301,7 @@ struct ProtectiveArea final : GameplayEffectDefinition
                 格擋百分比,
                 敵方傷害百分比);
         }
-        return std::format("出招：護陣半徑{}格、{}幀；友軍格擋{:+}%、免擊退，敵人傷害{:+}%",
+        return std::format("出招：護陣半徑{}格，{}幀；友軍格擋{:+}%、免擊退，敵人傷害{:+}%",
                            半徑格數,
                            持續幀數,
                            格擋百分比,
@@ -229,39 +347,48 @@ struct LowHealthMemberTeamAttack final : GameplayEffectDefinition
                 持續幀數);
         }
         return std::format(
-            "任一成員首次血量<{}%：全員攻擊{:+}%，{}幀", 生命門檻百分比, 攻擊百分比, 持續幀數);
+            "任一成員首次血量<{}%：全員{:+}%攻，{}幀", 生命門檻百分比, 攻擊百分比, 持續幀數);
     }
 };
 
+template <bool BeforeDamage>
 struct HitOutgoingDamagePenalty final : GameplayEffectDefinition
 {
     int 傷害百分比{};
     int 持續幀數{};
-    static constexpr std::string_view Name = "命中削弱敵方傷害";
+    static constexpr std::string_view Name = BeforeDamage ? "主彈命中弱化傷害" : "命中削弱敵方傷害";
     static constexpr auto Parameters = std::array<Parameter<HitOutgoingDamagePenalty>, 2>{
         {Parameter<HitOutgoingDamagePenalty>{{"傷害百分比", -1000000, 1000000}, &HitOutgoingDamagePenalty::傷害百分比},
          Parameter<HitOutgoingDamagePenalty>{{"持續幀數", 1, 1000000}, &HitOutgoingDamagePenalty::持續幀數}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{
-            .event = EffectEvent::DamageResolved,
-            .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
-            .conditions = {DamagePerspectiveCondition{}, AcceptedHitCondition{.requirePositiveDamage = true}},
-            .actions = {EffectAction{.value = ModifyDamageAction{.channel = DamageChannel::All,
-                                                                 .amount = EffectNumber{.flat = 傷害百分比},
-                                                                 .operation = DamageModifierOperation::PercentAdd,
-                                                                 .durationFrames = 持續幀數}}}}};
+        return { EffectRule{
+            .event = BeforeDamage ? EffectEvent::MainProjectileBeforeDamage : EffectEvent::DamageResolved,
+            .selector = EffectSelector{ .kind = EffectSelectorKind::HitTarget },
+            .conditions = BeforeDamage ? std::vector<EffectCondition>{ } : std::vector<EffectCondition>{ DamagePerspectiveCondition{ }, AcceptedHitCondition{ .requirePositiveDamage = true } },
+            .actions = { EffectAction{ .value = ModifyDamageAction{ .stage = BeforeDamage ? DamageModifierStage::Final : DamageModifierStage::BeforeDefense,
+                                           .channel = DamageChannel::All,
+                                           .amount = EffectNumber{ .flat = 傷害百分比 },
+                                           .operation = DamageModifierOperation::PercentAdd,
+                                           .durationFrames = 持續幀數,
+                                           .stack = BeforeDamage ? EffectStackPolicy::Refresh : EffectStackPolicy::Independent } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        if constexpr (BeforeDamage)
+        {
+            if (style == EffectDescriptionStyle::Compact)
+                return std::format("主彈命中：目標傷害{:+}%，{}幀", 傷害百分比, 持續幀數);
+            return std::format("主彈命中：目標傷害{:+}%，持續{}幀；重複施加刷新時間。", 傷害百分比, 持續幀數);
+        }
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format("造成生命傷害後，使目標造成傷害{:+}%，持續{}幀。在計算防禦前生效，各次施加獨立。",
                                傷害百分比,
                                持續幀數);
         }
-        return std::format("造成生命傷害：目標傷害{:+}%，{}幀", 傷害百分比, 持續幀數);
+        return std::format("傷血：目標傷害{:+}%，{}幀", 傷害百分比, 持續幀數);
     }
 };
 
@@ -296,121 +423,11 @@ struct AdaptToAttacker final : GameplayEffectDefinition
                 每層承傷百分比,
                 層數上限);
         }
-        return std::format("被命中：該敵對你的技能傷害{:+}%，上限{}層", 每層承傷百分比, 層數上限);
+        return std::format("受擊：該敵對自身技能傷害{:+}%，上限{}層", 每層承傷百分比, 層數上限);
     }
 };
 
-struct InitialShieldBreakRage final : GameplayEffectDefinition
-{
-    int 護盾生命百分比{};
-    int 攻擊點數{};
-    int 持續幀數{};
-    static constexpr std::string_view Name = "開場護盾破裂反擊";
-    static constexpr auto Parameters = std::array<Parameter<InitialShieldBreakRage>, 3>{
-        {Parameter<InitialShieldBreakRage>{{"護盾生命百分比", 0, 1000000}, &InitialShieldBreakRage::護盾生命百分比},
-         Parameter<InitialShieldBreakRage>{{"攻擊點數", -1000000, 1000000}, &InitialShieldBreakRage::攻擊點數},
-         Parameter<InitialShieldBreakRage>{{"持續幀數", 1, 1000000}, &InitialShieldBreakRage::持續幀數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {
-            EffectRule{.actions = {EffectAction{
-                           .value = ChangeResourceAction{.resource = BattleResource::Shield,
-                                                         .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp,
-                                                                                .percent = 護盾生命百分比},
-                                                         .kind = ResourceChangeKind::Grant}}}},
-            EffectRule{.event = EffectEvent::ShieldBroken,
-                       .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                               .amount = EffectNumber{.flat = 攻擊點數},
-                                                                               .durationFrames = 持續幀數,
-                                                                               .stack = EffectStackPolicy::Refresh}}}},
-            EffectRule{.event = EffectEvent::ShieldBroken,
-                       .actions
-                       = {EffectAction{.value = ModifyCastAction{.autoUltimate = AutoUltimateCastRequest{}}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "開場獲得最大生命{}%護盾；破盾時免費施放絕招，攻擊{:+}，持續{}幀。重複攻擊加成刷新時間。",
-                護盾生命百分比,
-                攻擊點數,
-                持續幀數);
-        }
-        return std::format(
-            "開場獲得最大生命{}%護盾；破盾時免費施放絕招，攻擊{:+}，持續{}幀。", 護盾生命百分比, 攻擊點數, 持續幀數);
-    }
-};
 
-struct ShieldBreakRageAndRenewal final : GameplayEffectDefinition
-{
-    int 護盾生命百分比{};
-    int 攻擊點數{};
-    int 持續幀數{};
-    int 回復內力{};
-    int 陣亡人數{};
-    int 補盾生命百分比{};
-    static constexpr std::string_view Name = "破盾反擊與陣亡補盾";
-    static constexpr auto Parameters = std::array<Parameter<ShieldBreakRageAndRenewal>, 6>{
-        {Parameter<ShieldBreakRageAndRenewal>{{"護盾生命百分比", 0, 1000000},
-                                              &ShieldBreakRageAndRenewal::護盾生命百分比},
-         Parameter<ShieldBreakRageAndRenewal>{{"攻擊點數", -1000000, 1000000}, &ShieldBreakRageAndRenewal::攻擊點數},
-         Parameter<ShieldBreakRageAndRenewal>{{"持續幀數", 1, 1000000}, &ShieldBreakRageAndRenewal::持續幀數},
-         Parameter<ShieldBreakRageAndRenewal>{{"回復內力", 0, 1000000}, &ShieldBreakRageAndRenewal::回復內力},
-         Parameter<ShieldBreakRageAndRenewal>{{"陣亡人數", 0, 1000}, &ShieldBreakRageAndRenewal::陣亡人數},
-         Parameter<ShieldBreakRageAndRenewal>{{"補盾生命百分比", 0, 1000000},
-                                              &ShieldBreakRageAndRenewal::補盾生命百分比}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {
-            EffectRule{.actions = {EffectAction{
-                           .value = ChangeResourceAction{.resource = BattleResource::Shield,
-                                                         .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp,
-                                                                                .percent = 護盾生命百分比},
-                                                         .kind = ResourceChangeKind::Grant}}}},
-            EffectRule{.event = EffectEvent::ShieldBroken,
-                       .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                               .amount = EffectNumber{.flat = 攻擊點數},
-                                                                               .durationFrames = 持續幀數,
-                                                                               .stack = EffectStackPolicy::Refresh}}}},
-            EffectRule{.event = EffectEvent::ShieldBroken,
-                       .actions = {EffectAction{.value = ModifyCastAction{.autoUltimate = AutoUltimateCastRequest{}}}}},
-            EffectRule{.event = EffectEvent::ShieldBroken,
-                       .actions
-                       = {EffectAction{.value = ChangeResourceAction{.resource = BattleResource::Mp,
-                                                                     .amount = EffectNumber{.flat = 回復內力}}}}},
-            EffectRule{.event = EffectEvent::AllyDied,
-                       .conditions = {EventTargetBelongsToBoundSourceCondition{}},
-                       .everyNthEvent = 陣亡人數,
-                       .actions = {EffectAction{
-                           .value = ChangeResourceAction{
-                               .resource = BattleResource::Shield,
-                               .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp, .percent = 補盾生命百分比},
-                               .kind = ResourceChangeKind::Grant}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "開場獲得最大生命{}%護盾；破盾時免費施放絕招、回復{}內力，攻擊{:+}，持續{}幀。每{}"
-                "名同羈絆友軍死亡，獲得最大生命{}%護盾。",
-                護盾生命百分比,
-                回復內力,
-                攻擊點數,
-                持續幀數,
-                陣亡人數,
-                補盾生命百分比);
-        }
-        return std::format("開場血上限{}%護盾；破盾免費絕招、回{}內，{:+}攻持續{}幀",
-                           護盾生命百分比,
-                           回復內力,
-                           攻擊點數,
-                           持續幀數);
-    }
-};
 
 struct ReceivedHitDelayCounter final : GameplayEffectDefinition
 {
@@ -434,7 +451,7 @@ struct ReceivedHitDelayCounter final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("受擊{}%機率：攻擊者出招冷卻+{}%", 機率百分比, 冷卻百分比);
+            return std::format("受擊：{}%機率攻擊者出招冷卻+{}%", 機率百分比, 冷卻百分比);
         return std::format("受擊時有{}%機率，使攻擊者的出招冷卻延長{}%。", 機率百分比, 冷卻百分比);
     }
 };
@@ -461,7 +478,7 @@ struct HitDelayEnemyCooldown final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("攻擊{}%機率：目標出招冷卻+{}%", 機率百分比, 冷卻百分比);
+            return std::format("命中：{}%機率目標出招冷卻+{}%", 機率百分比, 冷卻百分比);
         return std::format("攻擊有{}%機率使目標出招冷卻延長{}%。", 機率百分比, 冷卻百分比);
     }
 };
@@ -493,7 +510,7 @@ struct AdaptDodgeToAttacker final : GameplayEffectDefinition
             return std::format(
                 "每次被命中後，對該攻擊者的閃避率{:+}%，最多{}層。每名攻擊者分別累積。", 每層閃避百分比, 層數上限);
         }
-        return std::format("被命中：對該敵閃避{:+}%，上限{}層", 每層閃避百分比, 層數上限);
+        return std::format("受擊：對該敵閃避{:+}%，上限{}層", 每層閃避百分比, 層數上限);
     }
 };
 
@@ -534,36 +551,10 @@ struct WeakenStrongestEnemies final : GameplayEffectDefinition
                 攻擊點數,
                 防禦點數);
         }
-        return std::format("壓制最強{}敵：攻擊{:+}、防禦{:+}", 敵人數, 攻擊點數, 防禦點數);
+        return std::format("壓制最強{}敵：{:+}攻、{:+}防", 敵人數, 攻擊點數, 防禦點數);
     }
 };
 
-struct AllyDeathStats final : GameplayEffectDefinition
-{
-    int 攻擊點數{};
-    int 防禦點數{};
-    static constexpr std::string_view Name = "同羈絆陣亡增強";
-    static constexpr auto Parameters = std::array<Parameter<AllyDeathStats>, 2>{
-        {Parameter<AllyDeathStats>{{"攻擊點數", -1000000, 1000000}, &AllyDeathStats::攻擊點數},
-         Parameter<AllyDeathStats>{{"防禦點數", -1000000, 1000000}, &AllyDeathStats::防禦點數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{.event = EffectEvent::AllyDied,
-                           .conditions = {EventTargetBelongsToBoundSourceCondition{}},
-                           .actions
-                           = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                          .amount = EffectNumber{.flat = 攻擊點數}}},
-                              EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Defence,
-                                                                          .amount = EffectNumber{.flat = 防禦點數}}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("同羈絆友軍陣亡：{:+}攻、{:+}防", 攻擊點數, 防禦點數);
-        return std::format("每名同羈絆友軍死亡時，自身攻擊{:+}、防禦{:+}。", 攻擊點數, 防禦點數);
-    }
-};
 
 struct PeriodicFreeUltimate final : GameplayEffectDefinition
 {
@@ -582,7 +573,7 @@ struct PeriodicFreeUltimate final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("每{}幀免費絕招", 間隔幀數);
+            return std::format("每{}幀：免費絕招", 間隔幀數);
         return std::format("每{}幀免費施放絕招。", 間隔幀數);
     }
 };
@@ -634,20 +625,23 @@ struct ExecuteReposition final : GameplayEffectDefinition
 
 void appendTacticalEffects(std::vector<GameplayEffectRegistration>& entries)
 {
+    entries.push_back(registration<ShieldBreakAttack>());
+    entries.push_back(registration<ShieldBreakUltimate>());
+    entries.push_back(registration<ShieldBreakMp>());
+    entries.push_back(registration<MemberDeathShield>());
+    entries.push_back(registration<MemberDeathAttribute>());
+    entries.push_back(registration<HitOutgoingDamagePenalty<true>>());
     entries.push_back(registration<MultiTargetTeamHaste>());
     entries.push_back(registration<ShareAllyDamageArea>());
     entries.push_back(registration<HitDisruptionArea>());
     entries.push_back(registration<ProtectiveArea>());
     entries.push_back(registration<LowHealthMemberTeamAttack>());
-    entries.push_back(registration<HitOutgoingDamagePenalty>());
+    entries.push_back(registration<HitOutgoingDamagePenalty<false>>());
     entries.push_back(registration<AdaptToAttacker>());
-    entries.push_back(registration<InitialShieldBreakRage>());
-    entries.push_back(registration<ShieldBreakRageAndRenewal>());
     entries.push_back(registration<ReceivedHitDelayCounter>());
     entries.push_back(registration<HitDelayEnemyCooldown>());
     entries.push_back(registration<AdaptDodgeToAttacker>());
     entries.push_back(registration<WeakenStrongestEnemies>());
-    entries.push_back(registration<AllyDeathStats>());
     entries.push_back(registration<PeriodicFreeUltimate>());
     entries.push_back(registration<RescueReposition>());
     entries.push_back(registration<ExecuteReposition>());

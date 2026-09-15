@@ -324,7 +324,7 @@ struct ChessGameplayObservation
     std::string talentDescription;
     bool talentHasLegendaryShop{};
     int luckChancePerStack{};
-    int luckChanceCap{};
+    int luckStackCap{};
     std::optional<BalanceConfig::PlayerEquipmentReward> nextBasicEquipmentReward;
     std::optional<BalanceConfig::PlayerEquipmentReward> nextTalentEquipmentReward;
     int money{};

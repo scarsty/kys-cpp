@@ -63,8 +63,29 @@ bool parseGameplayEffects(const YAML::Node& node, std::vector<GameplayEffect>& e
             for (const auto& parameter : found->parameters)
             {
                 const auto valueNode = entry[std::string(parameter.name)];
-                if (!valueNode) { return fail(std::format("「{}」缺少參數「{}」", name, parameter.name)); }
-                const int value = valueNode.as<int>();
+                if (!valueNode && !parameter.defaultValue)
+                {
+                    return fail(std::format("「{}」缺少參數「{}」", name, parameter.name));
+                }
+                int value{ };
+                if (!valueNode)
+                {
+                    value = *parameter.defaultValue;
+                }
+                else if (parameter.choices.empty())
+                {
+                    value = valueNode.as<int>();
+                }
+                else
+                {
+                    const auto choice = valueNode.as<std::string>();
+                    const auto selected = std::ranges::find(parameter.choices, choice);
+                    if (selected == parameter.choices.end())
+                    {
+                        return fail(std::format("「{}」參數「{}」不支援「{}」", name, parameter.name, choice));
+                    }
+                    value = static_cast<int>(selected - parameter.choices.begin());
+                }
                 if (value < parameter.minimum || value > parameter.maximum)
                 {
                     return fail(std::format("「{}」參數「{}」必須介於{}與{}之間",

@@ -55,13 +55,6 @@ struct BattleCommandSinks
     std::vector<BattleVisualEvent>& visualEvents;
 };
 
-struct EnemyTopDebuffTotals
-{
-    int attack{};
-    int defence{};
-    int sourceTeam = -1;
-};
-
 int adjustedRuntimeMpRestore(BattleRuntimeState& state, int unitId, int amount)
 {
     return adjustedMpRestore(
@@ -74,6 +67,7 @@ BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
 {
     BattleVisualEvent event;
     event.type = BattleVisualEventType::RoleEffect;
+    event.roleEffectType = BattleRoleEffectType::StatusCue;
     event.targetUnitId = cue.targetUnitId;
     event.durationFrames = 15;
     switch (cue.family)
@@ -501,11 +495,13 @@ void reduceEffectCommandImpl(
                 entry.metadata.targetUnitId,
                 BattleSemanticCueFamily::Protection);
         }
+        // 逐幀維持的一幀屬性不播放通知；到期重建不代表重新獲得增益。
         else if (modifierApplicationShouldCue(
                      attribute->outcome,
                      attribute->modifier.stackCount)
-            || (attribute->modifier.attribute == BattleAttribute::GuaranteedHit
-                && attribute->outcome == BattleModifierApplyOutcome::Refreshed))
+            && !(entry.metadata.event == EffectEvent::FrameAdvanced
+                && attribute->modifier.expiresFrameExclusive
+                && *attribute->modifier.expiresFrameExclusive == context.frame + 1))
         {
             const auto family = attribute->modifier.negative
                 ? BattleSemanticCueFamily::Curse
@@ -738,7 +734,7 @@ void appendEnemyTopDebuffReportEvents(
     int frame,
     std::vector<BattleLogEvent>& logEvents)
 {
-    std::map<int, EnemyTopDebuffTotals> current;
+    decltype(state.effectIntegration.reportedEnemyTopDebuffs) current;
     for (const auto& modifier : state.effectCommands.attributeModifiers)
     {
         if (!isEnemyTopDebuffSource(state, modifier.binding)
@@ -749,7 +745,8 @@ void appendEnemyTopDebuffReportEvents(
         }
         assert(modifier.operation == AttributeOperation::FlatAdd);
         assert(modifier.amount <= 0);
-        auto& total = current[modifier.targetUnitId];
+        assert(modifier.attribute == BattleAttribute::Attack || modifier.attribute == BattleAttribute::Defence);
+        auto& total = current[{ modifier.targetUnitId, modifier.attribute }];
         if (total.sourceTeam < 0)
         {
             total.sourceTeam = modifier.binding.sourceTeam;
@@ -758,32 +755,25 @@ void appendEnemyTopDebuffReportEvents(
         {
             assert(total.sourceTeam == modifier.binding.sourceTeam);
         }
-        const int contribution = modifier.amount * modifier.stackCount;
-        if (modifier.attribute == BattleAttribute::Attack)
-        {
-            total.attack += contribution;
-        }
-        else if (modifier.attribute == BattleAttribute::Defence)
-        {
-            total.defence += contribution;
-        }
+        total.value += modifier.amount * modifier.stackCount;
     }
 
-    std::set<int> targetUnitIds;
-    for (const auto& [targetUnitId, _] : current)
+    std::set<std::pair<int, BattleAttribute>> targets;
+    for (const auto& [key, _] : current)
     {
-        targetUnitIds.insert(targetUnitId);
+        targets.insert(key);
     }
-    for (const auto& [targetUnitId, _] : state.effectIntegration.reportedEnemyTopDebuffs)
+    for (const auto& [key, _] : state.effectIntegration.reportedEnemyTopDebuffs)
     {
-        targetUnitIds.insert(targetUnitId);
+        targets.insert(key);
     }
 
-    std::map<int, BattleEnemyTopDebuffReportState> nextReported;
-    for (int targetUnitId : targetUnitIds)
+    decltype(current) nextReported;
+    for (const auto& key : targets)
     {
-        const auto active = current.find(targetUnitId);
-        const auto previous = state.effectIntegration.reportedEnemyTopDebuffs.find(targetUnitId);
+        const auto [targetUnitId, attribute] = key;
+        const auto active = current.find(key);
+        const auto previous = state.effectIntegration.reportedEnemyTopDebuffs.find(key);
         const int previousValue = previous == state.effectIntegration.reportedEnemyTopDebuffs.end()
             ? 0
             : previous->second.value;
@@ -793,10 +783,9 @@ void appendEnemyTopDebuffReportEvents(
             : previous->second.sourceTeam;
         if (active != current.end())
         {
-            assert(active->second.attack == active->second.defence);
-            newValue = active->second.attack;
+            newValue = active->second.value;
             sourceTeam = active->second.sourceTeam;
-            nextReported.emplace(targetUnitId, BattleEnemyTopDebuffReportState{
+            nextReported.emplace(key, BattleEnemyTopDebuffReportState{
                 .value = newValue,
                 .sourceTeam = sourceTeam,
             });
@@ -817,12 +806,14 @@ void appendEnemyTopDebuffReportEvents(
         event.amount = newValue - previousValue;
         event.previousAmount = previousValue;
         event.newAmount = newValue;
-        event.statusId = BattleStatusSemanticId::EnemyTopDebuff;
+        event.statusId = attribute == BattleAttribute::Attack
+            ? BattleStatusSemanticId::EnemyTopAttackDebuff
+            : BattleStatusSemanticId::EnemyTopDefenceDebuff;
         event.semanticSourceTeam = sourceTeam;
         event.semanticSourceKind = "combo";
         event.semanticSourceName = "陰險";
         event.segments = battleLogText(
-            std::format("陰險：攻防{:+}", event.amount),
+            std::format("陰險：{}{:+}", attribute == BattleAttribute::Attack ? "攻擊" : "防禦", event.amount),
             BattleLogTextTone::Negative);
         logEvents.push_back(std::move(event));
     }
@@ -963,6 +954,7 @@ void appendAreaDamagePulses(BattleRuntimeState& state, BattleFrameContext& frame
             if (age <= 0 || age % modifier.intervalFrames != 0) continue;
             auto pulse = roleEffectEvent(area.source.ownerUnitId, -1, 12);
             pulse.visualPath = BattleCueFireVisualPath;
+            pulse.roleEffectType = BattleRoleEffectType::FireCue;
             pulse.color = {255, 255, 255, 230};
             frame.visualEvents.push_back(std::move(pulse));
             for (const auto& unit : state.units.all())

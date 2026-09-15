@@ -5,6 +5,77 @@ namespace KysChess::GameplayEffects
 namespace
 {
 
+struct CastSelfHeal final : GameplayEffectDefinition
+{
+    int 固定治療{ };
+    int 每星治療{ };
+    int 生命治療百分比{ };
+    static constexpr std::string_view Name = "出招治療自身";
+    static constexpr auto Parameters = std::array<Parameter<CastSelfHeal>, 3>{ { { { "固定治療", 0, 1000000, { }, 0 }, &CastSelfHeal::固定治療 },
+        { { "每星治療", 0, 1000000, { }, 0 }, &CastSelfHeal::每星治療 },
+        { { "生命治療百分比", 0, 1000000, { }, 0 }, &CastSelfHeal::生命治療百分比 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::AttackCommitted,
+            .actions = { EffectAction{ .value = recoveryAmount(BattleResource::Hp, 固定治療, 每星治療,
+                                           生命治療百分比, EffectNumberBase::SourceMaxHp) } } } };
+    }
+    std::string describe(EffectDescriptionStyle) const override
+    {
+        return std::format("出招：回血{}", recoveryDescription(固定治療, 每星治療, 生命治療百分比));
+    }
+};
+
+template <BattleResource Resource, bool Team = false>
+struct CastShield final : GameplayEffectDefinition
+{
+    int 固定護盾{ };
+    int 每星護盾{ };
+    int 生命護盾百分比{ };
+    static constexpr std::string_view Name = Resource == BattleResource::Shield ? "出招護盾" : Resource == BattleResource::StatusShield ? "出招狀態護盾" :
+        Team                                                                                                                            ? "出招全隊僵直護盾" :
+                                                                                                                                          "出招僵直護盾";
+    static constexpr auto Parameters = std::array<Parameter<CastShield>, 3>{ { { { "固定護盾", 0, 1000000, { }, 0 }, &CastShield::固定護盾 },
+        { { "每星護盾", 0, 1000000, { }, 0 }, &CastShield::每星護盾 },
+        { { "生命護盾百分比", 0, 1000000, { }, 0 }, &CastShield::生命護盾百分比 } } };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::AttackCommitted,
+            .selector = EffectSelector{ .kind = Team ? EffectSelectorKind::Allies : EffectSelectorKind::Self },
+            .actions = { EffectAction{ .value = recoveryAmount(Resource, 固定護盾, 每星護盾, 生命護盾百分比) } } } };
+    }
+    std::string describe(EffectDescriptionStyle ) const override
+    {
+        const auto label = Resource == BattleResource::Shield ? "護盾"
+            : Resource == BattleResource::StatusShield ? "狀態盾" : "僵直盾";
+        return std::format("出招：{}{}+{}", Team ? "全隊" : "", label,
+            recoveryDescription(固定護盾, 每星護盾, 生命護盾百分比));
+    }
+};
+
+template <bool Team>
+struct CastCleanse final : GameplayEffectDefinition
+{
+    static constexpr std::string_view Name = Team ? "出招全隊解控" : "出招淨化自身";
+    static constexpr auto Parameters = std::array<Parameter<CastCleanse>, 0>{ };
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return { EffectRule{ .event = EffectEvent::AttackCommitted,
+            .selector = EffectSelector{ .kind = Team ? EffectSelectorKind::Allies : EffectSelectorKind::Self },
+            .actions = { EffectAction{ .value = Team ? RemoveStatusAction{ .controlOnly = true, .clearCurrentActionStagger = true } : RemoveStatusAction{ .negativeOnly = true } } } } };
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return Team ? "出招：全隊解控、解除僵直" : "出招：清除負面";
+
+        return Team ? "出招解除全隊控制與當前僵直，保留當前位置與動作。" : "出招清除自身所有負面效果。";
+    }
+};
+
 struct CastRestoreAndHeal final : GameplayEffectDefinition
 {
     int 回復內力{};
@@ -50,103 +121,54 @@ struct CastRestoreAndHeal final : GameplayEffectDefinition
                 每星治療);
         }
         return std::format(
-            "出招：自身及內力最低{}友軍回{}內，滿內者每星回{}血", 友軍數, 回復內力, 每星治療);
+            "出招：自身及內力最低{}名友軍回{}內，滿內者每星回{}血", 友軍數, 回復內力, 每星治療);
     }
 };
 
-struct CastHealAndStackPureDamage final : GameplayEffectDefinition
+struct CastStackPureDamage final : GameplayEffectDefinition
 {
-    int 固定治療{};
-    int 生命治療百分比{};
     int 每次層數{};
     int 層數上限{};
     int 每層純粹傷害{};
-    static constexpr std::string_view Name = "出招回血疊加純粹傷害";
-    static constexpr auto Parameters = std::array<Parameter<CastHealAndStackPureDamage>, 5>{
-        {Parameter<CastHealAndStackPureDamage>{{"固定治療", 0, 1000000}, &CastHealAndStackPureDamage::固定治療},
-         Parameter<CastHealAndStackPureDamage>{{"生命治療百分比", 0, 1000000},
-                                               &CastHealAndStackPureDamage::生命治療百分比},
-         Parameter<CastHealAndStackPureDamage>{{"每次層數", 1, 1000}, &CastHealAndStackPureDamage::每次層數},
-         Parameter<CastHealAndStackPureDamage>{{"層數上限", 1, 1000}, &CastHealAndStackPureDamage::層數上限},
-         Parameter<CastHealAndStackPureDamage>{{"每層純粹傷害", 0, 1000000},
-                                               &CastHealAndStackPureDamage::每層純粹傷害}}};
+    static constexpr std::string_view Name = "出招疊加純粹傷害";
+    static constexpr auto Parameters = std::array<Parameter<CastStackPureDamage>, 3>{
+        { Parameter<CastStackPureDamage>{ { "每次層數", 1, 1000 }, &CastStackPureDamage::每次層數 },
+            Parameter<CastStackPureDamage>{ { "層數上限", 1, 1000 }, &CastStackPureDamage::層數上限 },
+            Parameter<CastStackPureDamage>{ { "每層純粹傷害", 0, 1000000 },
+                &CastStackPureDamage::每層純粹傷害 } }
+    };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{
+        return { EffectRule{
             .event = EffectEvent::AttackCommitted,
             .actions
-            = {EffectAction{.value = ChangeResourceAction{.amount = EffectNumber{.base = EffectNumberBase::SourceMaxHp,
-                                                                                 .flat = 固定治療,
-                                                                                 .percent = 生命治療百分比}}},
-               EffectAction{
-                   .value = ApplyStatusAction{
-                       .status = BattleStatusKind::TrueQi,
-                       .quantity = AddStatusLayers{.count = 每次層數, .limit = 層數上限},
-                       .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
-                           .rules = {EffectRule{
-                               .id = EffectRuleId{.value = 1},
-                               .event = EffectEvent::HitBeforeDamage,
-                               .observation = EffectObservationScope::StatusHolderEventSource,
-                               .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
-                               .actions = {EffectAction{
-                                   .value = DealDamageAction{
-                                       .amount = EffectNumber{.flat = 每層純粹傷害,
-                                                              .statusScale = StatusNumberScale::PerContributionLayer},
-                                       .kind = BattleDamageKind::Pure}}}}}})}}}}};
+            = { EffectAction{
+                .value = ApplyStatusAction{
+                    .status = BattleStatusKind::TrueQi,
+                    .quantity = AddStatusLayers{ .count = 每次層數, .limit = 層數上限 },
+                    .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
+                        .rules = { EffectRule{
+                            .id = EffectRuleId{ .value = 1 },
+                            .event = EffectEvent::HitBeforeDamage,
+                            .observation = EffectObservationScope::StatusHolderEventSource,
+                            .selector = EffectSelector{ .kind = EffectSelectorKind::HitTarget },
+                            .actions = { EffectAction{
+                                .value = DealDamageAction{
+                                    .amount = EffectNumber{ .flat = 每層純粹傷害,
+                                        .statusScale = StatusNumberScale::PerContributionLayer },
+                                    .kind = BattleDamageKind::Pure } } } } } }) } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "出招回復{}生命與最大生命的{}%，並增加{}層命中加傷，最多{}層；每層命中附加{}"
-                "純粹傷害。此來源獨立累積層數。",
-                固定治療,
-                生命治療百分比,
-                每次層數,
-                層數上限,
-                每層純粹傷害);
-        }
-        return std::format("出招回血{}+血上限{}%，疊{}層（上限{}）；每層命中+{}純粹傷害",
-                           固定治療,
-                           生命治療百分比,
-                           每次層數,
-                           層數上限,
-                           每層純粹傷害);
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("出招：疊{}層，上限{}層；每層命中+{}純粹傷害", 每次層數, 層數上限, 每層純粹傷害);
+
+        return std::format("出招疊{}層（上限{}）；每層命中+{}純粹傷害。此來源獨立累積層數。",
+            每次層數, 層數上限, 每層純粹傷害);
     }
 };
 
-struct CleanseAndProtect final : GameplayEffectDefinition
-{
-    int 狀態護盾{};
-    int 僵直護盾{};
-    static constexpr std::string_view Name = "淨化並抵抗控制";
-    static constexpr auto Parameters = std::array<Parameter<CleanseAndProtect>, 2>{
-        {Parameter<CleanseAndProtect>{{"狀態護盾", 0, 1000000}, &CleanseAndProtect::狀態護盾},
-         Parameter<CleanseAndProtect>{{"僵直護盾", 0, 1000000}, &CleanseAndProtect::僵直護盾}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {
-            EffectRule{.event = EffectEvent::AttackCommitted,
-                       .actions = {EffectAction{.value = RemoveStatusAction{.negativeOnly = true}},
-                                   EffectAction{.value = ChangeResourceAction{.resource = BattleResource::StatusShield,
-                                                                              .amount = EffectNumber{.flat = 狀態護盾},
-                                                                              .kind = ResourceChangeKind::Grant}},
-                                   EffectAction{.value = ChangeResourceAction{.resource = BattleResource::StaggerShield,
-                                                                              .amount = EffectNumber{.flat = 僵直護盾},
-                                                                              .kind = ResourceChangeKind::Grant}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("出招清除自身所有負面效果，獲得{}狀態護盾及{}僵直護盾。", 狀態護盾, 僵直護盾);
-        }
-        return std::format("出招：清除負面，狀態盾+{}、僵直盾+{}", 狀態護盾, 僵直護盾);
-    }
-};
 
 struct CastTeamMp final : GameplayEffectDefinition
 {
@@ -166,7 +188,7 @@ struct CastTeamMp final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招：全隊內力+{}", 回復內力);
+            return std::format("出招：全隊回{}內", 回復內力);
         return std::format("出招時全隊回復{}內力。", 回復內力);
     }
 };
@@ -204,86 +226,32 @@ struct HealAndCleanseLowest final : GameplayEffectDefinition
 {
     int 友軍數{};
     int 固定治療{};
+    int 每星治療{ };
     int 生命治療百分比{};
     int 淨化數{};
     static constexpr std::string_view Name = "治療淨化低血友軍";
-    static constexpr auto Parameters = std::array<Parameter<HealAndCleanseLowest>, 4>{
-        {Parameter<HealAndCleanseLowest>{{"友軍數", 1, 1000000}, &HealAndCleanseLowest::友軍數},
-         Parameter<HealAndCleanseLowest>{{"固定治療", 0, 1000000}, &HealAndCleanseLowest::固定治療},
-         Parameter<HealAndCleanseLowest>{{"生命治療百分比", 0, 1000000}, &HealAndCleanseLowest::生命治療百分比},
-         Parameter<HealAndCleanseLowest>{{"淨化數", 0, 1000000}, &HealAndCleanseLowest::淨化數}}};
+    static constexpr auto Parameters = std::array<Parameter<HealAndCleanseLowest>, 5>{
+        { Parameter<HealAndCleanseLowest>{ { "友軍數", 1, 1000000 }, &HealAndCleanseLowest::友軍數 },
+            Parameter<HealAndCleanseLowest>{ { "固定治療", 0, 1000000, { }, 0 }, &HealAndCleanseLowest::固定治療 },
+            Parameter<HealAndCleanseLowest>{ { "每星治療", 0, 1000000, { }, 0 }, &HealAndCleanseLowest::每星治療 },
+            Parameter<HealAndCleanseLowest>{ { "生命治療百分比", 0, 1000000 }, &HealAndCleanseLowest::生命治療百分比 },
+            Parameter<HealAndCleanseLowest>{ { "淨化數", 0, 1000000 }, &HealAndCleanseLowest::淨化數 } }
+    };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{
+        return { EffectRule{
             .event = EffectEvent::AttackCommitted,
-            .selector = EffectSelector{.kind = EffectSelectorKind::LowestHpAllies, .count = 友軍數},
+            .selector = EffectSelector{ .kind = EffectSelectorKind::LowestHpAllies, .count = 友軍數 },
             .actions
-            = {EffectAction{.value = ChangeResourceAction{.amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp,
-                                                                                 .flat = 固定治療,
-                                                                                 .percent = 生命治療百分比}}},
-               EffectAction{.value = RemoveStatusAction{.negativeOnly = true, .count = 淨化數}}}}};
+            = { EffectAction{ .value = recoveryAmount(BattleResource::Hp, 固定治療, 每星治療, 生命治療百分比) },
+                EffectAction{ .value = RemoveStatusAction{ .negativeOnly = true, .count = 淨化數 } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "出招時，生命比例最低的{}名友軍回復{}生命與各自最大生命的{}%，並清除{}"
-                "個負面效果。優先清除剩餘時間最長的負面效果。",
-                友軍數,
-                固定治療,
-                生命治療百分比,
-                淨化數);
-        }
-        return std::format("出招：血比最低{}友軍，回血{}+血上限{}%，清除{}個負面",
-                           友軍數,
-                           固定治療,
-                           生命治療百分比,
-                           淨化數);
-    }
-};
-
-struct TeamCleanseControlHaste final : GameplayEffectDefinition
-{
-    int 僵直護盾{};
-    int 速度百分比{};
-    int 持續幀數{};
-    static constexpr std::string_view Name = "全隊解控加速";
-    static constexpr auto Parameters = std::array<Parameter<TeamCleanseControlHaste>, 3>{
-        {Parameter<TeamCleanseControlHaste>{{"僵直護盾", 0, 1000000}, &TeamCleanseControlHaste::僵直護盾},
-         Parameter<TeamCleanseControlHaste>{{"速度百分比", -1000000, 1000000}, &TeamCleanseControlHaste::速度百分比},
-         Parameter<TeamCleanseControlHaste>{{"持續幀數", 1, 1000000}, &TeamCleanseControlHaste::持續幀數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{
-            .event = EffectEvent::AttackCommitted,
-            .selector = EffectSelector{.kind = EffectSelectorKind::Allies},
-            .actions
-            = {EffectAction{.value = RemoveStatusAction{.controlOnly = true, .clearCurrentActionStagger = true}},
-               EffectAction{.value = ChangeResourceAction{.resource = BattleResource::StaggerShield,
-                                                          .amount = EffectNumber{.flat = 僵直護盾},
-                                                          .kind = ResourceChangeKind::Grant}},
-               EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Speed,
-                                                           .amount = EffectNumber{.flat = 速度百分比},
-                                                           .operation = AttributeOperation::PercentAdd,
-                                                           .durationFrames = 持續幀數,
-                                                           .stack = EffectStackPolicy::Refresh}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "出招解除全隊控制與當前僵直，獲得{}僵直護盾，速度{:+}%，持續{}"
-                "幀。解除僵直保留當前位置與動作，重複加速刷新時間。",
-                僵直護盾,
-                速度百分比,
-                持續幀數);
-        }
-        return std::format(
-            "出招：全隊解控、解除僵直，僵直盾+{}，速度{:+}%持續{}幀", 僵直護盾, 速度百分比, 持續幀數);
+        return std::format("出招：血比最低{}名友軍，回血{}，清除{}個負面{}", 友軍數,
+            recoveryDescription(固定治療, 每星治療, 生命治療百分比), 淨化數,
+            style == EffectDescriptionStyle::Full ? "；優先清除剩餘時間最長的負面效果。" : "");
     }
 };
 
@@ -346,7 +314,7 @@ struct HealRemovePoisonBleed final : GameplayEffectDefinition
             "出招時，生命比例最低的{}名友軍回復最大生命的{}%，並移除中毒與流血。", 友軍數, 生命治療百分比);
         }
         return std::format(
-            "出招：血比最低{}名友軍回血{}%生命上限，解毒、止血", 友軍數, 生命治療百分比);
+            "出招：血比最低{}名友軍回血上限{}%，解毒、止血", 友軍數, 生命治療百分比);
     }
 };
 
@@ -380,29 +348,6 @@ struct ReceivedDamageShield final : GameplayEffectDefinition
     }
 };
 
-struct CastStarShield final : GameplayEffectDefinition
-{
-    int 每星護盾{};
-    static constexpr std::string_view Name = "出招每星護盾";
-    static constexpr auto Parameters = std::array<Parameter<CastStarShield>, 1>{
-        {Parameter<CastStarShield>{{"每星護盾", 0, 1000000}, &CastStarShield::每星護盾}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{.event = EffectEvent::AttackCommitted,
-                           .actions = {EffectAction{.value = ChangeResourceAction{
-                                                        .resource = BattleResource::Shield,
-                                                        .amount = EffectNumber{.base = EffectNumberBase::SourceStar,
-                                                                               .percent = 每星護盾 * 100},
-                                                        .kind = ResourceChangeKind::Grant}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招：每星護盾+{}", 每星護盾);
-        return std::format("出招獲得每星{}護盾。", 每星護盾);
-    }
-};
 
 struct SkillLifeSteal final : GameplayEffectDefinition
 {
@@ -429,62 +374,7 @@ struct SkillLifeSteal final : GameplayEffectDefinition
     }
 };
 
-struct CastBlockAndShield final : GameplayEffectDefinition
-{
-    int 格擋百分比{};
-    int 持續幀數{};
-    int 護盾點數{};
-    static constexpr std::string_view Name = "出招格擋護盾";
-    static constexpr auto Parameters = std::array<Parameter<CastBlockAndShield>, 3>{
-        {Parameter<CastBlockAndShield>{{"格擋百分比", -1000000, 1000000}, &CastBlockAndShield::格擋百分比},
-         Parameter<CastBlockAndShield>{{"持續幀數", 1, 1000000}, &CastBlockAndShield::持續幀數},
-         Parameter<CastBlockAndShield>{{"護盾點數", 0, 1000000}, &CastBlockAndShield::護盾點數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{
-            .event = EffectEvent::AttackCommitted,
-            .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::BlockChance,
-                                                                    .amount = EffectNumber{.flat = 格擋百分比},
-                                                                    .operation = AttributeOperation::PercentagePointAdd,
-                                                                    .durationFrames = 持續幀數,
-                                                                    .stack = EffectStackPolicy::Refresh}},
-                        EffectAction{.value = ChangeResourceAction{.resource = BattleResource::Shield,
-                                                                   .amount = EffectNumber{.flat = 護盾點數},
-                                                                   .kind = ResourceChangeKind::Grant}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "出招獲得{}護盾，格擋率{:+}%，持續{}幀。重複格擋加成刷新時間。", 護盾點數, 格擋百分比, 持續幀數);
-        }
-        return std::format("出招：護盾+{}，格擋{:+}%持續{}幀", 護盾點數, 格擋百分比, 持續幀數);
-    }
-};
 
-struct CastMaxHealthHeal final : GameplayEffectDefinition
-{
-    int 生命治療百分比{};
-    static constexpr std::string_view Name = "出招按生命回血";
-    static constexpr auto Parameters = std::array<Parameter<CastMaxHealthHeal>, 1>{
-        {Parameter<CastMaxHealthHeal>{{"生命治療百分比", 0, 1000000}, &CastMaxHealthHeal::生命治療百分比}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{.event = EffectEvent::AttackCommitted,
-                           .actions = {EffectAction{.value = ChangeResourceAction{
-                                                        .amount = EffectNumber{.base = EffectNumberBase::SourceMaxHp,
-                                                                               .percent = 生命治療百分比}}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招：回復血上限{}%", 生命治療百分比);
-        return std::format("出招回復自身最大生命的{}%。", 生命治療百分比);
-    }
-};
 
 struct HitMpRecovery final : GameplayEffectDefinition
 {
@@ -504,7 +394,7 @@ struct HitMpRecovery final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中回{}內", 內力);
+            return std::format("命中：回{}內", 內力);
         return std::format("有效命中後回復{}內力。", 內力);
     }
 };
@@ -530,7 +420,7 @@ struct PeriodicHealthRecovery final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("每{}幀回血上限{}%", 間隔幀數, 生命百分比);
+            return std::format("每{}幀：回血上限{}%", 間隔幀數, 生命百分比);
         return std::format("每{}幀回復最大生命的{}%。", 間隔幀數, 生命百分比);
     }
 };
@@ -559,7 +449,7 @@ struct LowHealthEmergencyHeal final : GameplayEffectDefinition
         {
             return std::format("生命首次低於{}%時，回復最大生命的{}%。每場觸發一次。", 生命門檻百分比, 治療生命百分比);
         }
-        return std::format("首次血量<{}%：回復血上限{}%", 生命門檻百分比, 治療生命百分比);
+        return std::format("首次血量<{}%：回血上限{}%", 生命門檻百分比, 治療生命百分比);
     }
 };
 
@@ -583,7 +473,7 @@ struct HitStealMp final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中奪{}內", 內力);
+            return std::format("命中：奪{}內", 內力);
         return std::format("有效命中後，從目標奪取{}內力。", 內力);
     }
 };
@@ -607,7 +497,7 @@ struct KillHeal final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("擊殺：回復血上限{}%", 生命百分比);
+            return std::format("擊殺：回血上限{}%", 生命百分比);
         return std::format("擊殺敵人後回復最大生命的{}%。", 生命百分比);
     }
 };
@@ -645,49 +535,40 @@ struct HealingAura final : GameplayEffectDefinition
     }
 };
 
-struct HealingCooldownAura final : GameplayEffectDefinition
+struct CooldownAura final : GameplayEffectDefinition
 {
     int 半徑格數{};
     int 間隔幀數{};
-    int 治療點數{};
     int 冷卻百分比{};
-    static constexpr std::string_view Name = "治療減冷卻光環";
-    static constexpr auto Parameters = std::array<Parameter<HealingCooldownAura>, 4>{
-        {Parameter<HealingCooldownAura>{{"半徑格數", 1, 1000000}, &HealingCooldownAura::半徑格數},
-         Parameter<HealingCooldownAura>{{"間隔幀數", 1, 1000000}, &HealingCooldownAura::間隔幀數},
-         Parameter<HealingCooldownAura>{{"治療點數", 0, 1000000}, &HealingCooldownAura::治療點數},
-         Parameter<HealingCooldownAura>{{"冷卻百分比", 0, 1000000}, &HealingCooldownAura::冷卻百分比}}};
+    static constexpr std::string_view Name = "友軍減冷卻光環";
+    static constexpr auto Parameters = std::array<Parameter<CooldownAura>, 3>{
+        { Parameter<CooldownAura>{ { "半徑格數", 1, 1000000 }, &CooldownAura::半徑格數 },
+            Parameter<CooldownAura>{ { "間隔幀數", 1, 1000000 }, &CooldownAura::間隔幀數 },
+            Parameter<CooldownAura>{ { "冷卻百分比", 0, 1000000 }, &CooldownAura::冷卻百分比 } }
+    };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{.event = EffectEvent::FrameAdvanced,
-                           .selector = EffectSelector{.kind = EffectSelectorKind::UnitsInRadius,
-                                                      .radiusTiles = 半徑格數,
-                                                      .team = EffectTeamFilter::Ally,
-                                                      .excludeOwner = true},
-                           .intervalFrames = 間隔幀數,
-                           .actions
-                           = {EffectAction{.value = ChangeResourceAction{.amount = EffectNumber{.flat = 治療點數},
-                                                                         .healKind = EffectHealKind::Aura}},
-                              EffectAction{.value = ChangeResourceAction{
-                                               .resource = BattleResource::ActiveCooldown,
-                                               .amount = EffectNumber{.base = EffectNumberBase::TargetCurrentCooldown,
-                                                                      .percent = 冷卻百分比,
-                                                                      .rounding = EffectRounding::Ceil},
-                                               .kind = ResourceChangeKind::Remove}}}}};
+        return { EffectRule{ .event = EffectEvent::FrameAdvanced,
+            .selector = EffectSelector{ .kind = EffectSelectorKind::UnitsInRadius,
+                .radiusTiles = 半徑格數,
+                .team = EffectTeamFilter::Ally,
+                .excludeOwner = true },
+            .intervalFrames = 間隔幀數,
+            .actions
+            = { EffectAction{ .value = ChangeResourceAction{
+                                  .resource = BattleResource::ActiveCooldown,
+                                  .amount = EffectNumber{ .base = EffectNumberBase::TargetCurrentCooldown,
+                                      .percent = 冷卻百分比,
+                                      .rounding = EffectRounding::Ceil },
+                                  .kind = ResourceChangeKind::Remove } } } } };
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("每{}幀為{}格內其他友軍回復{}生命，並移除其當前冷卻的{}%。不影響自身。",
-                               間隔幀數,
-                               半徑格數,
-                               治療點數,
-                               冷卻百分比);
-        }
-        return std::format(
-            "每{}幀：{}格內其他友軍回{}血、當前冷卻-{}%", 間隔幀數, 半徑格數, 治療點數, 冷卻百分比);
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("每{}幀：{}格內其他友軍當前冷卻-{}%", 間隔幀數, 半徑格數, 冷卻百分比);
+
+        return std::format("每{}幀：{}格內其他友軍當前冷卻-{}%；不影響自身。", 間隔幀數, 半徑格數, 冷卻百分比);
     }
 };
 
@@ -712,7 +593,7 @@ struct ChanceCastTeamMp final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招{}%機率：全隊內力+{}", 機率百分比, 內力);
+            return std::format("出招：{}%機率全隊回{}內", 機率百分比, 內力);
         return std::format("出招有{}%機率使全隊回復{}內力。", 機率百分比, 內力);
     }
 };
@@ -739,7 +620,7 @@ struct ChanceCastTeamShield final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招{}%機率：全隊護盾≥{}", 機率百分比, 護盾點數);
+            return std::format("出招：{}%機率全隊護盾≥{}", 機率百分比, 護盾點數);
         return std::format("出招有{}%機率使全隊護盾至少為{}。", 機率百分比, 護盾點數);
     }
 };
@@ -762,7 +643,7 @@ struct HitHeal final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中回{}血", 生命);
+            return std::format("命中：回{}血", 生命);
         return std::format("有效命中後回復{}生命。", 生命);
     }
 };
@@ -810,7 +691,7 @@ struct UltimateReadyTeamHeal final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("絕招就緒：全隊回血{}", 生命);
+            return std::format("絕招就緒：全隊回{}血", 生命);
         return std::format("絕招冷卻完成時，全隊回復{}生命。", 生命);
     }
 };
@@ -838,7 +719,7 @@ struct ChanceHitTeamHeal final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中{}%機率：全隊回血上限{}%", 機率百分比, 生命百分比);
+            return std::format("命中：{}%機率全隊回血上限{}%", 機率百分比, 生命百分比);
         return std::format("有效命中後，有{}%機率使全隊回復各自最大生命的{}%。", 機率百分比, 生命百分比);
     }
 };
@@ -862,7 +743,7 @@ struct CastDrainEnemyMp final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("出招：全敵內力-{}", 內力);
+            return std::format("出招：全敵失{}內", 內力);
         return std::format("出招使所有敵人失去{}內力。", 內力);
     }
 };
@@ -885,7 +766,7 @@ struct InitialHealthShield final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("開場護盾=血上限{}%", 生命百分比);
+            return std::format("開場：護盾=血上限{}%", 生命百分比);
         return std::format("開場獲得最大生命{}%的護盾。", 生命百分比);
     }
 };
@@ -894,27 +775,29 @@ struct InitialHealthShield final : GameplayEffectDefinition
 
 void appendRecoveryEffects(std::vector<GameplayEffectRegistration>& entries)
 {
+    entries.push_back(registration<CastSelfHeal>());
+    entries.push_back(registration<CastShield<BattleResource::Shield>>());
+    entries.push_back(registration<CastShield<BattleResource::StatusShield>>());
+    entries.push_back(registration<CastShield<BattleResource::StaggerShield>>());
+    entries.push_back(registration<CastShield<BattleResource::StaggerShield, true>>());
+    entries.push_back(registration<CastCleanse<false>>());
+    entries.push_back(registration<CastCleanse<true>>());
     entries.push_back(registration<CastRestoreAndHeal>());
-    entries.push_back(registration<CastHealAndStackPureDamage>());
-    entries.push_back(registration<CleanseAndProtect>());
+    entries.push_back(registration<CastStackPureDamage>());
     entries.push_back(registration<CastTeamMp>());
     entries.push_back(registration<TransferEnemyMp>());
     entries.push_back(registration<HealAndCleanseLowest>());
-    entries.push_back(registration<TeamCleanseControlHaste>());
     entries.push_back(registration<CastDamageShield>());
     entries.push_back(registration<HealRemovePoisonBleed>());
     entries.push_back(registration<ReceivedDamageShield>());
-    entries.push_back(registration<CastStarShield>());
     entries.push_back(registration<SkillLifeSteal>());
-    entries.push_back(registration<CastBlockAndShield>());
-    entries.push_back(registration<CastMaxHealthHeal>());
     entries.push_back(registration<HitMpRecovery>());
     entries.push_back(registration<PeriodicHealthRecovery>());
     entries.push_back(registration<LowHealthEmergencyHeal>());
     entries.push_back(registration<HitStealMp>());
     entries.push_back(registration<KillHeal>());
     entries.push_back(registration<HealingAura>());
-    entries.push_back(registration<HealingCooldownAura>());
+    entries.push_back(registration<CooldownAura>());
     entries.push_back(registration<ChanceCastTeamMp>());
     entries.push_back(registration<ChanceCastTeamShield>());
     entries.push_back(registration<HitHeal>());

@@ -1,4 +1,5 @@
 #include "ChessCliCommands.h"
+#include "ConsoleErrorReporting.h"
 #include "ChessCliController.h"
 #include "ChessContentLoader.h"
 #include "ChessPvp.h"
@@ -828,6 +829,7 @@ void printTournamentMarkdownResult(
 
 int main(int argc, char** argv)
 {
+    configureConsoleErrorReporting();
 #ifdef _WIN32
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);

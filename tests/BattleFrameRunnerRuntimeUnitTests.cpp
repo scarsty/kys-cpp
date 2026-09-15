@@ -580,7 +580,31 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     CHECK(semanticCueEvents(runBattleFrame(openingState)).empty());
 }
 
-TEST_CASE("BattleFrameRunner_GuaranteedHitCuesEachRecipientAndRefresh", "[battle][ultimate][effect_cue]")
+TEST_CASE("BattleFrameRunner_MaintainedAttackBuffStaysSilentAcrossExpiry", "[battle][frame_runner][runtime][effect_cue]")
+{
+    auto state = runtimeFrameState();
+    ModifyAttributeAction buff;
+    buff.attribute = BattleAttribute::Attack;
+    buff.operation = AttributeOperation::FlatAdd;
+    buff.durationFrames = 1;
+    buff.stack = EffectStackPolicy::Refresh;
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        queueEffectCommandBatch(state, {
+            EffectCommand{cueEffectMetadata(state, EffectEvent::FrameAdvanced),
+                prepareModifyAttribute(buff, 150)},
+        });
+        CHECK(semanticCueEvents(runBattleFrame(state)).empty());
+        CHECK(BattleEffectCommandSystem::queryAttribute(state, {
+            .unitId = 1,
+            .attribute = BattleAttribute::Attack,
+            .baseValue = 100,
+            .frame = state.movement.frame,
+        }) == 250);
+    }
+}
+
+TEST_CASE("BattleFrameRunner_GuaranteedHitCuesEachRecipientWithoutRefreshFlash", "[battle][ultimate][effect_cue]")
 {
     auto state = runtimeFrameState();
     ModifyAttributeAction buff;
@@ -600,6 +624,11 @@ TEST_CASE("BattleFrameRunner_GuaranteedHitCuesEachRecipientAndRefresh", "[battle
     {
         const auto frame = apply();
         const auto cues = semanticCueEvents(frame);
+        if (repeat > 0)
+        {
+            CHECK(cues.empty());
+            continue;
+        }
         REQUIRE(cues.size() == 2);
         for (const auto* cue : cues)
         {
@@ -1973,7 +2002,7 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
         std::vector<const BattleLogEvent*> result;
         for (const auto& event : frame.logEvents)
         {
-            if (event.statusId == BattleStatusSemanticId::EnemyTopDebuff)
+            if (event.statusId == BattleStatusSemanticId::EnemyTopAttackDebuff)
             {
                 result.push_back(&event);
             }
@@ -2064,6 +2093,69 @@ TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracks
     CHECK(noOwnerEvents[0]->newAmount == 0);
     CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 40) == 40);
     CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Defence, 30) == 30);
+}
+
+TEST_CASE("Enemy top debuff reporting handles a shield blocking only one attribute", "[battle][frame_runner][enemy-top-debuff][regression]")
+{
+    auto state = runtimeFrameState();
+    auto target = teamRuntimeUnit(1, 1, 100);
+    target.stats.attack = 40;
+    target.stats.defence = 30;
+    seedRuntimeUnits(state, { teamRuntimeUnit(0, 0, 100), target, teamRuntimeUnit(2, 0, 100) });
+    state.units.require(1).status.effects.statusShield = 1;
+    constexpr int comboId = 82;
+    state.effectSourceNames.emplace(std::pair{ EffectSourceKind::Combo, comboId }, "陰險");
+    EffectRule rule;
+    rule.id = EffectRuleId{ 33 };
+    rule.event = EffectEvent::FrameAdvanced;
+    rule.selector.kind = EffectSelectorKind::StrongestEnemies;
+    rule.selector.count = 1;
+    ModifyAttributeAction attack;
+    attack.attribute = BattleAttribute::Attack;
+    attack.operation = AttributeOperation::FlatAdd;
+    attack.amount.flat = -22;
+    attack.durationFrames = 1;
+    rule.actions.push_back({ attack });
+    auto defence = attack;
+    defence.attribute = BattleAttribute::Defence;
+    defence.amount.flat = -11;
+    rule.actions.push_back({ defence });
+    appendOwnerEffectRule(state, 0, comboId, std::move(rule));
+
+    const auto changes = [](const BattlePresentationFrame& frame)
+    {
+        std::map<BattleStatusSemanticId, BattleLogEvent> result;
+        for (const auto& event : frame.logEvents)
+            if (event.statusId == BattleStatusSemanticId::EnemyTopAttackDebuff
+                || event.statusId == BattleStatusSemanticId::EnemyTopDefenceDebuff)
+                REQUIRE(result.emplace(event.statusId, event).second);
+        return result;
+    };
+    const auto opening = changes(runBattleFrame(state));
+    REQUIRE(opening.size() == 1);
+    const auto& first = opening.at(BattleStatusSemanticId::EnemyTopDefenceDebuff);
+    CHECK(first.previousAmount == 0);
+    CHECK(first.newAmount == -11);
+    CHECK(first.amount == -11);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 40) == 40);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Defence, 30) == 19);
+
+    const auto refreshed = changes(runBattleFrame(state));
+    REQUIRE(refreshed.size() == 1);
+    CHECK(refreshed.at(BattleStatusSemanticId::EnemyTopAttackDebuff).newAmount == -22);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Attack, 40) == 18);
+    CHECK(effectAdjustedAttribute(state, 1, BattleAttribute::Defence, 30) == 19);
+    CHECK(changes(runBattleFrame(state)).empty());
+
+    state.units.requireCore(0).alive = false;
+    state.units.requireCore(0).vitals.hp = 0;
+    const auto expired = changes(runBattleFrame(state));
+    REQUIRE(expired.size() == 2);
+    CHECK(expired.at(BattleStatusSemanticId::EnemyTopAttackDebuff).previousAmount == -22);
+    CHECK(expired.at(BattleStatusSemanticId::EnemyTopAttackDebuff).amount == 22);
+    CHECK(expired.at(BattleStatusSemanticId::EnemyTopDefenceDebuff).previousAmount == -11);
+    CHECK(expired.at(BattleStatusSemanticId::EnemyTopDefenceDebuff).amount == 11);
+    for (const auto& [attribute, event] : expired) CHECK(event.newAmount == 0);
 }
 
 TEST_CASE("BattleFrameRunner_ContinuesCompoundEffectsAfterQueuedDamageSettles", "[battle][frame_runner][runtime][effect][damage][continuation]")

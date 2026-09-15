@@ -859,10 +859,7 @@ BattleResourceEffectResult commitHeal(
     request.sourceUnitId = metadata.binding.ownerUnitId;
     request.targetUnitId = metadata.targetUnitId;
     request.source = metadata.binding;
-    if (context.cast)
-    {
-        request.castId = context.cast->castId.value();
-    }
+    request.cast = context.cast;
     assert(command.healKind != EffectHealKind::Count);
     request.kind = command.healKind;
     request.amount = fixedHealAmount(command.resolvedAmount());
@@ -1591,6 +1588,9 @@ BattleEffectDamageRequestOutput BattleEffectCommandSystem::prepareDamageOutput(
         .ruleId = metadata.ruleId,
         .triggeringCast = context.cast,
         .triggeringAttack = context.attack,
+        .hitDamageCredit = context.hitDamageCredit
+            && context.hitDamageCredit->provenance.cast.sourceUnitId == metadata.binding.ownerUnitId
+            ? context.hitDamageCredit : std::nullopt,
         .statusContribution = metadata.statusContribution,
         .authoredActionOrder = metadata.authoredActionOrder,
         .transactionCount = command.transactionCount,

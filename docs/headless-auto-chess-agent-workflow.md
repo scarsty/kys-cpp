@@ -46,7 +46,7 @@ compact 強制禁棋觀察只保留 `pending_reward` 的識別碼、種類與進
 
 summary 或 compact `act` 都不回傳 `evidence_hash` 或 `last_battle_digest`。只保留 `state_hash` 作為不透明的狀態版本記號，用來確認拒絕操作沒有改變棋局或偵測快取過期；`detail: "full"` 另回傳該決策的 128 位元累積 `evidence_hash`。狀態與戰鬥摘要仍使用完整 SHA-256，只有每步重播證據截短為 32 個十六進位字元。
 
-裝備效果依來源分為 `base_stat_effects`、`special_effects`、`counts_as_combos` 與 `character_bonuses`；空陣列不輸出。「計作羈絆」表示讓裝備者取得該羈絆的成員資格，同一角色在同一羈絆只計一次，裝在原成員身上不會額外加點；這項通用規則只在文件說明，不在每件裝備重複傳輸。管理階段棋子的 `current_stats` 包含星級成長、勝場成長及裝備基礎屬性；`current_stats_note` 說明裝備特殊效果與羈絆效果要到戰鬥初始化才會套用。合法操作另有 `candidates_by_field`，例如 `equip` 會分別列出 `equipment_instance_id` 與 `target_chess_instance_id` 候選。未分配裝備排在已裝備項目前面，候選的 `assigned_chess_instance_id` 與 `assigned_to` 會明示目前持有者，自動範例優先選用未分配裝備；若只剩已分配裝備，範例會優先選擇另一名棋子，沒有其他目標時則由 `example_note` 明示該範例不會改變持有者。`equip` 本來就包含轉移已裝備項目的語意，因此不另增功能重複的移動操作。
+裝備效果依來源分為 `special_effects`、`counts_as_combos` 與 `character_bonuses`；空陣列不輸出。「計作羈絆」表示讓裝備者取得該羈絆的成員資格，同一角色在同一羈絆只計一次，裝在原成員身上不會額外加點；這項通用規則只在文件說明，不在每件裝備重複傳輸。SQLite 裝備基礎屬性不套用於自走棋戰鬥，也不列入裝備說明或數值預覽。管理階段棋子的 `current_stats` 包含星級成長與勝場成長；`current_stats_note` 說明裝備特殊效果與羈絆效果要到戰鬥初始化才會套用。合法操作另有 `candidates_by_field`，例如 `equip` 會分別列出 `equipment_instance_id` 與 `target_chess_instance_id` 候選。未分配裝備排在已裝備項目前面，候選的 `assigned_chess_instance_id` 與 `assigned_to` 會明示目前持有者，自動範例優先選用未分配裝備；若只剩已分配裝備，範例會優先選擇另一名棋子，沒有其他目標時則由 `example_note` 明示該範例不會改變持有者。`equip` 本來就包含轉移已裝備項目的語意，因此不另增功能重複的移動操作。
 
 羈絆的 `contributions` 逐一列出角色、棋子實例、採計星級、實體點數、星級加點、有效點數、是否為原生成員及提供成員資格的裝備。`count_explanation` 明示計算規則：裝備的「計作某羈絆」只讓原本不是成員的角色取得成員資格；若角色本身已是成員，例如俞岱巖裝備真武劍，仍只計一名，不會重複加點。這是既有遊戲規則的可觀察化，不是修改羈絆平衡。
 

@@ -138,22 +138,11 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
     };
     const auto appendCombos = [&](const std::vector<std::string>& names) {
         for (const auto& name : names)
-            appendText(std::format("計作「{}」羈絆的一名成員", name));
+            appendText(chessNonBattleRuleDescription(CountsAsComboRule{ name }, true));
     };
-    if (!equipment.baseStatEffects.empty())
-    {
-        appendText("基礎屬性:", true);
-        std::string stats;
-        for (const auto& stat : equipment.baseStatEffects)
-        {
-            if (!stats.empty()) stats += "、";
-            stats += stat;
-        }
-        appendText(std::move(stats));
-    }
     if (!equipment.specialEffects.sections.empty())
     {
-        appendText("特殊效果:", true);
+        appendText("特殊效果：", true);
         appendEffects(equipment.specialEffects);
     }
     appendCombos(equipment.countsAsCombos);
@@ -165,7 +154,7 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
             if (!heading.empty()) heading += "、";
             heading += role;
         }
-        appendText(heading + "專屬:", true);
+        appendText(heading + "專屬：", true);
         appendCombos(bonus.countsAsCombos);
         appendEffects(bonus.effects);
     }

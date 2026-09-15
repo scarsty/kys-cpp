@@ -37,6 +37,8 @@ struct GameplayEffectParameter
     std::string_view name;
     int minimum{};
     int maximum{};
+    std::span<const std::string_view> choices{};
+    std::optional<int> defaultValue;
 };
 
 struct GameplayEffectRegistration

@@ -393,9 +393,20 @@ void BattleSceneFrameApplier::spawnRoleEffect(
     effect.Path = event.visualPath.empty()
         ? std::format("eft/eft{:03}", event.effectId)
         : event.visualPath;
+    effect.RoleEffectType = event.roleEffectType;
+    const bool isCue = event.roleEffectType != KysChess::Battle::BattleRoleEffectType::Standard;
+    // 僅合併新增的語意提示；原有治療等 EFT 保留獨立播放。
+    if (isCue && std::ranges::any_of(bindings_.attackEffects, [&](const BattleAttackEffect& active)
+        {
+            return active.VisualOnly && active.FollowUnitId == event.targetUnitId
+                && active.RoleEffectType == effect.RoleEffectType && active.Frame < active.TotalFrame;
+        }))
+    {
+        return;
+    }
     effect.Tint = BattleSceneFrameApplierDetail::toSceneColor(event.color);
     effect.TotalEffectFrame = effects.effectFrameCount(effect.Path);
-    effect.TotalFrame = event.durationFrames > 0
+    effect.TotalFrame = !isCue && event.durationFrames > 0
         ? std::max(event.durationFrames, effect.TotalEffectFrame)
         : std::max(1, effect.TotalEffectFrame);
     effect.Frame = 0;

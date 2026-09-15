@@ -86,8 +86,15 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
     const auto jiuyang = std::ranges::find(
         definitions, 106, &ChessMagicEffectDefinition::magicId);
     REQUIRE(jiuyang != definitions.end());
-    const auto producer = std::ranges::find(
-        jiuyang->rules, EffectEvent::AttackCommitted, &EffectRule::event);
+    const auto producer = std::ranges::find_if(jiuyang->rules, [](const EffectRule& rule)
+    {
+        return rule.event == EffectEvent::AttackCommitted
+            && std::ranges::any_of(rule.actions, [](const EffectAction& action)
+            {
+                const auto* application = std::get_if<ApplyStatusAction>(&action.value);
+                return application && application->status == BattleStatusKind::TrueQi;
+            });
+    });
     REQUIRE(producer != jiuyang->rules.end());
 
     auto frame = hitDamageFrameState(20, 100, true);
@@ -124,9 +131,9 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
             .provenance = producerCast.provenance,
             .targetUnitId = 1,
         });
-    REQUIRE(dispatched.commands.size() == 2);
+    REQUIRE(dispatched.commands.size() == 1);
     const auto reduced = BattleEffectCommandSystem().reduce(state, dispatched.commands);
-    REQUIRE(reduced.entries.size() == 2);
+    REQUIRE(reduced.entries.size() == 1);
 
     const auto& statuses = state.units.require(0).status.effects.statuses;
     REQUIRE(std::ranges::count(
@@ -211,7 +218,7 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
     CHECK(contribution.appliedSequence == trueQi->appliedSequence);
     CHECK(contribution.producerRuleId == producer->id);
     CHECK(contribution.producerRuleOrder == producerOrder);
-    CHECK(contribution.producerActionOrder == 1);
+    CHECK(contribution.producerActionOrder == 0);
     CHECK(contribution.behaviorRuleOrder == 0);
 
     std::vector<std::byte> frameMemory(256 * 1024);
@@ -277,6 +284,177 @@ TEST_CASE("True-Qi damage is queued before the accepted base hit",
     CHECK(aggregate.highestActualHpDamage == 35);
     CHECK(aggregate.distinctHitUnitIds
         == std::set<int>{ 1 });
+}
+
+TEST_CASE("Defensive cooldown extension preserves the original cast hit targets",
+          "[battle][core][cast-lifecycle][cooldown][regression]")
+{
+    auto frame = hitDamageFrameState(20, 100);
+    auto& state = frame.state;
+    auto& attacker = state.units.requireCore(0);
+    attacker.haveAction = true;
+    attacker.operationType = BattleOperationType::Melee;
+    attacker.animation.actType = 1;
+    attacker.animation.cooldown = 20;
+    attacker.animation.cooldownMax = 20;
+    addTypedAttributeModifier(state, 1,
+        BattleAttribute::IncomingCooldownExtensionChance,
+        AttributeOperation::FlatAdd, 100);
+    addTypedAttributeModifier(state, 1,
+        BattleAttribute::IncomingCooldownExtensionPercent,
+        AttributeOperation::FlatAdd, 50);
+    const auto castId = state.attacks.attacks.front().provenance.cast.castId;
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).animation.cooldown == 29);
+    CHECK(state.units.requireCore(0).vitals.hp == 80);
+    CHECK(hasLogText(result, "冷卻延長（+10幀）"));
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 35 });
+    const auto& aggregate = state.castLifecycle.runtime(castId).aggregate;
+    CHECK(aggregate.distinctHitUnitIds == std::set<int>{ 1 });
+    CHECK(aggregate.totalActualHpDamage == 35);
+    CHECK(aggregate.highestActualHpDamage == 35);
+    REQUIRE(aggregate.attacksByOrdinal.size() == 1);
+    CHECK(aggregate.attacksByOrdinal.begin()->second.hitUnitIds == std::set<int>{ 1 });
+}
+
+TEST_CASE("Routed damage keeps causal provenance without inventing attack hits", "[battle][core][routing][regression]")
+{
+    bool deathReaction{};
+    SECTION("retargeted hit effect") {}
+    SECTION("defender death explosion") { deathReaction = true; }
+    CAPTURE(deathReaction);
+    auto frame = hitDamageFrameState(20, deathReaction ? 25 : 100);
+    auto& state = frame.state;
+    DealDamageAction damage;
+    damage.amount.flat = 12;
+    damage.kind = BattleDamageKind::Pure;
+    damage.appliesDamageModifiers = false;
+    EffectRule rule;
+    rule.id = EffectRuleId{ 9001 };
+    rule.castMatch = EffectCastMatch::OwnerAnyCast;
+    rule.event = deathReaction ? EffectEvent::UnitDied : EffectEvent::HitBeforeDamage;
+    rule.selector.kind = deathReaction ? EffectSelectorKind::Enemies : EffectSelectorKind::Self;
+    rule.actions = { EffectAction{ damage } };
+    state.effectRules.append({
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 9001,
+        .ownerUnitId = deathReaction ? 1 : 0,
+        .sourceTeam = deathReaction ? 1 : 0,
+    }, rule);
+    const auto castId = state.attacks.attacks.front().provenance.cast.castId;
+
+    const auto result = runBattleFrame(state);
+    CHECK(damageLogAmountsFor(result, 0) == std::vector<int>{ 12 });
+    CHECK(state.units.requireCore(0).vitals.hp == 68);
+    const auto snapshot = state.castLifecycle.snapshot();
+    if (deathReaction) REQUIRE(snapshot.retiredCasts.size() == 1);
+    const auto& aggregate = deathReaction
+        ? snapshot.retiredCasts.front().aggregate
+        : state.castLifecycle.runtime(castId).aggregate;
+    CHECK(aggregate.distinctHitUnitIds == std::set<int>{ 1 });
+    CHECK(aggregate.totalActualHpDamage == (deathReaction ? 25 : 35));
+    if (deathReaction)
+    {
+        CHECK(state.castLifecycle.activeCastCount() == 0);
+        CHECK(state.castLifecycle.trackedWorkCount() == 0);
+    }
+}
+
+TEST_CASE("Area effect projectiles borrow only a retained cast owned by their source", "[battle][core][routing][regression]")
+{
+    for (const int sourceUnitId : { 0, 1 })
+    {
+        for (const bool retainCast : { false, true })
+        {
+            CAPTURE(sourceUnitId, retainCast);
+            auto fixture = hitDamageFrameState(20, 100);
+            auto& state = fixture.state;
+            const auto attack = state.attacks.attacks.front().provenance;
+            std::vector<std::byte> memory(256 * 1024);
+            auto frame = BattleFrameContext::begin(state, {}, memory.data(), memory.size());
+            EffectCommandMetadata metadata;
+            metadata.binding = { .kind = EffectSourceKind::Magic, .sourceId = 9002,
+                .ownerUnitId = sourceUnitId, .sourceTeam = sourceUnitId };
+            metadata.targetUnitId = 1 - sourceUnitId;
+            DealDamageEffectCommand damage;
+            damage.amount = 12;
+            damage.kind = BattleDamageKind::Pure;
+            damage.delivery.areaProjectiles = AreaProjectileDamageDelivery{ .rangeTiles = 2, .maximumTargets = 1 };
+            EffectExecutionInputs inputs{ .cast = attack.cast, .attack = attack,
+                .retainCastUntilDamageDescendants = retainCast };
+            const auto output = BattleEffectCommandSystem::prepareDamageOutput(metadata, damage, inputs);
+            CoreDetail::appendEffectDamageOutput(state, frame, frame.currentFrameDamage(), output, inputs);
+            REQUIRE(frame.mutableAreaProjectileFollowUps().size() == 1);
+            const auto& followUp = frame.mutableAreaProjectileFollowUps().front();
+            CHECK(followUp.cast.sourceUnitId == sourceUnitId);
+            const bool borrowed = sourceUnitId == 0 && retainCast;
+            CHECK((followUp.cast.castId == attack.cast.castId) == borrowed);
+            CHECK(followUp.sourceAttack.has_value() == borrowed);
+            CHECK(followUp.ownsRootCast == !borrowed);
+            CHECK(followUp.expansionWork.valid());
+        }
+    }
+}
+
+TEST_CASE("Healing preserves cast provenance after settlement without reviving cast work", "[battle][core][routing][healing][regression]")
+{
+    for (const bool settled : { false, true })
+    {
+        CAPTURE(settled);
+        auto fixture = hitDamageFrameState(20, 100);
+        auto& state = fixture.state;
+        state.units.requireCore(0).vitals.hp = 40;
+        const auto cast = state.castLifecycle.beginRootCast({ 0, 9003, false });
+        if (settled)
+        {
+            state.castLifecycle.completeWork(cast.commitBarrier);
+            state.castLifecycle.drainReadyEvents(0);
+            state.castLifecycle.drainReadyEvents(0);
+            REQUIRE_FALSE(state.castLifecycle.containsCast(cast.provenance.castId));
+        }
+
+        const EffectSourceBinding binding{ .kind = EffectSourceKind::Magic,
+            .sourceId = 9003, .ownerUnitId = 0, .sourceTeam = 0 };
+        ChangeResourceAction heal;
+        heal.resource = BattleResource::Hp;
+        heal.kind = ResourceChangeKind::Restore;
+        heal.amount.flat = 10;
+        EffectRule healRule;
+        healRule.id = EffectRuleId{ 9003 };
+        healRule.event = settled ? EffectEvent::CastSettled : EffectEvent::CastContinuation;
+        healRule.castMatch = EffectCastMatch::OwnerAnyCast;
+        healRule.selector.kind = EffectSelectorKind::Self;
+        healRule.actions = { EffectAction{ heal } };
+        state.effectRules.append(binding, healRule);
+
+        EffectRule reaction;
+        reaction.id = EffectRuleId{ 9004 };
+        reaction.event = EffectEvent::HealApplied;
+        reaction.selector.kind = EffectSelectorKind::Enemies;
+        reaction.actions = { EffectAction{ DealDamageAction{
+            .amount = EffectNumber{ .flat = 7 }, .kind = BattleDamageKind::Pure,
+        } } };
+        state.effectRules.append(binding, reaction);
+
+        auto dispatched = BattleEffectEventBridge().dispatch(state,
+            { .ownerUnitId = 0 }, healRule.event,
+            CastAggregateEventData{ .provenance = cast.provenance, .originalTargetUnitId = 1 });
+        REQUIRE(dispatched.commands.size() == 1);
+        std::vector<std::byte> memory(256 * 1024);
+        auto frame = BattleFrameContext::begin(state, {}, memory.data(), memory.size());
+        frame.queueEffectCommands(std::move(dispatched.commands));
+        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        CHECK(state.units.requireCore(0).vitals.hp == 50);
+        REQUIRE_FALSE(state.heals.events.empty());
+        REQUIRE(state.heals.events.back().request.cast.has_value());
+        CHECK(state.heals.events.back().request.cast->castId == cast.provenance.castId);
+        CoreDetail::applyDamageAndLifecycle(state, frame);
+        CHECK(state.units.requireCore(1).vitals.hp == 93);
+        CHECK(state.castLifecycle.containsCast(cast.provenance.castId) == !settled);
+        if (!settled) CHECK(state.castLifecycle.outstandingWork(cast.provenance.castId) == 1);
+    }
 }
 
 TEST_CASE("True-Qi damage behaviorally grants hurt invincibility before the base hit",
