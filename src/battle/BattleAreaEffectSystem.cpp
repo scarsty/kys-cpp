@@ -79,6 +79,14 @@ BattleAreaEffect makeArea(BattleAreaEffectState& state, BattleAreaCreateRequest 
     return area;
 }
 
+BattleAreaLifecycleEvent lifecycleEvent(
+    const BattleAreaEffect& area,
+    BattleAreaLifecycleEventType type,
+    BattleAreaRemovalReason reason = BattleAreaRemovalReason::Explicit)
+{
+    return { type, area.id, reason, area.source, area.expiresFrameExclusive };
+}
+
 bool modifierMatchesPhase(const AreaModifier& modifier, BattleAreaQueryPhase phase)
 {
     if (phase == BattleAreaQueryPhase::Any)
@@ -271,7 +279,7 @@ BattleAreaCreateResult BattleAreaEffectSystem::create(
             match->modifiers = std::move(request.modifiers);
             return {
                 match->id,
-                { { BattleAreaLifecycleEventType::Refreshed, match->id } },
+                { lifecycleEvent(*match, BattleAreaLifecycleEventType::Refreshed) },
             };
         }
     }
@@ -284,11 +292,9 @@ BattleAreaCreateResult BattleAreaEffectSystem::create(
             if (it->merge == AreaMergePolicy::ReplaceSameSource
                 && sameMergeKey(it->mergeKey, mergeKey))
             {
-                events.push_back({
+                events.push_back(lifecycleEvent(*it,
                     BattleAreaLifecycleEventType::Removed,
-                    it->id,
-                    BattleAreaRemovalReason::Replaced,
-                });
+                    BattleAreaRemovalReason::Replaced));
                 it = state.areas.erase(it);
                 continue;
             }
@@ -298,8 +304,8 @@ BattleAreaCreateResult BattleAreaEffectSystem::create(
 
     auto area = makeArea(state, std::move(request));
     const auto id = area.id;
+    events.push_back(lifecycleEvent(area, BattleAreaLifecycleEventType::Created));
     state.areas.push_back(std::move(area));
-    events.push_back({ BattleAreaLifecycleEventType::Created, id });
     return { id, std::move(events) };
 }
 
@@ -313,13 +319,9 @@ std::optional<BattleAreaLifecycleEvent> BattleAreaEffectSystem::remove(
     {
         return std::nullopt;
     }
-    const auto removedId = match->id;
+    const auto event = lifecycleEvent(*match, BattleAreaLifecycleEventType::Removed, reason);
     state.areas.erase(match);
-    return BattleAreaLifecycleEvent{
-        BattleAreaLifecycleEventType::Removed,
-        removedId,
-        reason,
-    };
+    return event;
 }
 
 std::vector<BattleAreaLifecycleEvent> BattleAreaEffectSystem::removeExpired(
@@ -332,11 +334,9 @@ std::vector<BattleAreaLifecycleEvent> BattleAreaEffectSystem::removeExpired(
     {
         if (it->expiresFrameExclusive <= currentFrame)
         {
-            events.push_back({
+            events.push_back(lifecycleEvent(*it,
                 BattleAreaLifecycleEventType::Removed,
-                it->id,
-                BattleAreaRemovalReason::Expired,
-            });
+                BattleAreaRemovalReason::Expired));
             it = state.areas.erase(it);
             continue;
         }
@@ -356,11 +356,9 @@ std::vector<BattleAreaLifecycleEvent> BattleAreaEffectSystem::removeForSourceDea
         if (it->source.ownerUnitId == sourceUnitId
             && it->sourceDeath == AreaSourceDeathPolicy::RemoveImmediately)
         {
-            events.push_back({
+            events.push_back(lifecycleEvent(*it,
                 BattleAreaLifecycleEventType::Removed,
-                it->id,
-                BattleAreaRemovalReason::SourceDied,
-            });
+                BattleAreaRemovalReason::SourceDied));
             it = state.areas.erase(it);
             continue;
         }

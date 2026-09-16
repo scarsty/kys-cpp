@@ -98,6 +98,21 @@ enum class BattleStatusSemanticId : std::int16_t
     LethalRecoveryFailed = 17,
     RecoveryUltimateCommitted = 18,
     RecoveryUltimateSkipped = 19,
+    TrueQi = 21,
+    BattleSpirit = 22,
+    AttributeModifier = 23,
+    DamageModifier = 24,
+    HealModifier = 25,
+    ResourceChanged = 26,
+    AreaCreated = 27,
+    AreaRefreshed = 28,
+    AreaRemoved = 29,
+    StatusConsumed = 30,
+    StatusRemoved = 31,
+    DamageAbsorption = 32,
+    DamageAbsorptionEnded = 33,
+    AttackCopied = 34,
+    FreeCast = 35,
 };
 
 enum class BattleResourceSemanticId : std::int16_t
@@ -109,6 +124,9 @@ enum class BattleResourceSemanticId : std::int16_t
     Cooldown = 4,
     Attack = 5,
     Invincibility = 6,
+    StatusShield = 7,
+    StaggerShield = 8,
+    ControlImmunity = 9,
 };
 
 struct BattleLogTextSegment
@@ -155,6 +173,7 @@ struct BattleLogEvent
     int semanticSourceTeam = -1;
     std::string semanticSourceKind;
     std::string semanticSourceName;
+    int stackCount{};
 };
 
 enum class BattleGameplayEventType : std::uint8_t

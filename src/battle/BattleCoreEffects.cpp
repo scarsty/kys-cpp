@@ -14,15 +14,18 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <iterator>
 #include <limits>
 #include <map>
 #include <memory_resource>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -61,6 +64,243 @@ int adjustedRuntimeMpRestore(BattleRuntimeState& state, int unitId, int amount)
         isMpBlocked(state, unitId),
         CoreDetail::mpRecoveryBonusPct(state, unitId),
         amount);
+}
+
+std::string_view effectSourceKindName(EffectSourceKind kind)
+{
+    switch (kind)
+    {
+    case EffectSourceKind::Combo: return "combo";
+    case EffectSourceKind::Equipment: return "equipment";
+    case EffectSourceKind::EquipmentSynergy: return "equipment_synergy";
+    case EffectSourceKind::Neigong: return "neigong";
+    case EffectSourceKind::Magic: return "magic";
+    }
+    assert(false);
+    return {};
+}
+
+BattleLogEvent makeEffectLogEvent(
+    const BattleRuntimeState& state,
+    const EffectCommandMetadata& metadata,
+    int targetUnitId,
+    int frame)
+{
+    return CoreDetail::makeEffectLogEvent(state, metadata.binding, targetUnitId, frame);
+}
+
+BattleStatusSemanticId statusSemanticId(BattleStatusKind status)
+{
+    switch (status)
+    {
+    case BattleStatusKind::Stun: return BattleStatusSemanticId::Stun;
+    case BattleStatusKind::Poison: return BattleStatusSemanticId::Poison;
+    case BattleStatusKind::Bleed: return BattleStatusSemanticId::Bleed;
+    case BattleStatusKind::MpBlocked: return BattleStatusSemanticId::MpBlocked;
+    case BattleStatusKind::TrueQi: return BattleStatusSemanticId::TrueQi;
+    case BattleStatusKind::BattleSpirit: return BattleStatusSemanticId::BattleSpirit;
+    case BattleStatusKind::ColdPoison:
+    case BattleStatusKind::WitheredBone:
+    case BattleStatusKind::SevenStarMark:
+    case BattleStatusKind::NeutralizeForce:
+    case BattleStatusKind::Blinded:
+    case BattleStatusKind::NextAttackMiss:
+    case BattleStatusKind::DamageBlockLayer:
+    case BattleStatusKind::SingleHitCapLayer:
+    case BattleStatusKind::PoisonExplosion:
+    case BattleStatusKind::Shadowless:
+    case BattleStatusKind::NextAttackCritical:
+        return BattleStatusSemanticId::None;
+    case BattleStatusKind::Count:
+        break;
+    }
+    assert(false);
+    return BattleStatusSemanticId::None;
+}
+
+BattleResourceSemanticId resourceSemanticId(BattleResource resource)
+{
+    switch (resource)
+    {
+    case BattleResource::Shield: return BattleResourceSemanticId::Shield;
+    case BattleResource::StatusShield: return BattleResourceSemanticId::StatusShield;
+    case BattleResource::StaggerShield: return BattleResourceSemanticId::StaggerShield;
+    case BattleResource::ActiveCooldown: return BattleResourceSemanticId::Cooldown;
+    case BattleResource::ControlImmunityFrames:
+        return BattleResourceSemanticId::ControlImmunity;
+    case BattleResource::InvincibilityFrames:
+        return BattleResourceSemanticId::Invincibility;
+    case BattleResource::Hp:
+    case BattleResource::Mp:
+        return BattleResourceSemanticId::None;
+    }
+    assert(false);
+    return BattleResourceSemanticId::None;
+}
+
+std::string_view resourceLabel(BattleResource resource)
+{
+    switch (resource)
+    {
+    case BattleResource::Shield: return "護盾";
+    case BattleResource::StatusShield: return "狀態護盾";
+    case BattleResource::StaggerShield: return "硬直護盾";
+    case BattleResource::ActiveCooldown: return "冷卻";
+    case BattleResource::ControlImmunityFrames: return "控場免疫";
+    case BattleResource::InvincibilityFrames: return "無敵";
+    case BattleResource::Hp:
+    case BattleResource::Mp:
+        return {};
+    }
+    assert(false);
+    return {};
+}
+
+std::string_view attributeLabel(BattleAttribute attribute)
+{
+    switch (attribute)
+    {
+    case BattleAttribute::MaxHp: return "最大生命";
+    case BattleAttribute::Attack: return "攻擊";
+    case BattleAttribute::Defence: return "防禦";
+    case BattleAttribute::Speed: return "速度";
+    case BattleAttribute::CriticalChance: return "暴擊率";
+    case BattleAttribute::CriticalDamage: return "暴擊傷害";
+    case BattleAttribute::DodgeChance: return "閃避率";
+    case BattleAttribute::BlockChance: return "格擋率";
+    case BattleAttribute::DamageReduction: return "減傷";
+    case BattleAttribute::SkillDamage: return "技能傷害";
+    case BattleAttribute::ProjectilePressureDamage: return "彈道壓制傷害";
+    case BattleAttribute::CooldownReduction: return "冷卻減少";
+    case BattleAttribute::MpRecoveryBonus: return "回內加成";
+    case BattleAttribute::StaggerResistance: return "硬直抗性";
+    case BattleAttribute::ProjectileReflectChance: return "彈道反彈率";
+    case BattleAttribute::SkillReflectPercent: return "技能反彈率";
+    case BattleAttribute::CounterUltimateBlockChance: return "反絕招格擋率";
+    case BattleAttribute::CriticalAfterDodge: return "閃避後暴擊率";
+    case BattleAttribute::DashChance: return "突進率";
+    case BattleAttribute::OutgoingCooldownExtensionChance: return "出招冷卻延長率";
+    case BattleAttribute::OutgoingCooldownExtensionPercent: return "出招冷卻延長";
+    case BattleAttribute::IncomingCooldownExtensionChance: return "受擊冷卻延長率";
+    case BattleAttribute::IncomingCooldownExtensionPercent: return "受擊冷卻延長";
+    case BattleAttribute::GuaranteedHit: return "必中";
+    }
+    assert(false);
+    return {};
+}
+
+int stackedModifierAmount(int amount, int stackCount)
+{
+    return static_cast<int>(std::clamp<std::int64_t>(
+        static_cast<std::int64_t>(amount) * stackCount,
+        std::numeric_limits<int>::min(),
+        std::numeric_limits<int>::max()));
+}
+
+std::string attributeModifierText(
+    BattleAttribute attribute,
+    AttributeOperation operation,
+    int amount)
+{
+    switch (operation)
+    {
+    case AttributeOperation::FlatAdd:
+        return std::format("{}數值{:+}", attributeLabel(attribute), amount);
+    case AttributeOperation::PercentAdd:
+        return std::format("{}百分比{:+}%", attributeLabel(attribute), amount);
+    case AttributeOperation::PercentagePointAdd:
+        return std::format("{}百分點{:+}", attributeLabel(attribute), amount);
+    case AttributeOperation::Override:
+        return std::format("{}設為{}", attributeLabel(attribute), amount);
+    case AttributeOperation::Multiply:
+        return std::format("{}倍率{}%", attributeLabel(attribute), amount);
+    case AttributeOperation::AtLeast:
+        return std::format("{}至少{}", attributeLabel(attribute), amount);
+    }
+    assert(false);
+    return {};
+}
+
+std::string damageModifierText(
+    DamageModifierPerspective perspective,
+    DamageModifierOperation operation,
+    int amount)
+{
+    const std::string_view subject = perspective == DamageModifierPerspective::Outgoing
+        ? "輸出傷害"
+        : "承受傷害";
+    switch (operation)
+    {
+    case DamageModifierOperation::FlatAdd:
+        return std::format("{}{:+}", subject, amount);
+    case DamageModifierOperation::PercentAdd:
+        return std::format("{}百分比{:+}%", subject, amount);
+    case DamageModifierOperation::Multiply:
+        return std::format("{}倍率{}%", subject, amount);
+    case DamageModifierOperation::IgnoreDefensePercent:
+        return std::format("{}忽略防禦{:+}%", subject, amount);
+    case DamageModifierOperation::CapSingleHitAtMaxHpPercent:
+        return std::format("{}上限{}%最大生命", subject, amount);
+    case DamageModifierOperation::CapSingleHitAtValue:
+        return std::format("{}上限{}", subject, amount);
+    case DamageModifierOperation::ExecuteBelowMaxHpPercent:
+        return std::format("{}低於{}%最大生命時處決", subject, amount);
+    }
+    assert(false);
+    return {};
+}
+
+bool damageModifierIsNegative(
+    DamageModifierPerspective perspective,
+    DamageModifierOperation operation,
+    int amount)
+{
+    const bool outgoing = perspective == DamageModifierPerspective::Outgoing;
+    switch (operation)
+    {
+    case DamageModifierOperation::FlatAdd:
+    case DamageModifierOperation::PercentAdd:
+    case DamageModifierOperation::IgnoreDefensePercent:
+        return outgoing ? amount < 0 : amount > 0;
+    case DamageModifierOperation::Multiply:
+        return outgoing ? amount < 100 : amount > 100;
+    case DamageModifierOperation::CapSingleHitAtMaxHpPercent:
+        return outgoing;
+    case DamageModifierOperation::ExecuteBelowMaxHpPercent:
+        return !outgoing;
+    case DamageModifierOperation::CapSingleHitAtValue:
+        return outgoing;
+    }
+    assert(false);
+    return false;
+}
+
+std::vector<BattleLogTextSegment> statusLogSegments(
+    BattleStatusKind status,
+    int durationFrames,
+    int stackCount)
+{
+    if (durationFrames > 0)
+    {
+        return logSegments<BattleLogTextTone::SkillName>(
+            battleStatusLabel(status),
+            "（",
+            std::pair{ BattleLogTextTone::DurationValue, durationFrames },
+            std::pair{ BattleLogTextTone::DurationValue, "幀" },
+            "）");
+    }
+
+    const auto counter = statusQuantityCounter(statusCatalogEntry(status).quantity);
+    if (stackCount > 0 && !counter.empty())
+    {
+        return logSegments<BattleLogTextTone::SkillName>(
+            battleStatusLabel(status),
+            "（",
+            std::pair{ BattleLogTextTone::ResourceValue, stackCount },
+            std::pair{ BattleLogTextTone::ResourceValue, counter },
+            "）");
+    }
+    return battleLogText(std::string(battleStatusLabel(status)), BattleLogTextTone::SkillName);
 }
 
 BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
@@ -110,17 +350,33 @@ BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
 }
 
 void appendMpResourceEffectLogEvents(
+    const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logEvents,
     const EffectCommandMetadata& metadata,
     const ChangeResourceEffectCommand& command,
-    const BattleResourceEffectResult& result)
+    const BattleResourceEffectResult& result,
+    int frame)
 {
-    if (command.resource != BattleResource::Mp
-        || (command.kind != ResourceChangeKind::Drain
-            && command.kind != ResourceChangeKind::Transfer))
+    if (command.resource != BattleResource::Mp)
     {
         return;
     }
+
+    const auto reason = [&]
+    {
+        switch (command.kind)
+        {
+        case ResourceChangeKind::Restore: return std::string_view{ "回復內力" };
+        case ResourceChangeKind::Grant: return std::string_view{ "獲得內力" };
+        case ResourceChangeKind::Drain: return std::string_view{ "吸取內力" };
+        case ResourceChangeKind::Transfer: return std::string_view{ "轉移內力" };
+        case ResourceChangeKind::Remove:
+        case ResourceChangeKind::RefreshToAtLeast:
+            return std::string_view{};
+        }
+        assert(false);
+        return std::string_view{};
+    }();
 
     int removed{};
     for (const auto& delta : result.deltas)
@@ -130,16 +386,16 @@ void appendMpResourceEffectLogEvents(
             removed += delta.before - delta.after;
         }
     }
-    if (removed > 0)
+    if (removed > 0
+        && (command.kind == ResourceChangeKind::Drain
+            || command.kind == ResourceChangeKind::Transfer))
     {
-        CoreDetail::appendStatusEventLog(
-            logEvents,
-            metadata.binding.ownerUnitId,
-            metadata.targetUnitId,
-            command.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
-            BattleStatusSemanticId::MagicPointsDrained,
-            BattleResourceSemanticId::MagicPoints,
-            removed);
+        auto event = makeEffectLogEvent(state, metadata, metadata.targetUnitId, frame);
+        event.amount = removed;
+        event.statusId = BattleStatusSemanticId::MagicPointsDrained;
+        event.resourceId = BattleResourceSemanticId::MagicPoints;
+        event.segments = battleLogText(std::string(reason), BattleLogTextTone::SkillName);
+        logEvents.push_back(std::move(event));
     }
 
     for (const auto& delta : result.deltas)
@@ -149,14 +405,279 @@ void appendMpResourceEffectLogEvents(
         {
             continue;
         }
-        CoreDetail::appendHealEventLog(
-            logEvents,
-            metadata.binding.ownerUnitId,
-            delta.unitId,
-            restored,
-            command.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
-            BattleResourceSemanticId::MagicPoints);
+        auto event = makeEffectLogEvent(state, metadata, delta.unitId, frame);
+        event.type = BattleLogEventType::Heal;
+        event.amount = restored;
+        event.resourceId = BattleResourceSemanticId::MagicPoints;
+        event.segments = battleLogText(std::string(reason), BattleLogTextTone::SkillName);
+        logEvents.push_back(std::move(event));
     }
+}
+
+void appendEffectResourceLogEvents(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logEvents,
+    const EffectCommandMetadata& metadata,
+    const ChangeResourceEffectCommand& command,
+    const BattleResourceEffectResult& result,
+    int frame)
+{
+    if (command.resource == BattleResource::Mp)
+    {
+        appendMpResourceEffectLogEvents(state, logEvents, metadata, command, result, frame);
+        return;
+    }
+
+    const auto semanticResource = resourceSemanticId(command.resource);
+    if (semanticResource == BattleResourceSemanticId::None)
+    {
+        return;
+    }
+
+    for (const auto& delta : result.deltas)
+    {
+        if (delta.before == delta.after)
+        {
+            continue;
+        }
+        auto event = makeEffectLogEvent(state, metadata, delta.unitId, frame);
+        event.amount = delta.after - delta.before;
+        event.previousAmount = delta.before;
+        event.newAmount = delta.after;
+        event.statusId = BattleStatusSemanticId::ResourceChanged;
+        event.resourceId = semanticResource;
+        event.segments = battleLogText(
+            std::format(
+                "{}{:+}（{}→{}）",
+                resourceLabel(command.resource),
+                event.amount,
+                delta.before,
+                delta.after),
+            event.amount > 0
+                ? BattleLogTextTone::Positive
+                : BattleLogTextTone::Negative);
+        logEvents.push_back(std::move(event));
+    }
+}
+
+void appendAttributeModifierLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logEvents,
+    const EffectCommandMetadata& metadata,
+    const BattleAttributeModifierInstance& modifier,
+    int frame)
+{
+    auto event = makeEffectLogEvent(state, metadata, modifier.targetUnitId, frame);
+    event.amount = stackedModifierAmount(modifier.amount, modifier.stackCount);
+    event.stackCount = modifier.stackCount;
+    event.statusId = BattleStatusSemanticId::AttributeModifier;
+    event.segments = battleLogText(
+        attributeModifierText(
+            modifier.attribute,
+            modifier.operation,
+            event.amount),
+        modifier.negative
+            ? BattleLogTextTone::Negative
+            : BattleLogTextTone::Positive);
+    logEvents.push_back(std::move(event));
+}
+
+void appendDamageModifierLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logEvents,
+    const EffectCommandMetadata& metadata,
+    const BattleDamageModifierInstance& modifier,
+    int frame)
+{
+    auto event = makeEffectLogEvent(state, metadata, modifier.targetUnitId, frame);
+    event.amount = stackedModifierAmount(modifier.amount, modifier.stackCount);
+    event.stackCount = modifier.stackCount;
+    event.statusId = BattleStatusSemanticId::DamageModifier;
+    event.segments = battleLogText(
+        damageModifierText(
+            modifier.perspective,
+            modifier.operation,
+            event.amount),
+        modifier.negative
+            ? BattleLogTextTone::Negative
+            : BattleLogTextTone::Positive);
+    logEvents.push_back(std::move(event));
+}
+
+const BattleStatusContribution* appliedStatusContribution(
+    const BattleStatusApplyResult& result,
+    const EffectCommandMetadata& metadata,
+    const ApplyStatusEffectCommand& command)
+{
+    const auto provenance = BattleEffectCommandSystem::statusProducerProvenance(metadata);
+    const auto found = std::ranges::find_if(
+        result.target.effects.statuses,
+        [&](const auto& status)
+        {
+            return status.kind == command.status
+                && status.producer
+                && *status.producer == provenance.producer
+                && status.origin
+                && *status.origin == provenance.origin;
+        });
+    assert(found != result.target.effects.statuses.end());
+    return &*found;
+}
+
+void appendPersistentBehaviorModifierLogs(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logEvents,
+    const EffectCommandMetadata& metadata,
+    BattleStatusKind status,
+    const BattleStatusContribution& contribution,
+    const ApplyStatusEffectCommand& command,
+    int frame)
+{
+    if (!command.behavior)
+    {
+        return;
+    }
+
+    for (const auto& rule : command.behavior->rules)
+    {
+        if (rule.event != EffectEvent::StatusPersistent)
+        {
+            continue;
+        }
+        for (const auto& action : rule.actions)
+        {
+            std::visit(Overloaded{
+                [&](const ModifyAttributeAction& modifier)
+                {
+                    const auto amount = effectiveConstantEffectNumberValue(
+                        modifier.amount,
+                        contribution.stacks);
+                    if (!amount)
+                    {
+                        return;
+                    }
+                    auto event = makeEffectLogEvent(
+                        state,
+                        metadata,
+                        metadata.targetUnitId,
+                        frame);
+                    event.amount = *amount;
+                    event.stackCount = contribution.stacks;
+                    event.statusId = BattleStatusSemanticId::AttributeModifier;
+                    event.segments = battleLogText(
+                        std::format(
+                            "{}：{}",
+                            battleStatusLabel(status),
+                            attributeModifierText(
+                                modifier.attribute,
+                                modifier.operation,
+                                *amount)),
+                        attributeModifierIsNegative(modifier.operation, *amount)
+                            ? BattleLogTextTone::Negative
+                            : BattleLogTextTone::Positive);
+                    logEvents.push_back(std::move(event));
+                },
+                [&](const ModifyDamageAction& modifier)
+                {
+                    const auto amount = effectiveConstantEffectNumberValue(
+                        modifier.amount,
+                        contribution.stacks);
+                    if (!amount)
+                    {
+                        return;
+                    }
+                    auto event = makeEffectLogEvent(
+                        state,
+                        metadata,
+                        metadata.targetUnitId,
+                        frame);
+                    event.amount = *amount;
+                    event.stackCount = contribution.stacks;
+                    event.statusId = BattleStatusSemanticId::DamageModifier;
+                    event.segments = battleLogText(
+                        std::format(
+                            "{}：{}",
+                            battleStatusLabel(status),
+                            damageModifierText(
+                                modifier.perspective,
+                                modifier.operation,
+                                *amount)),
+                        damageModifierIsNegative(
+                            modifier.perspective,
+                            modifier.operation,
+                            *amount)
+                            ? BattleLogTextTone::Negative
+                            : BattleLogTextTone::Positive);
+                    logEvents.push_back(std::move(event));
+                },
+                [&](const ModifyHealTransactionAction& modifier)
+                {
+                    const std::string description = modifier.operation == HealModifierOperation::Block
+                        ? "禁止受療"
+                        : std::format("受療{}%", modifier.percent);
+                    auto event = makeEffectLogEvent(
+                        state,
+                        metadata,
+                        metadata.targetUnitId,
+                        frame);
+                    event.statusId = BattleStatusSemanticId::HealModifier;
+                    event.stackCount = contribution.stacks;
+                    event.amount = modifier.operation == HealModifierOperation::Block
+                        ? 0
+                        : modifier.percent;
+                    event.segments = battleLogText(
+                        std::format(
+                            "{}：{}",
+                            battleStatusLabel(status),
+                            description),
+                        BattleLogTextTone::Negative);
+                    logEvents.push_back(std::move(event));
+                },
+                [&](const auto&)
+                {
+                },
+            }, action.value);
+        }
+    }
+}
+
+void appendEffectStatusLogEvents(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logEvents,
+    const EffectCommandMetadata& metadata,
+    const ApplyStatusEffectCommand& command,
+    const BattleStatusApplyResult& result,
+    int frame)
+{
+    if (command.status == BattleStatusKind::Poison || !result.applied)
+    {
+        return;
+    }
+
+    const auto* contribution = appliedStatusContribution(result, metadata, command);
+    const int stackCount = statusCatalogEntry(command.status).quantity != StatusQuantityModel::None
+        && statusCatalogEntry(command.status).quantity != StatusQuantityModel::Internal
+        ? contribution->stacks
+        : 0;
+    const int durationFrames = result.appliedDurationFrames;
+
+    auto event = makeEffectLogEvent(state, metadata, metadata.targetUnitId, frame);
+    event.statusId = statusSemanticId(command.status);
+    event.amount = durationFrames > 0
+        ? durationFrames
+        : stackCount > 0 ? stackCount : result.value;
+    event.stackCount = stackCount;
+    event.segments = statusLogSegments(command.status, durationFrames, stackCount);
+    logEvents.push_back(std::move(event));
+
+    appendPersistentBehaviorModifierLogs(
+        state,
+        logEvents,
+        metadata,
+        command.status,
+        *contribution,
+        command,
+        frame);
 }
 
 bool applyFrameMpRestore(
@@ -285,7 +806,18 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
     {
-        CoreDetail::applyKnockbackImpulse(state, *knockback);
+        if (CoreDetail::applyKnockbackImpulse(state, *knockback) && knockback->effectSource)
+        {
+            auto log = CoreDetail::makeEffectLogEvent(state, *knockback->effectSource,
+                knockback->targetUnitId, state.movement.frame);
+            log.statusId = BattleStatusSemanticId::Knockback;
+            log.amount = static_cast<int>(knockback->distance);
+            log.secondaryAmount = knockback->lockFrames;
+            log.segments = battleLogText(std::format("{}推力（{}距離·{}幀）",
+                knockback->semanticDirection == ForceMoveDirection::TowardSource ? "牽引" : "擊退",
+                log.amount, log.secondaryAmount));
+            sinks.logEvents.push_back(std::move(log));
+        }
         return true;
     }
     if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
@@ -487,6 +1019,18 @@ void reduceEffectCommandImpl(
     const auto& entry = reduction.entries.front();
     if (const auto* attribute = std::get_if<BattleAttributeEffectResult>(&entry.value))
     {
+        const bool maintainedEveryFrame = entry.metadata.event == EffectEvent::FrameAdvanced
+            && attribute->modifier.expiresFrameExclusive
+            && *attribute->modifier.expiresFrameExclusive == context.frame + 1;
+        if (attribute->applied && !maintainedEveryFrame)
+        {
+            appendAttributeModifierLog(
+                state,
+                frame.logEvents,
+                entry.metadata,
+                attribute->modifier,
+                context.frame);
+        }
         if (attribute->outcome == BattleModifierApplyOutcome::BlockedByStatusShield)
         {
             queueSemanticCue(
@@ -499,9 +1043,7 @@ void reduceEffectCommandImpl(
         else if (modifierApplicationShouldCue(
                      attribute->outcome,
                      attribute->modifier.stackCount)
-            && !(entry.metadata.event == EffectEvent::FrameAdvanced
-                && attribute->modifier.expiresFrameExclusive
-                && *attribute->modifier.expiresFrameExclusive == context.frame + 1))
+            && !maintainedEveryFrame)
         {
             const auto family = attribute->modifier.negative
                 ? BattleSemanticCueFamily::Curse
@@ -515,6 +1057,15 @@ void reduceEffectCommandImpl(
     }
     else if (const auto* modifier = std::get_if<BattleDamageModifierEffectResult>(&entry.value))
     {
+        if (modifier->applied)
+        {
+            appendDamageModifierLog(
+                state,
+                frame.logEvents,
+                entry.metadata,
+                modifier->modifier,
+                context.frame);
+        }
         if (modifier->outcome == BattleModifierApplyOutcome::BlockedByStatusShield)
         {
             queueSemanticCue(
@@ -537,6 +1088,17 @@ void reduceEffectCommandImpl(
     }
     else if (const auto* absorption = std::get_if<BattleDamageAbsorptionEffectResult>(&entry.value))
     {
+        auto log = makeEffectLogEvent(state, entry.metadata,
+            absorption->absorption.targetUnitId, context.frame);
+        log.statusId = BattleStatusSemanticId::DamageAbsorption;
+        log.amount = absorption->absorption.absorbedPct;
+        const int duration = static_cast<int>(
+            absorption->absorption.expiresFrameExclusive - context.frame);
+        log.segments = logSegments<BattleLogTextTone::Positive>(
+            absorption->outcome == BattleModifierApplyOutcome::Refreshed ? "刷新傷害吸收" : "傷害吸收",
+            std::format("{}%（", log.amount),
+            std::pair{ BattleLogTextTone::DurationValue, duration }, "幀）");
+        frame.logEvents.push_back(std::move(log));
         if (absorption->outcome == BattleModifierApplyOutcome::BlockedByStatusShield
             || modifierApplicationShouldCue(absorption->outcome, 1))
         {
@@ -550,6 +1112,10 @@ void reduceEffectCommandImpl(
     else if (const auto* damage = std::get_if<BattleEffectDamageRequestOutput>(&entry.value))
     {
         CoreDetail::appendEffectDamageOutput(state, frame, pendingDamage, *damage, context);
+    }
+    else if (const auto* area = std::get_if<BattleAreaEffectResult>(&entry.value))
+    {
+        CoreDetail::appendAreaLifecycleLogs(state, frame.logEvents, area->area.events, context.frame);
     }
     else if (const auto* move = std::get_if<
                  BattleRoutedEffectCommand<ForceMoveEffectCommand>>(&entry.value))
@@ -575,6 +1141,7 @@ void reduceEffectCommandImpl(
             .semanticDirection = move->command.action.direction,
             .collision = move->command.action.collision,
             .blocked = move->command.action.blocked,
+            .effectSource = entry.metadata.binding,
         });
     }
     else if (const auto* cast = std::get_if<
@@ -594,19 +1161,25 @@ void reduceEffectCommandImpl(
     {
         const auto* resource = std::get_if<ChangeResourceEffectCommand>(&command.value);
         assert(resource);
-        appendMpResourceEffectLogEvents(
+        appendEffectResourceLogEvents(
+            state,
             frame.logEvents,
             entry.metadata,
             *resource,
-            *heal);
+            *heal,
+            context.frame);
         if (heal->heal && heal->heal->appliedAmount > 0)
         {
-            CoreDetail::appendHealEventLog(
-                frame.logEvents,
-                heal->heal->request.sourceUnitId,
+            auto event = makeEffectLogEvent(
+                state,
+                entry.metadata,
                 heal->heal->request.targetUnitId,
-                heal->heal->appliedAmount,
-                "效果治療");
+                context.frame);
+            event.type = BattleLogEventType::Heal;
+            event.amount = heal->heal->appliedAmount;
+            event.resourceId = BattleResourceSemanticId::HitPoints;
+            event.segments = battleLogText("效果治療", BattleLogTextTone::SkillName);
+            frame.logEvents.push_back(std::move(event));
             frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
                 heal->heal->request.targetUnitId,
                 KysChess::EFT_HEAL,
@@ -640,6 +1213,13 @@ void reduceEffectCommandImpl(
             entry.metadata,
             *apply,
             *status);
+        appendEffectStatusLogEvents(
+            state,
+            frame.logEvents,
+            entry.metadata,
+            *apply,
+            status->status,
+            context.frame);
         queueStatusApplyCue(
             frame,
             entry.metadata,
@@ -649,6 +1229,7 @@ void reduceEffectCommandImpl(
     }
     else if (const auto* consume = std::get_if<BattleStatusConsumeEffectResult>(&entry.value))
     {
+        CoreDetail::appendStatusConsumptionLog(state, frame.logEvents, consume->status, context.frame);
         const auto* commandConsume = std::get_if<ConsumeStatusEffectCommand>(&command.value);
         const auto* commandConsumeThis = std::get_if<ConsumeThisStatusEffectCommand>(
             &command.value);
@@ -658,6 +1239,8 @@ void reduceEffectCommandImpl(
             : &commandConsumeThis->whenDepleted;
         if (consume->depletedStatus && *depletedCommand)
         {
+            appendEffectStatusLogEvents(state, frame.logEvents, entry.metadata,
+                **depletedCommand, *consume->depletedStatus, context.frame);
             queueStatusApplyCue(
                 frame,
                 entry.metadata,
@@ -668,6 +1251,25 @@ void reduceEffectCommandImpl(
     }
     else if (const auto* remove = std::get_if<BattleStatusRemoveEffectResult>(&entry.value))
     {
+        const auto appendRemoval = [&](std::string description)
+        {
+            auto log = makeEffectLogEvent(state, entry.metadata, entry.metadata.targetUnitId, context.frame);
+            log.statusId = BattleStatusSemanticId::StatusRemoved;
+            log.amount = 1;
+            log.segments = battleLogText("移除：" + description, BattleLogTextTone::Positive);
+            frame.logEvents.push_back(std::move(log));
+        };
+        for (const auto kind : remove->status.removedStatuses)
+            appendRemoval(std::string(battleStatusLabel(kind)));
+        for (const auto& modifier : remove->removedAttributeModifiers)
+            appendRemoval(attributeModifierText(modifier.attribute, modifier.operation,
+                stackedModifierAmount(modifier.amount, modifier.stackCount)));
+        for (const auto& modifier : remove->removedDamageModifiers)
+            appendRemoval(damageModifierText(modifier.perspective, modifier.operation,
+                stackedModifierAmount(modifier.amount, modifier.stackCount)));
+        if (remove->status.currentActionStaggerCleared
+            && !std::ranges::contains(remove->status.removedStatuses, BattleStatusKind::Stun))
+            appendRemoval("當前硬直");
         if (remove->status.removedCount > 0
             || remove->status.currentActionStaggerCleared
             || !remove->removedAttributeModifiers.empty()
@@ -822,6 +1424,7 @@ void appendEnemyTopDebuffReportEvents(
 
 void queueFreeChildCast(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     const BattleCastLifecycleEvent& lifecycleEvent,
     const BattleEffectCastRuntimeContext& parentContext,
     const BattleEffectFreeAdditionalCast& freeCast,
@@ -923,6 +1526,13 @@ void queueFreeChildCast(
     {
         state.nextFrame.queueAttack(std::move(request));
     }
+    auto log = CoreDetail::makeEffectLogEvent(state, freeCast.metadata.binding,
+        cast.decision.targetUnitId, state.movement.frame);
+    log.statusId = BattleStatusSemanticId::FreeCast;
+    log.skillId = childSkill.id;
+    log.skillName = childSkill.name;
+    log.segments = battleLogText("免費追加出招：" + childSkill.name, BattleLogTextTone::SkillName);
+    frame.logEvents.push_back(std::move(log));
     state.castLifecycle.completeWork(child.commitBarrier);
 }
 
@@ -941,6 +1551,114 @@ std::optional<BattleAreaVisualStyle> areaVisualStyle(const BattleAreaEffect& are
 
 namespace CoreDetail
 {
+BattleLogEvent makeEffectLogEvent(
+    const BattleRuntimeState& state,
+    const EffectSourceBinding& binding,
+    int targetUnitId,
+    int frame)
+{
+    BattleLogEvent event;
+    event.frame = frame;
+    event.sourceUnitId = binding.ownerUnitId;
+    event.targetUnitId = targetUnitId;
+    event.semanticSourceTeam = binding.sourceTeam;
+    event.semanticSourceKind = std::string(effectSourceKindName(binding.kind));
+    if (const auto source = state.effectSourceNames.find({ binding.kind, binding.sourceId });
+        source != state.effectSourceNames.end())
+        event.semanticSourceName = source->second;
+    return event;
+}
+
+void appendAreaLifecycleLogs(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    std::span<const BattleAreaLifecycleEvent> events,
+    int frame)
+{
+    for (const auto& area : events)
+    {
+        auto log = makeEffectLogEvent(state, area.source, area.source.ownerUnitId, frame);
+        log.effectId = area.areaId.value;
+        log.perspective = BattleLogPerspective::SourceOnly;
+        if (area.type == BattleAreaLifecycleEventType::Removed)
+        {
+            log.statusId = BattleStatusSemanticId::AreaRemoved;
+            std::string_view reason;
+            switch (area.removalReason)
+            {
+            case BattleAreaRemovalReason::Explicit: reason = "移除"; break;
+            case BattleAreaRemovalReason::Expired: reason = "到期"; break;
+            case BattleAreaRemovalReason::SourceDied: reason = "來源陣亡"; break;
+            case BattleAreaRemovalReason::Replaced: reason = "被取代"; break;
+            }
+            log.segments = battleLogText(std::format("區域結束（{}）", reason));
+        }
+        else
+        {
+            log.statusId = area.type == BattleAreaLifecycleEventType::Created
+                ? BattleStatusSemanticId::AreaCreated : BattleStatusSemanticId::AreaRefreshed;
+            log.amount = area.expiresFrameExclusive - frame;
+            log.segments = logStatusFrames<BattleLogTextTone::Positive>(
+                area.type == BattleAreaLifecycleEventType::Created ? "建立區域" : "刷新區域", log.amount);
+        }
+        logs.push_back(std::move(log));
+    }
+}
+
+void appendStatusConsumptionLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    const BattleStatusConsumeResult& result,
+    int frame)
+{
+    if (result.consumed)
+        appendStatusConsumptionLog(state, logs, BattleStatusConsumptionReceipt{
+            result.target.id, result.consumedStatus, result.remainingStacks }, frame);
+}
+
+void appendStatusConsumptionLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    const BattleStatusConsumptionReceipt& receipt,
+    int frame)
+{
+    // 中毒每次扣次數已有毒傷事件，不再重複寫一筆消耗。
+    if (receipt.contribution.kind == BattleStatusKind::Poison)
+        return;
+    const auto& status = receipt.contribution;
+    BattleLogEvent log;
+    if (status.origin)
+        log = makeEffectLogEvent(state, status.origin->binding, receipt.targetUnitId, frame);
+    else
+    {
+        log.frame = frame;
+        log.sourceUnitId = status.sourceUnitId;
+        log.targetUnitId = receipt.targetUnitId;
+    }
+    log.statusId = BattleStatusSemanticId::StatusConsumed;
+    log.amount = status.stacks;
+    log.previousAmount = receipt.remainingStacks + status.stacks;
+    log.newAmount = receipt.remainingStacks;
+    log.segments = battleLogText(std::format("消耗{} {}（剩餘{}）",
+        battleStatusLabel(status.kind), status.stacks, receipt.remainingStacks));
+    logs.push_back(std::move(log));
+}
+
+void appendHitDamageModifierLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    const EffectCommandMetadata& metadata,
+    const ModifyDamageEffectCommand& modifier,
+    int frame)
+{
+    auto log = makeEffectLogEvent(state, metadata.binding, metadata.targetUnitId, frame);
+    log.statusId = BattleStatusSemanticId::DamageModifier;
+    log.amount = modifier.amount;
+    log.segments = battleLogText("本次命中：" + damageModifierText(
+        modifier.perspective, modifier.operation, modifier.amount));
+    logs.push_back(std::move(log));
+}
+
 void appendAreaDamagePulses(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     const int currentFrame = state.movement.frame;
@@ -1107,6 +1825,7 @@ void dispatchReadyCastLifecycleEffects(
                 {
                     queueFreeChildCast(
                         state,
+                        frame,
                         event,
                         castContext,
                         freeCast,

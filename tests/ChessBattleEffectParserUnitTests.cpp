@@ -125,6 +125,23 @@ TEST_CASE("Composable effects validate named choices and default omitted formula
     CHECK(shield.additionalAmount->base == EffectNumberBase::SourceStar);
     CHECK(shield.additionalAmount->percent == 7000);
     CHECK(effects[0]->describe(EffectDescriptionStyle::Compact).find("70×星級") != std::string::npos);
+
+    effects.clear();
+    rules.clear();
+    id = 0;
+    REQUIRE(parseGameplayEffects(
+        YAML::Load("[{類型: 出招全隊攻擊加成, 每星攻擊: 66, 持續幀數: 100}]"),
+        effects,
+        rules,
+        id,
+        "每星全隊攻擊"));
+    REQUIRE(rules.size() == 1);
+    const auto& attack = std::get<ModifyAttributeAction>(rules[0].actions[0].value);
+    CHECK(attack.amount.base == EffectNumberBase::SourceStar);
+    CHECK(attack.amount.percent == 6600);
+    CHECK(attack.amount.flat == 0);
+    CHECK(effects[0]->describe(EffectDescriptionStyle::Compact).find("66×星級") != std::string::npos);
+
     for (const auto invalid : {
         "[{類型: 出招臨時屬性加成, 屬性: 不存在, 百分比: 25, 持續幀數: 60}]",
         "[{類型: 出招臨時屬性加成, 屬性: 3, 百分比: 25, 持續幀數: 60}]",

@@ -397,7 +397,7 @@ bool tryResolveDodgeHit(
     return true;
 }
 
-bool consumeNextAttackCritical(BattleRuntimeState& state, int attackerUnitId)
+bool consumeNextAttackCritical(BattleRuntimeState& state, BattleFrameContext& frame, int attackerUnitId)
 {
     auto& attacker = state.units.require(attackerUnitId);
     const auto snapshot = BattleStatusSystem({}).snapshot(attacker.statusDamageState());
@@ -411,6 +411,7 @@ bool consumeNextAttackCritical(BattleRuntimeState& state, int attackerUnitId)
         { .kind = BattleStatusKind::NextAttackCritical });
     assert(consumed.consumed);
     attacker.writeStatusDamageResult(consumed.target);
+    CoreDetail::appendStatusConsumptionLog(state, frame.logEvents, consumed, state.movement.frame);
     return true;
 }
 
@@ -535,6 +536,7 @@ bool consumeTypedAttackSuppression(
             });
         assert(consumed.consumed);
         holder.writeStatusDamageResult(consumed.target);
+        CoreDetail::appendStatusConsumptionLog(state, frame.logEvents, consumed, state.movement.frame);
     };
 
     bool suppressed{};
@@ -679,6 +681,7 @@ void appendHitDamageModifier(
 
 void collectHitDamageModifiers(
     const BattleRuntimeState& state,
+    BattleFrameContext& frame,
     const BattleAttackEvent& event,
     std::span<const BattleEffectReductionEntry> reductions,
     BattleHitResolutionInput& input)
@@ -702,6 +705,8 @@ void collectHitDamageModifiers(
             modifier->perspective,
             modifier->stage,
             { modifier->operation, modifier->amount });
+        CoreDetail::appendHitDamageModifierLog(state, frame.logEvents,
+            reduction.metadata, *modifier, state.movement.frame);
     }
 
     const std::array perspectives{
@@ -1090,7 +1095,7 @@ void resolveTypedHitEvent(
         return;
     }
     const bool forceCritical = event.scriptedDamage <= 0
-        && consumeNextAttackCritical(state, event.sourceUnitId);
+        && consumeNextAttackCritical(state, frame, event.sourceUnitId);
     state.castLifecycle.recordHit(event.provenance, event.unitId);
 
     constexpr std::uint64_t HitReductionReceiptId = 1;
@@ -1135,7 +1140,7 @@ void resolveTypedHitEvent(
         ignoreDefensePct,
         mainHitPolicies);
     input.forceCritical = forceCritical;
-    collectHitDamageModifiers(state, event, hitEffectReduction.entries, input);
+    collectHitDamageModifiers(state, frame, event, hitEffectReduction.entries, input);
     auto result = BattleHitResolver().resolve(input, state.random);
     const auto continuation = result.reflection
         ? BattleHitContinuation::Reflected

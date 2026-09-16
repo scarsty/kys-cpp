@@ -47,6 +47,31 @@ TEST_CASE("BattleLogPresenter_BuildsRowsAndFormattedEntries", "[battle][log_pres
     CHECK(model.entries[0].plainText() == "[  12F] 段譽 施放 六脈神劍 命中 岳不群，造成 20 點傷害（連擊增傷 +20%）");
 }
 
+TEST_CASE("BattleLogPresenter_PreservesEffectNamesAlongsideCharacterLabels", "[battle][log_presenter][logging]")
+{
+    using namespace KysChess::Battle;
+    auto source = BattleLogTest::reportUnit(101, 1, 0, 11, "張無忌");
+    auto target = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
+    BattleReportBuilder builder;
+    builder.recordStatus(&source, &target, BattleLogCategory::Status, BattleLogPerspective::Targeted,
+        battleLogText("眩暈（70幀）"), 12, BattleStatusSemanticId::Stun,
+        BattleResourceSemanticId::None, 70, 0, 0, 0, -1, -1, 0, "magic", "獅子吼");
+    builder.recordHeal(&source, &source, 50, battleLogText("效果治療"), 13,
+        BattleResourceSemanticId::HitPoints, 0, "magic", "九陽神功");
+    builder.recordDamage(&source, &target, 18, "九陽神功", 14, {}, 106, 0, "magic", "九陽神功");
+    BattlePostBattleSummary summary;
+    summary.allies.push_back(summaryUnit(101, 0, "張無忌"));
+    summary.enemies.push_back(summaryUnit(202, 1, "岳不群"));
+    const auto model = BattleLogPresenter().present(summary, builder.report());
+    REQUIRE(model.entries.size() == 3);
+    CHECK(model.entries[0].plainText() == "[  12F] 張無忌 對 岳不群：【獅子吼】眩暈（70幀）");
+    CHECK(model.entries[1].plainText().find("張無忌") != std::string::npos);
+    CHECK(model.entries[1].plainText().find("【九陽神功】") != std::string::npos);
+    CHECK(model.entries[2].plainText() == "[  14F] 張無忌 施放 九陽神功 命中 岳不群，造成 18 點傷害");
+    CHECK(model.entries[0].sourceId == 101);
+    CHECK(builder.report().stats().at(101).damageDealt == 18);
+}
+
 TEST_CASE("BattleLogPresenter_ExplainsTimeoutDefeat", "[battle][log_presenter][timeout]")
 {
     BattleReportBuilder builder;

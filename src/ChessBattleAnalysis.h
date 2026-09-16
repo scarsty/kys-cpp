@@ -114,6 +114,7 @@ struct ChessBattleEffectActivation
     std::optional<int> cancelledPotentialDamage;
     std::optional<int> sourceValueAfter;
     std::optional<int> opposingValueAfter;
+    std::optional<int> stackCount;
 };
 
 struct ChessBattleImportantEffect

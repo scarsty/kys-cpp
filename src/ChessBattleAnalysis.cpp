@@ -139,6 +139,11 @@ std::string battleEffectType(const BattleReportEvent& event)
     {
         return "magic_points_restored";
     }
+    if (event.type == BattleReportEventType::Heal
+        && event.resourceId == Battle::BattleResourceSemanticId::HitPoints)
+    {
+        return "hit_points_restored";
+    }
     switch (event.statusId)
     {
     case Battle::BattleStatusSemanticId::Hitstun: return "hitstun_applied";
@@ -155,6 +160,36 @@ std::string battleEffectType(const BattleReportEvent& event)
     case Battle::BattleStatusSemanticId::MagicPointsDrained: return "magic_points_drained";
     case Battle::BattleStatusSemanticId::PoisonPayload: return "poison_payload";
     case Battle::BattleStatusSemanticId::BlockedByDualWield: return "blocked_by_dual_wield";
+    case Battle::BattleStatusSemanticId::TrueQi: return "true_qi_applied";
+    case Battle::BattleStatusSemanticId::BattleSpirit: return "battle_spirit_applied";
+    case Battle::BattleStatusSemanticId::AttributeModifier: return "attribute_modifier_applied";
+    case Battle::BattleStatusSemanticId::DamageModifier: return "damage_modifier_applied";
+    case Battle::BattleStatusSemanticId::HealModifier: return "heal_modifier_applied";
+    case Battle::BattleStatusSemanticId::AreaCreated: return "area_created";
+    case Battle::BattleStatusSemanticId::AreaRefreshed: return "area_refreshed";
+    case Battle::BattleStatusSemanticId::AreaRemoved: return "area_removed";
+    case Battle::BattleStatusSemanticId::StatusConsumed: return "status_consumed";
+    case Battle::BattleStatusSemanticId::StatusRemoved: return "status_removed";
+    case Battle::BattleStatusSemanticId::DamageAbsorption: return "damage_absorption_applied";
+    case Battle::BattleStatusSemanticId::DamageAbsorptionEnded: return "damage_absorption_ended";
+    case Battle::BattleStatusSemanticId::AttackCopied: return "attack_copied";
+    case Battle::BattleStatusSemanticId::FreeCast: return "free_cast";
+    case Battle::BattleStatusSemanticId::ResourceChanged:
+        switch (event.resourceId)
+        {
+        case Battle::BattleResourceSemanticId::Shield: return "shield_changed";
+        case Battle::BattleResourceSemanticId::StatusShield: return "status_shield_changed";
+        case Battle::BattleResourceSemanticId::StaggerShield: return "stagger_shield_changed";
+        case Battle::BattleResourceSemanticId::ControlImmunity: return "control_immunity_changed";
+        case Battle::BattleResourceSemanticId::Invincibility: return "invincibility_changed";
+        case Battle::BattleResourceSemanticId::Cooldown: return "cooldown_changed";
+        case Battle::BattleResourceSemanticId::None:
+        case Battle::BattleResourceSemanticId::HitPoints:
+        case Battle::BattleResourceSemanticId::MagicPoints:
+        case Battle::BattleResourceSemanticId::Attack:
+            break;
+        }
+        return "resource_changed";
     case Battle::BattleStatusSemanticId::None: break;
     }
     if (event.resourceId == Battle::BattleResourceSemanticId::Cooldown) return "cooldown_changed";
@@ -212,6 +247,18 @@ ChessBattleEffectActivation battleEffectActivation(const BattleReportEvent& even
         result.newValue = event.newValue;
         result.delta = event.value;
         return result;
+    }
+    if (event.previousValue != 0
+        || event.newValue != 0
+        || event.statusId == Battle::BattleStatusSemanticId::ResourceChanged)
+    {
+        result.previousValue = event.previousValue;
+        result.newValue = event.newValue;
+        result.delta = event.newValue - event.previousValue;
+    }
+    if (event.stackCount > 0)
+    {
+        result.stackCount = event.stackCount;
     }
     if (event.value != 0) result.value = event.value;
     const int durationFrames = event.statusId == Battle::BattleStatusSemanticId::Knockback
@@ -342,6 +389,7 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
             }
             else if (event.resourceId == Battle::BattleResourceSemanticId::HitPoints)
             {
+                result.effectActivations.push_back(battleEffectActivation(event));
                 combatByUnit[event.sourceId].healingDone += event.value;
             }
         }

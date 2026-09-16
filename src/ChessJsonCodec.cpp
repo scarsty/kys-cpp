@@ -2032,14 +2032,14 @@ BattleEffectActivationDto battleEffectActivationDto(
     dto.frame = activation.frame;
     dto.source_unit_id = activation.sourceUnitId;
     dto.source_name = activation.sourceName;
-    if (activation.sourceTeam)
+    if (activation.sourceTeam.has_value())
     {
         dto.source_team = chessBattleTeamName(*activation.sourceTeam);
     }
     dto.source_kind = activation.sourceKind;
     dto.target_unit_id = activation.targetUnitId;
     dto.target_name = activation.targetName;
-    if (activation.targetTeam)
+    if (activation.targetTeam.has_value())
     {
         dto.target_team = chessBattleTeamName(*activation.targetTeam);
     }
@@ -2059,6 +2059,7 @@ BattleEffectActivationDto battleEffectActivationDto(
     dto.cancelled_potential_damage = activation.cancelledPotentialDamage;
     dto.source_value_after = activation.sourceValueAfter;
     dto.opposing_value_after = activation.opposingValueAfter;
+    dto.stack_count = activation.stackCount;
     return dto;
 }
 
@@ -2069,14 +2070,14 @@ BattleImportantEffectDto battleImportantEffectDto(
     dto.type = effect.type;
     dto.source_unit_id = effect.sourceUnitId;
     dto.source_name = effect.sourceName;
-    if (effect.sourceTeam)
+    if (effect.sourceTeam.has_value())
     {
         dto.source_team = chessBattleTeamName(*effect.sourceTeam);
     }
     dto.source_kind = effect.sourceKind;
     dto.target_unit_id = effect.targetUnitId;
     dto.target_name = effect.targetName;
-    if (effect.targetTeam)
+    if (effect.targetTeam.has_value())
     {
         dto.target_team = chessBattleTeamName(*effect.targetTeam);
     }

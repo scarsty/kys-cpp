@@ -458,7 +458,6 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
 {
     assert(!state.units.empty());
 
-    BattleAreaEffectSystem::removeExpired(state.areas, state.movement.frame + 1);
     auto frame = BattleFrameContext::begin(
         state,
         std::move(recycledPresentation),
@@ -466,6 +465,8 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
         frameMemoryStorage_.size());
 
     const int upcomingFrame = state.movement.frame + 1;
+    CoreDetail::appendAreaLifecycleLogs(state, frame.logEvents,
+        BattleAreaEffectSystem::removeExpired(state.areas, upcomingFrame), upcomingFrame);
     auto expiredDamageAbsorptions =
         BattleEffectCommandSystem::removeExpiredDamageAbsorptions(
             state,
@@ -598,7 +599,7 @@ CastPlanEventData makeCastPlanEventData(
 }
 
 
-void applyKnockbackImpulse(
+bool applyKnockbackImpulse(
     BattleRuntimeState& state,
     const BattleKnockbackCommand& knockback)
 {
@@ -606,7 +607,7 @@ void applyKnockbackImpulse(
     if (knockback.semanticDirection == ForceMoveDirection::AwayFromSource
         && runtimeDashAttackEnabled(state, knockback.targetUnitId))
     {
-        return;
+        return false;
     }
     if (BattleAreaEffectSystem::blocksForcedMovement(
             state.areas,
@@ -616,14 +617,14 @@ void applyKnockbackImpulse(
             state.movement.frame,
             knockback.semanticDirection))
     {
-        return;
+        return false;
     }
 
     auto& unit = record.core;
     auto direction = knockback.direction;
     if (direction.norm() <= 0.01f || knockback.distance <= 0.0)
     {
-        return;
+        return false;
     }
     direction.normTo(1.0f);
     const int lockFrames = std::max(1, knockback.lockFrames);
@@ -678,6 +679,7 @@ void applyKnockbackImpulse(
     physics.postDashRetreatFrames = 0;
     physics.postDashChaosFrames = 0;
     physics.movementDashSpreadFrames = 0;
+    return true;
 }
 
 

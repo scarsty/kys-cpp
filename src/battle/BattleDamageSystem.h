@@ -377,6 +377,7 @@ struct BattleDamageTransactionResult
     int cooldownDelta = 0;
     int shieldAbsorbed = 0;
     std::vector<BattleDamageAbsorptionReceipt> absorptionReceipts;
+    std::optional<BattleStatusConsumptionReceipt> defenseStatusConsumed;
     bool executed = false;
     bool killed = false;
     bool recoveryTested = false;

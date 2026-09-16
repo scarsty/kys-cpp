@@ -33,6 +33,7 @@ struct BattleCopiedAttackDefinitionRequest
 {
     int definitionOwnerUnitId = -1;
     CastPropagationPolicy propagation = CastPropagationPolicy::SuppressUltimateRules;
+    EffectSourceBinding binding;
 };
 
 constexpr int ActionCastFrameJitterRadius = 1;
@@ -276,7 +277,7 @@ std::vector<BattleCopiedAttackDefinitionRequest> collectCopiedAttackDefinitionRe
             }
             for (int unitId : copy->sourceUnitIds)
             {
-                result.push_back({ unitId, copy->propagation });
+                result.push_back({ unitId, copy->propagation, command.metadata.binding });
             }
         }
     }
@@ -1511,6 +1512,13 @@ void queueCopiedAttackDefinitionChildCast(
         frame.gameplayEvents.end(),
         cast.gameplayEvents.begin(),
         cast.gameplayEvents.end());
+    auto copiedLog = CoreDetail::makeEffectLogEvent(state, request.binding,
+        request.definitionOwnerUnitId, state.movement.frame);
+    copiedLog.statusId = BattleStatusSemanticId::AttackCopied;
+    copiedLog.skillId = copiedSkill.id;
+    copiedLog.skillName = copiedSkill.name;
+    copiedLog.segments = battleLogText("複製絕招：" + copiedSkill.name, BattleLogTextTone::SkillName);
+    frame.logEvents.push_back(std::move(copiedLog));
     frame.logEvents.insert(
         frame.logEvents.end(),
         cast.logEvents.begin(),

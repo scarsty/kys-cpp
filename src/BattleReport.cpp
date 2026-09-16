@@ -41,7 +41,10 @@ void BattleReportBuilder::recordDamage(
     const std::string& skillName,
     int frame,
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
-    int skillId)
+    int skillId,
+    int semanticSourceTeam,
+    std::string semanticSourceKind,
+    std::string semanticSourceName)
 {
     if (attacker)
     {
@@ -74,6 +77,10 @@ void BattleReportBuilder::recordDamage(
     {
         assignSource(event, *attacker);
     }
+    else if (semanticSourceTeam >= 0)
+        event.sourceTeam = semanticSourceTeam;
+    event.sourceKind = std::move(semanticSourceKind);
+    if (!semanticSourceName.empty()) event.sourceName = std::move(semanticSourceName);
     if (defender)
     {
         assignTarget(event, *defender);
@@ -91,7 +98,10 @@ void BattleReportBuilder::recordHeal(
     int amount,
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
     int frame,
-    KysChess::Battle::BattleResourceSemanticId resourceId)
+    KysChess::Battle::BattleResourceSemanticId resourceId,
+    int semanticSourceTeam,
+    std::string semanticSourceKind,
+    std::string semanticSourceName)
 {
     if (amount <= 0)
     {
@@ -112,10 +122,19 @@ void BattleReportBuilder::recordHeal(
     event.frame = frame;
     event.value = amount;
     event.resourceId = resourceId;
+    event.sourceKind = std::move(semanticSourceKind);
     event.segments = std::move(segments);
     if (source)
     {
         assignSource(event, *source);
+    }
+    else if (semanticSourceTeam >= 0)
+    {
+        event.sourceTeam = semanticSourceTeam;
+    }
+    if (!semanticSourceName.empty())
+    {
+        event.sourceName = std::move(semanticSourceName);
     }
     if (target)
     {
@@ -143,7 +162,8 @@ void BattleReportBuilder::recordStatus(
     std::string semanticSourceKind,
     std::string semanticSourceName,
     std::string skillName,
-    int skillId)
+    int skillId,
+    int stackCount)
 {
     if (segments.empty())
     {
@@ -175,6 +195,7 @@ void BattleReportBuilder::recordStatus(
     event.sourceKind = std::move(semanticSourceKind);
     event.skillName = std::move(skillName);
     event.skillId = skillId;
+    event.stackCount = stackCount;
     event.segments = std::move(segments);
     if (source)
     {

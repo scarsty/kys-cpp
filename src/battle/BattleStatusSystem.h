@@ -380,6 +380,13 @@ struct BattleStatusRemoveResult
     bool currentActionStaggerCleared = false;
 };
 
+struct BattleStatusConsumptionReceipt
+{
+    int targetUnitId{};
+    BattleStatusContribution contribution;
+    int remainingStacks{};
+};
+
 struct BattleStatusConsumeResult
 {
     BattleStatusUnitState target;

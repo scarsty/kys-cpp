@@ -850,7 +850,7 @@ TEST_CASE("Damage absorption settlement preserves status or configured action pr
     CHECK(ruleOrigin->triggeringAttack->attackId == BattleAttackId{ 32 });
 }
 
-TEST_CASE("BattleFrameRunner_ExpiresDamageAbsorptionIntoSameFrameRandomPureDamage", "[battle][core][effect][absorption]")
+TEST_CASE("BattleFrameRunner_ExpiresDamageAbsorptionIntoSameFrameRandomPureDamage", "[battle][core][effect][absorption][logging]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -896,7 +896,20 @@ TEST_CASE("BattleFrameRunner_ExpiresDamageAbsorptionIntoSameFrameRandomPureDamag
     state.effectCommands.damageAbsorptions.push_back(absorption);
     state.effectCommands.nextDamageAbsorptionSequence = 2;
 
-    runBattleFrame(state);
+    state.effectSourceNames[{ EffectSourceKind::Magic, 97 }] = "乾坤大挪移";
+    const auto frame = runBattleFrame(state);
+    const auto ended = std::ranges::find(frame.logEvents,
+        BattleStatusSemanticId::DamageAbsorptionEnded, &BattleLogEvent::statusId);
+    REQUIRE(ended != frame.logEvents.end());
+    CHECK(ended->semanticSourceName == "乾坤大挪移");
+    CHECK(ended->amount == 40);
+    CHECK(ended->secondaryAmount == 40);
+    CHECK(ended->frame == 10);
+    const auto damage = std::ranges::find(frame.logEvents, BattleLogEventType::Damage, &BattleLogEvent::type);
+    REQUIRE(damage != frame.logEvents.end());
+    CHECK(damage->semanticSourceName == "乾坤大挪移");
+    CHECK(damage->semanticSourceKind == "magic");
+    CHECK(damage->skillId == 97);
 
     CHECK(state.movement.frame == 10);
     CHECK(state.effectCommands.damageAbsorptions.empty());

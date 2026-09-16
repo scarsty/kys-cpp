@@ -289,7 +289,7 @@ template<class Instance,
          class IncomingExpiryLater,
          class RefreshExpiry,
          class AddStack>
-std::pair<BattleModifierApplyOutcome, Instance> applyStackPolicy(
+std::tuple<BattleModifierApplyOutcome, bool, Instance> applyStackPolicy(
     std::vector<Instance>& instances,
     EffectStackPolicy stack,
     SameDomain&& sameDomain,
@@ -309,18 +309,21 @@ std::pair<BattleModifierApplyOutcome, Instance> applyStackPolicy(
     };
 
     BattleModifierApplyOutcome outcome{};
-    Instance* applied{};
+    bool changed{};
+    Instance* appliedInstance{};
     switch (stack)
     {
     case EffectStackPolicy::Independent:
-        applied = &append();
+        appliedInstance = &append();
+        changed = true;
         outcome = BattleModifierApplyOutcome::Applied;
         break;
     case EffectStackPolicy::Replace:
     {
         const bool replaced = first != instances.end();
         std::erase_if(instances, sameDomain);
-        applied = &append();
+        appliedInstance = &append();
+        changed = true;
         outcome = replaced
             ? BattleModifierApplyOutcome::Replaced
             : BattleModifierApplyOutcome::Applied;
@@ -329,20 +332,22 @@ std::pair<BattleModifierApplyOutcome, Instance> applyStackPolicy(
     case EffectStackPolicy::Refresh:
         if (first == instances.end())
         {
-            applied = &append();
+            appliedInstance = &append();
+            changed = true;
             outcome = BattleModifierApplyOutcome::Applied;
         }
         else
         {
-            refresh(*first);
-            applied = &*first;
+            changed = refresh(*first);
+            appliedInstance = &*first;
             outcome = BattleModifierApplyOutcome::Refreshed;
         }
         break;
     case EffectStackPolicy::KeepStrongest:
         if (first == instances.end())
         {
-            applied = &append();
+            appliedInstance = &append();
+            changed = true;
             outcome = BattleModifierApplyOutcome::Applied;
         }
         else if (incomingStrength > strength(*first))
@@ -356,36 +361,51 @@ std::pair<BattleModifierApplyOutcome, Instance> applyStackPolicy(
             {
                 first->negativeEffectSequence = negativeEffectSequence;
             }
-            applied = &*first;
+            appliedInstance = &*first;
+            changed = true;
             outcome = BattleModifierApplyOutcome::Replaced;
         }
         else if (incomingStrength == strength(*first) && incomingExpiryLater(*first))
         {
-            refreshExpiry(*first);
-            applied = &*first;
+            changed = refreshExpiry(*first);
+            appliedInstance = &*first;
             outcome = BattleModifierApplyOutcome::Refreshed;
         }
         else
         {
-            applied = &*first;
+            appliedInstance = &*first;
             outcome = BattleModifierApplyOutcome::KeptStronger;
         }
         break;
     case EffectStackPolicy::AddStack:
         if (first == instances.end())
         {
-            applied = &append();
+            appliedInstance = &append();
+            changed = true;
         }
         else
         {
-            addStack(*first);
-            applied = &*first;
+            changed = addStack(*first);
+            appliedInstance = &*first;
         }
         outcome = BattleModifierApplyOutcome::StackChanged;
         break;
     }
-    assert(applied);
-    return { outcome, *applied };
+    assert(appliedInstance);
+    return { outcome, changed, *appliedInstance };
+}
+
+template<class Modifier, class Command>
+bool modifierApplicationChanged(
+    const Modifier& current,
+    const Command& command,
+    const std::optional<std::int64_t>& expiry,
+    int stackCount)
+{
+    return current.stackCount != stackCount
+        || current.operation != command.operation
+        || current.amount != command.amount
+        || current.expiresFrameExclusive != expiry;
 }
 
 BattleAttributeModifierInstance makeAttributeModifier(
@@ -430,7 +450,7 @@ BattleAttributeEffectResult applyAttribute(
     std::uint64_t* nextNegativeEffectSequence)
 {
     const auto expiry = modifierExpiry(frame, command.durationFrames);
-    const auto [outcome, modifier] = applyStackPolicy(
+    const auto [outcome, applied, modifier] = applyStackPolicy(
         runtime.attributeModifiers,
         command.stack,
         [&](const auto& candidate)
@@ -448,6 +468,7 @@ BattleAttributeEffectResult applyAttribute(
         },
         [&](auto& current)
         {
+            const bool changed = modifierApplicationChanged(current, command, expiry, current.stackCount);
             current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
@@ -459,6 +480,7 @@ BattleAttributeEffectResult applyAttribute(
                     command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
+            return changed;
         },
         [](const auto& current)
         {
@@ -473,11 +495,14 @@ BattleAttributeEffectResult applyAttribute(
         {
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
+            return true;
         },
         [&](auto& current)
         {
             assert(command.stackLimit);
-            current.stackCount = std::min(current.stackCount + 1, *command.stackLimit);
+            const int stackCount = std::min(current.stackCount + 1, *command.stackLimit);
+            const bool changed = modifierApplicationChanged(current, command, expiry, stackCount);
+            current.stackCount = stackCount;
             current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
@@ -488,8 +513,13 @@ BattleAttributeEffectResult applyAttribute(
                     command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
+            return changed;
         });
-    return { outcome, modifier };
+    BattleAttributeEffectResult result;
+    result.outcome = outcome;
+    result.modifier = modifier;
+    result.applied = applied;
+    return result;
 }
 
 BattleDamageModifierInstance makeDamageModifier(
@@ -537,7 +567,7 @@ BattleDamageModifierEffectResult applyDamageModifier(
     std::uint64_t* nextNegativeEffectSequence)
 {
     const auto expiry = modifierExpiry(frame, command.durationFrames);
-    const auto [outcome, modifier] = applyStackPolicy(
+    const auto [outcome, applied, modifier] = applyStackPolicy(
         runtime.damageModifiers,
         command.stack,
         [&](const auto& candidate)
@@ -555,6 +585,7 @@ BattleDamageModifierEffectResult applyDamageModifier(
         },
         [&](auto& current)
         {
+            const bool changed = modifierApplicationChanged(current, command, expiry, current.stackCount);
             current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
@@ -567,6 +598,7 @@ BattleDamageModifierEffectResult applyDamageModifier(
                     command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
+            return changed;
         },
         [](const auto& current)
         {
@@ -581,11 +613,14 @@ BattleDamageModifierEffectResult applyDamageModifier(
         {
             current.appliedFrame = frame;
             current.expiresFrameExclusive = expiry;
+            return true;
         },
         [&](auto& current)
         {
             assert(command.stackLimit);
-            current.stackCount = std::min(current.stackCount + 1, *command.stackLimit);
+            const int stackCount = std::min(current.stackCount + 1, *command.stackLimit);
+            const bool changed = modifierApplicationChanged(current, command, expiry, stackCount);
+            current.stackCount = stackCount;
             current.operation = command.operation;
             current.amount = command.amount;
             current.appliedFrame = frame;
@@ -598,8 +633,13 @@ BattleDamageModifierEffectResult applyDamageModifier(
                     command.operation,
                     command.amount),
                 nextNegativeEffectSequence);
+            return changed;
         });
-    return { outcome, modifier };
+    BattleDamageModifierEffectResult result;
+    result.outcome = outcome;
+    result.modifier = modifier;
+    result.applied = applied;
+    return result;
 }
 
 // 狀態與保護轉移只依賴單位、持續修正與狀態規則；真實執行和 prediction 共用此邊界。

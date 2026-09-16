@@ -348,6 +348,7 @@ BattleLogViewModel BattleLogPresenter::present(
     for (int i = startIndex; i < eventCount; ++i)
     {
         auto event = report.events()[i];
+        const auto effectSourceName = event.sourceKind.empty() ? std::string{} : event.sourceName;
         if (event.sourceId >= 0)
         {
             event.sourceName = resolveRoleLabel(event.sourceTeam, event.sourceId, event.sourceName);
@@ -355,6 +356,13 @@ BattleLogViewModel BattleLogPresenter::present(
         if (event.targetId >= 0)
         {
             event.targetName = resolveRoleLabel(event.targetTeam, event.targetId, event.targetName);
+        }
+        // 角色名稱消歧後仍保留效果來源；傷害已用武功名稱標示時不重複。
+        if (!effectSourceName.empty() && effectSourceName != event.sourceName
+            && effectSourceName != event.skillName)
+        {
+            event.segments.insert(event.segments.begin(), {
+                std::format("【{}】", effectSourceName), BattleLogTextTone::SkillName });
         }
         model.entries.push_back(buildBattleLogEntry(event, summary.outcome));
     }

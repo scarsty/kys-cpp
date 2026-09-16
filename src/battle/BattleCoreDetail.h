@@ -89,6 +89,32 @@ void reduceCommandsBeforeMovement(
     BattleFrameContext& frame);
 void reduceCommandsBeforeAttacks(BattleRuntimeState& state, BattleFrameContext& frame);
 void appendAreaDamagePulses(BattleRuntimeState& state, BattleFrameContext& frame);
+BattleLogEvent makeEffectLogEvent(
+    const BattleRuntimeState& state,
+    const EffectSourceBinding& binding,
+    int targetUnitId,
+    int frame);
+void appendAreaLifecycleLogs(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    std::span<const BattleAreaLifecycleEvent> events,
+    int frame);
+void appendStatusConsumptionLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    const BattleStatusConsumeResult& result,
+    int frame);
+void appendStatusConsumptionLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    const BattleStatusConsumptionReceipt& receipt,
+    int frame);
+void appendHitDamageModifierLog(
+    const BattleRuntimeState& state,
+    std::vector<BattleLogEvent>& logs,
+    const EffectCommandMetadata& metadata,
+    const ModifyDamageEffectCommand& modifier,
+    int frame);
 void reduceCommandsAfterAttackHits(BattleRuntimeState& state, BattleFrameContext& frame);
 void reduceCommandsAfterDamageLifecycle(BattleRuntimeState& state, BattleFrameContext& frame);
 void completeCastCommitBarriers(
@@ -125,7 +151,7 @@ void applyLateFrameMpRestores(BattleRuntimeState& state, BattleFrameContext& fra
 std::vector<BattleStatusEvent> advanceStatus(
     BattleRuntimeState& state,
     std::vector<BattlePendingDamageIntent>& pendingDamage);
-void applyKnockbackImpulse(
+bool applyKnockbackImpulse(
     BattleRuntimeState& state,
     const BattleKnockbackCommand& knockback);
 void advanceActionFrameUnits(

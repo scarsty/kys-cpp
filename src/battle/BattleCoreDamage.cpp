@@ -1235,9 +1235,11 @@ int selectDamageTextSize(const BattleDamagePresentationInput& presentation)
 }
 
 void appendFrameDamageOutputEvents(
+    const BattleRuntimeState& state,
     BattleFrameContext& frame,
     const BattleDamagePresentationInput& presentation,
-    const BattleDamageTransactionResult& transaction)
+    const BattleDamageTransactionResult& transaction,
+    const EffectDamageOrigin& origin)
 {
     const int hpDamage = committedHpDamage(transaction);
     if (hpDamage <= 0)
@@ -1268,12 +1270,25 @@ void appendFrameDamageOutputEvents(
     }
 
     BattleLogEvent damageLog;
+    std::visit([&](const auto& effect)
+    {
+        if constexpr (requires { effect.binding; })
+        {
+            damageLog = CoreDetail::makeEffectLogEvent(state, effect.binding,
+                transaction.defender.id, state.movement.frame);
+            damageLog.skillName = damageLog.semanticSourceName;
+            if (effect.binding.kind == EffectSourceKind::Magic
+                && transaction.damageKind != BattleDamageKind::Poison
+                && transaction.damageKind != BattleDamageKind::Bleed)
+                damageLog.skillId = effect.binding.sourceId;
+        }
+    }, origin);
     damageLog.type = BattleLogEventType::Damage;
     damageLog.sourceUnitId = transaction.attacker.id;
     damageLog.targetUnitId = transaction.defender.id;
     damageLog.amount = hpDamage;
-    damageLog.skillName = presentation.skillName;
-    damageLog.skillId = presentation.skillId;
+    if (!presentation.skillName.empty()) damageLog.skillName = presentation.skillName;
+    if (presentation.skillId >= 0) damageLog.skillId = presentation.skillId;
     damageLog.resourceId = BattleResourceSemanticId::HitPoints;
     damageLog.segments = presentation.segments;
     frame.logEvents.push_back(std::move(damageLog));
@@ -1366,7 +1381,8 @@ std::vector<int> appendFrameDamageLifecycle(
             continue;
         }
 
-        BattleAreaEffectSystem::removeForSourceDeath(state.areas, event.targetUnitId);
+        CoreDetail::appendAreaLifecycleLogs(state, frame.logEvents,
+            BattleAreaEffectSystem::removeForSourceDeath(state.areas, event.targetUnitId), state.movement.frame);
         deadUnitIds.push_back(event.targetUnitId);
         frame.gameplayEvents.push_back({
             BattleGameplayEventType::UnitDied,
@@ -1975,6 +1991,14 @@ void appendDamageAbsorptionSettlements(
         state.effectRules.setStateValue(absorption.binding, absorption.slot, 0);
 
         const int damage = damageAbsorptionSettlementAmount(absorption);
+        auto log = makeEffectLogEvent(state, absorption.binding, absorption.targetUnitId, settlementFrame);
+        log.statusId = BattleStatusSemanticId::DamageAbsorptionEnded;
+        log.amount = battleSaturatedInt(absorption.accumulatedDamage);
+        log.secondaryAmount = damage;
+        log.segments = battleLogText(std::format("傷害吸收結束（{}；累積{}，待返還{}）",
+            state.units.requireCore(absorption.binding.ownerUnitId).alive ? "到期" : "來源陣亡",
+            absorption.accumulatedDamage, damage));
+        frame.logEvents.push_back(std::move(log));
         if (damage <= 0)
         {
             continue;
@@ -2133,6 +2157,11 @@ void applyDamageAndLifecycle(
         }
         applyFrameDamageTakenMpGain(transaction);
         applyDamageResultToFrameState(state, transaction, frameStartMotion);
+        if (transaction.defenseStatusConsumed)
+        {
+            appendStatusConsumptionLog(state, frame.logEvents,
+                *transaction.defenseStatusConsumed, state.movement.frame);
+        }
         if (transaction.recoveryTested)
         {
             appendStatusEventLog(frame.logEvents, transaction.defender.id, transaction.defender.id,
@@ -2162,7 +2191,7 @@ void applyDamageAndLifecycle(
             transaction,
             attackerBefore,
             defenderBefore);
-        appendFrameDamageOutputEvents(frame, presentation, transaction);
+        appendFrameDamageOutputEvents(state, frame, presentation, transaction, intent.effectOrigin);
         appendFrameDamagePreDeathLogEvents(frame, transaction);
         appendFrameDamageResourceLogEvents(frame, transaction);
         appendFrameDamageGameplayEvents(frame, transaction, presentation.skillId);

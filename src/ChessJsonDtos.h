@@ -402,6 +402,7 @@ struct BattleEffectActivationDto
     std::optional<int> cancelled_potential_damage;
     std::optional<int> source_value_after;
     std::optional<int> opposing_value_after;
+    std::optional<int> stack_count;
 };
 struct BattleImportantEffectDto
 {

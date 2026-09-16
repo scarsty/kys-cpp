@@ -441,7 +441,296 @@ void queueEffectCommandBatch(
     state.effectIntegration.queuedCommandBatches.push_back({ .commands = KysChess::Battle::Test::commandFixture(std::move(commands), { .frame = state.movement.frame + 1 }) });
 }
 
+std::vector<BattleLogEvent> effectLogs(
+    const BattlePresentationFrame& frame,
+    BattleStatusSemanticId status)
+{
+    std::vector<BattleLogEvent> result;
+    for (const auto& log : frame.logEvents)
+    {
+        if (log.statusId == status) result.push_back(log);
+    }
+    return result;
+}
+
 }  // namespace
+
+TEST_CASE("BattleFrameRunner_LogsAreaCreationRefreshAndRemovalWithItsSource", "[battle][logging][area]")
+{
+    auto state = runtimeFrameState();
+    auto metadata = cueEffectMetadata(state);
+    state.effectSourceNames[{ EffectSourceKind::Magic, 500 }] = "測試區域";
+    CreateAreaEffectCommand area;
+    area.request.source = metadata.binding;
+    area.request.ruleId = metadata.ruleId;
+    area.request.geometry = { .shape = AreaShape::Circle, .radiusTiles = 5 };
+    area.request.anchor = { .kind = BattleAreaAnchorKind::FollowSourceUnit, .sourceUnitId = 0 };
+    area.request.durationFrames = 3;
+    area.request.modifiers = { { .kind = AreaModifierKind::ForcedMoveImmunity,
+        .relation = EffectTeamFilter::Ally } };
+    area.request.sourceDeath = AreaSourceDeathPolicy::RemoveImmediately;
+    area.request.merge = AreaMergePolicy::RefreshSameSource;
+    const auto apply = [&]
+    {
+        area.request.currentFrame = state.movement.frame + 1;
+        queueEffectCommandBatch(state, { { metadata, area } });
+        return runBattleFrame(state);
+    };
+    const auto created = effectLogs(apply(), BattleStatusSemanticId::AreaCreated);
+    REQUIRE(created.size() == 1);
+    CHECK(created.front().amount == 3);
+    CHECK(created.front().sourceUnitId == 0);
+    CHECK(created.front().semanticSourceName == "測試區域");
+    CHECK(created.front().semanticSourceKind == "magic");
+    CHECK(created.front().frame == state.movement.frame);
+    const auto refreshed = effectLogs(apply(), BattleStatusSemanticId::AreaRefreshed);
+    REQUIRE(refreshed.size() == 1);
+    CHECK(refreshed.front().effectId == created.front().effectId);
+    CHECK(refreshed.front().amount == 3);
+
+    SECTION("到期只記錄一次")
+    {
+        CHECK(effectLogs(runBattleFrame(state), BattleStatusSemanticId::AreaRemoved).empty());
+        CHECK(effectLogs(runBattleFrame(state), BattleStatusSemanticId::AreaRemoved).empty());
+        const auto removed = effectLogs(runBattleFrame(state), BattleStatusSemanticId::AreaRemoved);
+        REQUIRE(removed.size() == 1);
+        CHECK(removed.front().effectId == created.front().effectId);
+        CHECK(removed.front().semanticSourceName == "測試區域");
+        CHECK(removed.front().frame == state.movement.frame);
+        CHECK(state.areas.areas.empty());
+        CHECK(effectLogs(runBattleFrame(state), BattleStatusSemanticId::AreaRemoved).empty());
+    }
+    SECTION("來源陣亡即移除")
+    {
+        state.nextFrame.queueDamage({ .request = {
+            .attackerUnitId = 1, .defenderUnitId = 0,
+            .baseDamage = 10000, .preResolvedDamage = true,
+        } });
+        const auto removed = effectLogs(runBattleFrame(state), BattleStatusSemanticId::AreaRemoved);
+        REQUIRE(removed.size() == 1);
+        CHECK(removed.front().semanticSourceName == "測試區域");
+        CHECK(state.areas.areas.empty());
+    }
+}
+
+TEST_CASE("BattleFrameRunner_LogsOnlySuccessfulCleanseAndStatusConsumption", "[battle][logging][status]")
+{
+    auto state = runtimeFrameState();
+    const auto metadata = cueEffectMetadata(state);
+    state.effectSourceNames[{ EffectSourceKind::Magic, 500 }] = "測試狀態";
+    SECTION("淨化包含負面修正但不記錄空操作")
+    {
+        ApplyStatusAction stun;
+        stun.status = BattleStatusKind::Stun;
+        stun.durationFrames = 30;
+        stun.quantity = NoStatusQuantity{};
+        stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+        ModifyAttributeAction slow;
+        slow.attribute = BattleAttribute::Speed;
+        slow.operation = AttributeOperation::PercentAdd;
+        slow.durationFrames = 30;
+        queueEffectCommandBatch(state, {
+            { metadata, KysChess::Battle::Test::statusApplication(stun) },
+            { metadata, prepareModifyAttribute(slow, -20) },
+        });
+        runBattleFrame(state);
+        RemoveStatusAction cleanse;
+        cleanse.negativeOnly = true;
+        const EffectCommand command{ metadata, KysChess::Battle::Test::statusRemoval(cleanse) };
+        queueEffectCommandBatch(state, { command });
+        const auto removed = effectLogs(runBattleFrame(state), BattleStatusSemanticId::StatusRemoved);
+        REQUIRE(removed.size() == 2);
+        CHECK(std::ranges::all_of(removed, [](const auto& log)
+        {
+            return log.sourceUnitId == 0 && log.targetUnitId == 1
+                && log.semanticSourceName == "測試狀態";
+        }));
+        CHECK_FALSE(state.units.require(1).frozen());
+        CHECK(state.effectCommands.attributeModifiers.empty());
+        queueEffectCommandBatch(state, { command });
+        CHECK(effectLogs(runBattleFrame(state), BattleStatusSemanticId::StatusRemoved).empty());
+    }
+    SECTION("消耗至零會記錄後續眩暈")
+    {
+        appendStatus(state.units.require(1).status.effects, BattleStatusKind::SevenStarMark, 150, 1, 0, 0);
+        ApplyStatusAction stun;
+        stun.status = BattleStatusKind::Stun;
+        stun.durationFrames = 30;
+        stun.quantity = NoStatusQuantity{};
+        stun.reapplication = StatusReapplicationPolicy::KeepLongerDuration;
+        const EffectCommand command{ metadata, ConsumeStatusEffectCommand{
+            .request = { .kind = BattleStatusKind::SevenStarMark },
+            .whenDepleted = KysChess::Battle::Test::statusApplication(stun),
+        } };
+        queueEffectCommandBatch(state, { command });
+        const auto frame = runBattleFrame(state);
+        const auto consumed = effectLogs(frame, BattleStatusSemanticId::StatusConsumed);
+        REQUIRE(consumed.size() == 1);
+        CHECK(consumed.front().amount == 1);
+        CHECK(consumed.front().previousAmount == 1);
+        CHECK(consumed.front().newAmount == 0);
+        CHECK(effectLogs(frame, BattleStatusSemanticId::Stun).size() == 1);
+        CHECK(state.units.require(1).frozen());
+        queueEffectCommandBatch(state, { command });
+        const auto noop = runBattleFrame(state);
+        CHECK(effectLogs(noop, BattleStatusSemanticId::StatusConsumed).empty());
+        CHECK(effectLogs(noop, BattleStatusSemanticId::Stun).empty());
+    }
+}
+
+TEST_CASE("BattleFrameRunner_LogsCappedModifierChangesButNotIdenticalPermanentApplications", "[battle][logging][modifier]")
+{
+    for (const bool damageModifier : { false, true })
+    {
+        for (const int duration : { 0, 30 })
+        {
+            auto state = runtimeFrameState();
+            const auto metadata = cueEffectMetadata(state);
+            const auto status = damageModifier ? BattleStatusSemanticId::DamageModifier : BattleStatusSemanticId::AttributeModifier;
+            const auto apply = [&](int amount)
+            {
+                EffectCommand command;
+                command.metadata = metadata;
+                if (damageModifier)
+                {
+                    ModifyDamageAction action;
+                    action.operation = DamageModifierOperation::PercentAdd;
+                    action.durationFrames = duration;
+                    action.stack = EffectStackPolicy::AddStack;
+                    action.stackLimit = 1;
+                    command.value = prepareModifyDamage(action, amount);
+                }
+                else
+                {
+                    ModifyAttributeAction action;
+                    action.attribute = BattleAttribute::Attack;
+                    action.durationFrames = duration;
+                    action.stack = EffectStackPolicy::AddStack;
+                    action.stackLimit = 1;
+                    command.value = prepareModifyAttribute(action, amount);
+                }
+                queueEffectCommandBatch(state, { command });
+                return effectLogs(runBattleFrame(state), status);
+            };
+            REQUIRE(apply(20).size() == 1);
+            CHECK(apply(20).size() == (duration == 0 ? 0 : 1));
+            const auto changed = apply(40);
+            REQUIRE(changed.size() == 1);
+            CHECK(changed.front().amount == 40);
+            CHECK(changed.front().stackCount == 1);
+        }
+    }
+}
+
+TEST_CASE("BattleFrameRunner_LogsAbsorptionActivationRefreshAndEmptySettlement", "[battle][logging][absorption]")
+{
+    auto state = runtimeFrameState();
+    const auto metadata = cueEffectMetadata(state, EffectEvent::AttackCommitted, 0);
+    state.effectSourceNames[{ EffectSourceKind::Magic, 500 }] = "吸收測試";
+    StartDamageAbsorptionAction absorption;
+    absorption.slot = EffectStateSlot::AbsorbedDamage;
+    absorption.absorbedPct = 40;
+    absorption.durationFrames = 2;
+    absorption.settlementTarget.kind = EffectSelectorKind::Enemies;
+    const EffectCommand command{ metadata, StateMachineEffectCommand{ absorption } };
+    for (int repeat = 0; repeat < 2; ++repeat)
+    {
+        queueEffectCommandBatch(state, { command });
+        const auto logs = effectLogs(runBattleFrame(state), BattleStatusSemanticId::DamageAbsorption);
+        REQUIRE(logs.size() == 1);
+        CHECK(logs.front().amount == 40);
+        CHECK(logs.front().semanticSourceName == "吸收測試");
+    }
+    CHECK(effectLogs(runBattleFrame(state), BattleStatusSemanticId::DamageAbsorptionEnded).empty());
+    const auto ended = effectLogs(runBattleFrame(state), BattleStatusSemanticId::DamageAbsorptionEnded);
+    REQUIRE(ended.size() == 1);
+    CHECK(ended.front().amount == 0);
+    CHECK(ended.front().secondaryAmount == 0);
+    CHECK(ended.front().semanticSourceName == "吸收測試");
+    CHECK(effectLogs(runBattleFrame(state), BattleStatusSemanticId::DamageAbsorptionEnded).empty());
+}
+
+TEST_CASE("BattleFrameRunner_LogsDamageBlockAndHitCapConsumption", "[battle][logging][status][charge]")
+{
+    for (const auto kind : { BattleStatusKind::DamageBlockLayer, BattleStatusKind::SingleHitCapLayer })
+    {
+        for (const int damage : { 20, 50 })
+        {
+            CAPTURE(kind, damage);
+            auto state = runtimeFrameState();
+            const auto metadata = cueEffectMetadata(state);
+            state.effectSourceNames[{ EffectSourceKind::Magic, 500 }] = "護身測試";
+            ApplyStatusAction protection;
+            protection.status = kind;
+            if (kind == BattleStatusKind::DamageBlockLayer)
+            {
+                protection.quantity = SetDamageBlockCharges{ 1 };
+                protection.behavior = KysChess::Battle::Test::damageBlockStatusBehavior();
+            }
+            else
+            {
+                protection.quantity = SetStatusTriggerCharges{ 1 };
+                protection.behavior = KysChess::Battle::Test::singleHitCapStatusBehavior(30);
+            }
+            queueEffectCommandBatch(state, { { metadata, KysChess::Battle::Test::statusApplication(protection) } });
+            runBattleFrame(state);
+            const int beforeHp = state.units.requireCore(1).vitals.hp;
+            state.nextFrame.queueDamage({ .request = {
+                .attackerUnitId = 0, .defenderUnitId = 1,
+                .baseDamage = damage, .preResolvedDamage = true,
+            } });
+            const auto logs = effectLogs(runBattleFrame(state), BattleStatusSemanticId::StatusConsumed);
+            REQUIRE(logs.size() == 1);
+            CHECK(logs.front().semanticSourceName == "護身測試");
+            CHECK(logs.front().sourceUnitId == 0);
+            CHECK(logs.front().targetUnitId == 1);
+            CHECK(logs.front().amount == 1);
+            CHECK(logs.front().newAmount == 0);
+            CHECK_FALSE(state.units.require(1).statusEffects().has(kind));
+            CHECK(state.units.requireCore(1).vitals.hp
+                == beforeHp - (kind == BattleStatusKind::DamageBlockLayer ? 0 : std::min(damage, 30)));
+        }
+    }
+}
+
+TEST_CASE("BattleFrameRunner_LogsTileMovementOnlyWhenImpulseIsApplied", "[battle][logging][force-move]")
+{
+    for (const auto direction : { ForceMoveDirection::AwayFromSource, ForceMoveDirection::TowardSource })
+    {
+        for (const bool immune : { false, true })
+        {
+            CAPTURE(direction, immune);
+            auto state = runtimeFrameState();
+            const auto metadata = cueEffectMetadata(state);
+            state.effectSourceNames[{ EffectSourceKind::Magic, 500 }] = "移動測試";
+            if (immune)
+            {
+                BattleAreaCreateRequest ward;
+                ward.source = metadata.binding;
+                ward.currentFrame = state.movement.frame;
+                ward.durationFrames = 100;
+                ward.geometry = { .shape = AreaShape::Circle, .radiusTiles = 100 };
+                ward.anchor = { .kind = BattleAreaAnchorKind::FollowSourceUnit, .sourceUnitId = 0 };
+                ward.modifiers = { { .kind = AreaModifierKind::ForcedMoveImmunity,
+                    .relation = EffectTeamFilter::Any, .blockedDirection = direction } };
+                BattleAreaEffectSystem::create(state.areas, std::move(ward));
+            }
+            ForceMoveAction move;
+            move.direction = direction;
+            move.distanceTiles = 3;
+            move.lockFrames = 10;
+            queueEffectCommandBatch(state, { { metadata, ForceMoveEffectCommand{ move } } });
+            const auto logs = effectLogs(runBattleFrame(state), BattleStatusSemanticId::Knockback);
+            REQUIRE(logs.size() == (immune ? 0 : 1));
+            if (!immune)
+            {
+                CHECK(logs.front().amount == 3 * SceneTileWidth);
+                CHECK(logs.front().semanticSourceName == "移動測試");
+                CHECK(logs.front().targetUnitId == 1);
+            }
+        }
+    }
+}
 
 TEST_CASE("BattleFrameRunner_SuppressesDebuffCuesAndKeepsPositiveStatusColors", "[battle][frame_runner][runtime][effect_cue]")
 {
@@ -580,7 +869,7 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     CHECK(semanticCueEvents(runBattleFrame(openingState)).empty());
 }
 
-TEST_CASE("BattleFrameRunner_MaintainedAttackBuffStaysSilentAcrossExpiry", "[battle][frame_runner][runtime][effect_cue]")
+TEST_CASE("BattleFrameRunner_MaintainedAttackBuffStaysSilentAcrossExpiry", "[battle][frame_runner][runtime][effect_cue][logging]")
 {
     auto state = runtimeFrameState();
     ModifyAttributeAction buff;
@@ -594,7 +883,9 @@ TEST_CASE("BattleFrameRunner_MaintainedAttackBuffStaysSilentAcrossExpiry", "[bat
             EffectCommand{cueEffectMetadata(state, EffectEvent::FrameAdvanced),
                 prepareModifyAttribute(buff, 150)},
         });
-        CHECK(semanticCueEvents(runBattleFrame(state)).empty());
+        const auto presentation = runBattleFrame(state);
+        CHECK(semanticCueEvents(presentation).empty());
+        CHECK(effectLogs(presentation, BattleStatusSemanticId::AttributeModifier).empty());
         CHECK(BattleEffectCommandSystem::queryAttribute(state, {
             .unitId = 1,
             .attribute = BattleAttribute::Attack,

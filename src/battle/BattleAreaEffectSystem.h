@@ -103,6 +103,8 @@ struct BattleAreaLifecycleEvent
     BattleAreaLifecycleEventType type{};
     BattleAreaId areaId;
     BattleAreaRemovalReason removalReason = BattleAreaRemovalReason::Explicit;
+    EffectSourceBinding source;
+    int expiresFrameExclusive{};
 };
 
 struct BattleAreaCreateResult

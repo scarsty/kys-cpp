@@ -1,12 +1,68 @@
 #include "ChessBattleAnalysis.h"
+#include "ChessJsonCodec.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "BattleLogTestHelpers.h"
 #include "battle/BattleLogSegments.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <array>
 
 using namespace KysChess;
 using namespace KysChess::Test;
+
+TEST_CASE("battle analysis exports effect lifecycle types and stack attribution", "[chess][battle-analysis][logging]")
+{
+    using namespace KysChess::Battle;
+    const auto content = managementContent();
+    PreparedChessBattle prepared;
+    HeadlessBattleResult battle;
+    auto source = BattleLogTest::reportUnit(1, 10, 0, 0, "施術者");
+    auto target = BattleLogTest::reportUnit(2, 10, 1, 0, "目標");
+    const std::array cases{
+        std::pair{ BattleStatusSemanticId::TrueQi, "true_qi_applied" },
+        std::pair{ BattleStatusSemanticId::BattleSpirit, "battle_spirit_applied" },
+        std::pair{ BattleStatusSemanticId::AttributeModifier, "attribute_modifier_applied" },
+        std::pair{ BattleStatusSemanticId::DamageModifier, "damage_modifier_applied" },
+        std::pair{ BattleStatusSemanticId::HealModifier, "heal_modifier_applied" },
+        std::pair{ BattleStatusSemanticId::AreaCreated, "area_created" },
+        std::pair{ BattleStatusSemanticId::AreaRefreshed, "area_refreshed" },
+        std::pair{ BattleStatusSemanticId::AreaRemoved, "area_removed" },
+        std::pair{ BattleStatusSemanticId::StatusConsumed, "status_consumed" },
+        std::pair{ BattleStatusSemanticId::StatusRemoved, "status_removed" },
+        std::pair{ BattleStatusSemanticId::DamageAbsorption, "damage_absorption_applied" },
+        std::pair{ BattleStatusSemanticId::DamageAbsorptionEnded, "damage_absorption_ended" },
+        std::pair{ BattleStatusSemanticId::AttackCopied, "attack_copied" },
+        std::pair{ BattleStatusSemanticId::FreeCast, "free_cast" },
+    };
+    BattleReportBuilder builder;
+    for (const auto& [status, expected] : cases)
+    {
+        builder.recordStatus(&source, &target, BattleLogCategory::Status,
+            BattleLogPerspective::Targeted, battleLogText("效果記錄"), 12, status,
+            BattleResourceSemanticId::None, 5, 0, 0, 0, -1, -1, 0, "magic", "測試絕招", {}, -1, 3);
+    }
+    battle.report = builder.report();
+    const auto analysis = analyzeChessBattleResult(*content, prepared, battle);
+    REQUIRE(analysis.effectActivations.size() == cases.size());
+    for (std::size_t i = 0; i < cases.size(); ++i)
+    {
+        const auto& activation = analysis.effectActivations[i];
+        CHECK(activation.type == cases[i].second);
+        CHECK(activation.sourceUnitId == 1);
+        CHECK(activation.sourceName == "測試絕招");
+        CHECK(activation.sourceKind == "magic");
+        CHECK(activation.targetUnitId == 2);
+        CHECK(activation.frame == 12);
+        CHECK(activation.stackCount == 3);
+    }
+    const auto dto = ProtocolDetail::battleResultDto(*content, prepared, battle, ProtocolDetail::BattleReportDetail::Full);
+    const auto decoded = ProtocolDetail::readJson<ProtocolDetail::BattleResultDto>(ProtocolDetail::writeJson(dto));
+    REQUIRE(decoded);
+    REQUIRE(decoded->effect_activations);
+    REQUIRE(decoded->effect_activations->size() == cases.size());
+    CHECK(decoded->effect_activations->front().source_name == "測試絕招");
+    CHECK(decoded->effect_activations->front().stack_count == 3);
+}
 
 TEST_CASE("battle report keeps poison payloads applications and MP drains independent",
           "[chess][battle-analysis][poison]")

@@ -49,7 +49,10 @@ void BattleReportCollector::consumeLog(
             event.skillName,
             event.frame,
             event.segments,
-            event.skillId);
+            event.skillId,
+            event.semanticSourceTeam,
+            event.semanticSourceKind,
+            event.semanticSourceName);
         return;
     case BattleLogEventType::Heal:
         builder_.recordHeal(
@@ -58,7 +61,10 @@ void BattleReportCollector::consumeLog(
             event.amount,
             event.segments,
             event.frame,
-            event.resourceId);
+            event.resourceId,
+            event.semanticSourceTeam,
+            event.semanticSourceKind,
+            event.semanticSourceName);
         return;
     case BattleLogEventType::Status:
         if (event.category == KysChess::Battle::BattleLogCategory::ProjectileCancel)
@@ -86,7 +92,8 @@ void BattleReportCollector::consumeLog(
             event.semanticSourceKind,
             event.semanticSourceName,
             event.skillName,
-            event.skillId);
+            event.skillId,
+            event.stackCount);
         return;
     case BattleLogEventType::UnitDied:
         builder_.recordKill(

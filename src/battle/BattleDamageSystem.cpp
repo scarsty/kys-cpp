@@ -407,7 +407,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         result.blockedByDamageLayer = defense.blockedByDamageLayer;
         result.singleHitCapConsumed = defense.singleHitCapConsumed;
         result.singleHitCapped = defense.singleHitCapped;
-        if (defense.blockedByDamageLayer)
+        if (defense.blockedByDamageLayer || defense.singleHitCapConsumed)
         {
             auto consumed = statusSystem.consume(
                 result.defenderStatus,
@@ -419,20 +419,8 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                     },
                 });
             assert(consumed.consumed);
-            result.defenderStatus = std::move(consumed.target);
-        }
-        if (defense.singleHitCapConsumed)
-        {
-            auto consumed = statusSystem.consume(
-                result.defenderStatus,
-                {
-                    .kind = selectedInterceptor->kind,
-                    .filter = {
-                        .holderUnitId = result.defenderStatus.id,
-                        .appliedSequence = selectedInterceptor->appliedSequence,
-                    },
-                });
-            assert(consumed.consumed);
+            result.defenseStatusConsumed = BattleStatusConsumptionReceipt{
+                consumed.target.id, std::move(consumed.consumedStatus), consumed.remainingStacks };
             result.defenderStatus = std::move(consumed.target);
         }
         acceptedHit = !defense.blockedByInvincible

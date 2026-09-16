@@ -163,6 +163,25 @@ std::optional<BattlePresentationFrame> runUntil(
     return std::nullopt;
 }
 
+std::vector<BattleLogEvent> runUntilCollectingLogs(
+    BattleRuntimeState& state,
+    int maximumFrames,
+    const auto& predicate)
+{
+    BattleFrameRunner runner;
+    std::vector<BattleLogEvent> logs;
+    for (int frame = 0; frame < maximumFrames; ++frame)
+    {
+        auto presentation = runner.runFrame(state);
+        logs.insert(logs.end(), presentation.logEvents.begin(), presentation.logEvents.end());
+        if (predicate(state, presentation))
+        {
+            break;
+        }
+    }
+    return logs;
+}
+
 BattleRuntimeSessionCreationInput singleUltimateInput(
     int magicId,
     int casterStar = 1,
@@ -741,6 +760,244 @@ TEST_CASE("BattleRuntimeScenario_SingleSkillShenzhaoRequiresFullMpForUltimateEff
         {
             CHECK(runtimeCaster.vitals.mp >= openingMp);
         }
+    }
+}
+
+TEST_CASE("BattleRuntimeScenario_RealLionRoarStunsEveryLivingEnemyAndLogsEachApplication",
+          "[battle][scenario][runtime][ultimate-effect][vertical][logging]")
+{
+    auto input = singleUltimateInput(92, 1, 1, { 220, 100, 0 });
+    input.units.push_back(verticalSliceUnit(
+        2, 0, 10000, 10000, 0, { 220, 220, 0 }));
+    input.units.push_back(verticalSliceUnit(
+        3, 1, 10000, 10000, 0, { 220, 340, 0 }));
+    input.units.push_back(verticalSliceUnit(
+        4, 1, 0, 10000, 0, { 220, 460, 0 }));
+    auto state = initializedVerticalSliceState(std::move(input));
+
+    const auto logs = runUntilCollectingLogs(state, 180, [](const auto& runtime, const auto&)
+    {
+        return runtime.units.require(1).frozen()
+            && runtime.units.require(3).frozen();
+    });
+
+    CHECK(state.units.require(1).frozen());
+    CHECK(state.units.require(3).frozen());
+    CHECK_FALSE(state.units.require(2).frozen());
+    CHECK_FALSE(state.units.require(4).frozen());
+
+    std::vector<const BattleLogEvent*> stunLogs;
+    for (const auto& log : logs)
+    {
+        if (log.statusId == BattleStatusSemanticId::Stun)
+        {
+            stunLogs.push_back(&log);
+        }
+    }
+    REQUIRE(stunLogs.size() == 2);
+    CHECK(std::ranges::all_of(stunLogs, [](const auto* log)
+    {
+        return log->type == BattleLogEventType::Status
+            && log->sourceUnitId == 0
+            && log->semanticSourceTeam == 0
+            && log->semanticSourceKind == "magic"
+            && log->semanticSourceName == "獅子吼"
+            && log->frame >= 0
+            && log->amount == 70;
+    }));
+    CHECK(std::ranges::any_of(stunLogs, [](const auto* log)
+    {
+        return log->targetUnitId == 1;
+    }));
+    CHECK(std::ranges::any_of(stunLogs, [](const auto* log)
+    {
+        return log->targetUnitId == 3;
+    }));
+}
+
+TEST_CASE("BattleRuntimeScenario_RealNineYangLogsHealTrueQiAndItsDamage",
+          "[battle][scenario][runtime][ultimate-effect][vertical][logging]")
+{
+    auto input = singleUltimateInput(106, 1, 1, { 220, 100, 0 });
+    input.units.front().vitals.hp = 500;
+    auto state = initializedVerticalSliceState(std::move(input));
+
+    auto logs = runUntilCollectingLogs(state, 180, [](const auto& runtime, const auto&)
+    {
+        return runtime.units.require(0).statusEffects().has(BattleStatusKind::TrueQi)
+            && runtime.units.requireCore(0).vitals.hp > 500;
+    });
+    REQUIRE(state.units.require(0).statusEffects().has(BattleStatusKind::TrueQi));
+    REQUIRE(state.units.requireCore(0).vitals.hp > 500);
+
+    BattleFrameRunner runner;
+    for (int frame = 0; frame < 100 && !state.result.ended; ++frame)
+    {
+        auto presentation = runner.runFrame(state);
+        logs.insert(logs.end(), presentation.logEvents.begin(), presentation.logEvents.end());
+    }
+
+    const auto heal = std::ranges::find_if(logs, [](const auto& log)
+    {
+        return log.type == BattleLogEventType::Heal
+            && log.resourceId == BattleResourceSemanticId::HitPoints
+            && log.sourceUnitId == 0
+            && log.targetUnitId == 0
+            && log.semanticSourceKind == "magic"
+            && log.semanticSourceName == "九陽神功";
+    });
+    REQUIRE(heal != logs.end());
+    CHECK(heal->amount > 0);
+    CHECK(heal->frame >= 0);
+
+    const auto trueQi = std::ranges::find_if(logs, [](const auto& log)
+    {
+        return log.type == BattleLogEventType::Status
+            && log.statusId == BattleStatusSemanticId::TrueQi
+            && log.sourceUnitId == 0
+            && log.targetUnitId == 0
+            && log.semanticSourceKind == "magic"
+            && log.semanticSourceName == "九陽神功"
+            && log.stackCount == 1;
+    });
+    REQUIRE(trueQi != logs.end());
+    CHECK(trueQi->frame >= 0);
+
+    CHECK(std::ranges::any_of(logs, [](const auto& log)
+    {
+        return log.type == BattleLogEventType::Damage
+            && log.sourceUnitId == 0
+            && log.targetUnitId == 1
+            && log.amount > 0
+            && log.skillId == 106
+            && log.skillName == "九陽神功"
+            && log.semanticSourceKind == "magic"
+            && log.semanticSourceName == "九陽神功";
+    }));
+}
+
+TEST_CASE("BattleRuntimeScenario_RealDragonPalmLogsBattleSpiritAndPersistentModifiers",
+          "[battle][scenario][runtime][ultimate-effect][vertical][logging]")
+{
+    auto state = initializedVerticalSliceState(singleUltimateInput(
+        26,
+        1,
+        1,
+        { 220, 100, 0 }));
+
+    const auto logs = runUntilCollectingLogs(state, 180, [](const auto& runtime, const auto&)
+    {
+        return runtime.units.require(0).statusEffects().has(BattleStatusKind::BattleSpirit);
+    });
+
+    const auto* battleSpirit = state.units.require(0).statusEffects().find(
+        BattleStatusKind::BattleSpirit);
+    REQUIRE(battleSpirit != nullptr);
+    CHECK(battleSpirit->stacks == 1);
+
+    const auto status = BattleStatusSystem({}).snapshot(
+        state.units.require(0).statusDamageState());
+    CHECK(status.skillDamagePct == 5);
+    CHECK(status.damageReductionPct == 2);
+
+    std::vector<const BattleLogEvent*> modifierLogs;
+    for (const auto& log : logs)
+    {
+        if (log.type == BattleLogEventType::Status
+            && log.statusId == BattleStatusSemanticId::DamageModifier
+            && log.sourceUnitId == 0
+            && log.targetUnitId == 0
+            && log.semanticSourceKind == "magic"
+            && log.semanticSourceName == "降龍十八掌")
+        {
+            modifierLogs.push_back(&log);
+        }
+    }
+    REQUIRE(modifierLogs.size() == 2);
+    CHECK(std::ranges::all_of(modifierLogs, [](const auto* log)
+    {
+        return log->stackCount == 1 && log->frame >= 0;
+    }));
+    CHECK(std::ranges::any_of(modifierLogs, [](const auto* log)
+    {
+        return log->amount == 5;
+    }));
+    CHECK(std::ranges::any_of(modifierLogs, [](const auto* log)
+    {
+        return log->amount == -2;
+    }));
+}
+
+TEST_CASE("BattleRuntimeScenario_RealEmptyFistLogsDefenseBypassOnHit", "[battle][scenario][ultimate-effect][logging]")
+{
+    auto state = initializedVerticalSliceState(singleUltimateInput(15, 1, 1, { 220, 100, 0 }));
+    const auto logs = runUntilCollectingLogs(state, 180, [](const auto&, const auto& frame)
+    {
+        return std::ranges::any_of(frame.logEvents, [](const auto& log)
+        {
+            return log.statusId == BattleStatusSemanticId::DamageModifier;
+        });
+    });
+    const auto modifier = std::ranges::find_if(logs, [](const auto& log)
+    {
+        return log.statusId == BattleStatusSemanticId::DamageModifier
+            && log.semanticSourceName == "空明拳";
+    });
+    REQUIRE(modifier != logs.end());
+    CHECK(modifier->amount == 100);
+    CHECK(modifier->sourceUnitId == 0);
+    CHECK(modifier->targetUnitId == 1);
+    CHECK(std::ranges::any_of(logs, [&](const auto& log)
+    {
+        return log.type == BattleLogEventType::Damage
+            && log.frame == modifier->frame && log.targetUnitId == 1;
+    }));
+}
+
+TEST_CASE("BattleRuntimeScenario_LogsSuccessfulCopiedAndFreeCasts", "[battle][scenario][ultimate-effect][logging]")
+{
+    SECTION("複製成功才記錄來源武功")
+    {
+        for (const bool hasUltimate : { true, false })
+        {
+            auto state = initializedVerticalSliceState(copyRuntimeInput(true, hasUltimate));
+            const auto logs = runUntilCollectingLogs(state, 180, [](const auto& runtime, const auto&)
+            {
+                return copiedRuntimeAttack(runtime) != nullptr;
+            });
+            const auto copied = std::ranges::find(logs, BattleStatusSemanticId::AttackCopied, &BattleLogEvent::statusId);
+            if (!hasUltimate)
+            {
+                CHECK(copied == logs.end());
+                continue;
+            }
+            REQUIRE(copied != logs.end());
+            CHECK(copied->semanticSourceName == "測試複製武功");
+            CHECK(copied->sourceUnitId == 0);
+            CHECK(copied->targetUnitId == CopyRuntimeCandidateUnitId);
+            CHECK(copied->skillId == CopyRuntimeCandidateMagicId);
+            CHECK(copied->skillName == "候選者絕招");
+        }
+    }
+    SECTION("免費追加出招有獨立效果記錄")
+    {
+        auto input = singleUltimateInput(42, 1, 1, { 220, 100, 0 });
+        for (auto& rule : input.setup.magicEffectDefinitions.front().rules)
+            rule.chancePct = 100;
+        auto state = initializedVerticalSliceState(std::move(input));
+        const auto logs = runUntilCollectingLogs(state, 180, [](const auto&, const auto& frame)
+        {
+            return std::ranges::any_of(frame.logEvents, [](const auto& log)
+            {
+                return log.statusId == BattleStatusSemanticId::FreeCast;
+            });
+        });
+        const auto repeated = std::ranges::find(logs, BattleStatusSemanticId::FreeCast, &BattleLogEvent::statusId);
+        REQUIRE(repeated != logs.end());
+        CHECK(repeated->semanticSourceName == "玉女素心劍");
+        CHECK(repeated->sourceUnitId == 0);
+        CHECK(repeated->targetUnitId == 1);
+        CHECK(repeated->skillId == 42);
     }
 }
 

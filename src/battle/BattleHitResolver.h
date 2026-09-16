@@ -143,6 +143,7 @@ struct BattleKnockbackCommand
     ForceMoveDirection semanticDirection = ForceMoveDirection::AwayFromSource;
     ForceMoveCollision collision = ForceMoveCollision::StopBeforeOccupied;
     ForceMoveBlockedResult blocked = ForceMoveBlockedResult::Shorten;
+    std::optional<EffectSourceBinding> effectSource;
 };
 
 struct BattleRumbleCommand

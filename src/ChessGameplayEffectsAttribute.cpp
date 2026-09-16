@@ -174,11 +174,11 @@ struct CastDamageReduction final : GameplayEffectDefinition
 
 struct CastTeamAttack final : GameplayEffectDefinition
 {
-    int 攻擊點數{};
+    int 每星攻擊{};
     int 持續幀數{};
     static constexpr std::string_view Name = "出招全隊攻擊加成";
     static constexpr auto Parameters = std::array<Parameter<CastTeamAttack>, 2>{
-        {Parameter<CastTeamAttack>{{"攻擊點數", -1000000, 1000000}, &CastTeamAttack::攻擊點數},
+        {Parameter<CastTeamAttack>{{"每星攻擊", 0, 1000000}, &CastTeamAttack::每星攻擊},
          Parameter<CastTeamAttack>{{"持續幀數", 1, 1000000}, &CastTeamAttack::持續幀數}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
@@ -187,7 +187,8 @@ struct CastTeamAttack final : GameplayEffectDefinition
             EffectRule{.event = EffectEvent::AttackCommitted,
                        .selector = EffectSelector{.kind = EffectSelectorKind::Allies},
                        .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                               .amount = EffectNumber{.flat = 攻擊點數},
+                                                                               .amount = EffectNumber{.base = EffectNumberBase::SourceStar,
+                                                                                                      .percent = 每星攻擊 * 100},
                                                                                .durationFrames = 持續幀數,
                                                                                .stack = EffectStackPolicy::Refresh}}}}};
     }
@@ -195,9 +196,9 @@ struct CastTeamAttack final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("出招時全隊攻擊{:+}，持續{}幀。重複觸發刷新持續時間。", 攻擊點數, 持續幀數);
+            return std::format("出招時全隊攻擊每星{:+}，持續{}幀。重複觸發刷新持續時間。", 每星攻擊, 持續幀數);
         }
-        return std::format("出招：全隊{:+}攻，{}幀", 攻擊點數, 持續幀數);
+        return std::format("出招：全隊+{}×星級攻，{}幀", 每星攻擊, 持續幀數);
     }
 };
 

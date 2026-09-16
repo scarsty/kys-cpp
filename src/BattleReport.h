@@ -55,6 +55,7 @@ struct BattleReportEvent
     int effectId = -1;
     int secondaryEffectId = -1;
     std::vector<KysChess::Battle::BattleLogTextSegment> segments;
+    int stackCount{};
 };
 
 class BattleReport
@@ -93,14 +94,20 @@ public:
         const std::string& skillName,
         int frame,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments = {},
-        int skillId = -1);
+        int skillId = -1,
+        int semanticSourceTeam = -1,
+        std::string semanticSourceKind = {},
+        std::string semanticSourceName = {});
     void recordHeal(
         const KysChess::Battle::BattleRuntimeUnit* source,
         const KysChess::Battle::BattleRuntimeUnit* target,
         int amount,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments,
         int frame,
-        KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::HitPoints);
+        KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::HitPoints,
+        int semanticSourceTeam = -1,
+        std::string semanticSourceKind = {},
+        std::string semanticSourceName = {});
     void recordStatus(
         const KysChess::Battle::BattleRuntimeUnit* source,
         const KysChess::Battle::BattleRuntimeUnit* target,
@@ -120,7 +127,8 @@ public:
         std::string semanticSourceKind = {},
         std::string semanticSourceName = {},
         std::string skillName = {},
-        int skillId = -1);
+        int skillId = -1,
+        int stackCount = 0);
     void recordKill(const KysChess::Battle::BattleRuntimeUnit* killer, const KysChess::Battle::BattleRuntimeUnit* victim, int frame);
     void recordDeath(const KysChess::Battle::BattleRuntimeUnit* unit, int frame);
     void recordProjectileCancel(int unitId, int damage);

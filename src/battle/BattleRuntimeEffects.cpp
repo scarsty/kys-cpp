@@ -300,6 +300,10 @@ void appendRuntimeMagicEffectRules(
             continue;
         }
 
+        runtime.effectSourceNames.emplace(
+            std::pair{ EffectSourceKind::Magic, magicId },
+            definition->name);
+
         runtime.effectRules.append(
             {
                 .kind = EffectSourceKind::Magic,

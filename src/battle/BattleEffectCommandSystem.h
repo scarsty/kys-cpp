@@ -165,6 +165,7 @@ struct BattleAttributeEffectResult
     int requestedDurationFrames{};
     int appliedDurationFrames{};
     int statusShieldAbsorbed{};
+    bool applied{};
 };
 
 struct BattleDamageModifierQuery
@@ -184,6 +185,7 @@ struct BattleDamageModifierEffectResult
     int requestedDurationFrames{};
     int appliedDurationFrames{};
     int statusShieldAbsorbed{};
+    bool applied{};
 };
 
 struct BattleDamageAbsorptionEffectResult
