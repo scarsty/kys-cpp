@@ -99,16 +99,26 @@ void appendAreaLifecycleLogs(
     std::vector<BattleLogEvent>& logs,
     std::span<const BattleAreaLifecycleEvent> events,
     int frame);
+// 消耗紀錄的視角覆寫。狀態被消耗往往是持有者自身行為的結果（例如刺目攔下出招），
+// 預設紀錄歸因於效果來源；需要以實際行為者呈現時覆寫來源、承受者與動作說明。
+struct StatusConsumptionLogOverride
+{
+    std::optional<int> sourceUnitId;
+    std::optional<int> targetUnitId;
+    std::string actionPrefix;
+};
 void appendStatusConsumptionLog(
     const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logs,
     const BattleStatusConsumeResult& result,
-    int frame);
+    int frame,
+    const StatusConsumptionLogOverride& logOverride = {});
 void appendStatusConsumptionLog(
     const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logs,
     const BattleStatusConsumptionReceipt& receipt,
-    int frame);
+    int frame,
+    const StatusConsumptionLogOverride& logOverride = {});
 void appendHitDamageModifierLog(
     const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logs,

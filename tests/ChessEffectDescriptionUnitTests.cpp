@@ -107,6 +107,32 @@ TEST_CASE("Compact cards omit terminal punctuation and retain mechanical qualifi
     CHECK(full.find("每人抵擋一次傷害") != std::string::npos);
 }
 
+TEST_CASE("Combo threshold descriptions append management rules after battle effects", "[chess][effects][description]")
+{
+    auto effects = configured("[{類型: 技能增傷, 百分比: 15}]");
+    const std::vector<ChessNonBattleRule> rules{FreeShopRefreshRule{}, BattleMapChoiceRule{}};
+
+    const auto full = effectDescriptionTextRows(describeGameplayEffectsAndManagementRules(
+        effects, rules, EffectDescriptionStyle::Full));
+    REQUIRE(full.size() == 3);
+    CHECK(full[0] == "技能傷害+15%。");
+    CHECK(full[1] == "勝利後獲得一次免費商店刷新；尚未使用時不重複累積");
+    CHECK(full[2] == "戰鬥開始前可從合適的戰場中選擇一個");
+
+    const auto compact = effectDescriptionTextRows(describeGameplayEffectsAndManagementRules(
+        effects, rules, EffectDescriptionStyle::Compact));
+    REQUIRE(compact.size() == 3);
+    CHECK(compact[0] == "技能傷害+15%");
+    CHECK(compact[1] == "勝利：免費刷新1次");
+    CHECK(compact[2] == "戰前：可選戰場");
+
+    const std::vector<ChessNonBattleRule> goldRules{VictoryGoldRule{2}};
+    const auto managementOnly = effectDescriptionTextRows(describeGameplayEffectsAndManagementRules(
+        {}, goldRules, EffectDescriptionStyle::Compact));
+    REQUIRE(managementOnly.size() == 1);
+    CHECK(managementOnly[0] == "勝利：+2×最高存活星級金幣");
+}
+
 TEST_CASE("Compound effects describe their complete lifecycle without runtime reconstruction", "[chess][effects][description]")
 {
     auto effects = configured("[{類型: 承傷蓄力加傷, 傷害轉換百分比: 75}]");

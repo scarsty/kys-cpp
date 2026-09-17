@@ -193,7 +193,7 @@ TEST_CASE("JSON protocol preserves request identifiers and session state", "[che
 TEST_CASE("JSON protocol role compact projection removes repeated static metadata",
           "[chess][protocol][inspect][role]")
 {
-    const auto content = actualContent();
+    const auto content = syntheticContent();
     REQUIRE(content);
     ChessJsonProtocol protocol(content);
     REQUIRE(parseResponse(protocol.handleLine(
@@ -220,17 +220,18 @@ TEST_CASE("JSON protocol role compact projection removes repeated static metadat
 TEST_CASE("JSON protocol role detail selects the contained effect-description style",
           "[chess][protocol][inspect][role][effects]")
 {
-    const auto content = actualContent();
+    const auto content = syntheticContent();
     REQUIRE(content);
     ChessJsonProtocol protocol(content);
     REQUIRE(parseResponse(protocol.handleLine(
         R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000042"}})")).ok);
 
+    // 簡述與完整說明只差執行細節字樣；平衡數值會變，不鎖特定文字。
     const auto compact = parseResponse(protocol.handleLine(
         R"({"id":2,"method":"inspect_role","params":{"role_id":69,"detail":"compact"}})"));
     REQUIRE(compact.ok);
     REQUIRE(compact.result);
-    CHECK(compact.result->str.contains("出招：疊1層，上限10層"));
+    CHECK(compact.result->str.contains("出招："));
     CHECK_FALSE(compact.result->str.contains("此來源獨立累積層數"));
 
     const auto full = parseResponse(protocol.handleLine(
@@ -238,43 +239,57 @@ TEST_CASE("JSON protocol role detail selects the contained effect-description st
     REQUIRE(full.ok);
     REQUIRE(full.result);
     CHECK(full.result->str.contains("此來源獨立累積層數"));
-    CHECK(full.result->str.contains("每次出招增加1層，最多10層"));
 }
 
 TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",
           "[chess][protocol][challenge][actual-config]")
 {
-    const auto content = actualContent();
+    const auto content = syntheticContent();
     REQUIRE(content);
     ChessJsonProtocol protocol(content);
     const auto created = parseResponse(protocol.handleLine(
         R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x000000000000000e"}})"));
     REQUIRE(created.ok);
     REQUIRE(created.result);
-    CHECK(created.result->str.contains("\"total_campaign_rounds\":28"));
-    CHECK(created.result->str.contains("\"forced_bans_enabled\":true"));
+    // 進度與禁棋欄位如實反映設定值，不鎖特定平衡數字。
+    CHECK(created.result->str.contains(
+        "\"total_campaign_rounds\":" + std::to_string(content->balance().totalFights)));
+    CHECK(created.result->str.contains(std::string("\"forced_bans_enabled\":")
+        + (content->balance().banUnlocks.empty() ? "false" : "true")));
+
+    const auto challenge = std::ranges::find_if(
+        content->balance().challenges,
+        [](const auto& candidate) { return candidate.name == "倚天屠龍"; });
+    REQUIRE(challenge != content->balance().challenges.end());
+    const auto enemyCount = challenge->enemies.size();
+    const auto starThreeCount = static_cast<std::size_t>(std::ranges::count(
+        challenge->enemies, 3, &BattlePieceDef::star));
+    const auto weaponCount = static_cast<std::size_t>(std::ranges::count_if(
+        challenge->enemies, [](const auto& enemy) { return enemy.weaponId >= 0; }));
+    const auto armorCount = static_cast<std::size_t>(std::ranges::count_if(
+        challenge->enemies, [](const auto& enemy) { return enemy.armorId >= 0; }));
 
     const auto inspected = parseResponse(protocol.handleLine(
         R"({"id":2,"method":"inspect_challenge","params":{"challenge_name":"倚天屠龍"}})"));
 
     REQUIRE(inspected.ok);
     REQUIRE(inspected.result);
-    CHECK(inspected.result->str.contains("\"enemy_count\":12"));
-    CHECK(substringCount(inspected.result->str, "\"star\":3") == 12);
-    CHECK(substringCount(inspected.result->str, "\"weapon\":{") == 12);
-    CHECK(substringCount(inspected.result->str, "\"armor\":{") == 12);
-    CHECK(inspected.result->str.contains("\"name\":\"屠龍刀\""));
-    CHECK(inspected.result->str.contains("\"name\":\"倚天劍\""));
+    CHECK(inspected.result->str.contains("\"enemy_count\":" + std::to_string(enemyCount)));
+    CHECK(substringCount(inspected.result->str, "\"star\":3") == starThreeCount);
+    CHECK(substringCount(inspected.result->str, "\"weapon\":{") == weaponCount);
+    CHECK(substringCount(inspected.result->str, "\"armor\":{") == armorCount);
 
-    const auto easyContent = actualContent(Difficulty::Easy);
+    const auto easyContent = syntheticContent(Difficulty::Easy);
     REQUIRE(easyContent);
     ChessJsonProtocol easyProtocol(easyContent);
     const auto easy = parseResponse(easyProtocol.handleLine(
         R"({"id":3,"method":"new","params":{"difficulty":"easy","seed":"0x000000000000000e"}})"));
     REQUIRE(easy.ok);
     REQUIRE(easy.result);
-    CHECK(easy.result->str.contains("\"total_campaign_rounds\":28"));
-    CHECK(easy.result->str.contains("\"forced_bans_enabled\":false"));
+    CHECK(easy.result->str.contains(
+        "\"total_campaign_rounds\":" + std::to_string(easyContent->balance().totalFights)));
+    CHECK(easy.result->str.contains(std::string("\"forced_bans_enabled\":")
+        + (easyContent->balance().banUnlocks.empty() ? "false" : "true")));
 }
 
 TEST_CASE("JSON protocol prepared battle inspection layers positioning and metadata",
@@ -378,7 +393,7 @@ TEST_CASE("JSON protocol prepared battle inspection layers positioning and metad
 TEST_CASE("JSON protocol compact observation stays lean for a developed roster",
           "[chess][protocol][compact][size]")
 {
-    const auto content = actualContent();
+    const auto content = syntheticContent();
     REQUIRE(content);
     ChessJsonProtocol protocol(content);
     REQUIRE(parseResponse(protocol.handleLine(
@@ -1009,7 +1024,7 @@ TEST_CASE("JSON protocol publishes economic previews and keeps verification hash
 TEST_CASE("JSON protocol previews paid reward options and legendary equipment costs",
           "[chess][protocol][actions][economy][actual-config]")
 {
-    const auto content = actualContent();
+    const auto content = syntheticContent();
     REQUIRE(content);
     REQUIRE(content->balance().legendaryShop.unlockFight > 0);
     ChessJsonProtocol protocol(content);

@@ -103,6 +103,40 @@ ChessGameContentData syntheticContentData(Difficulty difficulty)
     return data;
 }
 
+// 測試自有天賦目錄樣本：欄位結構對齊正式設定，數值皆為測試所有。
+constexpr std::string_view talentsFixtureText = R"(棋手天賦:
+  神兵:
+    說明: 測試神兵說明
+    可使用神兵商店: true
+  晚成:
+    說明: 測試晚成說明
+    勝場成長受加成比例: 10
+  賭徒:
+    說明: 測試賭徒說明
+    開局額外禁棋:
+      次數: 2
+      最低費用: 1
+      最高費用: 2
+    賭運:
+      累積截止關卡: 20
+      目標最低費用: 1
+      目標最高費用: 3
+      每次增加層數: 1
+      每層觸發機率百分點: 10
+      層數上限: 5
+      觸發後生命: 30
+      無敵幀數: 60
+  中堅:
+    說明: 測試中堅說明
+    目標費用: 4
+    額外星級加成:
+      每顆開場內力: 12
+      計算上限: 6
+    刷新保證:
+      觸發星級: 2
+      每次數量: 2
+)";
+
 class TemporaryConfigDirectory
 {
 public:
@@ -113,7 +147,8 @@ public:
                 std::chrono::steady_clock::now().time_since_epoch().count()))
     {
         std::filesystem::create_directories(path_);
-        std::filesystem::copy_file("config/chess_talents.yaml", path_ / "chess_talents.yaml");
+        std::ofstream output(path_ / "chess_talents.yaml", std::ios::binary);
+        output << talentsFixtureText;
     }
 
     ~TemporaryConfigDirectory()
@@ -438,9 +473,29 @@ TEST_CASE("diagnostics are collected without writing protocol output", "[chess][
 
 TEST_CASE("talent configuration rejects malformed identities ranges and legacy keys", "[chess][talent][content]")
 {
+    // 測試自有平衡樣本：欄位結構對齊正式設定，數值皆為本測試所有。
+    constexpr std::string_view balanceFixture = R"(棋手天賦:
+  預設: 神兵
+  可選: [神兵]
+玩家裝備獎勵:
+  基本:
+    - 關卡: 3
+      最高層級: 2
+      選項數量: 2
+      追加選項費用: 4
+      最低層級: 1
+    - 關卡: 7
+      最高層級: 3
+      選項數量: 2
+      追加選項費用: 4
+      最低層級: 1
+神兵商店:
+  通關後: 5
+  價格: 30
+)";
     TemporaryConfigDirectory files;
-    auto balance = YAML::LoadFile("config/chess_balance_hard.yaml");
-    auto talents = YAML::LoadFile("config/chess_talents.yaml");
+    auto balance = YAML::Load(std::string(balanceFixture));
+    auto talents = YAML::Load(std::string(talentsFixtureText));
     SECTION("unknown talent") { balance["棋手天賦"]["預設"] = "未知"; }
     SECTION("duplicate choice") { balance["棋手天賦"]["可選"].push_back("神兵"); }
     SECTION("empty choice") { balance["棋手天賦"]["可選"] = YAML::Node(YAML::NodeType::Sequence); }
@@ -459,7 +514,13 @@ TEST_CASE("talent configuration rejects malformed identities ranges and legacy k
     SECTION("legacy simplified key") { balance["玩家装备奖励"] = balance["玩家裝備獎勵"]; balance.remove("玩家裝備獎勵"); }
     const auto path = files.write("chess_balance_hard.yaml", YAML::Dump(balance));
     files.write("chess_talents.yaml", YAML::Dump(talents));
+    const auto challenge = files.write("chess_challenge.yaml", "遠征挑戰: []\n");
     BalanceConfig parsed;
     ChessDiagnosticCollector diagnostics;
-    CHECK_FALSE(loadBalanceConfig(path.string(), "config/chess_challenge.yaml", {}, diagnostics.sink(), parsed));
+    CHECK_FALSE(loadBalanceConfig(
+        path.string(),
+        challenge.string(),
+        {},
+        diagnostics.sink(),
+        parsed));
 }

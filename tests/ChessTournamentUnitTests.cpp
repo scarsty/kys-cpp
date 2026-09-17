@@ -72,7 +72,7 @@ TEST_CASE("tournament scoring applies the player-one timeout and simultaneous-wi
 TEST_CASE("round robin shares every seed and mirrors both sides for every pair",
     "[chess][tournament][round_robin]")
 {
-    const auto content = Test::actualContent(Difficulty::Hard);
+    const auto content = Test::syntheticContent(Difficulty::Hard);
     REQUIRE(content);
     REQUIRE(content->roles().size() >= 3);
     auto role = content->roles().begin();
@@ -143,7 +143,7 @@ TEST_CASE("round robin shares every seed and mirrors both sides for every pair",
 TEST_CASE("tied leaders are co-champions without additional battles",
     "[chess][tournament][co_champion]")
 {
-    const auto content = Test::actualContent(Difficulty::Hard);
+    const auto content = Test::syntheticContent(Difficulty::Hard);
     REQUIRE(content);
     REQUIRE_FALSE(content->roles().empty());
     const int roleId = content->roles().begin()->first;

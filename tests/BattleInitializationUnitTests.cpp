@@ -453,62 +453,36 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     CHECK(output.effectCommands.antiComboAttributeBases.empty());
 }
 
-TEST_CASE("BattleStartInitializer preserves status producer identity for all shipped clone tiers",
+TEST_CASE("BattleStartInitializer preserves status producer identity for all clone combo tiers",
           "[battle][initialization][effect_rule][status][clone][tiers]")
 {
-    const auto content = KysChess::Test::actualContent(Difficulty::Normal);
-    REQUIRE(content);
-    const auto cloneCount = [](const ComboThreshold& threshold) -> std::optional<int>
-    {
-        for (const auto& rule : threshold.rules)
-        {
-            for (const auto& effectAction : rule.actions)
-            {
-                const auto* machine = std::get_if<StateMachineAction>(
-                    &effectAction.value);
-                if (!machine) continue;
-                if (const auto* clones = std::get_if<GenerateClonesAction>(machine))
-                    return clones->count;
-            }
-        }
-        return std::nullopt;
-    };
-    constexpr std::array expectedMemberCounts{ 3, 5, 7 };
-    constexpr std::array expectedCloneCounts{ 1, 2, 3 };
-    const auto shippedCombo = std::ranges::find_if(
-        content->combos(),
-        [&](const ComboDef& combo)
-        {
-            if (combo.thresholds.size() != expectedCloneCounts.size()) return false;
-            for (std::size_t index = 0; index < expectedCloneCounts.size(); ++index)
-            {
-                if (combo.thresholds[index].count != expectedMemberCounts[index]
-                    || cloneCount(combo.thresholds[index])
-                        != expectedCloneCounts[index])
-                {
-                    return false;
-                }
-            }
-            return true;
-        });
-    REQUIRE(shippedCombo != content->combos().end());
+    // 測試自有羈絆：成員數 3/5/7 與各疇克隆數 1/2/3 都屬於本測試資料，
+    // 只受本測試提供的克隆格數（3）約束，不依賴頂層設定的羈絆內容。
+    constexpr std::array memberCounts{3, 5, 7};
+    constexpr std::array cloneCounts{1, 2, 3};
+    constexpr std::array memberRoleIds{1, 2, 3, 4, 5, 6, 7};
 
-    for (std::size_t tier = 0; tier < expectedCloneCounts.size(); ++tier)
+    for (std::size_t tier = 0; tier < cloneCounts.size(); ++tier)
     {
         CAPTURE(tier);
-        CAPTURE(expectedCloneCounts[tier]);
-        const int memberCount = expectedMemberCounts[tier];
+        const int memberCount = memberCounts[tier];
+        const int expectedClones = cloneCounts[tier];
         BattleRuntimeSetupSeed setup;
         BattleSetupComboDefinition combo{
-            .id = shippedCombo->id,
-            .name = shippedCombo->name,
-            .memberRoleIds = shippedCombo->memberRoleIds,
+            .id = 77,
+            .name = "測試克隆羈絆",
+            .memberRoleIds = {memberRoleIds.begin(), memberRoleIds.end()},
         };
-        for (const auto& threshold : shippedCombo->thresholds)
+        for (std::size_t index = 0; index < cloneCounts.size(); ++index)
         {
+            EffectRule cloneRule;
+            cloneRule.id = EffectRuleId{9100 + index};
+            cloneRule.event = EffectEvent::BattleInitialized;
+            cloneRule.actions.push_back(EffectAction{
+                StateMachineAction{GenerateClonesAction{.count = cloneCounts[index]}}});
             combo.thresholds.push_back({
-                .count = threshold.count,
-                .rules = threshold.rules,
+                .count = memberCounts[index],
+                .rules = {cloneRule},
             });
         }
 
@@ -528,7 +502,7 @@ TEST_CASE("BattleStartInitializer preserves status producer identity for all shi
         std::vector<BattleRuntimeUnitSpawn> spawns;
         for (int index = 0; index < memberCount; ++index)
         {
-            const int roleId = shippedCombo->memberRoleIds[index];
+            const int roleId = memberRoleIds[index];
             spawns.push_back(runtimeSpawn(runtimeUnit(
                 index, 0, 100, 20, 30, 40)));
             setup.units.push_back({
@@ -574,7 +548,7 @@ TEST_CASE("BattleStartInitializer preserves status producer identity for all shi
                 cloneUnitIds.push_back(spawn.unit.id);
         }
         REQUIRE(cloneUnitIds.size()
-            == static_cast<std::size_t>(expectedCloneCounts[tier]));
+            == static_cast<std::size_t>(expectedClones));
 
         BattleRuntimeState runtime;
         runtime.gridTransform = testInitializationContext().gridTransform;
@@ -622,7 +596,7 @@ TEST_CASE("BattleStartInitializer preserves status producer identity for all shi
             REQUIRE(dispatched.commands.size() == 1);
             const auto& command = dispatched.commands.front();
             CHECK(command.metadata.binding.kind == EffectSourceKind::Combo);
-            CHECK(command.metadata.binding.sourceId == shippedCombo->id);
+            CHECK(command.metadata.binding.sourceId == 77);
             CHECK(command.metadata.binding.ownerUnitId == cloneUnitId);
             CHECK(command.metadata.ruleId == EffectRuleId{ 99001 });
             CHECK(command.metadata.authoredActionOrder == 0);

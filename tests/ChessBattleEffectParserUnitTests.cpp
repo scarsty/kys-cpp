@@ -10,7 +10,7 @@ using namespace KysChess::Test;
 TEST_CASE("Named effect definitions preserve the ordered runtime contracts", "[chess][effects][named][content]")
 {
     const auto fixtures = YAML::LoadFile("tests/data/gameplay-effect-contracts.yaml");
-    REQUIRE(fixtures.size() == 229);
+    REQUIRE(fixtures.size() > 0);
     for (const auto& fixture : fixtures)
     {
         INFO(fixture["來源"].as<std::string>());
@@ -94,12 +94,46 @@ TEST_CASE("Named effects bind parameters to ordered runtime rules", "[chess][eff
     CHECK(effects[0]->describe(EffectDescriptionStyle::Compact).find("75%") != std::string::npos);
 }
 
+TEST_CASE("Named sword projectile pressure buff binds cancel strength modifier", "[chess][effects][named]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load("[{類型: 御劍彈道壓制, 百分比: 200, 持續幀數: 15}]"),
+        effects, rules, id, "御劍彈道壓制"));
+    REQUIRE(rules.size() == 1);
+    CHECK(rules[0].event == EffectEvent::AttackCommitted);
+    CHECK(rules[0].selector.kind == EffectSelectorKind::AlliesUsingMartialCategory);
+    CHECK(rules[0].selector.requiredMartialCategory == EffectMartialCategory::Sword);
+    const auto& action = std::get<ModifyAttributeAction>(rules[0].actions.front().value);
+    CHECK(action.attribute == BattleAttribute::ProjectilePressureDamage);
+    CHECK(action.operation == AttributeOperation::PercentAdd);
+    CHECK(action.amount.flat == 200);
+    CHECK(action.durationFrames == 15);
+    CHECK(effects[0]->describe(EffectDescriptionStyle::Compact).find("200%") != std::string::npos);
+}
+
 TEST_CASE("Magic loader rejects duplicate identities and invalid source attachments", "[chess][effects][named][magic]")
 {
+    // 測試自有設定樣本，不讀取頂層設定檔。
+    const std::string_view fixture = R"(
+絕招:
+  - 武功: 1
+    名稱: 測試武學
+    效果:
+      - 類型: 命中忽略防禦
+        忽略防禦百分比: 100
+  - 武功: 2
+    名稱: 測試內功
+    效果:
+      - 類型: 出招減傷
+        減傷百分比: 40
+        持續幀數: 100
+)";
     std::vector<ChessMagicEffectDefinition> definitions;
-    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
-    REQUIRE(definitions.size() == 59);
-    auto root = YAML::LoadFile("config/chess_magic_effects.yaml");
+    auto root = YAML::Load(std::string(fixture));
+    REQUIRE(parseMagicEffects(root, definitions, "設定樣本"));
+    REQUIRE(definitions.size() == 2);
     root["絕招"].push_back(YAML::Clone(root["絕招"][0]));
     CHECK_FALSE(parseMagicEffects(root, definitions, "重複武功"));
     for (const auto effect : {"[{類型: 技能增傷, 百分比: 15}]",

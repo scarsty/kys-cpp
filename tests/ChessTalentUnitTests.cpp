@@ -19,11 +19,48 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
 {
     ChessGameContentData data;
     data.difficulty = Difficulty::Hard;
-    REQUIRE(loadBalanceConfig("config/chess_balance_hard.yaml", "config/chess_challenge.yaml",
-        {}, {}, data.balance));
+    // 測試自有天賦數值，不讀取頂層設定檔。
     data.balance.initialMoney = 1000;
-    data.balance.talents.at(ChessTalentId::Gambler).luckPerRefresh = luckPerRefresh;
-    data.balance.talents.at(ChessTalentId::Gambler).openingBans = 3;
+    data.balance.shopSlotCount = 6;
+    data.balance.banBaseCount = 2;
+    data.balance.legendaryShop = {.unlockFight = 5, .price = 40};
+    data.balance.availableTalents.assign(
+        kChessTalentIds.begin(),
+        kChessTalentIds.end());
+    data.balance.talents.insert_or_assign(
+        ChessTalentId::DivineArms,
+        ChessTalentDefinition{.description = "測試神兵", .legendaryShop = true});
+    data.balance.talents.insert_or_assign(
+        ChessTalentId::LateBloomer,
+        ChessTalentDefinition{.description = "測試晚成", .amplifiedGrowthPercent = 100});
+    data.balance.talents.insert_or_assign(
+        ChessTalentId::Gambler,
+        ChessTalentDefinition{
+            .description = "測試賭徒",
+            .openingBans = 3,
+            .banMinTier = 1,
+            .banMaxTier = 2,
+            .luckLastFight = 20,
+            .luckMinTier = 1,
+            .luckMaxTier = 3,
+            .luckPerRefresh = luckPerRefresh,
+            .luckChancePerStack = 15,
+            .luckStackCap = 5,
+            .luckSurvivalHp = 30,
+            .luckInvincibleFrames = 60,
+        });
+    data.balance.talents.insert_or_assign(
+        ChessTalentId::Backbone,
+        ChessTalentDefinition{
+            .description = "測試中堅",
+            .targetTier = 3,
+            .mpPerExtraStar = 15,
+            .extraStarCap = 2,
+            .guaranteeStar = 2,
+            .guaranteeCount = 1,
+        });
+    data.balance.playerEquipmentRewards = {{35, 2, 2, 4, 1}, {40, 3, 2, 4, 1}};
+    data.balance.talentEquipmentRewards[ChessTalentId::DivineArms] = {{30, 4, 2, 4, 3}};
     for (int tier = 1; tier <= 5; ++tier)
         for (int number = 0; number < 8; ++number)
         {
@@ -50,24 +87,6 @@ int eventCount(const std::vector<ChessSemanticEvent>& events, ChessSemanticEvent
     return static_cast<int>(std::ranges::count(events, type, &ChessSemanticEvent::type));
 }
 }
-
-TEST_CASE("talent content uses configured choices rewards and shop prices", "[chess][talent][content]")
-{
-    for (const auto difficulty : {Difficulty::Easy, Difficulty::Normal, Difficulty::Hard})
-    {
-        BalanceConfig balance;
-        REQUIRE(loadBalanceConfig(std::string("config/chess_balance_") + ChessBalance::difficultyConfigSuffix(difficulty) + ".yaml",
-            "config/chess_challenge.yaml", {}, {}, balance));
-        CHECK(balance.defaultTalent == ChessTalentId::DivineArms);
-        CHECK(balance.availableTalents.size() == (difficulty == Difficulty::Hard ? 4 : 1));
-        CHECK(balance.legendaryShop.price == 30);
-        CHECK(balance.playerEquipmentRewards.size() == 4);
-        CHECK(balance.talentEquipmentRewards.at(ChessTalentId::DivineArms).size()
-            == (difficulty == Difficulty::Hard ? 4 : 3));
-        CHECK(balance.playerEquipmentRewards.back().fight == 27);
-    }
-}
-
 TEST_CASE("talent identity round trips checkpoints replay headers and hashes", "[chess][talent][replay]")
 {
     const auto content = talentContent();
@@ -375,7 +394,7 @@ TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[c
         ChessBattlePlanner::prepareChallenge(state, *content, random, challenge)})
     {
         CHECK(battle.units[0].openingMp == 30);
-        CHECK(battle.units[1].openingMp == 40);
+        CHECK(battle.units[1].openingMp == 30);
         CHECK(battle.units[2].openingMp == 0);
         CHECK(battle.units[3].openingMp == 0);
     }

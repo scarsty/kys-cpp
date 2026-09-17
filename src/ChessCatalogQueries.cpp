@@ -60,24 +60,6 @@ std::string joinedRoleNames(
     return result;
 }
 
-void appendStandaloneDescriptionRow(
-    RenderedEffectDescription& description,
-    std::string text)
-{
-    const bool followsExistingContent = hasDescriptionRows(description);
-    if (description.sections.empty()) description.sections.emplace_back();
-    RenderedEffectDescriptionBlock block;
-    block.rows.push_back({
-        .kind = EffectDescriptionRowKind::Prose,
-        .text = std::move(text),
-        .indent = 0,
-        .breakBefore = followsExistingContent
-            ? EffectDescriptionSemanticBreak::Block
-            : EffectDescriptionSemanticBreak::None,
-    });
-    description.sections.back().blocks.push_back(std::move(block));
-}
-
 std::string magicGeometry(const ChessMagicDefinition& magic)
 {
     switch (magic.AttackAreaType)
@@ -444,14 +426,10 @@ ChessComboMetadata chessComboMetadata(
         metadata.requiredCount = threshold.count;
         metadata.name = threshold.name;
         metadata.active = index <= activeThresholdIndex;
-        const auto& thresholdDocument = threshold.effects;
-        metadata.effects = describeGameplayEffects(thresholdDocument, descriptionStyle);
-        for (const auto& rule : threshold.managementRules)
-        {
-            appendStandaloneDescriptionRow(
-                metadata.effects,
-                chessNonBattleRuleDescription(rule, descriptionStyle == EffectDescriptionStyle::Compact));
-        }
+        metadata.effects = describeGameplayEffectsAndManagementRules(
+            threshold.effects,
+            threshold.managementRules,
+            descriptionStyle);
         result.thresholds.push_back(std::move(metadata));
     }
     for (const auto& contribution : contributions)

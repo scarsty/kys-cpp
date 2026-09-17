@@ -6,6 +6,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 #include <string_view>
@@ -1380,7 +1382,30 @@ TEST_CASE("BattleFrameRunner_BlindedSuppressesEveryContactOfOneAttack", "[battle
     addAttackSuppressionStatus(state, 0, BattleStatusKind::Blinded);
     const auto blindedAttack = spawnTrackedAttack(state, attackSuppressionRequest());
 
-    advanceUntilAttackContacts(state, blindedAttack.attackId, 2);
+    std::vector<BattleLogEvent> logEvents;
+    for (int frame = 0;
+         frame < 12
+         && requireById(state.attacks.attacks, blindedAttack.attackId).hitUnitIds.size() < 2;
+         ++frame)
+    {
+        auto presentation = runBattleFrame(state);
+        logEvents.insert(
+            logEvents.end(),
+            std::make_move_iterator(presentation.logEvents.begin()),
+            std::make_move_iterator(presentation.logEvents.end()));
+    }
+    REQUIRE(requireById(state.attacks.attacks, blindedAttack.attackId).hitUnitIds.size() == 2);
+
+    // 消耗紀錄須以被刺目者的視角呈現：來源是出招落空的攻擊者，承受者是原命中目標。
+    const auto consumed = std::ranges::find_if(logEvents, [](const BattleLogEvent& log)
+    {
+        return log.statusId == BattleStatusSemanticId::StatusConsumed;
+    });
+    REQUIRE(consumed != logEvents.end());
+    CHECK(consumed->sourceUnitId == 0);
+    CHECK(consumed->targetUnitId == 1);
+    REQUIRE(consumed->segments.size() == 1);
+    CHECK(consumed->segments.front().text == "出招落空，消耗刺目 1（剩餘0）");
 
     CHECK(state.units.requireCore(1).vitals.hp == 100);
     CHECK(state.units.requireCore(2).vitals.hp == 100);

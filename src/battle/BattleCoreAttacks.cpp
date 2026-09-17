@@ -519,7 +519,8 @@ bool consumeTypedAttackSuppression(
         return &*live;
     };
 
-    const auto consume = [&](const EffectCommand& command)
+    const auto consume = [&](const EffectCommand& command,
+        const CoreDetail::StatusConsumptionLogOverride& logOverride = {})
     {
         assert(command.metadata.statusContribution);
         const auto& context = *command.metadata.statusContribution;
@@ -536,7 +537,8 @@ bool consumeTypedAttackSuppression(
             });
         assert(consumed.consumed);
         holder.writeStatusDamageResult(consumed.target);
-        CoreDetail::appendStatusConsumptionLog(state, frame.logEvents, consumed, state.movement.frame);
+        CoreDetail::appendStatusConsumptionLog(
+            state, frame.logEvents, consumed, state.movement.frame, logOverride);
     };
 
     bool suppressed{};
@@ -581,7 +583,12 @@ bool consumeTypedAttackSuppression(
                 frame.currentFrameDamage(),
                 grantShieldCommand);
         }
-        consume(command);
+        // 刺目攔下的是持有者自己的出招，紀錄以持有者視角呈現才讀得懂。
+        consume(command, CoreDetail::StatusConsumptionLogOverride{
+            .sourceUnitId = command.metadata.statusContribution->holderUnitId,
+            .targetUnitId = event.unitId,
+            .actionPrefix = "出招落空，",
+        });
     }
     if (suppressed) return true;
 

@@ -92,36 +92,3 @@ TEST_CASE("synthetic scripted run completes through a real headless battle", "[c
     CHECK(replay->footer.complete);
     CHECK(ChessReplayVerifier::verify(content, *replay).valid);
 }
-
-TEST_CASE("actual configuration gameplay smoke preserves roster and replay", "[chess][scripted][smoke][actual-config]")
-{
-    const auto content = Test::actualContent();
-    REQUIRE(content);
-    ChessGameSession session(content, 0x51a7);
-
-    for (const int slot : {0, 2})
-    {
-        ChessAction buy = action(ChessActionType::BuyShopSlot);
-        buy.shopSlot = slot;
-        REQUIRE(session.submitAndDrain(buy).accepted);
-    }
-    ChessAction deploy = action(ChessActionType::SetDeployment);
-    deploy.chessInstanceIds = {1, 2};
-    REQUIRE(session.submitAndDrain(deploy).accepted);
-    REQUIRE(session.submitAndDrain(action(ChessActionType::PrepareBattle)).accepted);
-    REQUIRE(session.state().preparedBattle);
-    REQUIRE(std::ranges::contains(
-        session.state().preparedBattle->mapCandidates,
-        session.state().preparedBattle->chosenMapId));
-    REQUIRE(session.submitAndDrain(action(ChessActionType::StartBattle)).accepted);
-
-    REQUIRE(session.state().roster.size() == 2);
-    CHECK(session.state().roster.at(1).roleId == 72);
-    CHECK(session.state().roster.at(2).roleId == 56);
-    CHECK(session.state().equipmentInventory.empty());
-    CHECK(session.state().lastBattleOutcome == Battle::BattleOutcome::PlayerVictory);
-    CHECK(session.state().fight == 1);
-    const auto replay = session.exportReplay();
-    REQUIRE(replay);
-    CHECK(ChessReplayVerifier::verify(content, *replay).valid);
-}

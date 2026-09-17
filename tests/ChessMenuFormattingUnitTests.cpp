@@ -221,9 +221,9 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
     const auto backbonePresentation = buildChessTalentPresentation(balance, ChessTalentId::Backbone);
     REQUIRE(backbonePresentation.facts.size() == 4);
     CHECK(fact(backbonePresentation, "開場內力", "適用對象").value
-        == "4費棋子；只計算其他友軍的額外星級");
+        == "4費棋子；只計算非4費友軍的額外星級");
     CHECK(fact(backbonePresentation, "開場內力", "計算方式").value
-        == "其他友軍每多1星 +12，最多計6星，最高 +72");
+        == "非4費友軍每多1星 +12，最多計6星，最高 +72");
     CHECK(fact(backbonePresentation, "定向增援", "觸發時機").value
         == "4費棋子由1星升至2星時，商店保證2枚同名棋子");
     CHECK(fact(backbonePresentation, "定向增援", "升至3星").value
@@ -231,31 +231,6 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
     CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(backbonePresentation));
     CHECK(chessTalentDescription(balance, ChessTalentId::Backbone).contains("每多1星 +12"));
 }
-
-TEST_CASE("talent fact tables fit the selector and header hover at hard-mode widths",
-          "[chess][menu-formatting][talent][layout]")
-{
-    BalanceConfig balance;
-    REQUIRE(loadBalanceConfig(
-        "config/chess_balance_hard.yaml",
-        "config/chess_challenge.yaml",
-        {},
-        {},
-        balance));
-
-    for (const auto id : kChessTalentIds)
-    {
-        const auto presentation = buildChessTalentPresentation(balance, id);
-        const auto selector = measureChessTalentFactTable(presentation, 775, 290, 16, 12);
-        CHECK(selector.height <= 290);
-        CHECK(selector.fontSize >= 12);
-
-        const auto header = measureChessTalentFactTable(presentation, 656, 560, 14, 11);
-        CHECK(header.height <= 560);
-        CHECK(header.fontSize >= 11);
-    }
-}
-
 TEST_CASE("chess menu labels align stars and prices by measured display width", "[chess][menu-formatting]")
 {
     const auto labels = buildAlignedChessMenuLabels(

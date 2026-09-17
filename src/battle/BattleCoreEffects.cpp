@@ -1609,18 +1609,20 @@ void appendStatusConsumptionLog(
     const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logs,
     const BattleStatusConsumeResult& result,
-    int frame)
+    int frame,
+    const StatusConsumptionLogOverride& logOverride)
 {
     if (result.consumed)
         appendStatusConsumptionLog(state, logs, BattleStatusConsumptionReceipt{
-            result.target.id, result.consumedStatus, result.remainingStacks }, frame);
+            result.target.id, result.consumedStatus, result.remainingStacks }, frame, logOverride);
 }
 
 void appendStatusConsumptionLog(
     const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logs,
     const BattleStatusConsumptionReceipt& receipt,
-    int frame)
+    int frame,
+    const StatusConsumptionLogOverride& logOverride)
 {
     // 中毒每次扣次數已有毒傷事件，不再重複寫一筆消耗。
     if (receipt.contribution.kind == BattleStatusKind::Poison)
@@ -1635,12 +1637,17 @@ void appendStatusConsumptionLog(
         log.sourceUnitId = status.sourceUnitId;
         log.targetUnitId = receipt.targetUnitId;
     }
+    if (logOverride.sourceUnitId)
+        log.sourceUnitId = *logOverride.sourceUnitId;
+    if (logOverride.targetUnitId)
+        log.targetUnitId = *logOverride.targetUnitId;
     log.statusId = BattleStatusSemanticId::StatusConsumed;
     log.amount = status.stacks;
     log.previousAmount = receipt.remainingStacks + status.stacks;
     log.newAmount = receipt.remainingStacks;
-    log.segments = battleLogText(std::format("消耗{} {}（剩餘{}）",
-        battleStatusLabel(status.kind), status.stacks, receipt.remainingStacks));
+    log.segments = battleLogText(std::format("{}消耗{} {}（剩餘{}）",
+        logOverride.actionPrefix, battleStatusLabel(status.kind), status.stacks,
+        receipt.remainingStacks));
     logs.push_back(std::move(log));
 }
 

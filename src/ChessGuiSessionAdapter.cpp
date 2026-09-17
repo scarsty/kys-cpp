@@ -1437,8 +1437,10 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     2);
                 if (shownThreshold && (progress.active || details->expanded))
                 {
-                    const auto& document = shownThreshold->effects;
-                    const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Compact);
+                    const auto rendered = describeGameplayEffectsAndManagementRules(
+                        shownThreshold->effects,
+                        shownThreshold->managementRules,
+                        EffectDescriptionStyle::Compact);
                     appendRenderedEffectDescriptionRows(
                         block,
                         rendered,
@@ -3982,8 +3984,10 @@ void ChessGuiSessionAdapter::viewCombos()
                 0,
                 8,
                 1);
-            const auto& document = threshold.effects;
-            const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Full);
+            const auto rendered = describeGameplayEffectsAndManagementRules(
+                threshold.effects,
+                threshold.managementRules,
+                EffectDescriptionStyle::Full);
             appendRenderedEffectDescriptionRows(
                 thresholdRows,
                 rendered,

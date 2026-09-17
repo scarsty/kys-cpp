@@ -23,7 +23,7 @@ ChessAction shopLockAction()
 TEST_CASE("JSON codec equipment projection selects description style without rendering identity data",
           "[chess][json-codec][projection][equipment]")
 {
-    const auto content = actualContent();
+    const auto content = syntheticContent();
     REQUIRE(content);
 
     bool foundStyleDifference{};

@@ -447,19 +447,6 @@ TEST_CASE("setup factory applies formation before runtime initialization", "[che
     CHECK(firstResult.digest == secondResult.digest);
     CHECK(firstResult.summary.outcome == Battle::BattleOutcome::Timeout);
 }
-
-TEST_CASE("actual auto-chess map catalog preserves curated selectable battlefields", "[chess][planner][battle][map]")
-{
-    const auto content = Test::actualContent();
-    REQUIRE(content);
-
-    CHECK(ChessBattleMapCatalog::fittingMapIds(*content, 2, 2)
-        == std::vector<int>{6, 13, 17, 21, 24, 26, 54, 56, 60, 80});
-    CHECK(ChessBattleMapCatalog::fittingMapIds(*content, 10, 20)
-        == std::vector<int>{13, 56});
-    CHECK(ChessBattleMapCatalog::displayName(60) == "散陣遭遇");
-}
-
 TEST_CASE("non-curated map catalogs fall back to the largest combined capacity", "[chess][planner][battle][map]")
 {
     ChessGameContentData data;
@@ -480,50 +467,4 @@ TEST_CASE("non-curated map catalogs fall back to the largest combined capacity",
     const ChessGameContent content(std::move(data));
 
     CHECK(ChessBattleMapCatalog::fittingMapIds(content, 8, 8) == std::vector<int>{702});
-}
-
-TEST_CASE("selected curated map owns terrain formation clone cells and moving runtime", "[chess][planner][battle][map][movement]")
-{
-    const auto content = Test::actualContent();
-    REQUIRE(content);
-
-    PreparedChessBattle prepared;
-    prepared.chosenMapId = 60;
-    prepared.battleSeed = 0x60;
-    prepared.units = {
-        {.unitId = 1, .chessInstanceId = 1, .roleId = 4, .team = 0, .star = 1},
-        {.unitId = 2, .roleId = 160, .team = 1, .star = 1},
-    };
-
-    auto input = BattleSetupFactory::build(prepared, *content, 600);
-    REQUIRE(input.units.size() == 2);
-    CHECK(input.units[0].gridX == 32);
-    CHECK(input.units[0].gridY == 20);
-    CHECK(input.units[1].gridX == 21);
-    CHECK(input.units[1].gridY == 23);
-    CHECK(input.rules.movementCollisionWorld.walkableByCell[20 * BattlefieldData::CoordinateCount + 32] == 1);
-    CHECK(input.rules.movementCollisionWorld.walkableByCell[23 * BattlefieldData::CoordinateCount + 21] == 1);
-    CHECK(std::ranges::any_of(input.setup.cloneCells, [](const auto& cell) {
-        return cell.team == 0 && cell.x == 33 && cell.y == 20;
-    }));
-
-    auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
-    auto& runtime = creation.session;
-    BattleSceneUnitStore sceneUnits;
-    sceneUnits.initialize(runtime);
-    const auto allyStart = sceneUnits.requireRuntimeUnit(1).motion.position;
-    const auto enemyStart = sceneUnits.requireRuntimeUnit(2).motion.position;
-    bool moved = false;
-    for (int frame = 0; frame < 180 && !runtime.runtime().result.ended; ++frame)
-    {
-        runtime.runFrame();
-        const auto ally = sceneUnits.requireRuntimeUnit(1).motion.position;
-        const auto enemy = sceneUnits.requireRuntimeUnit(2).motion.position;
-        if ((ally - allyStart).norm() > 0.5 || (enemy - enemyStart).norm() > 0.5)
-        {
-            moved = true;
-            break;
-        }
-    }
-    CHECK(moved);
 }

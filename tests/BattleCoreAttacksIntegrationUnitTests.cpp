@@ -4,6 +4,7 @@
 #include "battle/BattleEffectEventBridge.h"
 #include "BattleCoreTestHelpers.h"
 #include "ChessBattleEffectParser.h"
+#include "ChessBattleEffectTestHelpers.h"
 
 #include "BattleLogTestHelpers.h"
 #include "BattleMovementTestHelpers.h"
@@ -77,16 +78,11 @@ BattleStatusEffectOrigin addTrueQiStatus(
 
 }
 
-TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ultimate hit lineage",
+TEST_CASE("Jiuyang producer queues exact status origin and preserves ultimate hit lineage",
           "[battle][core][true-qi][integration][origin]")
 {
-    std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
-    REQUIRE(loadMagicEffectsFile(path.string(), definitions));
-    const auto jiuyang = std::ranges::find(
-        definitions, 106, &ChessMagicEffectDefinition::magicId);
-    REQUIRE(jiuyang != definitions.end());
-    const auto producer = std::ranges::find_if(jiuyang->rules, [](const EffectRule& rule)
+    const auto jiuyang = KysChess::Test::contractMagicDefinition(106);
+    const auto producer = std::ranges::find_if(jiuyang.rules, [](const EffectRule& rule)
     {
         return rule.event == EffectEvent::AttackCommitted
             && std::ranges::any_of(rule.actions, [](const EffectAction& action)
@@ -95,13 +91,13 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
                 return application && application->status == BattleStatusKind::TrueQi;
             });
     });
-    REQUIRE(producer != jiuyang->rules.end());
+    REQUIRE(producer != jiuyang.rules.end());
 
     auto frame = hitDamageFrameState(20, 100, true);
     auto& state = frame.state;
     const EffectSourceBinding binding{
         .kind = EffectSourceKind::Magic,
-        .sourceId = jiuyang->magicId,
+        .sourceId = jiuyang.magicId,
         .ownerUnitId = 0,
         .sourceTeam = 0,
     };
@@ -111,7 +107,7 @@ TEST_CASE("Shipped Jiuyang producer queues exact status origin and preserves ult
 
     const auto producerCast = state.castLifecycle.beginRootCast({
         .sourceUnitId = 0,
-        .magicId = jiuyang->magicId,
+        .magicId = jiuyang.magicId,
         .ultimate = true,
         .origin = CastOriginKind::Ultimate,
     });
@@ -685,6 +681,76 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     CHECK(BattleLogTest::hasSegment(result.logEvents[0], "#20", BattleLogTextTone::ProjectileId));
     CHECK(BattleLogTest::hasSegment(result.logEvents[0], " - ", BattleLogTextTone::FormulaValue));
     CHECK(BattleLogTest::hasSegment(result.logEvents[0], " = ", BattleLogTextTone::FormulaValue));
+}
+
+namespace
+{
+BattleRuntimeState projectileCancelDuelState()
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 900, 900, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+    return state;
+}
+
+// 對撞情境：兩枚同幀交會的敵對彈道，回傳抵消對決的敘事文字。
+std::string runProjectileCancelDuelText(BattleRuntimeState& state, int firstCancelDamage)
+{
+    BattleAttackInstance first{ ordinaryProjectilePayload() };
+    first.id = 10;
+    first.state.attackSourceUnitId = 0;
+    first.frame = 5;
+    first.state.totalFrame = 30;
+    first.state.position = { 500, 500, 0 };
+    first.state.operationType = BattleOperationType::RangedProjectile;
+    first.state.projectileCancelDamage = firstCancelDamage;
+
+    BattleAttackInstance second{ ordinaryProjectilePayload() };
+    second.id = 20;
+    second.state.attackSourceUnitId = 1;
+    second.frame = 5;
+    second.state.totalFrame = 30;
+    second.state.position = { 500, 500, 0 };
+    second.state.operationType = BattleOperationType::RangedProjectile;
+    second.state.projectileCancelDamage = 10;
+
+    seedRuntimeUnitsFromWorld(state);
+    appendTrackedAttack(state, std::move(first));
+    appendTrackedAttack(state, std::move(second));
+
+    const auto result = runBattleFrame(state);
+    REQUIRE(result.logEvents.size() == 1);
+    return BattleLogTest::textOf(result.logEvents[0]);
+}
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ProjectilePressureDamageTriplesCancelStrengthOnly", "[battle][core]")
+{
+    auto baseline = projectileCancelDuelState();
+    CHECK(runProjectileCancelDuelText(baseline, 12) == "抵消彈道 #10 vs #20（12 - 10 = 2）");
+
+    auto buffed = projectileCancelDuelState();
+    addTypedAttributeModifier(
+        buffed,
+        0,
+        BattleAttribute::ProjectilePressureDamage,
+        AttributeOperation::PercentAdd,
+        200);
+    CHECK(runProjectileCancelDuelText(buffed, 12) == "抵消彈道 #10 vs #20（36 - 10 = 26）");
+
+    // 過期的加成不影響抵消強度。
+    auto expired = projectileCancelDuelState();
+    addTypedAttributeModifier(
+        expired,
+        0,
+        BattleAttribute::ProjectilePressureDamage,
+        AttributeOperation::PercentAdd,
+        200);
+    expired.effectCommands.attributeModifiers.back().expiresFrameExclusive = 0;
+    CHECK(runProjectileCancelDuelText(expired, 12) == "抵消彈道 #10 vs #20（12 - 10 = 2）");
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPairedAttack", "[battle][core]")

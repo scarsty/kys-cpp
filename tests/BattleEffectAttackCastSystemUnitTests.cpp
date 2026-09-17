@@ -107,9 +107,7 @@ void checkVelocity(const Pointf& velocity, double x, double y)
 TEST_CASE("BattleEffectAttackCastSystem applies configured scissors projectile sweep",
           "[battle][effect][attack_cast][projectile_sweep]")
 {
-    std::vector<ChessMagicEffectDefinition> definitions;
-    REQUIRE(loadMagicEffectsFile("config/chess_magic_effects.yaml", definitions));
-    const auto& scissors = KysChess::Test::definitionWithId(definitions, 75);
+    const auto scissors = KysChess::Test::contractMagicDefinition(75);
     REQUIRE(scissors.rules.size() == 1);
     const auto& rule = KysChess::Test::ruleWithEvent(scissors, EffectEvent::AttackCommitted);
     const auto& action = std::get<ModifyAttackAction>(rule.actions.front().value);

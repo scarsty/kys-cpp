@@ -2,6 +2,7 @@
 #include "HeadlessBattleRunner.h"
 #include "BattleCoreTestHelpers.h"
 #include "ChessBattleEffectParser.h"
+#include "ChessBattleEffectTestHelpers.h"
 #include "Find.h"
 #include "battle/BattleEffectCommandSystem.h"
 #include "battle/BattleHealSystem.h"
@@ -74,25 +75,9 @@ BattleRuntimeSessionCreationInput actionProjectileSessionInput()
     return input;
 }
 
-ChessMagicEffectDefinition realUltimateDefinition(int magicId)
+ChessMagicEffectDefinition contractUltimateDefinition(int magicId)
 {
-    std::vector<ChessMagicEffectDefinition> definitions;
-    const auto path = std::filesystem::current_path()
-        / "config"
-        / "chess_magic_effects.yaml";
-    if (!loadMagicEffectsFile(path.string(), definitions))
-    {
-        throw std::runtime_error("無法載入頂層 chess_magic_effects.yaml");
-    }
-    const auto definition = std::ranges::find(
-        definitions,
-        magicId,
-        &ChessMagicEffectDefinition::magicId);
-    if (definition == definitions.end())
-    {
-        throw std::runtime_error("頂層大招設定缺少測試武功");
-    }
-    return *definition;
+    return KysChess::Test::contractMagicDefinition(magicId);
 }
 
 BattleActionSkillSeed verticalSliceSkill(int magicId, int magicType = 1)
@@ -213,7 +198,7 @@ BattleRuntimeSessionCreationInput singleUltimateInput(
     target.stats.defence = 100;
     input.units.push_back(target);
     input.setup.magicEffectDefinitions.push_back(
-        realUltimateDefinition(magicId));
+        contractUltimateDefinition(magicId));
     return input;
 }
 
@@ -246,7 +231,7 @@ BattleRuntimeSessionCreationInput divineFlickInput(
     target.frozenMax = 1000;
     input.units.push_back(target);
     input.setup.magicEffectDefinitions.push_back(
-        realUltimateDefinition(DivineFlickMagicId));
+        contractUltimateDefinition(DivineFlickMagicId));
     return input;
 }
 
@@ -898,7 +883,7 @@ TEST_CASE("BattleRuntimeScenario_RealDragonPalmLogsBattleSpiritAndPersistentModi
     const auto status = BattleStatusSystem({}).snapshot(
         state.units.require(0).statusDamageState());
     CHECK(status.skillDamagePct == 5);
-    CHECK(status.damageReductionPct == 2);
+    CHECK(status.damageReductionPct == 1);
 
     std::vector<const BattleLogEvent*> modifierLogs;
     for (const auto& log : logs)
@@ -924,7 +909,7 @@ TEST_CASE("BattleRuntimeScenario_RealDragonPalmLogsBattleSpiritAndPersistentModi
     }));
     CHECK(std::ranges::any_of(modifierLogs, [](const auto* log)
     {
-        return log->amount == -2;
+        return log->amount == -1;
     }));
 }
 

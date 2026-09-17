@@ -648,7 +648,9 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
 {
     const auto& talent = content.balance().talent(state.talent);
     int extraStars = 0;
-    for (const auto& unit : battle.units) if (unit.team == 0) extraStars += unit.star - 1;
+    for (const auto& unit : battle.units)
+        if (unit.team == 0 && content.role(unit.roleId)->Cost != talent.targetTier)
+            extraStars += unit.star - 1;
     for (auto& unit : battle.units)
     {
         if (unit.team != 0) continue;
@@ -658,7 +660,7 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
             unit.lethalRecovery = Battle::BattleLethalRecovery{
                 talent.luckChance(piece.luckStacks), talent.luckSurvivalHp, talent.luckInvincibleFrames};
         if (content.role(piece.roleId)->Cost == talent.targetTier)
-            unit.openingMp = std::min(talent.extraStarCap, extraStars - (piece.star - 1)) * talent.mpPerExtraStar;
+            unit.openingMp = std::min(talent.extraStarCap, extraStars) * talent.mpPerExtraStar;
     }
 }
 

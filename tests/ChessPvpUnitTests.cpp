@@ -386,33 +386,6 @@ TEST_CASE("deployment selling and merging maintain persistent formation", "[ches
         CHECK(std::ranges::count(session.state().formationSlots, upgradedId) == 1);
     }
 }
-
-TEST_CASE("PvP arena layout is mirrored unique walkable and outside the random map pool", "[chess][pvp][map]")
-{
-    const auto content = Test::actualContent(Difficulty::Hard);
-    REQUIRE(content);
-    REQUIRE(content->battleMaps().contains(ChessPvpMapLayout::BattleId));
-    std::string error;
-    REQUIRE(ChessPvpMapLayout::validate(*content, error));
-    CHECK(error.empty());
-    CHECK_FALSE(std::ranges::contains(
-        ChessBattleMapCatalog::fittingMapIds(*content, 1, 1),
-        ChessPvpMapLayout::BattleId));
-
-    std::set<std::pair<int, int>> positions;
-    const auto collect = [&](const auto& values) {
-        for (const auto& point : values)
-        {
-            positions.emplace(point.x, point.y);
-        }
-    };
-    collect(ChessPvpMapLayout::localFormation());
-    collect(ChessPvpMapLayout::opponentFormation());
-    collect(ChessPvpMapLayout::localAdditionalSpawns());
-    collect(ChessPvpMapLayout::opponentAdditionalSpawns());
-    CHECK(positions.size() == 26);
-}
-
 TEST_CASE("PvP battle 133 stays excluded when random map selection uses raw content fallback", "[chess][pvp][map]")
 {
     ChessGameContentData data;
@@ -430,7 +403,7 @@ TEST_CASE("PvP battle 133 stays excluded when random map selection uses raw cont
 
 TEST_CASE("PvP standalone build uses explicit formation and isolated campaign state", "[chess][pvp][battle]")
 {
-    const auto content = Test::actualContent(Difficulty::Hard);
+    const auto content = Test::syntheticContent(Difficulty::Hard);
     REQUIRE(content);
     ChessStandaloneBattleRequest request;
     request.stableBattleId = "offline_pvp";

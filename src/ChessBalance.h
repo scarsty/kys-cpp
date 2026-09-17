@@ -371,13 +371,15 @@ inline ChessTalentPresentation buildChessTalentPresentation(
             "開場內力",
             "適用對象",
             std::format(
-                "{}費棋子；只計算其他友軍的額外星級",
+                "{}費棋子；只計算非{}費友軍的額外星級",
+                talent.targetTier,
                 talent.targetTier));
         appendMechanic(
             "開場內力",
             "計算方式",
             std::format(
-                "其他友軍每多1星 +{}，最多計{}星，最高 +{}",
+                "非{}費友軍每多1星 +{}，最多計{}星，最高 +{}",
+                talent.targetTier,
                 talent.mpPerExtraStar,
                 talent.extraStarCap,
                 talent.mpPerExtraStar * talent.extraStarCap));

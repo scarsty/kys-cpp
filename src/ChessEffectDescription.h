@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessGameplayEffect.h"
+#include "ChessNonBattleRules.h"
 #include "DisplayText.h"
 
 namespace KysChess
@@ -52,6 +53,15 @@ struct RenderedEffectDescription
 
 RenderedEffectDescription describeGameplayEffects(std::span<const GameplayEffect> effects,
                                                   EffectDescriptionStyle style);
+
+RenderedEffectDescription describeGameplayEffectsAndManagementRules(
+    std::span<const GameplayEffect> effects,
+    std::span<const ChessNonBattleRule> managementRules,
+    EffectDescriptionStyle style);
+
+void appendStandaloneDescriptionRow(
+    RenderedEffectDescription& description,
+    std::string text);
 
 std::vector<std::string> effectDescriptionTextRows(const RenderedEffectDescription& rendered);
 std::string joinEffectDescriptionRows(const RenderedEffectDescription& rendered, std::string_view separator = "\n");

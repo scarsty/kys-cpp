@@ -31,6 +31,39 @@ RenderedEffectDescription describeGameplayEffects(std::span<const GameplayEffect
     return result;
 }
 
+RenderedEffectDescription describeGameplayEffectsAndManagementRules(
+    std::span<const GameplayEffect> effects,
+    std::span<const ChessNonBattleRule> managementRules,
+    EffectDescriptionStyle style)
+{
+    auto result = describeGameplayEffects(effects, style);
+    for (const auto& rule : managementRules)
+    {
+        appendStandaloneDescriptionRow(
+            result,
+            chessNonBattleRuleDescription(rule, style == EffectDescriptionStyle::Compact));
+    }
+    return result;
+}
+
+void appendStandaloneDescriptionRow(
+    RenderedEffectDescription& description,
+    std::string text)
+{
+    const bool followsExistingContent = !description.sections.empty();
+    if (description.sections.empty()) description.sections.emplace_back();
+    RenderedEffectDescriptionBlock block;
+    block.rows.push_back({
+        .kind = EffectDescriptionRowKind::Prose,
+        .text = std::move(text),
+        .indent = 0,
+        .breakBefore = followsExistingContent
+            ? EffectDescriptionSemanticBreak::Block
+            : EffectDescriptionSemanticBreak::None,
+    });
+    description.sections.back().blocks.push_back(std::move(block));
+}
+
 std::vector<std::string> effectDescriptionTextRows(const RenderedEffectDescription& rendered)
 {
     std::vector<std::string> result;
