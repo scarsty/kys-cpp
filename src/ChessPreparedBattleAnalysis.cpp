@@ -205,6 +205,18 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     }
 
     auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
+    std::set<int> seenEffectIds(result.presentationAssets.effectIds.begin(), result.presentationAssets.effectIds.end());
+    for (const auto& bound : creation.session.runtime().effectRules.rules())
+    {
+        for (const auto& action : bound.rule.actions)
+        {
+            const auto* attack = std::get_if<ModifyAttackAction>(&action.value);
+            if (attack && attack->independentProjectile
+                && seenEffectIds.insert(attack->independentProjectile->visualEffectId).second)
+                result.presentationAssets.effectIds.push_back(attack->independentProjectile->visualEffectId);
+        }
+    }
+
     for (auto& unit : result.units)
     {
         const auto& runtimeUnit = creation.session.requireRuntimeUnit(unit.unitId);

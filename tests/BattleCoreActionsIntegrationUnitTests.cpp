@@ -1,3 +1,5 @@
+#include "ChessGameplayEffect.h"
+#include <yaml-cpp/yaml.h>
 #include "EffectCommandTestHelpers.h"
 #include "battle/BattleCore.h"
 #include "BattleCoreTestHelpers.h"
@@ -1970,4 +1972,101 @@ TEST_CASE("BattleFrameRunner_AutoUltimatePreservesConfiguredAttackAreaOperationW
     REQUIRE_FALSE(state.nextFrame.queuedAttacks().empty());
     CHECK(state.nextFrame.queuedAttacks()[0].initial.operationType
           == BattleOperationType::Melee);
+}
+
+TEST_CASE("BattleFrameRunner launches allied seven star swords without interrupting the ally", "[battle][core][seven-star]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, {100, 100, 0}, CombatStyle::Ranged),
+        unit(1, 1, {400, 100, 0}),
+        unit(2, 0, {100, 150, 0}),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.units.requireCore(1).vitals.hp = 10000;
+    state.units.requireCore(1).vitals.maxHp = 10000;
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t ruleId{};
+    REQUIRE(parseGameplayEffects(YAML::Load("[{類型: 七星歸一, 出招次數: 2, 武功威力: 300, 特效編號: 48}]"),
+        effects, rules, ruleId, "合擊整合測試"));
+    for (int owner : {0, 2})
+    {
+        state.units.require(owner).comboFacts.appliedComboIds.insert(12);
+        state.effectRules.append({.kind = EffectSourceKind::Combo, .sourceId = 12,
+            .ownerUnitId = owner, .sourceTeam = 0}, rules);
+    }
+    state.effectSourceNames[{EffectSourceKind::Combo, 12}] = "全真教";
+    state.units.requireCore(2).animation.cooldown = 100;
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    std::vector<BattleLogEvent> volleyFrameLogs;
+    for (int count = 0; count < 2; ++count)
+    {
+        auto& caster = state.units.requireCore(0);
+        caster.haveAction = true;
+        caster.animation.actFrame = 6;
+        caster.operationType = BattleOperationType::RangedProjectile;
+        caster.animation.actType = 1;
+        caster.animation.cooldown = 10;
+        auto pending = framePendingCastAction();
+        pending.skillPlan.id = 301;
+        setTrackedPendingCast(state, 0, std::move(pending), true);
+        auto frame = runBattleFrame(state);
+        if (count == 1)
+            volleyFrameLogs = std::move(frame.logEvents);
+    }
+    const auto volleyLogs = std::ranges::count_if(volleyFrameLogs, [](const BattleLogEvent& log)
+    {
+        return BattleLogTest::textOf(log) == "觸發七星歸一";
+    });
+    CHECK(volleyLogs == 1);
+    const auto volleyLog = std::ranges::find_if(volleyFrameLogs, [](const BattleLogEvent& log)
+    {
+        return BattleLogTest::textOf(log) == "觸發七星歸一";
+    });
+    REQUIRE(volleyLog != volleyFrameLogs.end());
+    CHECK(volleyLog->sourceUnitId == 0);
+    CHECK(volleyLog->targetUnitId == 1);
+    CHECK(volleyLog->category == BattleLogCategory::Cast);
+    CHECK(volleyLog->skillName == "七星歸一");
+    CHECK(volleyLog->semanticSourceName == "全真教");
+    std::set<int> shooters;
+    BattleCastId allyCast;
+    for (const auto& attack : state.attacks.attacks)
+    {
+        if (attack.provenance.propagation != CastPropagationPolicy::NoEffectRules) continue;
+        shooters.insert(attack.state.attackSourceUnitId);
+        CHECK(attack.provenance.cast.sourceUnitId == attack.state.attackSourceUnitId);
+        if (attack.state.attackSourceUnitId == 2)
+        {
+            allyCast = attack.provenance.cast.castId;
+            CHECK(attack.provenance.cast.parentCastId.has_value());
+            CHECK(attack.provenance.cast.origin == CastOriginKind::AssistedAttack);
+        }
+        CHECK(attack.state.delivery == BattleAttackDelivery::projectile());
+        CHECK(attack.state.preferredTargetUnitId == 1);
+        CHECK(attack.state.track);
+        CHECK(attack.state.scriptedDamage == 0);
+        CHECK(attack.state.payloadClass == BattleProjectilePayloadClass::combat());
+        REQUIRE(attack.state.potencySnapshot);
+        CHECK(attack.state.potencySnapshot->magicPower == 300);
+        CHECK(attack.castWork.valid());
+        CHECK_FALSE(attack.provenance.mainProjectile);
+    }
+    CHECK(shooters == std::set<int>{0, 2});
+    CHECK(state.units.requireCore(2).animation.cooldown >= 98);
+    REQUIRE(allyCast.valid());
+    for (int frame = 0; frame < 150; ++frame)
+        runBattleFrame(state);
+    const auto snapshot = state.castLifecycle.snapshot();
+    const auto retired = std::ranges::find_if(snapshot.retiredCasts, [&](const auto& cast)
+    {
+        return cast.provenance.castId == allyCast;
+    });
+    REQUIRE(retired != snapshot.retiredCasts.end());
+    CHECK(retired->provenance.sourceUnitId == 2);
+    CHECK(retired->aggregate.totalActualHpDamage > 0);
+    CHECK(retired->aggregate.distinctHitUnitIds.contains(1));
+    CHECK(retired->outstandingWork == 0);
 }

@@ -405,7 +405,8 @@ ChessSha256 actionContentHash(const EffectAction& action)
                         typed.areaProjectiles->stunFrames, typed.areaProjectiles->trackEventSource,
                         static_cast<int>(typed.areaProjectiles->visual)) } : std::nullopt);
             else if constexpr (std::is_same_v<T, ModifyAttackAction>)
-                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+            {
+                const auto hash = chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     attackPatternContentHash(typed.pattern), typed.strengthPct,
                     typed.through, typed.tracking, typed.mainProjectile,
                     typed.sameTargetHitLimit, typed.projectileClearRadiusPct, static_cast<int>(typed.targets),
@@ -413,6 +414,11 @@ ChessSha256 actionContentHash(const EffectAction& action)
                     typed.source ? std::optional{ selectorContentHash(*typed.source) } : std::nullopt,
                     typed.damageOverride ? std::optional{ effectNumberContentHash(*typed.damageOverride) } : std::nullopt,
                     typed.damageKind, attackRuntimeBehaviorContentHash(typed.runtimeBehavior));
+                if (!typed.independentProjectile) return hash;
+                const auto& projectile = *typed.independentProjectile;
+                return chessBeveSha256("KYS_INDEPENDENT_PROJECTILE", hash,
+                    projectile.visualEffectId, projectile.speed, projectile.lifetimeFrames, projectile.magicPower);
+            }
             else if constexpr (std::is_same_v<T, ForceMoveAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     static_cast<int>(typed.direction), typed.distanceTiles, typed.distancePixels,

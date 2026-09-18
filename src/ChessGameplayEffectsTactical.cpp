@@ -5,66 +5,41 @@ namespace KysChess::GameplayEffects
 namespace
 {
 
-struct ShieldBreakAttack final : GameplayEffectDefinition
+struct SevenStarVolley final : GameplayEffectDefinition
 {
-    int 攻擊點數{ };
-    int 持續幀數{ };
-    static constexpr std::string_view Name = "破盾攻擊加成";
-    static constexpr auto Parameters = std::array<Parameter<ShieldBreakAttack>, 2>{ { { { "攻擊點數", -1000000, 1000000 }, &ShieldBreakAttack::攻擊點數 },
-        { { "持續幀數", 1, 1000000 }, &ShieldBreakAttack::持續幀數 } } };
+    int 出招次數{};
+    int 武功威力{};
+    int 特效編號{};
+    static constexpr std::string_view Name = "七星歸一";
+    static constexpr auto Parameters = std::array<Parameter<SevenStarVolley>, 3>{ {
+        {{"出招次數", 2, 1000}, &SevenStarVolley::出招次數},
+        {{"武功威力", 0, 1000000}, &SevenStarVolley::武功威力},
+        {{"特效編號", 0, 1000000}, &SevenStarVolley::特效編號} } };
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return { EffectRule{ .event = EffectEvent::ShieldBroken,
-            .actions = { EffectAction{ .value = ModifyAttributeAction{ .attribute = BattleAttribute::Attack,
-                                           .amount = EffectNumber{ .flat = 攻擊點數 },
-                                           .durationFrames = 持續幀數,
-                                           .stack = EffectStackPolicy::Refresh } } } } };
+        return {EffectRule{
+            .event = EffectEvent::AttackCommitted,
+            .observation = EffectObservationScope::ComboMemberEventSource,
+            .selector = EffectSelector{.kind = EffectSelectorKind::OriginalAttackTarget},
+            .everyNthEvent = 出招次數,
+            .actions = {EffectAction{.value = ModifyAttackAction{
+                .through = false,
+                .tracking = true,
+                .mainProjectile = false,
+                .targets = AttackTargetPolicy::SelectedTargets,
+                .propagation = CastPropagationPolicy::NoEffectRules,
+                .addToBaseAttack = true,
+                .source = EffectSelector{.kind = EffectSelectorKind::Self},
+                .damageKind = BattleDamageKind::Physical,
+                .independentProjectile = IndependentProjectile{.visualEffectId = 特效編號, .speed = 18, .lifetimeFrames = 120, .magicPower = 武功威力},
+                .activationLog = "七星歸一"}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("破盾：{:+}攻，{}幀", 攻擊點數, 持續幀數);
-
-        return std::format("破盾：攻擊{:+}，持續{}幀；重複施加刷新時間。", 攻擊點數, 持續幀數);
-    }
-};
-
-struct ShieldBreakUltimate final : GameplayEffectDefinition
-{
-    static constexpr std::string_view Name = "破盾免費絕招";
-    static constexpr auto Parameters = std::array<Parameter<ShieldBreakUltimate>, 0>{ };
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return { EffectRule{ .event = EffectEvent::ShieldBroken,
-            .actions = { EffectAction{ .value = ModifyCastAction{ .autoUltimate = AutoUltimateCastRequest{ } } } } } };
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return "破盾：免費絕招";
-        return "破盾：免費施放絕招。";
-    }
-};
-
-struct ShieldBreakMp final : GameplayEffectDefinition
-{
-    int 回復內力{ };
-    static constexpr std::string_view Name = "破盾回內";
-    static constexpr auto Parameters = std::array<Parameter<ShieldBreakMp>, 1>{ { { { "回復內力", 0, 1000000 }, &ShieldBreakMp::回復內力 } } };
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return { EffectRule{ .event = EffectEvent::ShieldBroken,
-            .actions = { EffectAction{ .value = ChangeResourceAction{ .resource = BattleResource::Mp,
-                                           .amount = EffectNumber{ .flat = 回復內力 } } } } } };
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("破盾：回{}內", 回復內力);
-        return std::format("破盾：回復{}內力。", 回復內力);
+            return std::format("同門每出招{}次：全員劍氣合擊，武功威力{}", 出招次數, 武功威力);
+        return std::format("同羈絆成員共同累計出招{}次時，所有存活成員向觸發者的目標各發射一道追蹤劍氣，以發射者自身攻擊力及{}武功威力，依正常攻防公式計算物理傷害，可被閃避與格擋。合擊不打斷動作、不計入出招次數，也不觸發其他出招或命中效果。", 出招次數, 武功威力);
     }
 };
 
@@ -625,9 +600,7 @@ struct ExecuteReposition final : GameplayEffectDefinition
 
 void appendTacticalEffects(std::vector<GameplayEffectRegistration>& entries)
 {
-    entries.push_back(registration<ShieldBreakAttack>());
-    entries.push_back(registration<ShieldBreakUltimate>());
-    entries.push_back(registration<ShieldBreakMp>());
+    entries.push_back(registration<SevenStarVolley>());
     entries.push_back(registration<MemberDeathShield>());
     entries.push_back(registration<MemberDeathAttribute>());
     entries.push_back(registration<HitOutgoingDamagePenalty<true>>());

@@ -1007,6 +1007,16 @@ bool ruleObservesEvent(const BoundEffectRuleView& bound,
         const auto* source = sourceSnapshot(context);
         return source && source->team == bound.binding.sourceTeam;
     }
+    case EffectObservationScope::ComboMemberEventSource:
+    {
+        const auto* source = sourceSnapshot(context);
+        const auto* owner = context.header.battle.findUnit(bound.binding.ownerUnitId);
+        assert(bound.binding.kind == EffectSourceKind::Combo);
+        assert(owner && source);
+        return owner->alive && source->alive
+            && source->team == bound.binding.sourceTeam
+            && source->comboIds.contains(bound.binding.sourceId);
+    }
     case EffectObservationScope::EventTarget:
     {
         const auto* target = transactionTargetSnapshot(context);
@@ -1417,6 +1427,36 @@ bool requiresExactRuntimePhaseQuery(const EffectRule& rule)
         }
         return false;
     });
+}
+
+bool actionContainsExecute(const EffectAction& action)
+{
+    if (const auto* damage = std::get_if<DealDamageAction>(&action.value))
+    {
+        return damage->kind == BattleDamageKind::Execute;
+    }
+    if (const auto* modifier = std::get_if<ModifyDamageAction>(&action.value))
+    {
+        return modifier->operation == DamageModifierOperation::ExecuteBelowMaxHpPercent;
+    }
+    const auto* conditional = std::get_if<std::shared_ptr<ConditionalEffectAction>>(
+        &action.value);
+    if (!conditional)
+    {
+        return false;
+    }
+    assert(*conditional);
+    const auto containsExecute = [](const std::vector<EffectAction>& actions)
+    {
+        return std::ranges::any_of(actions, actionContainsExecute);
+    };
+    return containsExecute((*conditional)->whenTrue)
+        || containsExecute((*conditional)->whenFalse);
+}
+
+bool ruleContainsExecute(const EffectRule& rule)
+{
+    return std::ranges::any_of(rule.actions, actionContainsExecute);
 }
 
 std::uint64_t authoredActionLeafCount(const EffectAction& action)
@@ -1838,6 +1878,7 @@ struct CommandEmitter
                     source = ResolvedEffectAttackSource{
                         .unitId = selected->id,
                         .position = selected->position,
+                        .attack = selected->attack,
                     };
                 }
                 append(metadata, prepareModifyAttack(action,
@@ -2167,6 +2208,11 @@ std::size_t BattleEffectRuleStore::append(
     {
         throw std::invalid_argument("效果擁有者任意施放匹配只支援武功效果來源");
     }
+    if (rule.observation == EffectObservationScope::ComboMemberEventSource
+        && binding.kind != EffectSourceKind::Combo)
+    {
+        throw std::invalid_argument("同門出招觀察只支援羈絆效果來源");
+    }
     const auto key = runtimeKey(binding, rule.id);
     if (runtimeByRule_.contains(key))
     {
@@ -2216,6 +2262,11 @@ void BattleEffectRuleStore::appendClonedOwnerRules(
         binding.sourceTeam = cloneTeam;
         binding.runtimeInstanceId = 0;
         append(binding, bound.rule);
+        if (bound.rule.observation == EffectObservationScope::ComboMemberEventSource)
+        {
+            runtimeByRule_.at(runtimeKey(binding, bound.rule.id)).eligibleEventCount
+                = runtime(bound.binding, bound.rule.id).eligibleEventCount;
+        }
     }
 }
 
@@ -3143,6 +3194,8 @@ ModifyAttackEffectCommand prepareModifyAttack(
         .damageOverride = damageOverride,
         .damageKind = action.damageKind,
         .runtimeBehavior = action.runtimeBehavior,
+        .independentProjectile = action.independentProjectile,
+        .activationLog = action.activationLog,
     };
 }
 
@@ -3390,6 +3443,35 @@ std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRu
         }
     }
     return result;
+}
+
+bool BattleEffectSystem::hasInvincibilityPiercingExecuteRule(
+    const BattleEffectRuleStore& store,
+    const EffectEventContext& context) const
+{
+    // 接觸判定早於命中規則；此處只辨識目前施放可觀察到的處決規則，
+    // 實際目標條件、次數限制與機率仍在命中事件中照常判定。
+    for (const auto& bound : store.rules_)
+    {
+        if ((bound.rule.event != EffectEvent::MainProjectileBeforeDamage
+                && bound.rule.event != EffectEvent::HitBeforeDamage)
+            || !ruleContainsExecute(bound.rule)
+            || !ruleObservesEvent(bound, context)
+            || !castScopeMatches(bound, context))
+        {
+            continue;
+        }
+
+        auto ruleContext = context;
+        rewriteObservedOwner(bound, ruleContext);
+        rewriteScopedRuleContext(bound, ruleContext);
+        if (ruleAllowedByPropagation(bound, ruleContext)
+            && ruleMatchesMagicCast(bound, ruleContext))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 BattleEffectDispatchResult BattleEffectSystem::dispatch(BattleEffectRuleStore& store,

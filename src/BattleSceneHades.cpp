@@ -3130,6 +3130,27 @@ void BattleSceneHades::renderExtraRoleInfo(
         background_color = { 255, 0, 0, 128 };
     }
 
+    if (const auto* session = activeRuntimeSession(); session && unit.vitals.hp > 0)
+    {
+        const auto& effects = session->runtime().effectRules;
+        for (const auto& bound : effects.rules())
+        {
+            if (bound.binding.ownerUnitId != unit.id
+                || bound.rule.observation != KysChess::EffectObservationScope::ComboMemberEventSource)
+                continue;
+            const int count = effects.runtime(bound.binding, bound.rule.id).eligibleEventCount
+                % bound.rule.everyNthEvent;
+            const int spacing = ROLE_STATUS_BAR_WIDTH / bound.rule.everyNthEvent;
+            for (int star = 0; star < bound.rule.everyNthEvent; ++star)
+            {
+                Rect point{barLeft + star * spacing, hpBarY - 6, 4, 4};
+                Engine::getInstance()->renderSquareTexture(&point,
+                    star < count ? Color{255, 225, 130, 255} : Color{75, 75, 90, 255}, 255);
+            }
+            break;
+        }
+    }
+
     renderBar(hpBarY, unit.vitals.hp, unit.vitals.maxHp, background_color, shadow_color);
 
     if (unit.vitals.maxHp > 0 && unit.vitals.hp > 0)

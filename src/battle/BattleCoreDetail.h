@@ -66,6 +66,10 @@ BattleCastStart beginEffectRootCast(
 void cancelEffectRootCast(
     BattleRuntimeState& state,
     const BattleCastStart& start);
+void reserveEffectAttack(
+    BattleCastLifecycle& lifecycle,
+    const BattleCastProvenance& parent,
+    BattleAttackSpawnRequest& request);
 void reserveEffectRootCastAttacks(
     BattleCastLifecycle& lifecycle,
     const BattleCastStart& start,

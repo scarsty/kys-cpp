@@ -496,7 +496,7 @@ void applyCommandGroup(
     assert(action.sameTargetHitLimit >= 0);
     assert(state.nextSharedHitGroupId > 0);
 
-    if (attacks.empty())
+    if (attacks.empty() && !action.independentProjectile)
     {
         deferredWithoutRequest.push_back({
             firstCommand.metadata,
@@ -540,8 +540,12 @@ void applyCommandGroup(
         return;
     }
 
-    const auto sourceIndex = prototypeIndex(attacks);
-    const auto prototype = attacks[sourceIndex];
+    const auto prototype = action.independentProjectile
+        ? WorkingAttack{BattleAttackSpawnRequest{BattleAttackPayload(
+            BattleAttackDelivery::projectile(),
+            BattleProjectilePayloadClass::combat(),
+            BattleAttackReflectionLineageKind::Ordinary)}}
+        : attacks[prototypeIndex(attacks)];
     const int excludedTargetUnitId = action.pattern.kind
             == AttackPatternKind::EchoNearestOthers
         ? (prototype.request.initial.preferredTargetUnitId >= 0
@@ -601,6 +605,19 @@ void applyCommandGroup(
             selectedTargets,
             projectileIndex);
         const auto& projectileCommand = std::get<ModifyAttackEffectCommand>(command.value);
+        if (projectileCommand.independentProjectile)
+        {
+            const auto& projectile = *projectileCommand.independentProjectile;
+            // 獨立 prototype 不繼承觸發招式的近戰、彈射、流血或延遲。
+            assert(projectileCommand.source);
+            attack.request.initial.potencySnapshot = BattleDamageSystem().snapshotAttackPotency(
+                projectileCommand.source->attack, projectile.magicPower);
+            attack.request.initial.operationType = BattleOperationType::RangedProjectile;
+            attack.request.initial.visualEffectId = projectile.visualEffectId;
+            attack.request.initial.totalFrame = projectile.lifetimeFrames;
+            attack.request.initial.velocity = {static_cast<float>(projectile.speed), 0.0f, 0.0f};
+            attack.request.initial.suppressNearbyTrackingProjectileProc = true;
+        }
         applyAttackSource(attack, projectileCommand);
         const int targetUnitId = targetIdForProjectile(
             input,

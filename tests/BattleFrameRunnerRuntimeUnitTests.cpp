@@ -618,6 +618,10 @@ TEST_CASE("BattleFrameRunner_LogsCappedModifierChangesButNotIdenticalPermanentAp
             REQUIRE(changed.size() == 1);
             CHECK(changed.front().amount == 40);
             CHECK(changed.front().stackCount == 1);
+            CHECK(BattleLogTest::joinSegments(changed.front().segments)
+                == (duration == 0
+                    ? (damageModifier ? "輸出傷害百分比+40%" : "攻擊數值+40")
+                    : (damageModifier ? "輸出傷害百分比+40%（30幀）" : "攻擊數值+40（30幀）")));
         }
     }
 }
@@ -2022,6 +2026,7 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesTheCanonicalPoisonSchedule", "[battl
     CHECK(applied->sourceUnitId == 0);
     CHECK(applied->targetUnitId == 1);
     CHECK(applied->amount == 10);
+    CHECK(BattleLogTest::joinSegments(applied->segments) == "中毒10%（150幀）");
 }
 
 TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[battle][frame_runner][runtime][effect][poison]")

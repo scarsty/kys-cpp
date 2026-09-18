@@ -61,7 +61,8 @@ bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefin
             }
             for (const auto& rule : definition.rules)
             {
-                if (rule.selector.kind == EffectSelectorKind::ComboMembers)
+                if (rule.selector.kind == EffectSelectorKind::ComboMembers
+                    || rule.observation == EffectObservationScope::ComboMemberEventSource)
                 {
                     return fail("絕招不能使用需要羈絆成員的效果");
                 }

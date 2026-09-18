@@ -181,7 +181,11 @@ BattleLogEntryView buildBattleLogEntry(
         }
         appendTextSegment(entry, " 恢復 ");
         appendTextSegment(entry, std::to_string(event.value), BattleLogTextTone::HealValue);
-        appendTextSegment(entry, " 點生命");
+        appendTextSegment(
+            entry,
+            event.resourceId == KysChess::Battle::BattleResourceSemanticId::MagicPoints
+                ? " 點內力"
+                : " 點生命");
         if (hasVisibleTextSegment(event.segments))
         {
             appendTextSegment(entry, "（");

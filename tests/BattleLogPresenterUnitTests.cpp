@@ -72,6 +72,30 @@ TEST_CASE("BattleLogPresenter_PreservesEffectNamesAlongsideCharacterLabels", "[b
     CHECK(builder.report().stats().at(101).damageDealt == 18);
 }
 
+TEST_CASE("BattleLogPresenter_LabelsRecoveredMagicPointsAsMagicPoints", "[battle][log_presenter][logging]")
+{
+    using namespace KysChess::Battle;
+    auto source = BattleLogTest::reportUnit(101, 1, 0, 11, "無崖子");
+    auto target = BattleLogTest::reportUnit(202, 2, 0, 12, "李秋水");
+    BattleReportBuilder builder;
+    builder.recordHeal(
+        &source,
+        &target,
+        15,
+        battleLogText("回復內力", BattleLogTextTone::SkillName),
+        69,
+        BattleResourceSemanticId::MagicPoints);
+
+    BattlePostBattleSummary summary;
+    summary.allies.push_back(summaryUnit(101, 0, "無崖子"));
+    summary.allies.push_back(summaryUnit(202, 0, "李秋水"));
+
+    const auto model = BattleLogPresenter().present(summary, builder.report());
+
+    REQUIRE(model.entries.size() == 1);
+    CHECK(model.entries.front().plainText() == "[  69F] 無崖子 為 李秋水 恢復 15 點內力（回復內力）");
+}
+
 TEST_CASE("BattleLogPresenter_ExplainsTimeoutDefeat", "[battle][log_presenter][timeout]")
 {
     BattleReportBuilder builder;

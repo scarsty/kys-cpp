@@ -177,7 +177,7 @@ int resolveProjectileCancelDamage(
 {
     const auto& attacker = state.units.requireCore(attack.state.attackSourceUnitId);
     int damage = currentDamage;
-    if (attack.state.skillId >= 0)
+    if (attack.state.skillId >= 0 || attack.state.potencySnapshot)
     {
         const auto& defender = state.units.requireCore(otherAttack.state.attackSourceUnitId);
         BattleAttackEvent event;
@@ -343,6 +343,12 @@ BattleHitResolutionInput makeHitResolutionInput(
                 potency,
                 defender.core,
                 ignoreDefensePct));
+    }
+    else if (event.potencySnapshot)
+    {
+        input.skill.resolvedBaseDamage = resolveHitAttackPotencyAgainstDefender(
+            state, *event.potencySnapshot, defender.core, ignoreDefensePct);
+        input.skill.potency = *event.potencySnapshot;
     }
     return input;
 }
@@ -813,7 +819,13 @@ BattleEffectOwnedEvent makeHitEffectEvent(
         std::move(payload));
 }
 
-BattleEffectDispatchResult dispatchAttackSpawnedEffects(
+struct AttackSpawnedEffectDispatch
+{
+    BattleEffectDispatchResult result;
+    bool canExecuteInvincibleTarget{};
+};
+
+AttackSpawnedEffectDispatch dispatchAttackSpawnedEffects(
     BattleRuntimeState& state,
     const BattleAttackEvent& event)
 {
@@ -832,11 +844,17 @@ BattleEffectDispatchResult dispatchAttackSpawnedEffects(
     payload.skillId = event.skillId;
     payload.baseDamage = std::max(0, event.scriptedDamage);
     payload.damageKind = event.damageKind;
-    return BattleEffectEventBridge().dispatch(
+    auto owned = BattleEffectEventBridge().makeEvent(
         state,
         CoreDetail::nextEffectEventHeader(state, event.sourceUnitId),
         EffectEvent::AttackSpawned,
         std::move(payload));
+    AttackSpawnedEffectDispatch result;
+    result.canExecuteInvincibleTarget = BattleEffectSystem().hasInvincibilityPiercingExecuteRule(
+        state.effectRules,
+        owned.context());
+    result.result = BattleEffectEventBridge().dispatch(state, owned);
+    return result;
 }
 
 std::optional<BattleCastInput> makeEffectAttackCastInput(
@@ -871,7 +889,17 @@ void applyAttackSpawnedEffects(
     {
         return;
     }
-    auto dispatched = dispatchAttackSpawnedEffects(state, event);
+    auto spawned = dispatchAttackSpawnedEffects(state, event);
+    const auto liveAttack = std::ranges::find(
+        state.attacks.attacks,
+        event.attackId,
+        &BattleAttackInstance::id);
+    assert(liveAttack != state.attacks.attacks.end());
+    liveAttack->state.executeCanHitInvincible =
+        liveAttack->state.executeCanHitInvincible
+        || spawned.canExecuteInvincibleTarget;
+
+    auto& dispatched = spawned.result;
     if (dispatched.commands.empty())
     {
         return;
@@ -883,11 +911,6 @@ void applyAttackSpawnedEffects(
         frame.frameMemoryResource());
     if (effectCastInput)
     {
-        const auto liveAttack = std::ranges::find(
-            state.attacks.attacks,
-            event.attackId,
-            &BattleAttackInstance::id);
-        assert(liveAttack != state.attacks.attacks.end());
         BattleAttackSpawnRequest prototype(liveAttack->state);
         prototype.provenance = {
             .cast = event.provenance.cast,
@@ -921,19 +944,10 @@ void applyAttackSpawnedEffects(
                 assert(!request.castWork.valid());
                 continue;
             }
-            BattleAttackReservationRequest reservationRequest;
-            reservationRequest.parentAttackId = request.provenance.parentAttackId
+            request.provenance.parentAttackId = request.provenance.parentAttackId
                 .value_or(event.provenance.attackId);
-            reservationRequest.origin = request.provenance.origin;
-            reservationRequest.rootAttack = false;
-            reservationRequest.mainProjectile = request.provenance.mainProjectile;
-            reservationRequest.sharedHitGroupId = request.provenance.sharedHitGroupId;
-            reservationRequest.propagation = request.provenance.propagation;
-            const auto reservation = state.castLifecycle.reserveAttack(
-                event.provenance.cast.castId,
-                reservationRequest);
-            request.provenance = reservation.provenance;
-            request.castWork = reservation.work;
+            request.provenance.rootAttack = false;
+            CoreDetail::reserveEffectAttack(state.castLifecycle, event.provenance.cast, request);
             frame.currentFrameAttacks().push_back(std::move(request));
         }
     }

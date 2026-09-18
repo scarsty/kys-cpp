@@ -280,6 +280,7 @@ constexpr bool effectObservationScopeUsesStatusContext(
     case EffectObservationScope::Owner:
     case EffectObservationScope::OwnerTeamEventSource:
     case EffectObservationScope::EventTarget:
+    case EffectObservationScope::ComboMemberEventSource:
         return false;
     case EffectObservationScope::StatusHolderEventSource:
     case EffectObservationScope::StatusHolderEventTarget:
@@ -313,6 +314,8 @@ constexpr bool effectObservationScopeAllowedAtEvent(
     {
     case EffectObservationScope::Owner:
         return true;
+    case EffectObservationScope::ComboMemberEventSource:
+        return event == EffectEvent::AttackCommitted;
     case EffectObservationScope::OwnerTeamEventSource:
         return event == EffectEvent::AttackSpawned
             || event == EffectEvent::MainProjectileBeforeDamage

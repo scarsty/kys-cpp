@@ -2490,6 +2490,10 @@ void appendPoisonEffectLogEvents(
     applied.segments = battleLogText(
         std::format("中毒{}%", damagePercent),
         BattleLogTextTone::Negative);
+    appendDurationFramesSuffix(
+        applied.segments,
+        result.status.appliedDurationFrames,
+        BattleLogTextTone::Negative);
     logEvents.push_back(std::move(applied));
 }
 

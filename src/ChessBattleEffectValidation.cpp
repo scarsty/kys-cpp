@@ -1384,6 +1384,16 @@ bool validateActionPayload(
             }
             else if constexpr (std::is_same_v<T, ModifyAttackAction>)
             {
+                if (typed.independentProjectile)
+                {
+                    const auto& projectile = *typed.independentProjectile;
+                    if (projectile.visualEffectId < 0 || projectile.speed <= 0 || projectile.lifetimeFrames <= 0
+                        || projectile.magicPower < 0
+                        || !typed.addToBaseAttack || !typed.source || typed.damageOverride
+                        || typed.targets != AttackTargetPolicy::SelectedTargets)
+                        return reject("獨立彈體需要有效外觀、正速度與壽命，非負武功威力、追加攻擊、來源和指定目標，不可覆寫直接傷害");
+                }
+
                 if (typed.pattern.projectileCount <= 0) return reject("攻擊彈道數量必須為正數");
                 if (typed.pattern.intervalFrames < 0) return reject("攻擊間隔幀數不可為負數");
                 if (typed.strengthPct < 0 || typed.sameTargetHitLimit < 0) return reject("攻擊倍率與同目標上限不可為負數");
@@ -2080,6 +2090,12 @@ bool validateEffectRule(
     std::string& error,
     EffectRuleAuthoringContext context)
 {
+    if (rule.observation == EffectObservationScope::ComboMemberEventSource && rule.everyNthEvent <= 0)
+    {
+        error = "同門出招觀察需要正出招次數";
+        return false;
+    }
+
     error.clear();
     const bool intrinsicRule = isIntrinsicEffectRuleId(rule.id);
     const bool runtimeIntrinsic =

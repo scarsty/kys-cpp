@@ -581,3 +581,52 @@ TEST_CASE("BattleEffectAttackCastSystem replacement pattern preserves attack pay
         }
     }
 }
+
+TEST_CASE("Independent volley projectiles discard the triggering skill payload", "[battle][effect][seven-star]")
+{
+    auto input = castInput();
+    auto original = baseAttack();
+    original.initial.delivery = BattleAttackDelivery::contact();
+    original.initial.bounceRemaining = 4;
+    original.initial.scriptedBleedStacks = 3;
+    original.initial.through = true;
+    original.initial.strengthPct = 300;
+    original.spawnDelayFrames = 25;
+    original.spiralMotion = true;
+    std::vector<BattleAttackSpawnRequest> requests{original};
+    ModifyAttackAction action{
+        .tracking = true,
+        .mainProjectile = false,
+        .targets = AttackTargetPolicy::SelectedTargets,
+        .propagation = CastPropagationPolicy::NoEffectRules,
+        .addToBaseAttack = true,
+        .source = EffectSelector{.kind = EffectSelectorKind::Self},
+        .damageKind = BattleDamageKind::Physical,
+        .independentProjectile = IndependentProjectile{48, 18, 120, 300}};
+    const std::vector commands{attackCommand(action, 2, 0, 0, std::nullopt,
+        ResolvedEffectAttackSource{.unitId = 5, .position = {0.0f, 50.0f, 0.0f}, .attack = 240})};
+    BattleEffectAttackApplyState state;
+    const auto result = BattleEffectAttackCastSystem{}.applyAttackCommands(input, requests, commands, state);
+    REQUIRE(requests.size() == 2);
+    const auto& shot = requests[1];
+    CHECK(requests[0].initial.bounceRemaining == 4);
+    CHECK(shot.initial.delivery == BattleAttackDelivery::projectile());
+    CHECK(shot.initial.attackSourceUnitId == 5);
+    CHECK(shot.initial.preferredTargetUnitId == 2);
+    CHECK(shot.initial.position.y == 50.0f);
+    CHECK(shot.initial.velocity.x > 0);
+    CHECK(shot.initial.velocity.y < 0);
+    CHECK(shot.initial.velocity.norm() == Catch::Approx(18));
+    CHECK(shot.initial.scriptedDamage == 0);
+    CHECK(shot.initial.payloadClass == BattleProjectilePayloadClass::combat());
+    REQUIRE(shot.initial.potencySnapshot);
+    CHECK(shot.initial.potencySnapshot->effectiveAttack == 240);
+    CHECK(shot.initial.potencySnapshot->magicPower == 300);
+    CHECK(shot.initial.bounceRemaining == 0);
+    CHECK(shot.initial.scriptedBleedStacks == 0);
+    CHECK_FALSE(shot.initial.through);
+    CHECK_FALSE(shot.spiralMotion);
+    CHECK(shot.spawnDelayFrames == 0);
+    CHECK(shot.initial.strengthPct == 100);
+    CHECK(shot.provenance.propagation == CastPropagationPolicy::NoEffectRules);
+}

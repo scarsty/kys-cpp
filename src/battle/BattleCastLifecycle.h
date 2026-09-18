@@ -50,6 +50,7 @@ enum class CastOriginKind
     Echo,
     RescueCounter,
     Reflection,
+    AssistedAttack,
 };
 
 enum class BattleAttackOriginKind

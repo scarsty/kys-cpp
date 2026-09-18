@@ -755,6 +755,16 @@ enum class CastPropagationPolicy
     NoEffectRules,
 };
 
+struct IndependentProjectile
+{
+    int visualEffectId{};
+    int speed{};
+    int lifetimeFrames{};
+    int magicPower{};
+
+    bool operator==(const IndependentProjectile&) const = default;
+};
+
 struct ModifyAttackAction
 {
     AttackPattern pattern;
@@ -771,6 +781,8 @@ struct ModifyAttackAction
     std::optional<EffectNumber> damageOverride;
     std::optional<BattleDamageKind> damageKind;
     AttackRuntimeBehavior runtimeBehavior;
+    std::optional<IndependentProjectile> independentProjectile;
+    std::string activationLog;
 
     bool operator==(const ModifyAttackAction&) const = default;
 };
@@ -1123,6 +1135,7 @@ enum class EffectObservationScope
     StatusHolderEventTarget,
     StatusSourceEventSource,
     SourceOwnerTeamEventSource,
+    ComboMemberEventSource,
 };
 
 enum class EffectCastMatch

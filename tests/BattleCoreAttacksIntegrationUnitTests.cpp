@@ -850,6 +850,58 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AggregatesProjectileContactIgnoredByIn
     CHECK(result.gameplayEvents[3].text == "彈道命中無敵：傷害忽略");
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePiercesInvincibility", "[battle][core][execute]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 105, 100, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 20, { 105, 100, 0 }),
+    });
+    state.units.requireCore(1).vitals.maxHp = 100;
+    state.units.requireCore(1).invincible = 3;
+    state.units.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.units.require(1).status = statusRuntimeSnapshot(1, 20);
+    DealDamageAction execute;
+    execute.amount.base = EffectNumberBase::TargetMaxHp;
+    execute.amount.percent = 100;
+    execute.kind = BattleDamageKind::Execute;
+    EffectRule executeRule;
+    executeRule.id = { 1 };
+    executeRule.event = EffectEvent::MainProjectileBeforeDamage;
+    executeRule.selector.kind = EffectSelectorKind::HitTarget;
+    executeRule.conditions = { TargetHpRatioAtMostCondition{ 50 } };
+    executeRule.actions = { EffectAction{ .value = execute } };
+    state.effectRules.append(testOwnerRuleBinding(state, 0, 9150), executeRule);
+
+    auto request = attackSpawnRequest();
+    request.initial.preferredTargetUnitId = 1;
+    request.initial.requirePreferredTarget = true;
+    request.initial.through = false;
+    request.initial.skillMagicPower = 240;
+    request.initial.position = { 100, 100, 0 };
+    request.initial.velocity = { 5, 0, 0 };
+    request.provenance.mainProjectile = true;
+    queueTrackedAttack(state, std::move(request));
+
+    auto result = runBattleFrame(state);
+
+    CHECK_FALSE(state.units.requireCore(1).alive);
+    CHECK(state.units.requireCore(1).vitals.hp == 0);
+    CHECK_FALSE(gameplayEventsFor(result, BattleGameplayEventType::UnitDied, 1).empty());
+    CHECK(std::none_of(
+        result.logEvents.begin(),
+        result.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return BattleLogTest::textOf(event).contains("彈道命中無敵");
+        }));
+}
+
 TEST_CASE("BattleFrameRunner_PrunesFinishedRuntimeAttacksAfterFrame", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -1326,4 +1378,36 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsBounceChainTerminalReasons", "[bat
     REQUIRE(damageLog != result.logEvents.end());
     REQUIRE(terminalLog != result.logEvents.end());
     CHECK(damageLog < terminalLog);
+}
+
+TEST_CASE("Seven star combat projectiles respect defence dodge and block", "[battle][core][seven-star]")
+{
+    const auto damageAgainst = [](int defence, std::optional<BattleAttribute> immunity, int magicPower = 300)
+    {
+        auto frame = hitDamageFrameState(0, 10000);
+        auto& state = frame.state;
+        state.random = BattleRuntimeRandom(123);
+        auto& attack = state.attacks.attacks.front();
+        attack.state.skillId = -1;
+        attack.state.skillMagicPower = 0;
+        attack.state.potencySnapshot = BattleAttackPotencySnapshot{400, magicPower};
+        attack.state.damageKind = BattleDamageKind::Physical;
+        attack.state.suppressNearbyTrackingProjectileProc = true;
+        attack.provenance.propagation = CastPropagationPolicy::NoEffectRules;
+        attack.provenance.mainProjectile = false;
+        state.units.requireCore(1).stats.defence = defence;
+        if (immunity)
+            addTypedAttributeModifier(state, 1, *immunity, AttributeOperation::FlatAdd, 100);
+        runBattleFrame(state);
+        return 10000 - state.units.requireCore(1).vitals.hp;
+    };
+    const int unarmoured = damageAgainst(0, {});
+    const int armoured = damageAgainst(800, {});
+    CHECK(unarmoured > 0);
+    CHECK(unarmoured < 400);
+    CHECK(armoured > 0);
+    CHECK(armoured < unarmoured);
+    CHECK(damageAgainst(0, {}, 0) < unarmoured);
+    CHECK(damageAgainst(0, BattleAttribute::DodgeChance) == 0);
+    CHECK(damageAgainst(0, BattleAttribute::BlockChance) == 0);
 }

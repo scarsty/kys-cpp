@@ -606,6 +606,7 @@ struct ResolvedEffectAttackSource
 {
     int unitId = -1;
     Pointf position;
+    int attack{};
 };
 
 struct ModifyAttackEffectCommand
@@ -624,6 +625,8 @@ struct ModifyAttackEffectCommand
     std::optional<int> damageOverride;
     std::optional<BattleDamageKind> damageKind;
     AttackRuntimeBehavior runtimeBehavior;
+    std::optional<IndependentProjectile> independentProjectile;
+    std::string activationLog;
 };
 
 ModifyAttackEffectCommand prepareModifyAttack(
@@ -885,6 +888,9 @@ struct BattleEffectDispatchResult
 class BattleEffectSystem
 {
 public:
+    bool hasInvincibilityPiercingExecuteRule(
+        const BattleEffectRuleStore& store,
+        const EffectEventContext& context) const;
     std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
         const BattleEffectRuleStore& store,
         const EffectEventContext& context,

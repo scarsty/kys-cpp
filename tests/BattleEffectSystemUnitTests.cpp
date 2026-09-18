@@ -3838,30 +3838,60 @@ TEST_CASE("Decoupled hit weakening retains its original event and modifier stage
     CHECK(after.stack == EffectStackPolicy::Independent);
 }
 
-TEST_CASE("Separated shield-break reactions fire in authored order without an initial shield component", "[battle][effect][composition]")
+TEST_CASE("Seven star volley counts allied combo casts and fires once per living member", "[battle][effect][seven-star]")
 {
     const auto rules = namedRules(YAML::Load(R"(
-- {類型: 破盾攻擊加成, 攻擊點數: 70, 持續幀數: 90}
-- {類型: 破盾免費絕招}
-- {類型: 破盾回內, 回復內力: 50}
+- {類型: 七星歸一, 出招次數: 7, 武功威力: 300, 特效編號: 48}
 )"));
-    const auto owner = makeUnit(1, 0, 100, 100);
-    const std::vector units{owner};
-    const auto source = magicBinding(108);
+    std::vector units{makeUnit(1, 0, 100, 100), makeUnit(2, 0, 100, 100),
+        makeUnit(3, 0, 100, 100), makeUnit(4, 1, 100, 100)};
+    units[0].comboIds.insert(12);
+    units[1].comboIds.insert(12);
+    units[3].comboIds.insert(12);
+    units[0].attack = 100;
+    units[1].attack = 240;
+    const EffectSourceBinding binding{.kind = EffectSourceKind::Combo, .sourceId = 12,
+        .ownerUnitId = 1, .sourceTeam = 0};
     BattleEffectRuleStore store;
-    for (const auto& rule : rules) store.append(source, rule);
+    for (int owner : {1, 2})
+    {
+        auto memberBinding = binding;
+        memberBinding.ownerUnitId = owner;
+        for (const auto& rule : rules) store.append(memberBinding, rule);
+    }
     BattleRuntimeRandom random(1);
-    const auto result = BattleEffectSystem{}.dispatch(
-        store, makeContext(EffectEvent::ShieldBroken, source, owner, units,
-            ShieldBreakEventData{.targetBefore = owner, .targetAfter = owner, .brokenAmount = 40,
-                                 .cause = EffectEnvironmentDamageOrigin{}}), random);
-    REQUIRE(result.commands.size() == 3);
-    CHECK(std::holds_alternative<ModifyAttributeEffectCommand>(result.commands[0].value));
-    REQUIRE(std::holds_alternative<ModifyCastEffectCommand>(result.commands[1].value));
-    CHECK(std::get<ModifyCastEffectCommand>(result.commands[1].value).autoUltimate.has_value());
-    const auto& mana = std::get<ChangeResourceEffectCommand>(result.commands[2].value);
-    CHECK(mana.resource == BattleResource::Mp);
-    CHECK(mana.resolvedAmount() == 50);
+    const auto dispatch = [&](int caster, CastPropagationPolicy policy = CastPropagationPolicy::SourceRules)
+    {
+        auto provenance = castProvenance(39, policy);
+        provenance.sourceUnitId = caster;
+        return BattleEffectSystem{}.dispatch(store,
+            makeContext(EffectEvent::AttackCommitted, binding, units[caster - 1], units,
+                CastCommitEventData{.provenance = provenance, .targetUnitId = 4}), random);
+    };
+    for (int i = 0; i < 6; ++i) CHECK(dispatch(i % 2 + 1).commands.empty());
+    CHECK(dispatch(3).commands.empty()); // 無關友軍不計數。
+    CHECK(dispatch(4).commands.empty()); // 敵方同門不計數。
+    CHECK(dispatch(1, CastPropagationPolicy::NoEffectRules).commands.empty());
+    const auto volley = dispatch(2);
+    REQUIRE(volley.commands.size() == 2);
+    for (const auto& command : volley.commands)
+    {
+        const auto& attack = std::get<ModifyAttackEffectCommand>(command.value);
+        REQUIRE(attack.source);
+        CHECK(attack.source->unitId == command.metadata.binding.ownerUnitId);
+        CHECK(attack.source->attack == units[attack.source->unitId - 1].attack);
+        CHECK_FALSE(attack.damageOverride);
+        CHECK(command.metadata.targetUnitId == 4);
+        CHECK(attack.propagation == CastPropagationPolicy::NoEffectRules);
+        CHECK(attack.independentProjectile.has_value());
+    }
+    for (int i = 0; i < 3; ++i) CHECK(dispatch(1).commands.empty());
+    units[1].alive = false;
+    units[1].hp = 0;
+    for (int i = 0; i < 3; ++i) CHECK(dispatch(1).commands.empty());
+    const auto survivorVolley = dispatch(1);
+    REQUIRE(survivorVolley.commands.size() == 1);
+    CHECK(survivorVolley.commands[0].metadata.binding.ownerUnitId == 1);
 }
 
 TEST_CASE("Separate aura components keep aligned periods and exclude their owner", "[battle][effect][composition]")

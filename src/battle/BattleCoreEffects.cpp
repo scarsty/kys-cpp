@@ -460,6 +460,11 @@ void appendEffectResourceLogEvents(
     }
 }
 
+int modifierRemainingFrames(const std::optional<std::int64_t>& expiresFrameExclusive, int frame)
+{
+    return expiresFrameExclusive ? static_cast<int>(*expiresFrameExclusive - frame) : 0;
+}
+
 void appendAttributeModifierLog(
     const BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logEvents,
@@ -471,14 +476,17 @@ void appendAttributeModifierLog(
     event.amount = stackedModifierAmount(modifier.amount, modifier.stackCount);
     event.stackCount = modifier.stackCount;
     event.statusId = BattleStatusSemanticId::AttributeModifier;
+    const auto tone = modifier.negative ? BattleLogTextTone::Negative : BattleLogTextTone::Positive;
     event.segments = battleLogText(
         attributeModifierText(
             modifier.attribute,
             modifier.operation,
             event.amount),
-        modifier.negative
-            ? BattleLogTextTone::Negative
-            : BattleLogTextTone::Positive);
+        tone);
+    appendDurationFramesSuffix(
+        event.segments,
+        modifierRemainingFrames(modifier.expiresFrameExclusive, frame),
+        tone);
     logEvents.push_back(std::move(event));
 }
 
@@ -493,14 +501,17 @@ void appendDamageModifierLog(
     event.amount = stackedModifierAmount(modifier.amount, modifier.stackCount);
     event.stackCount = modifier.stackCount;
     event.statusId = BattleStatusSemanticId::DamageModifier;
+    const auto tone = modifier.negative ? BattleLogTextTone::Negative : BattleLogTextTone::Positive;
     event.segments = battleLogText(
         damageModifierText(
             modifier.perspective,
             modifier.operation,
             event.amount),
-        modifier.negative
-            ? BattleLogTextTone::Negative
-            : BattleLogTextTone::Positive);
+        tone);
+    appendDurationFramesSuffix(
+        event.segments,
+        modifierRemainingFrames(modifier.expiresFrameExclusive, frame),
+        tone);
     logEvents.push_back(std::move(event));
 }
 
@@ -1116,6 +1127,33 @@ void reduceEffectCommandImpl(
     else if (const auto* area = std::get_if<BattleAreaEffectResult>(&entry.value))
     {
         CoreDetail::appendAreaLifecycleLogs(state, frame.logEvents, area->area.events, context.frame);
+    }
+    else if (const auto* attack = std::get_if<
+                 BattleRoutedEffectCommand<ModifyAttackEffectCommand>>(&entry.value))
+    {
+        if (!attack->command.activationLog.empty()
+            && std::ranges::none_of(frame.logEvents, [&](const BattleLogEvent& log)
+            {
+                return log.frame == context.frame
+                    && log.category == BattleLogCategory::Cast
+                    && log.targetUnitId == entry.metadata.targetUnitId
+                    && log.semanticSourceTeam == entry.metadata.binding.sourceTeam
+                    && log.semanticSourceKind == effectSourceKindName(entry.metadata.binding.kind)
+                    && log.skillName == attack->command.activationLog;
+            }))
+        {
+            auto log = makeEffectLogEvent(
+                state,
+                entry.metadata,
+                entry.metadata.targetUnitId,
+                context.frame);
+            log.category = BattleLogCategory::Cast;
+            log.skillName = attack->command.activationLog;
+            log.segments = logSegments(
+                "觸發",
+                std::pair{BattleLogTextTone::SkillName, attack->command.activationLog});
+            frame.logEvents.push_back(std::move(log));
+        }
     }
     else if (const auto* move = std::get_if<
                  BattleRoutedEffectCommand<ForceMoveEffectCommand>>(&entry.value))
@@ -2277,31 +2315,49 @@ void cancelEffectRootCast(
     state.castLifecycle.cancelPlannedCast(start, state.movement.frame);
 }
 
+void reserveEffectAttack(
+    BattleCastLifecycle& lifecycle,
+    const BattleCastProvenance& parent,
+    BattleAttackSpawnRequest& request)
+{
+    assert(parent.valid());
+    assert(!request.provenance.valid());
+    assert(!request.castWork.valid());
+    assert(request.initial.attackSourceUnitId >= 0);
+
+    std::optional<BattleCastStart> assisted;
+    if (request.initial.attackSourceUnitId != parent.sourceUnitId)
+    {
+        assisted = lifecycle.beginChildCast(parent.castId, {
+            .sourceUnitId = request.initial.attackSourceUnitId,
+            .magicId = request.initial.skillId,
+            .origin = CastOriginKind::AssistedAttack,
+            .propagation = request.provenance.propagation,
+        });
+    }
+    const auto reservation = lifecycle.reserveAttack(
+        assisted ? assisted->provenance.castId : parent.castId,
+        {
+            .parentAttackId = request.provenance.parentAttackId,
+            .origin = request.provenance.origin,
+            .rootAttack = request.provenance.rootAttack,
+            .mainProjectile = request.provenance.mainProjectile,
+            .sharedHitGroupId = request.provenance.sharedHitGroupId,
+            .propagation = request.provenance.propagation,
+        });
+    request.provenance = reservation.provenance;
+    request.castWork = reservation.work;
+    if (assisted)
+        lifecycle.completeWork(assisted->commitBarrier);
+}
+
 void reserveEffectRootCastAttacks(
     BattleCastLifecycle& lifecycle,
     const BattleCastStart& start,
     std::span<BattleAttackSpawnRequest> requests)
 {
-    assert(start.provenance.valid());
-    for (std::size_t index = 0; index < requests.size(); ++index)
-    {
-        auto& request = requests[index];
-        assert(!request.provenance.valid());
-        assert(!request.castWork.valid());
-
-        BattleAttackReservationRequest reservationRequest;
-        reservationRequest.parentAttackId = request.provenance.parentAttackId;
-        reservationRequest.origin = request.provenance.origin;
-        reservationRequest.rootAttack = request.provenance.rootAttack;
-        reservationRequest.mainProjectile = request.provenance.mainProjectile;
-        reservationRequest.sharedHitGroupId = request.provenance.sharedHitGroupId;
-        reservationRequest.propagation = request.provenance.propagation;
-        const auto reservation = lifecycle.reserveAttack(
-            start.provenance.castId,
-            reservationRequest);
-        request.provenance = reservation.provenance;
-        request.castWork = reservation.work;
-    }
+    for (auto& request : requests)
+        reserveEffectAttack(lifecycle, start.provenance, request);
 }
 
 std::vector<BattleEffectDispatchResult> dispatchCastCommittedEffects(

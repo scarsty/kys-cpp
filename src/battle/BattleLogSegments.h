@@ -85,6 +85,21 @@ std::vector<BattleLogTextSegment> logStatusFrames(const char* label, int frames)
         "）");
 }
 
+inline void appendDurationFramesSuffix(
+    std::vector<BattleLogTextSegment>& segments,
+    int frames,
+    BattleLogTextTone bracketTone)
+{
+    if (frames <= 0)
+    {
+        return;
+    }
+    segments.push_back({ "（", bracketTone });
+    segments.push_back({ std::to_string(frames), BattleLogTextTone::DurationValue });
+    segments.push_back({ "幀", BattleLogTextTone::DurationValue });
+    segments.push_back({ "）", bracketTone });
+}
+
 template <BattleLogTextTone DefaultTone = BattleLogTextTone::SkillName>
 std::vector<BattleLogTextSegment> logStatusRange(const char* label, int current, int maxValue, const char* unit)
 {
