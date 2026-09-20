@@ -86,6 +86,59 @@ struct ProtectLowestHealth final : GameplayEffectDefinition
     }
 };
 
+struct SwordAlliesGuard final : GameplayEffectDefinition
+{
+    int 減傷百分比{};
+    int 持續幀數{};
+    static constexpr std::string_view Name = "御劍護身";
+    static constexpr auto Parameters = std::array<Parameter<SwordAlliesGuard>, 2>{
+        {Parameter<SwordAlliesGuard>{{"減傷百分比", 0, 100}, &SwordAlliesGuard::減傷百分比},
+         Parameter<SwordAlliesGuard>{{"持續幀數", 1, 1000000}, &SwordAlliesGuard::持續幀數}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        EffectRule guard;
+        guard.id = EffectRuleId{.value = 1};
+        guard.event = EffectEvent::HitBeforeDamage;
+        guard.observation = EffectObservationScope::StatusHolderEventTarget;
+        guard.selector.kind = EffectSelectorKind::StatusHolder;
+        guard.actions = {
+            EffectAction{.value = ModifyDamageAction{
+                .perspective = DamageModifierPerspective::Incoming,
+                .stage = DamageModifierStage::Final,
+                .channel = DamageChannel::All,
+                .amount = EffectNumber{.flat = -減傷百分比},
+                .operation = DamageModifierOperation::PercentAdd}},
+            EffectAction{.value = ConsumeThisStatusAction{}},
+        };
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules.push_back(std::move(guard));
+
+        return {EffectRule{
+            .event = EffectEvent::AttackCommitted,
+            .selector = EffectSelector{
+                .kind = EffectSelectorKind::AlliesUsingMartialCategory,
+                .requiredMartialCategory = EffectMartialCategory::Sword},
+            .actions = {EffectAction{.value = ApplyStatusAction{
+                .status = BattleStatusKind::SwordGuard,
+                .durationFrames = 持續幀數,
+                .quantity = SetStatusTriggerCharges{.count = 1},
+                .reapplication = StatusReapplicationPolicy::RefreshDuration,
+                .behavior = std::move(behavior)}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Full)
+        {
+            return std::format(
+                "出招時，友方御劍角色獲得一層劍意護身，持續{}幀。下一次受到的直接攻擊傷害降低{}%並消耗；最多一層。中毒、流血及其他非攻擊傷害不會觸發。重複施加刷新持續時間。",
+                持續幀數,
+                減傷百分比);
+        }
+        return std::format("出招：御劍友軍下次直接承傷-{}%，{}幀", 減傷百分比, 持續幀數);
+    }
+};
+
 struct HitSilence final : GameplayEffectDefinition
 {
     int 持續幀數{};
@@ -171,16 +224,14 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
     int 半徑格數{};
     int 每星每層傷害{};
     int 中毒次數{};
-    int 中毒間隔幀數{};
     int 中毒生命百分比{};
     static constexpr std::string_view Name = "蓄積死亡毒爆";
-    static constexpr auto Parameters = std::array<Parameter<StackDeathPoisonExplosion>, 7>{
+    static constexpr auto Parameters = std::array<Parameter<StackDeathPoisonExplosion>, 6>{
         {Parameter<StackDeathPoisonExplosion>{{"每次層數", 1, 1000}, &StackDeathPoisonExplosion::每次層數},
          Parameter<StackDeathPoisonExplosion>{{"層數上限", 1, 1000}, &StackDeathPoisonExplosion::層數上限},
          Parameter<StackDeathPoisonExplosion>{{"半徑格數", 1, 1000000}, &StackDeathPoisonExplosion::半徑格數},
          Parameter<StackDeathPoisonExplosion>{{"每星每層傷害", 0, 1000000}, &StackDeathPoisonExplosion::每星每層傷害},
          Parameter<StackDeathPoisonExplosion>{{"中毒次數", 1, 1000}, &StackDeathPoisonExplosion::中毒次數},
-         Parameter<StackDeathPoisonExplosion>{{"中毒間隔幀數", 1, 1000000}, &StackDeathPoisonExplosion::中毒間隔幀數},
          Parameter<StackDeathPoisonExplosion>{{"中毒生命百分比", 0, 1000000},
                                               &StackDeathPoisonExplosion::中毒生命百分比}}};
     std::string_view name() const override { return Name; }
@@ -209,7 +260,7 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
                                EffectAction{
                                    .value = ApplyStatusAction{
                                        .durationFrames
-                                       = 中毒次數 * 中毒間隔幀數,
+                                       = 中毒次數 * CanonicalPoisonIntervalFrames,
                                        .quantity = SetStatusTriggerCharges{.count = 中毒次數},
                                        .reapplication = StatusReapplicationPolicy::ReplaceExistingPoison,
                                        .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
@@ -218,7 +269,7 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
                                                .event = EffectEvent::FrameAdvanced,
                                                .observation = EffectObservationScope::StatusHolderEventSource,
                                                .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
-                                               .intervalFrames = 中毒間隔幀數,
+                                               .intervalFrames = CanonicalPoisonIntervalFrames,
                                                .actions
                                                = {EffectAction{
                                                       .value
@@ -235,13 +286,14 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
         {
             return std::format(
                 "每次出招累積{}層，最多{}層；死亡時逐層引爆，對{}格內敵人每層造成每星{}傷害並施毒。中毒持續{}幀，共{}"
-                "次，每次造成目標當前生命{}%傷害。",
+                "次，每{}幀造成目標當前生命{}%傷害。",
                 每次層數,
                 層數上限,
                 半徑格數,
                 每星每層傷害,
-                中毒次數 * 中毒間隔幀數,
+                中毒次數 * CanonicalPoisonIntervalFrames,
                 中毒次數,
+                CanonicalPoisonIntervalFrames,
                 中毒生命百分比);
         }
         return std::format("出招：疊{}層，上限{}層；陣亡：逐層引爆{}格，每層每星{}傷害並施毒",
@@ -369,12 +421,10 @@ struct HitHealingBlockSlow final : GameplayEffectDefinition
 struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
 {
     int 中毒次數{};
-    int 中毒間隔幀數{};
     int 生命傷害百分比{};
     static constexpr std::string_view Name = "全體引毒再施毒";
-    static constexpr auto Parameters = std::array<Parameter<DetonateAndPoisonEnemies>, 3>{
+    static constexpr auto Parameters = std::array<Parameter<DetonateAndPoisonEnemies>, 2>{
         {Parameter<DetonateAndPoisonEnemies>{{"中毒次數", 1, 1000}, &DetonateAndPoisonEnemies::中毒次數},
-         Parameter<DetonateAndPoisonEnemies>{{"中毒間隔幀數", 1, 1000000}, &DetonateAndPoisonEnemies::中毒間隔幀數},
          Parameter<DetonateAndPoisonEnemies>{{"生命傷害百分比", 0, 1000000},
                                              &DetonateAndPoisonEnemies::生命傷害百分比}}};
     std::string_view name() const override { return Name; }
@@ -388,7 +438,7 @@ struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
                EffectAction{.value = RemoveStatusAction{.statuses = {BattleStatusKind::Poison}}},
                EffectAction{
                    .value = ApplyStatusAction{
-                       .durationFrames = 中毒次數 * 中毒間隔幀數,
+                       .durationFrames = 中毒次數 * CanonicalPoisonIntervalFrames,
                        .quantity = SetStatusTriggerCharges{.count = 中毒次數},
                        .reapplication = StatusReapplicationPolicy::ReplaceExistingPoison,
                        .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
@@ -397,7 +447,7 @@ struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
                                .event = EffectEvent::FrameAdvanced,
                                .observation = EffectObservationScope::StatusHolderEventSource,
                                .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
-                               .intervalFrames = 中毒間隔幀數,
+                               .intervalFrames = CanonicalPoisonIntervalFrames,
                                .actions = {
                                    EffectAction{.value = DealDamageAction{.amount = EffectNumber{.base
                                                                                                  = EffectNumberBase::TargetCurrentHp,
@@ -413,12 +463,12 @@ struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
             return std::format(
                 "出招立即結算所有敵人剩餘中毒傷害，再施加持續{}幀的中毒。新中毒每{}幀造成目標當前生命{}%"
                 "傷害，最低1點，共{}次；取代原有中毒。",
-                中毒次數 * 中毒間隔幀數,
-                中毒間隔幀數,
+                中毒次數 * CanonicalPoisonIntervalFrames,
+                CanonicalPoisonIntervalFrames,
                 生命傷害百分比,
                 中毒次數);
         }
-        return std::format("出招：結算全敵剩餘毒傷，再施毒{}幀", 中毒次數 * 中毒間隔幀數);
+        return std::format("出招：結算全敵剩餘毒傷，再施毒{}幀", 中毒次數 * CanonicalPoisonIntervalFrames);
     }
 };
 
@@ -795,12 +845,10 @@ struct CastInvincibility final : GameplayEffectDefinition
 struct HitPoison final : GameplayEffectDefinition
 {
     int 中毒次數{};
-    int 中毒間隔幀數{};
     int 生命傷害百分比{};
     static constexpr std::string_view Name = "命中施毒";
-    static constexpr auto Parameters = std::array<Parameter<HitPoison>, 3>{
+    static constexpr auto Parameters = std::array<Parameter<HitPoison>, 2>{
         {Parameter<HitPoison>{{"中毒次數", 1, 1000}, &HitPoison::中毒次數},
-         Parameter<HitPoison>{{"中毒間隔幀數", 1, 1000000}, &HitPoison::中毒間隔幀數},
          Parameter<HitPoison>{{"生命傷害百分比", 0, 1000000}, &HitPoison::生命傷害百分比}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
@@ -810,7 +858,7 @@ struct HitPoison final : GameplayEffectDefinition
             .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
             .actions = {EffectAction{
                 .value = ApplyStatusAction{
-                    .durationFrames = 中毒次數 * 中毒間隔幀數,
+                    .durationFrames = 中毒次數 * CanonicalPoisonIntervalFrames,
                     .quantity = SetStatusTriggerCharges{.count = 中毒次數},
                     .reapplication = StatusReapplicationPolicy::KeepHigherDamage,
                     .poisonSameEventMerge = PoisonSameEventMerge::SumDamagePercent,
@@ -820,7 +868,7 @@ struct HitPoison final : GameplayEffectDefinition
                             .event = EffectEvent::FrameAdvanced,
                             .observation = EffectObservationScope::StatusHolderEventSource,
                             .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
-                            .intervalFrames = 中毒間隔幀數,
+                            .intervalFrames = CanonicalPoisonIntervalFrames,
                             .actions
                             = {EffectAction{.value = DealDamageAction{.amount
                                                                       = EffectNumber{.base = EffectNumberBase::TargetCurrentHp,
@@ -836,14 +884,14 @@ struct HitPoison final : GameplayEffectDefinition
             return std::format(
                 "命中施加中毒，持續{}幀；每{}幀造成目標當前生命{}%傷害，共{}"
                 "次。每次最低1傷害；同來源同事件的毒傷合計後與現有相容中毒取較高。",
-                中毒次數 * 中毒間隔幀數,
-                中毒間隔幀數,
+                中毒次數 * CanonicalPoisonIntervalFrames,
+                CanonicalPoisonIntervalFrames,
                 生命傷害百分比,
                 中毒次數);
         }
         return std::format("命中：中毒{}幀，每{}幀傷當前血量{}%，共{}次",
-                           中毒次數 * 中毒間隔幀數,
-                           中毒間隔幀數,
+                           中毒次數 * CanonicalPoisonIntervalFrames,
+                           CanonicalPoisonIntervalFrames,
                            生命傷害百分比,
                            中毒次數);
     }
@@ -1092,6 +1140,7 @@ void appendStatusEffects(std::vector<GameplayEffectRegistration>& entries)
 {
     entries.push_back(registration<HitArmorBreakMarks>());
     entries.push_back(registration<ProtectLowestHealth>());
+    entries.push_back(registration<SwordAlliesGuard>());
     entries.push_back(registration<HitSilence>());
     entries.push_back(registration<HitStun>());
     entries.push_back(registration<CastStunEnemies>());

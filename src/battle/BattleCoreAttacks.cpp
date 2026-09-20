@@ -194,13 +194,6 @@ int resolveProjectileCancelDamage(
             attack.state.operationType);
     }
 
-    damage = std::max(
-        0,
-        effectAdjustedAttribute(
-            state,
-            attacker.id,
-            BattleAttribute::ProjectilePressureDamage,
-            damage));
     return BattleFixed::fromInteger(damage)
         .scaled(attack.state.projectilePressurePct, 100)
         .toInt();

@@ -142,40 +142,6 @@ struct SwordAlliesSureHit final : GameplayEffectDefinition
     }
 };
 
-struct SwordAlliesProjectilePressure final : GameplayEffectDefinition
-{
-    int 百分比{};
-    int 持續幀數{};
-    static constexpr std::string_view Name = "御劍彈道壓制";
-    static constexpr auto Parameters = std::array<Parameter<SwordAlliesProjectilePressure>, 2>{
-        {Parameter<SwordAlliesProjectilePressure>{{"百分比", -1000000, 1000000}, &SwordAlliesProjectilePressure::百分比},
-         Parameter<SwordAlliesProjectilePressure>{{"持續幀數", 1, 1000000}, &SwordAlliesProjectilePressure::持續幀數}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
-        return {EffectRule{.event = EffectEvent::AttackCommitted,
-                           .selector = EffectSelector{.kind = EffectSelectorKind::AlliesUsingMartialCategory,
-                                                      .requiredMartialCategory = EffectMartialCategory::Sword},
-                           .actions
-                           = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::ProjectilePressureDamage,
-                                                                          .amount = EffectNumber{.flat = 百分比},
-                                                                          .operation = AttributeOperation::PercentAdd,
-                                                                          .durationFrames = 持續幀數,
-                                                                          .stack = EffectStackPolicy::Refresh}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format(
-                "出招時，友方御劍角色彈道壓制傷害{:+}%，持續{}幀。彈道壓制傷害只在彈道互相抵消時結算，不影響命中傷害；重複觸發刷新時間。",
-                百分比,
-                持續幀數);
-        }
-        return std::format("出招：御劍彈道壓制{:+}%，{}幀", 百分比, 持續幀數);
-    }
-};
-
 struct CastDamageReduction final : GameplayEffectDefinition
 {
     int 減傷百分比{};
@@ -233,6 +199,36 @@ struct CastTeamAttack final : GameplayEffectDefinition
             return std::format("出招時全隊攻擊每星{:+}，持續{}幀。重複觸發刷新持續時間。", 每星攻擊, 持續幀數);
         }
         return std::format("出招：全隊+{}×星級攻，{}幀", 每星攻擊, 持續幀數);
+    }
+};
+
+struct CastTeamDefence final : GameplayEffectDefinition
+{
+    int 每星防禦{};
+    int 持續幀數{};
+    static constexpr std::string_view Name = "出招全隊防禦加成";
+    static constexpr auto Parameters = std::array<Parameter<CastTeamDefence>, 2>{
+        {Parameter<CastTeamDefence>{{"每星防禦", 0, 1000000}, &CastTeamDefence::每星防禦},
+         Parameter<CastTeamDefence>{{"持續幀數", 1, 1000000}, &CastTeamDefence::持續幀數}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {
+            EffectRule{.event = EffectEvent::AttackCommitted,
+                       .selector = EffectSelector{.kind = EffectSelectorKind::Allies},
+                       .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Defence,
+                                                                               .amount = EffectNumber{.base = EffectNumberBase::SourceStar,
+                                                                                                      .percent = 每星防禦 * 100},
+                                                                               .durationFrames = 持續幀數,
+                                                                               .stack = EffectStackPolicy::Refresh}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Full)
+        {
+            return std::format("出招時全隊防禦每星{:+}，持續{}幀。重複觸發刷新持續時間。", 每星防禦, 持續幀數);
+        }
+        return std::format("出招：全隊+{}×星級防，{}幀", 每星防禦, 持續幀數);
     }
 };
 
@@ -1069,9 +1065,9 @@ void appendAttributeEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<CastStackAttribute>());
     entries.push_back(registration<HitDefencePenalty>());
     entries.push_back(registration<SwordAlliesSureHit>());
-    entries.push_back(registration<SwordAlliesProjectilePressure>());
     entries.push_back(registration<CastDamageReduction>());
     entries.push_back(registration<CastTeamAttack>());
+    entries.push_back(registration<CastTeamDefence>());
     entries.push_back(registration<BurningArea>());
     entries.push_back(registration<DefenceBonus>());
     entries.push_back(registration<FlatDamageReduction>());

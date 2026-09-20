@@ -281,7 +281,7 @@ TEST_CASE("effect catalog covers every configured rule by source",
         ChessEffectCatalogSource::EquipmentSynergy,
         &ChessEffectCatalogEntry::source);
     REQUIRE(synergy != catalog.end());
-    CHECK(synergy->sourceName == "共用寶劍 · 共用查詢棋子");
+    CHECK(synergy->sourceName == "共用寶劍");
     CHECK(synergy->sourceContext.contains("共用查詢棋子專屬"));
     CHECK(effectDescriptionTextRows(synergy->effects)
         == std::vector<std::string>{"速度+5。"});

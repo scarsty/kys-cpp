@@ -318,6 +318,7 @@ std::shared_ptr<const StatusBehaviorDefinition> makeCatalogOwnedStatusBehavior(
     case BattleStatusKind::TrueQi:
     case BattleStatusKind::PoisonExplosion:
     case BattleStatusKind::Shadowless:
+    case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
         assert(false && "此狀態沒有目錄擁有的行為");
         break;
@@ -397,7 +398,6 @@ bool battleAttributeUsesPercentagePoints(BattleAttribute attribute)
     case BattleAttribute::Attack:
     case BattleAttribute::Defence:
     case BattleAttribute::Speed:
-    case BattleAttribute::ProjectilePressureDamage:
         return false;
     case BattleAttribute::CriticalChance:
     case BattleAttribute::CriticalDamage:

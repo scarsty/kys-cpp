@@ -622,9 +622,9 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
         const auto roles = joinedRoleNames(content, synergy.roleIds);
         appendRules(
             ChessEffectCatalogSource::EquipmentSynergy,
-            std::format("{} · {}",
-                chessItemDisplayName(content, synergy.equipmentId),
-                roles),
+            // 目錄名只取裝備名：成員角色會隨配置增長，交由 sourceContext 呈現，
+            // 以免一覽選單的欄寬跟著角色數爆掉。
+            chessItemDisplayName(content, synergy.equipmentId),
             std::format("{}專屬 · {} · {} · 裝備 ID {}",
                 roles,
                 chessRewardTierLabel(equipment.tier),

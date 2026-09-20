@@ -4192,7 +4192,7 @@ void ChessGuiSessionAdapter::viewEffects()
         kChessCompactMenuPresentation.itemsPerPage,
         anchor,
         {detail},
-        true);
+        false);
 }
 
 void ChessGuiSessionAdapter::showGameGuide()

@@ -1114,6 +1114,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     case BattleStatusKind::TrueQi:
     case BattleStatusKind::PoisonExplosion:
     case BattleStatusKind::Shadowless:
+    case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
         break;
     }

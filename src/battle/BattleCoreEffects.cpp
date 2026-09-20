@@ -109,6 +109,7 @@ BattleStatusSemanticId statusSemanticId(BattleStatusKind status)
     case BattleStatusKind::SingleHitCapLayer:
     case BattleStatusKind::PoisonExplosion:
     case BattleStatusKind::Shadowless:
+    case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
         return BattleStatusSemanticId::None;
     case BattleStatusKind::Count:
@@ -170,7 +171,6 @@ std::string_view attributeLabel(BattleAttribute attribute)
     case BattleAttribute::BlockChance: return "格擋率";
     case BattleAttribute::DamageReduction: return "減傷";
     case BattleAttribute::SkillDamage: return "技能傷害";
-    case BattleAttribute::ProjectilePressureDamage: return "彈道壓制傷害";
     case BattleAttribute::CooldownReduction: return "冷卻減少";
     case BattleAttribute::MpRecoveryBonus: return "回內加成";
     case BattleAttribute::StaggerResistance: return "硬直抗性";
@@ -956,6 +956,7 @@ BattleSemanticCueFamily statusCueFamily(BattleStatusKind status)
     case BattleStatusKind::DamageBlockLayer:
     case BattleStatusKind::SingleHitCapLayer:
     case BattleStatusKind::Shadowless:
+    case BattleStatusKind::SwordGuard:
         return BattleSemanticCueFamily::Protection;
     case BattleStatusKind::BattleSpirit:
     case BattleStatusKind::TrueQi:

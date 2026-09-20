@@ -622,6 +622,15 @@ inline constexpr std::array statusCatalog{
         .behaviorProfile = StatusBehaviorProfile::None,
     },
     StatusCatalogEntry{
+        .status = BattleStatusKind::SwordGuard,
+        .label = "劍意護身",
+        .quantity = StatusQuantityModel::TriggerCharges,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::AuthoredRefreshDuration,
+        .behaviorClassification = StatusBehaviorClassification::OpenMarker,
+        .behaviorProfile = StatusBehaviorProfile::None,
+    },
+    StatusCatalogEntry{
         .status = BattleStatusKind::NextAttackCritical,
         .label = "下一次攻擊必定暴擊",
         .quantity = StatusQuantityModel::Internal,

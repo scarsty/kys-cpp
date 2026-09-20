@@ -755,7 +755,6 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         case BattleAttribute::BlockChance:
         case BattleAttribute::DamageReduction:
         case BattleAttribute::SkillDamage:
-        case BattleAttribute::ProjectilePressureDamage:
         case BattleAttribute::CooldownReduction:
         case BattleAttribute::MpRecoveryBonus:
         case BattleAttribute::StaggerResistance:

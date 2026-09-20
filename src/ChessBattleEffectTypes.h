@@ -168,6 +168,7 @@ enum class BattleStatusKind
     TrueQi,
     PoisonExplosion,
     Shadowless,
+    SwordGuard,
     NextAttackCritical,
     Count,
 };
@@ -311,7 +312,6 @@ enum class BattleAttribute
     BlockChance,
     DamageReduction,
     SkillDamage,
-    ProjectilePressureDamage,
     CooldownReduction,
     MpRecoveryBonus,
     StaggerResistance,

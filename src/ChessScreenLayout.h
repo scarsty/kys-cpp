@@ -104,13 +104,10 @@ inline PanelFrame browseDetailRegionForMenu(const PanelAnchor& menuAnchor, const
     auto region = fullContentRegion();
     auto fallback = browseDetailRegion();
     int menuRight = menuAnchor.x + estimateMenuWidth(labels, fontSize);
+    // The detail panel must always clear the menu's right edge; widening the
+    // panel back over the menu (a minimum-width clamp) would overlap it.
     int left = std::max(fallback.x, menuRight + 40);
     int right = region.x + region.w - 10;
-    int minWidth = 560;
-    if (right - left < minWidth)
-    {
-        left = std::max(fallback.x, right - minWidth);
-    }
     return {left, fallback.y, right - left, fallback.h};
 }
 
