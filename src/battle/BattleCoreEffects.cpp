@@ -2329,11 +2329,15 @@ void reserveEffectAttack(
     std::optional<BattleCastStart> assisted;
     if (request.initial.attackSourceUnitId != parent.sourceUnitId)
     {
+        const auto assistedPropagation = request.provenance.propagation
+                == CastPropagationPolicy::NoEffectRules
+            ? CastPropagationPolicy::NoEffectRules
+            : CastPropagationPolicy::SourceHitRulesOnly;
         assisted = lifecycle.beginChildCast(parent.castId, {
             .sourceUnitId = request.initial.attackSourceUnitId,
             .magicId = request.initial.skillId,
             .origin = CastOriginKind::AssistedAttack,
-            .propagation = request.provenance.propagation,
+            .propagation = assistedPropagation,
         });
     }
     const auto reservation = lifecycle.reserveAttack(

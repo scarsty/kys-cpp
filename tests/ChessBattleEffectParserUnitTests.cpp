@@ -255,3 +255,34 @@ TEST_CASE("Composable effects validate named choices and default omitted formula
         CHECK_FALSE(parseGameplayEffects(YAML::Load(invalid), effects, rules, id, "錯誤組合"));
     }
 }
+
+TEST_CASE("Authored star-scaled spiral lifetime and target fire area preserve their formulas",
+          "[chess][effects][composition][star]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(
+        YAML::Load(R"(
+- {類型: 機率螺旋流血攻擊, 機率百分比: 10, 彈道數: 3, 流血層數: 1, 基礎幀數: 20, 每星幀數: 15}
+- {類型: 持續傷害區域, 半徑格數: 5, 持續幀數: 180, 每星傷害: 25, 間隔幀數: 20}
+)"),
+        effects,
+        rules,
+        id,
+        "星級效果"));
+    REQUIRE(rules.size() == 2);
+
+    const auto& spiral = std::get<ModifyAttackAction>(rules[0].actions[0].value);
+    const auto& behavior = std::get<ExpandingSpiralAttackBehavior>(spiral.runtimeBehavior);
+    CHECK(behavior.baseFrames == 20);
+    CHECK(behavior.framesPerStar == 15);
+
+    CHECK(rules[1].event == EffectEvent::MainProjectileBeforeDamage);
+    const auto& area = std::get<CreateAreaAction>(rules[1].actions[0].value);
+    CHECK(area.anchor == AreaAnchor::HitPosition);
+    CHECK(area.radiusTiles == 5);
+    REQUIRE(area.modifiers.size() == 1);
+    CHECK(area.modifiers[0].amount.base == EffectNumberBase::SourceStar);
+    CHECK(area.modifiers[0].amount.percent == 2500);
+}

@@ -1204,6 +1204,60 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecuteUsesCommittedPendingDamage", "[
 }
 
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_TypedExecuteDamageShowsExecutionPresentationAndLogs", "[battle][core][execute]")
+{
+    auto state = auraBattleState();
+    state.movement.frame = 1;
+    state.damage.presentationStylesByDefender[2].executeTextSize = 44;
+    state.effectSourceNames[{ EffectSourceKind::Magic, 67 }] = "胡家刀法";
+
+    auto execute = preResolvedDamageInput(0, 2, 40, 100);
+    execute.request.damageKind = BattleDamageKind::Execute;
+    execute.request.canExecute = true;
+    execute.request.executeThresholdPct = 100;
+    queuePendingDamage(
+        state,
+        execute,
+        {},
+        EffectRuleDamageOrigin{
+            .ruleId = EffectRuleId{ 1 },
+            .binding = {
+                .kind = EffectSourceKind::Magic,
+                .sourceId = 67,
+                .ownerUnitId = 0,
+                .sourceTeam = 0,
+            },
+        });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK_FALSE(state.units.requireCore(2).alive);
+    CHECK(std::ranges::any_of(result.visualEvents, [](const BattleVisualEvent& event)
+    {
+        return event.type == BattleVisualEventType::FloatingText
+            && event.targetUnitId == 2
+            && event.text == "處決！"
+            && event.textSize == 44;
+    }));
+    CHECK(std::ranges::any_of(result.logEvents, [](const BattleLogEvent& event)
+    {
+        return event.type == BattleLogEventType::Status
+            && event.sourceUnitId == 0
+            && event.targetUnitId == 2
+            && event.statusId == BattleStatusSemanticId::ExecuteTriggered
+            && BattleLogTest::textOf(event) == "觸發處決";
+    }));
+    CHECK(std::ranges::any_of(result.logEvents, [](const BattleLogEvent& event)
+    {
+        return event.type == BattleLogEventType::Damage
+            && event.sourceUnitId == 0
+            && event.targetUnitId == 2
+            && event.skillName == "胡家刀法"
+            && BattleLogTest::textOf(event) == "處決";
+    }));
+}
+
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[battle][core][breakthrough]")
 {
     auto frame = hitDamageFrameState(70, 100);

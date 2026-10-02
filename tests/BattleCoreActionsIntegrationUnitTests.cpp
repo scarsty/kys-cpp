@@ -2,6 +2,7 @@
 #include <yaml-cpp/yaml.h>
 #include "EffectCommandTestHelpers.h"
 #include "battle/BattleCore.h"
+#include "battle/BattleCoreDetail.h"
 #include "BattleCoreTestHelpers.h"
 
 #include "BattleLogTestHelpers.h"
@@ -1434,6 +1435,7 @@ TEST_CASE("BattleFrameRunner_TypedSpiralBleedCarriesCastLineageAndWork", "[battl
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     auto& unit = state.units.requireCore(0);
+    unit.star = 3;
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -1444,6 +1446,8 @@ TEST_CASE("BattleFrameRunner_TypedSpiralBleedCarriesCastLineageAndWork", "[battl
     spiral.runtimeBehavior = ExpandingSpiralAttackBehavior{
         .projectileCount = 1,
         .bleedStacks = 2,
+        .baseFrames = 20,
+        .framesPerStar = 15,
     };
     EffectRule spiralRule;
     spiralRule.id = { 1 };
@@ -1481,6 +1485,7 @@ TEST_CASE("BattleFrameRunner_TypedSpiralBleedCarriesCastLineageAndWork", "[battl
     CHECK(spiralIt->provenance.propagation == CastPropagationPolicy::SourceHitRulesOnly);
     CHECK(spiralIt->provenance.sharedHitGroupId > 0);
     CHECK(spiralIt->castWork.valid());
+    CHECK(spiralIt->state.totalFrame == 65);
     CHECK(state.effectRules.activationCount(spiralBinding, { 1 }) == 1);
 
     for (int frame = 0;
@@ -2069,4 +2074,47 @@ TEST_CASE("BattleFrameRunner launches allied seven star swords without interrupt
     CHECK(retired->aggregate.totalActualHpDamage > 0);
     CHECK(retired->aggregate.distinctHitUnitIds.contains(1));
     CHECK(retired->outstandingWork == 0);
+}
+
+TEST_CASE("Assisted effect attacks keep source hit rules without dispatching cast lifecycle rules",
+          "[battle][core][cast][assisted-attack]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto reserveAssisted = [&](CastPropagationPolicy propagation)
+    {
+        const auto parent = lifecycle.beginRootCast({
+            .sourceUnitId = 0,
+            .magicId = 301,
+            .ultimate = true,
+            .origin = CastOriginKind::Ultimate,
+            .propagation = CastPropagationPolicy::SourceRules,
+        });
+        BattleAttackSpawnRequest request{BattleAttackPayload(
+            BattleAttackDelivery::projectile(),
+            BattleProjectilePayloadClass::combat(),
+            BattleAttackReflectionLineageKind::Ordinary)};
+        request.initial.attackSourceUnitId = 2;
+        request.initial.skillId = 301;
+        request.provenance.rootAttack = false;
+        request.provenance.mainProjectile = false;
+        request.provenance.propagation = propagation;
+
+        CoreDetail::reserveEffectAttack(lifecycle, parent.provenance, request);
+
+        REQUIRE(request.provenance.valid());
+        CHECK(request.provenance.cast.sourceUnitId == 2);
+        CHECK(request.provenance.cast.parentCastId == parent.provenance.castId);
+        CHECK(request.provenance.cast.origin == CastOriginKind::AssistedAttack);
+        CHECK(request.provenance.propagation == propagation);
+        return request.provenance.cast.propagation;
+    };
+
+    CHECK(reserveAssisted(CastPropagationPolicy::SourceRules)
+          == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(reserveAssisted(CastPropagationPolicy::SuppressUltimateRules)
+          == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(reserveAssisted(CastPropagationPolicy::BorrowedUltimateRules)
+          == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(reserveAssisted(CastPropagationPolicy::NoEffectRules)
+          == CastPropagationPolicy::NoEffectRules);
 }

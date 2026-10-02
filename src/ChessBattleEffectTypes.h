@@ -735,6 +735,8 @@ struct ExpandingSpiralAttackBehavior
 {
     int projectileCount{};
     int bleedStacks{};
+    int baseFrames{};
+    int framesPerStar{};
 
     bool operator==(const ExpandingSpiralAttackBehavior&) const = default;
 };

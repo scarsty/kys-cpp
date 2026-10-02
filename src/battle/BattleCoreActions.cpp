@@ -1560,6 +1560,8 @@ void applySpiralBleedCastEffect(
     const EffectCommandMetadata& producerMetadata,
     int bleedStacks,
     int projectileCount,
+    int baseFrames,
+    int framesPerStar,
     double projectileSpeed,
     std::vector<BattleAttackSpawnRequest>& attackSpawns)
 {
@@ -1591,7 +1593,7 @@ void applySpiralBleedCastEffect(
         request.provenance.origin = BattleAttackOriginKind::CastDerived;
         request.provenance.propagation = CastPropagationPolicy::SourceHitRulesOnly;
         request.initial.position = sourcePosition;
-        request.initial.totalFrame = 35;
+        request.initial.totalFrame = baseFrames + source.star * framesPerStar;
         request.initial.scriptedBleedStacks = bleedStacks;
         request.initial.scriptedBleedProducer =
             BattleEffectCommandSystem::statusProducerProvenance(producerMetadata);
@@ -1639,6 +1641,8 @@ void appendRuntimeSpiralBleedCastEffects(
                 command.metadata,
                 spiral->bleedStacks,
                 spiral->projectileCount,
+                spiral->baseFrames,
+                spiral->framesPerStar,
                 projectileSpeed,
                 attackSpawns);
         }

@@ -169,7 +169,7 @@ ChessSha256 attackRuntimeBehaviorContentHash(const AttackRuntimeBehavior& behavi
                     typed.delayFrames, typed.damagePct, typed.attackerBlockGainChancePct);
             else
                 return chessBeveSha256("KYS_EFFECT_ATTACK_RUNTIME", behavior.index(),
-                    typed.projectileCount, typed.bleedStacks);
+                    typed.projectileCount, typed.bleedStacks, typed.baseFrames, typed.framesPerStar);
         },
         behavior);
 }

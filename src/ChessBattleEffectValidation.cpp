@@ -1438,8 +1438,9 @@ bool validateActionPayload(
                             }
                             else if constexpr (std::is_same_v<B, ExpandingSpiralAttackBehavior>)
                             {
-                                if (behavior.projectileCount > 0 && behavior.bleedStacks > 0) return true;
-                                return reject("擴張螺旋需要正彈道數量與正流血層數");
+                                if (behavior.projectileCount > 0 && behavior.bleedStacks > 0
+                                    && behavior.baseFrames > 0 && behavior.framesPerStar > 0) return true;
+                                return reject("擴張螺旋需要正彈道數量、正流血層數、正基礎幀數與正每星幀數");
                             }
                             else
                             {

@@ -1644,6 +1644,20 @@ std::string formatExecuteStatus(int thresholdPct)
     return std::format("觸發處決（斬殺線{}%）", thresholdPct);
 }
 
+void appendExecuteStatusLog(
+    BattleFrameContext& frame,
+    int attackerUnitId,
+    int defenderUnitId,
+    int thresholdPct)
+{
+    CoreDetail::appendStatusEventLog(
+        frame.logEvents,
+        attackerUnitId,
+        defenderUnitId,
+        formatExecuteStatus(thresholdPct));
+    frame.logEvents.back().statusId = BattleStatusSemanticId::ExecuteTriggered;
+}
+
 void appendDamagePresentationDetail(BattleDamagePresentationInput& presentation, std::string text)
 {
     if (presentation.segments.empty())
@@ -1683,11 +1697,11 @@ bool applyFrameExecuteReaction(
     request.executeThresholdPct = intent.executeThresholdPct;
     presentation.executed = true;
     appendDamagePresentationDetail(presentation, "處決");
-    CoreDetail::appendStatusEventLog(
-        frame.logEvents,
+    appendExecuteStatusLog(
+        frame,
         request.attackerUnitId,
         request.defenderUnitId,
-        formatExecuteStatus(intent.executeThresholdPct));
+        intent.executeThresholdPct);
     return true;
 }
 
@@ -2123,6 +2137,17 @@ void applyDamageAndLifecycle(
         transactionInput.redirectHpDamage = redirect.has_value();
         if (request.redirected) transactionInput.liveOutgoingDamagePctDelta = 0;
         auto transaction = BattleDamageSystem().resolveTransaction(transactionInput, &state.talentRandom);
+        if (transaction.executed && !presentation.executed)
+        {
+            presentation.executed = true;
+            appendDamagePresentationDetail(presentation, "處決");
+            applyFrameDamagePresentationStyle(state, transaction.defender.id, presentation);
+            appendExecuteStatusLog(
+                frame,
+                transaction.attacker.id,
+                transaction.defender.id,
+                0);
+        }
         if (transaction.redirectedHpDamage > 0)
         {
             BattleDamageRequest redirected;

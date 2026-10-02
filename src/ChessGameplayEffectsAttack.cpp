@@ -913,11 +913,15 @@ struct ChanceSpiralBleedAttack final : GameplayEffectDefinition
     int 機率百分比{};
     int 彈道數{};
     int 流血層數{};
+    int 基礎幀數{};
+    int 每星幀數{};
     static constexpr std::string_view Name = "機率螺旋流血攻擊";
-    static constexpr auto Parameters = std::array<Parameter<ChanceSpiralBleedAttack>, 3>{
+    static constexpr auto Parameters = std::array<Parameter<ChanceSpiralBleedAttack>, 5>{
         {Parameter<ChanceSpiralBleedAttack>{{"機率百分比", 0, 100}, &ChanceSpiralBleedAttack::機率百分比},
          Parameter<ChanceSpiralBleedAttack>{{"彈道數", 1, 1000}, &ChanceSpiralBleedAttack::彈道數},
-         Parameter<ChanceSpiralBleedAttack>{{"流血層數", 1, 1000}, &ChanceSpiralBleedAttack::流血層數}}};
+         Parameter<ChanceSpiralBleedAttack>{{"流血層數", 1, 1000}, &ChanceSpiralBleedAttack::流血層數},
+         Parameter<ChanceSpiralBleedAttack>{{"基礎幀數", 1, 1000000}, &ChanceSpiralBleedAttack::基礎幀數},
+         Parameter<ChanceSpiralBleedAttack>{{"每星幀數", 1, 1000000}, &ChanceSpiralBleedAttack::每星幀數}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -925,20 +929,30 @@ struct ChanceSpiralBleedAttack final : GameplayEffectDefinition
                            .chancePct = 機率百分比,
                            .actions = {EffectAction{
                                .value = ModifyAttackAction{.runtimeBehavior = ExpandingSpiralAttackBehavior{
-                                                               .projectileCount = 彈道數, .bleedStacks = 流血層數}}}}}};
+                                                               .projectileCount = 彈道數,
+                                                               .bleedStacks = 流血層數,
+                                                               .baseFrames = 基礎幀數,
+                                                               .framesPerStar = 每星幀數}}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招有{}%機率追加{}道擴張螺旋攻擊，命中施加{}層流血。流血每層每10幀造成目標最大生命1%"
+                "出招有{}%機率追加{}道擴張螺旋攻擊，持續幀數為{}+星級×{}，命中施加{}層流血。流血每層每10幀造成目標最大生命1%"
                 "傷害，每次最低1點。",
                 機率百分比,
                 彈道數,
+                基礎幀數,
+                每星幀數,
                 流血層數);
         }
-        return std::format("出招：{}%機率追加{}道擴張螺旋；命中：流血+{}層", 機率百分比, 彈道數, 流血層數);
+        return std::format("出招：{}%機率追加{}道擴張螺旋，{}+星級×{}幀；命中：流血+{}層",
+                           機率百分比,
+                           彈道數,
+                           基礎幀數,
+                           每星幀數,
+                           流血層數);
     }
 };
 
