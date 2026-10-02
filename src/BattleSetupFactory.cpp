@@ -125,7 +125,8 @@ const ChessBattleMapDefinition* battleMapDefinition(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content)
 {
-    assert(prepared.chosenMapId >= 0 || content.battleMaps().empty());
+    assert(prepared.chosenMapId >= 0 || content.battleMaps().empty()
+        || (prepared.kind == PreparedChessBattleKind::Standalone && prepared.mapCandidates.empty()));
     const auto found = content.battleMaps().find(prepared.chosenMapId);
     return found == content.battleMaps().end() ? nullptr : &found->second;
 }

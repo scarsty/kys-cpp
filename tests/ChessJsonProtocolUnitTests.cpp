@@ -1,5 +1,6 @@
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessJsonProtocol.h"
+#include "ChessJsonCodec.h"
 #include "ChessReplayJson.h"
 #include "ChessRewardRules.h"
 #include "ChessSessionCheckpoint.h"
@@ -248,7 +249,7 @@ TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",
     REQUIRE(content);
     ChessJsonProtocol protocol(content);
     const auto created = parseResponse(protocol.handleLine(
-        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x000000000000000e"}})"));
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x000000000000000e","detail":"full"}})"));
     REQUIRE(created.ok);
     REQUIRE(created.result);
     // 進度與禁棋欄位如實反映設定值，不鎖特定平衡數字。
@@ -283,7 +284,7 @@ TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",
     REQUIRE(easyContent);
     ChessJsonProtocol easyProtocol(easyContent);
     const auto easy = parseResponse(easyProtocol.handleLine(
-        R"({"id":3,"method":"new","params":{"difficulty":"easy","seed":"0x000000000000000e"}})"));
+        R"({"id":3,"method":"new","params":{"difficulty":"easy","seed":"0x000000000000000e","detail":"full"}})"));
     REQUIRE(easy.ok);
     REQUIRE(easy.result);
     CHECK(easy.result->str.contains(
@@ -331,11 +332,16 @@ TEST_CASE("JSON protocol prepared battle inspection layers positioning and metad
         R"({"id":9,"method":"inspect_prepared_battle","params":{"detail":"compact"}})"));
     const auto full = parseResponse(protocol.handleLine(
         R"({"id":10,"method":"inspect_prepared_battle","params":{"detail":"full"}})"));
+    const auto withBoard = parseResponse(protocol.handleLine(
+        R"({"id":11,"method":"inspect_prepared_battle","params":{"include_board":true}})"));
 
     REQUIRE(summary.ok);
     REQUIRE(summary.result);
     CHECK(summary.result->str.contains("\"chosen_map_name\""));
-    CHECK(summary.result->str.contains("\"board\""));
+    CHECK_FALSE(summary.result->str.contains("\"board\""));
+    REQUIRE(withBoard.ok);
+    REQUIRE(withBoard.result);
+    CHECK(withBoard.result->str.contains("\"board\""));
     CHECK(summary.result->str.contains("\"unit_id\""));
     CHECK(summary.result->str.contains("\"name\":\"選圖測試棋子\""));
     CHECK(summary.result->str.contains("\"team\":\"我方\""));
@@ -367,7 +373,7 @@ TEST_CASE("JSON protocol prepared battle inspection layers positioning and metad
     REQUIRE(compact.result);
     CHECK(compact.result->str.contains("\"weapon\":\"配置選圖劍\""));
     CHECK(compact.result->str.contains(
-        "\"ally_synergies\":[{\"name\":\"配置選圖羈絆\",\"physical_count\":1,\"effective_count\":2}]"));
+        "\"ally_synergies\":[{\"name\":\"配置選圖羈絆\",\"physical_count\":1,\"effective_count\":2,"));
     CHECK(compact.result->str.contains("\"enemy_synergies\":[]"));
     CHECK_FALSE(compact.result->str.contains("\"thresholds\""));
     CHECK_FALSE(compact.result->str.contains("\"contributions\""));
@@ -846,6 +852,204 @@ TEST_CASE("JSON protocol summary actions return changes without embedding observ
     CHECK_FALSE(summary.result->str.contains("\"replay_sequence\""));
 }
 
+TEST_CASE("JSON action deltas reconstruct purchases and recursive merges", "[chess][protocol][delta]")
+{
+    using namespace ProtocolDetail;
+    ChessJsonProtocol protocol(managementContent());
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"new"})")).ok);
+    std::map<int, PieceDto> cachedRoster;
+    for (int slot = 0; slot < 3; ++slot)
+    {
+        const auto response = parseResponse(protocol.handleLine(std::format(
+            R"({{"method":"act","params":{{"action":{{"type":"buy_shop_slot","slot":{}}}}}}})", slot)));
+        REQUIRE(response.ok);
+        const auto delta = readJson<SummaryActionResultDto>(response.result->str);
+        REQUIRE(delta);
+        REQUIRE(delta->accepted);
+        REQUIRE(delta->changes.shop);
+        REQUIRE(delta->changes.roster_upserts);
+        REQUIRE(delta->changes.removed_instance_ids);
+        for (int id : *delta->changes.removed_instance_ids) cachedRoster.erase(id);
+        for (const auto& piece : *delta->changes.roster_upserts) cachedRoster[piece.instance_id] = piece;
+        CHECK(delta->money == protocol.session()->state().money);
+        CHECK(cachedRoster.size() == protocol.session()->state().roster.size());
+        for (const auto& [id, piece] : protocol.session()->state().roster)
+        {
+            REQUIRE(cachedRoster.contains(id));
+            CHECK(cachedRoster.at(id).star == piece.star);
+        }
+        CHECK(delta->changes.shop->at(slot).role_id == -1);
+        REQUIRE(delta->changes.upgrade_progress);
+        CHECK(delta->changes.upgrade_progress->front().owned_copies == slot + 1);
+    }
+    CHECK(cachedRoster.begin()->second.star == 2);
+    const auto observed = parseResponse(protocol.handleLine(R"({"method":"observe"})"));
+    REQUIRE(observed.ok);
+    CHECK(observed.result->str.contains("\"interest_gold\""));
+    CHECK(observed.result->str.contains("\"free_shop_refresh_available\""));
+    CHECK(observed.result->str.contains("\"remaining_ban_capacity\""));
+    CHECK(observed.result->str.contains("\"content_fingerprint\""));
+    CHECK_FALSE(observed.result->str.contains("\"talent_description\""));
+    CHECK_FALSE(observed.result->str.contains("\"luck_stacks\""));
+}
+
+TEST_CASE("JSON action batches match individual actions and authoritative replay", "[chess][protocol][batch]")
+{
+    using namespace ProtocolDetail;
+    ChessJsonProtocol single(managementContent());
+    ChessJsonProtocol batch(managementContent());
+    const std::string start = R"({"method":"new","params":{"seed":"0x0000000000000042"}})";
+    REQUIRE(parseResponse(single.handleLine(start)).ok);
+    REQUIRE(parseResponse(batch.handleLine(start)).ok);
+    const std::vector<std::string> actions{
+        R"({"type":"buy_shop_slot","slot":0})", R"({"type":"buy_shop_slot","slot":1})",
+        R"({"type":"buy_shop_slot","slot":2})", R"({"type":"buy_exp"})", R"({"type":"buy_exp"})"};
+    ActionsParams params{};
+    params.detail = "compact";
+    for (const auto& action : actions)
+    {
+        params.actions.push_back(glz::raw_json(action));
+        const auto accepted = parseResponse(single.handleLine(
+            "{\"method\":\"act\",\"params\":{\"action\":" + action + "}}"));
+        REQUIRE(accepted.ok);
+    }
+    RequestDto request{};
+    request.method = "act_batch";
+    request.params = glz::raw_json(writeJson(params));
+    const auto response = parseResponse(batch.handleLine(writeJson(request)));
+    REQUIRE(response.ok);
+    const auto result = readJson<BatchActionResultDto>(response.result->str);
+    REQUIRE(result);
+    CHECK(result->accepted_count == 5);
+    CHECK_FALSE(result->failed_index);
+    REQUIRE(result->next_observation);
+    CHECK(batch.session()->observe().stateHash == single.session()->observe().stateHash);
+    CHECK(serializeChessReplayJsonl(*batch.session()->exportReplay())
+        == serializeChessReplayJsonl(*single.session()->exportReplay()));
+    CHECK(batch.session()->journal().decisions().size() == 5);
+}
+
+TEST_CASE("JSON batches stop at rejection and validate syntax before applying actions", "[chess][protocol][batch]")
+{
+    using namespace ProtocolDetail;
+    ChessJsonProtocol protocol(managementContent());
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"new"})")).ok);
+    const auto response = parseResponse(protocol.handleLine(R"({"method":"act_batch","params":{"actions":[
+        {"type":"buy_shop_slot","slot":0},{"type":"buy_shop_slot","slot":0},{"type":"refresh_shop"}]}})"));
+    REQUIRE(response.ok);
+    const auto batch = readJson<BatchActionResultDto>(response.result->str);
+    REQUIRE(batch);
+    CHECK(batch->accepted_count == 1);
+    CHECK(batch->failed_index == 1);
+    CHECK(batch->actions.size() == 2);
+    CHECK_FALSE(batch->changes.accepted);
+    CHECK(batch->actions.back().error_code == "empty_shop_slot");
+    CHECK(protocol.session()->journal().decisions().size() == 1);
+    const auto hash = protocol.session()->observe().stateHash;
+    const auto malformed = parseResponse(protocol.handleLine(R"({"method":"act_batch","params":{"actions":[
+        {"type":"refresh_shop"},{"type":"does_not_exist"}]}})"));
+    CHECK_FALSE(malformed.ok);
+    CHECK(protocol.session()->observe().stateHash == hash);
+    CHECK_FALSE(parseResponse(protocol.handleLine(R"({"method":"act_batch","params":{"actions":[]}})")).ok);
+}
+
+TEST_CASE("JSON previews compute equipment and combo changes without altering live state", "[chess][protocol][preview]")
+{
+    using namespace ProtocolDetail;
+    EffectRule equipmentRule{};
+    equipmentRule.event = EffectEvent::BattleInitialized;
+    ModifyAttributeAction attackBonus{};
+    attackBonus.attribute = BattleAttribute::Attack;
+    attackBonus.amount.flat = 25;
+    attackBonus.operation = AttributeOperation::FlatAdd;
+    equipmentRule.actions.push_back({EffectActionValue{attackBonus}});
+    ChessJsonProtocol protocol(configuredMapChoiceContent({equipmentRule}));
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"new"})")).ok);
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"act","params":{"action":{"type":"buy_shop_slot","slot":0}}})")).ok);
+    auto* session = const_cast<ChessGameSession*>(protocol.session());
+    auto checkpoint = ChessSessionCheckpoint::capture(*session, 0);
+    std::vector<ChessSemanticEvent> events;
+    const int proxy = ChessManagementRules::grantPiece(checkpoint.state, session->content(), 30, events);
+    const int equipment = ChessManagementRules::grantEquipment(checkpoint.state, 500, events);
+    checkpoint.state.level = 1;
+    REQUIRE(checkpoint.restore(*session) == ChessCheckpointError::None);
+    REQUIRE(parseResponse(protocol.handleLine(std::format(
+        R"({{"method":"act","params":{{"action":{{"type":"set_deployment","chess_instance_ids":[1,{}]}}}}}})", proxy))).ok);
+    const auto hash = session->observe().stateHash;
+    const auto random = session->random().state();
+    const auto replay = serializeChessReplayJsonl(*session->exportReplay());
+    const auto saves = protocol.handleLine(R"({"method":"list_saves"})");
+    const auto response = parseResponse(protocol.handleLine(std::format(
+        R"({{"method":"preview_actions","params":{{"actions":[{{"type":"equip","equipment_instance_id":{},"target_chess_instance_id":{}}}]}}}})", equipment, proxy)));
+    CAPTURE(response.error_code, response.error_message);
+    REQUIRE(response.ok);
+    const auto preview = readJson<BatchActionResultDto>(response.result->str);
+    REQUIRE(preview);
+    CHECK(preview->accepted_count == 1);
+    CHECK(preview->preview);
+    REQUIRE(preview->changes.changes.equipment_inventory);
+    REQUIRE(preview->changes.changes.combos);
+    REQUIRE(preview->projected_units);
+    const auto projected = std::ranges::find(*preview->projected_units, proxy,
+        [](const auto& unit) { return unit.chess_instance_id.value(); });
+    REQUIRE(projected != preview->projected_units->end());
+    CHECK(projected->weapon == "配置選圖劍");
+    REQUIRE(projected->stat_delta);
+    CHECK(projected->stat_delta->attack == 25);
+    CHECK(session->observe().stateHash == hash);
+    CHECK(session->random().state() == random);
+    CHECK(serializeChessReplayJsonl(*session->exportReplay()) == replay);
+    CHECK(protocol.handleLine(R"({"method":"list_saves"})") == saves);
+    const auto forbidden = parseResponse(protocol.handleLine(R"({"method":"preview_actions","params":{"actions":[{"type":"refresh_shop"}]}})"));
+    CHECK(forbidden.error_code == "unsupported_preview_action");
+    CHECK(session->observe().stateHash == hash);
+}
+
+TEST_CASE("JSON planning accounts for copy progress and remaining campaign experience", "[chess][protocol][plan]")
+{
+    using namespace ProtocolDetail;
+    ChessJsonProtocol protocol(managementContent());
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"new"})")).ok);
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"act_batch","params":{"actions":[
+        {"type":"buy_shop_slot","slot":0},{"type":"buy_shop_slot","slot":1},
+        {"type":"buy_shop_slot","slot":2},{"type":"buy_shop_slot","slot":3}]}})")).ok);
+    auto* session = const_cast<ChessGameSession*>(protocol.session());
+    auto checkpoint = ChessSessionCheckpoint::capture(*session, 0);
+    checkpoint.state.level = 1;
+    checkpoint.state.experience = 2;
+    checkpoint.state.fight = 26;
+    REQUIRE(checkpoint.restore(*session) == ChessCheckpointError::None);
+    const auto hash = session->observe().stateHash;
+    const auto response = parseResponse(protocol.handleLine(R"({"method":"inspect_plan","params":{"role_ids":[10]}})"));
+    REQUIRE(response.ok);
+    const auto plan = readJson<PlanDto>(response.result->str);
+    REQUIRE(plan);
+    REQUIRE(plan->roles.size() == 1);
+    CHECK(plan->roles.front().owned_copies == 4);
+    CHECK(plan->roles.front().highest_star == 2);
+    CHECK(plan->roles.front().copies_to_next_star == 5);
+    CHECK(plan->experience_to_max_level == 14);
+    CHECK(plan->remaining_campaign_experience == 12);
+    CHECK(plan->paid_experience_needed == 2);
+    CHECK(session->observe().stateHash == hash);
+    CHECK_FALSE(parseResponse(protocol.handleLine(R"({"method":"inspect_plan","params":{"role_ids":[-1]}})")).ok);
+}
+
+TEST_CASE("JSON static catalog batches remain cacheable across state changes", "[chess][protocol][catalog]")
+{
+    ChessJsonProtocol protocol(configuredMapChoiceContent());
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"new"})")).ok);
+    const std::string request = R"({"method":"inspect_catalog","params":{"role_ids":[10,20],"item_ids":[500],"combo_names":["配置選圖羈絆"]}})";
+    const auto before = parseResponse(protocol.handleLine(request));
+    REQUIRE(before.ok);
+    REQUIRE(parseResponse(protocol.handleLine(R"({"method":"act","params":{"action":{"type":"buy_shop_slot","slot":0}}})")).ok);
+    const auto after = parseResponse(protocol.handleLine(request));
+    REQUIRE(after.ok);
+    CHECK(before.result->str == after.result->str);
+    CHECK(before.result->str.contains("\"talent_description\""));
+    CHECK_FALSE(parseResponse(protocol.handleLine(R"({"method":"inspect_catalog","params":{"item_ids":[-999]}})")).ok);
+}
+
 TEST_CASE("JSON protocol battle preparation and start summaries stay bounded",
           "[chess][protocol][actions][summary][battle]")
 {
@@ -868,7 +1072,7 @@ TEST_CASE("JSON protocol battle preparation and start summaries stay bounded",
     CHECK(prepared.result->str.size() < 3000);
     CHECK(prepared.result->str.contains("\"events\":[\"battle_prepared\"]"));
     CHECK_FALSE(prepared.result->str.contains("\"next_observation\""));
-    CHECK_FALSE(prepared.result->str.contains("\"prepared_battle\""));
+    CHECK(prepared.result->str.contains("\"prepared_battle\""));
 
     REQUIRE(parseResponse(protocol.handleLine(
         R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":7}}})")).ok);

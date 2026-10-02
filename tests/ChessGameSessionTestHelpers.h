@@ -76,7 +76,8 @@ inline std::shared_ptr<const ChessGameContent> managementContent(
         std::move(gameVersion));
 }
 
-inline std::shared_ptr<const ChessGameContent> configuredMapChoiceContent()
+inline std::shared_ptr<const ChessGameContent> configuredMapChoiceContent(
+    std::vector<EffectRule> equipmentRules = {})
 {
     ChessGameContentData data;
     data.difficulty = Difficulty::Normal;
@@ -126,7 +127,7 @@ inline std::shared_ptr<const ChessGameContent> configuredMapChoiceContent()
         500,
         1,
         0,
-        {},
+        std::move(equipmentRules),
         {CountsAsComboRule{"配置選圖羈絆"}},
     });
 

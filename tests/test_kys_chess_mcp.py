@@ -202,17 +202,36 @@ class McpAdapterTests(unittest.TestCase):
                     names = {tool.name for tool in tools.tools}
                     self.assertIn("export_save_file", names)
                     self.assertIn("inspect_last_battle_events", names)
+                    self.assertTrue({"take_actions", "preview_actions", "inspect_plan", "inspect_catalog"} <= names)
                     self.assertNotIn("export_save", names)
                     self.assertFalse(created.isError)
                     self.assertTrue(created.structuredContent["ok"])
-                    expected_text = json.dumps(
-                        created.structuredContent,
-                        ensure_ascii=False,
-                        separators=(",", ":"),
-                    )
-                    self.assertEqual(created.content[0].text, expected_text)
-                    self.assertNotIn("\\u", created.content[0].text)
-                    self.assertNotIn("\n", created.content[0].text)
+                    self.assertEqual(created.content, [])
+                    self.assertEqual(created.structuredContent["result"]["game_state"]["detail"], "compact")
+                    missing = await session.call_tool("inspect_role", {"role_id": -999})
+                    self.assertTrue(missing.isError)
+                    self.assertEqual(missing.content, [])
+                    self.assertFalse(missing.structuredContent["ok"])
+                    bought = await session.call_tool("take_actions", {"actions": [
+                        {"type": "buy_shop_slot", "slot": 0},
+                        {"type": "set_shop_locked", "locked": True},
+                    ]})
+                    self.assertEqual(bought.content, [])
+                    self.assertEqual(bought.structuredContent["result"]["accepted_count"], 2)
+                    bought_id = bought.structuredContent["result"]["changes"]["changes"]["roster_upserts"][0]["instance_id"]
+                    before = await session.call_tool("observe_game")
+                    autosave = save_dir / "autosave.json"
+                    saved_bytes = autosave.read_bytes()
+                    preview = await session.call_tool("preview_actions", {"actions": [
+                        {"type": "set_deployment", "chess_instance_ids": [bought_id]},
+                    ]})
+                    self.assertEqual(preview.structuredContent["result"]["accepted_count"], 1)
+                    self.assertTrue(preview.structuredContent["result"]["projected_units"])
+                    after = await session.call_tool("observe_game")
+                    self.assertEqual(before.structuredContent["result"], after.structuredContent["result"])
+                    self.assertEqual(autosave.read_bytes(), saved_bytes)
+                    persisted = json.loads(saved_bytes)
+                    self.assertEqual(persisted["snapshot_hash"], before.structuredContent["result"]["game_state"]["state_hash"])
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

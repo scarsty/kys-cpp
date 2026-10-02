@@ -4,11 +4,20 @@
 #include "ChessGameContent.h"
 
 #include <optional>
+#include <array>
 #include <string>
 #include <vector>
 
 namespace KysChess
 {
+
+struct ChessRoleCopiesAnalysis
+{
+    std::array<int, 3> copiesByStar{};
+    int ownedCopies{};
+    int highestStar{};
+};
+ChessRoleCopiesAnalysis queryChessRoleCopies(const ChessSessionState& state, int roleId);
 
 struct ChessShopTierOddsAnalysis
 {

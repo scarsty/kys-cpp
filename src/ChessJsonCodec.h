@@ -125,6 +125,11 @@ std::optional<ShopSlotInspectionDto> inspectShopSlotDto(
     const ChessGameSession& session,
     int slotIndex);
 ShopInspectionDto shopInspectionDto(const ChessGameSession& session);
+PlanDto planDto(const ChessGameSession& session, std::span<const int> roleIds = {});
+std::optional<CatalogDto> inspectCatalogDto(
+    const ChessGameSession& session,
+    const CatalogParams& params,
+    CatalogDetail detail);
 std::optional<ChessInstanceInspectionDto> inspectChessInstanceDto(
     const ChessGameSession& session,
     int chessInstanceId);
@@ -149,10 +154,15 @@ BattleResultDto battleResultDto(
     const ChessGameContent& content,
     const PreparedChessBattle& prepared,
     const HeadlessBattleResult& battle,
-    BattleReportDetail detail);
+    BattleReportDetail detail,
+    const InspectLastBattleParams& params = {});
+bool validBattleReportParams(const InspectLastBattleParams& params);
+std::vector<PreparedUnitDto> previewRosterStatsDto(
+    const ChessGameSession& session, const ChessGameSession& baseline);
 std::optional<BattleResultDto> inspectLastBattleDto(
     const ChessGameSession& session,
-    BattleReportDetail detail);
+    BattleReportDetail detail,
+    const InspectLastBattleParams& params = {});
 std::optional<BattleEventPageDto> inspectLastBattleEventsDto(
     const ChessGameSession& session,
     const BattleEventsParams& params,

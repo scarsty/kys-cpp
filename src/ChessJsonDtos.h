@@ -126,7 +126,7 @@ struct NewParams
     std::optional<std::string> talent;
     std::string difficulty = "normal";
     std::string seed = "0x0000000000000001";
-    std::string detail = "full";
+    std::string detail = "compact";
     std::optional<bool> position_swap_enabled;
 };
 
@@ -141,9 +141,30 @@ struct ActParams
     std::string detail = "summary";
 };
 
+struct ActionsParams
+{
+    std::vector<glz::raw_json> actions;
+    std::string detail = "summary";
+};
+struct PlanParams { std::vector<int> role_ids; };
+struct CatalogParams
+{
+    std::vector<int> role_ids;
+    std::vector<int> item_ids;
+    std::vector<std::string> combo_names;
+    std::string detail = "compact";
+};
+
 struct ObserveParams { std::string detail = "compact"; };
-struct InspectPreparedBattleParams { std::string detail = "summary"; };
-struct InspectLastBattleParams { std::string detail = "summary"; };
+struct InspectPreparedBattleParams { std::string detail = "summary"; bool include_board{}; };
+struct InspectLastBattleParams
+{
+    std::string detail = "summary";
+    std::optional<std::vector<std::string>> sections;
+    std::vector<int> unit_ids;
+    std::vector<std::string> effect_types;
+    std::optional<std::vector<std::string>> metrics;
+};
 struct RoleParams { int role_id = -1; std::string detail = "compact"; };
 struct ComboParams { std::string combo_name; std::string detail = "summary"; };
 struct EquipmentParams { int item_id = -1; };
@@ -243,8 +264,8 @@ struct PieceDto
     int star{};
     bool deployed{};
     int fights_won{};
-    int luck_stacks{};
-    int luck_chance_percent{};
+    std::optional<int> luck_stacks;
+    std::optional<int> luck_chance_percent;
     std::optional<RoleStatsDto> current_stats;
     std::optional<std::string> current_stats_note;
 };
@@ -284,6 +305,7 @@ struct PreparedUnitDto
     int x{};
     int y{};
     std::optional<RoleStatsDto> preview_stats;
+    std::optional<RoleStatsDto> stat_delta;
     std::optional<std::string> stats_note;
     std::optional<std::vector<AbilityDto>> abilities;
 };
@@ -425,6 +447,14 @@ struct BattleKeyEventDto
     int frame{};
     std::string description;
 };
+struct BattleDeathDto
+{
+    int frame{};
+    int unit_id{};
+    std::string name;
+    std::string team;
+    int killer_unit_id{};
+};
 struct BattleResultDto
 {
     std::string detail;
@@ -432,11 +462,12 @@ struct BattleResultDto
     std::string outcome;
     std::string outcome_description;
     int end_frame{};
-    std::vector<BattleSurvivorDto> survivors;
-    std::vector<BattleUnitStatsDto> unit_stats;
+    std::optional<std::vector<BattleSurvivorDto>> survivors;
+    std::optional<std::vector<glz::raw_json>> unit_stats;
+    std::optional<std::vector<BattleDeathDto>> death_order;
     std::optional<std::vector<BattleImportantEffectDto>> important_effects;
     std::optional<std::vector<BattleEffectActivationDto>> effect_activations;
-    std::vector<BattleKeyEventDto> key_events;
+    std::optional<std::vector<BattleKeyEventDto>> key_events;
     std::string summary;
     std::string digest;
 };
@@ -625,6 +656,9 @@ struct ComboDto
     std::string name;
     int physical_count{};
     int effective_count{};
+    std::optional<int> active_threshold;
+    std::optional<int> next_required_count;
+    std::optional<int> count_to_next_threshold;
     std::optional<std::vector<ComboThresholdDto>> active_thresholds;
     std::optional<NextThreshold> next_threshold;
     std::optional<std::vector<ContributionSource>> contribution_sources;
@@ -637,7 +671,8 @@ struct ObservationDto
 {
     std::string talent;
     std::string talent_name;
-    std::string talent_description;
+    std::optional<std::string> talent_description;
+    std::string content_fingerprint;
     bool talent_has_legendary_shop{};
     bool legendary_shop_unlocked{};
     std::vector<int> shop_guarantees;
@@ -796,6 +831,7 @@ struct ActionResultDto
     std::optional<std::string> evidence_hash;
 };
 
+struct RoleUpgradeDto;
 struct SummaryActionChangesDto
 {
     struct Merge
@@ -817,6 +853,16 @@ struct SummaryActionChangesDto
     bool reward_changed{};
     bool prepared_battle_changed{};
     std::vector<Merge> merged_units;
+    std::optional<std::vector<ShopSlotDto>> shop;
+    std::optional<std::vector<PieceDto>> roster_upserts;
+    std::optional<std::vector<int>> removed_instance_ids;
+    std::optional<std::vector<int>> formation_slots;
+    std::optional<std::vector<EquipmentDto>> equipment_inventory;
+    std::optional<std::vector<int>> bans;
+    std::optional<PendingRewardDto> pending_reward;
+    std::optional<PreparedBattleDto> prepared_battle;
+    std::optional<std::vector<ComboDto>> combos;
+    std::optional<std::vector<RoleUpgradeDto>> upgrade_progress;
 };
 
 struct SummaryBattleDto
@@ -834,9 +880,78 @@ struct SummaryActionResultDto
     std::vector<std::string> events;
     SummaryActionChangesDto changes;
     std::string phase;
+    int money{};
+    int experience{};
+    int level{};
+    int fight{};
+    bool shop_locked{};
+    bool free_shop_refresh_available{};
     std::vector<std::string> legal_action_types;
     std::string state_hash;
     std::optional<SummaryBattleDto> battle;
+};
+
+struct BatchActionStatusDto
+{
+    int index{};
+    std::string type;
+    bool accepted{};
+    std::optional<std::string> error_code;
+    std::string description;
+};
+struct BatchActionResultDto
+{
+    int requested_count{};
+    int accepted_count{};
+    std::optional<int> failed_index;
+    bool preview{};
+    std::vector<BatchActionStatusDto> actions;
+    SummaryActionResultDto changes;
+    std::optional<ObservationDto> next_observation;
+    std::optional<std::vector<PreparedUnitDto>> projected_units;
+    std::optional<std::string> projected_stats_context;
+    std::optional<std::string> live_state_hash;
+};
+struct RoleUpgradeDto
+{
+    int role_id{};
+    std::string name;
+    int cost{};
+    int owned_copies{};
+    int highest_star{};
+    std::optional<int> next_star;
+    std::optional<int> copies_to_next_star;
+    int copies_to_three_star{};
+    int pool_role_count{};
+    double probability_per_slot{};
+};
+struct PlanDto
+{
+    std::string content_fingerprint;
+    int money{};
+    int bench_used{};
+    int bench_capacity{};
+    int remaining_ban_capacity{};
+    int experience_to_max_level{};
+    int remaining_campaign_experience{};
+    int paid_experience_needed{};
+    std::vector<RoleUpgradeDto> roles;
+    ShopOddsSummaryDto odds;
+};
+struct CatalogComboDto
+{
+    std::string name;
+    std::vector<std::string> members;
+    std::vector<ComboThresholdDto> thresholds;
+};
+struct CatalogDto
+{
+    std::string content_fingerprint;
+    std::string talent;
+    std::string talent_description;
+    std::vector<RoleDto> roles;
+    std::vector<EquipmentInfoDto> equipment;
+    std::vector<CatalogComboDto> combos;
 };
 
 struct CompactRejectedObservationDto

@@ -664,6 +664,18 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
     }
 }
 
+PreparedChessBattle ChessBattlePlanner::prepareRosterPreview(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    PreparedChessBattle battle{};
+    battle.kind = PreparedChessBattleKind::Standalone;
+    battle.obtainedNeigongIdsByTeam[0] = state.obtainedNeigongIds;
+    appendAllies(battle, state, content);
+    applyPlayerTalents(battle, state, content);
+    return battle;
+}
+
 PreparedChessBattle ChessBattlePlanner::prepareCampaign(
     const ChessSessionState& state,
     const ChessGameContent& content,

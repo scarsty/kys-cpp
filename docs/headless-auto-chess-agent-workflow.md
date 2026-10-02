@@ -28,15 +28,35 @@ JSON／MCP 的角色、裝備、羈絆與遠征中繼資料由 `ChessCatalogQuer
 
 欄位缺漏時，`invalid_action` 會指出缺少的欄位並回傳正確範例。遠征直接以唯一的繁體中文名稱選擇，例如 `{"type":"start_challenge","challenge_name":"聚賢莊內"}`，配置不再維護額外英文挑戰 ID。合法操作只提供由目前載入配置生成的敵人數、星級範圍、裝備覆蓋與獎勵摘要；需要完整權威陣容時使用 `inspect_challenge`，其角色、星級、武器、防具及獎勵皆直接來自已載入的挑戰定義。
 
-`prepare_battle` 後的 compact 觀察只列具名單位、星級、裝備 ID、地圖候選及站位，不會用全零屬性或空武學陣列冒充完整資料；`inspect_prepared_battle` 會回傳地形板、完整屬性、武學、裝備及雙方羈絆。`start_battle` 的 summary 回應只列結果、階段變更及狀態雜湊；compact 回精簡戰後現況但不嵌入戰報。`inspect_last_battle` 預設為 summary，列出勝負、存活者、每單位輸出／承傷／擊殺及依幀排序的死亡事件；compact 增加開局站位、非零戰鬥指標與重要效果；只有 full 會嵌入完整效果軌跡。
+`prepare_battle` 後的 compact 觀察只列具名單位、星級、裝備、地圖候選及站位；`inspect_prepared_battle` 的 compact 增加雙方羈絆，full 增加屬性、武學與 ASCII 地形板。也可只指定 `include_board: true` 取得地形板。`start_battle` 的 summary 回應包含結果及實際狀態變更；compact 回精簡戰後現況但不嵌入戰報。`inspect_last_battle` 預設列出勝負、存活者、核心輸出／承傷／擊殺及結構化 `death_order`；compact 增加開局座標與非零戰鬥指標。重要效果、詳細傷害來源、ASCII 板及完整軌跡由 full 或明確的診斷投影取得。
 
 大量逐筆事件應使用 `inspect_last_battle_events`。它以 `cursor`／`limit` 分頁，並可傳入 `unit_ids`、`effect_types` 與 `frame_range: {"start":...,"end":...}` 過濾。事件預設為 compact，只回傳結構化欄位；`detail: "full"` 才加入會重複角色、武學及目標名稱的 `description`。
 
 獎勵選項會在選擇前直接列出裝備或內功效果、計入羈絆及指定角色聯動，不必先選取才能理解。戰鬥預覽包含具名地圖、座標方向、ASCII 地形、雙方實際啟用羈絆、敵方預估屬性及當前星級武學；武學同時說明施放距離與單體／直線／十字／範圍幾何。
 
-`new` 預設使用 `full`，`observe` 使用 `detail: "compact" | "full"`。`act` 另分為三層：`summary` 只回接受狀態、事件類型、欄位變更、目前階段、合法操作類型與狀態雜湊；`compact` 再附精簡現況，但不嵌入戰報；`full` 才包含完整定義、語意事件細節、完整戰報及驗證雜湊。MCP 的 `take_action` 預設為 `summary`，因此一般操作不會嵌入完整 `next_observation`。戰敗也不再暗中把 compact 升級成 full；戰鬥細節使用 `inspect_last_battle`，恢復分析使用其他聚焦檢視工具。
+`new` 與 `observe` 都預設使用 `compact`，可明確要求 `detail: "full"`。`act` 另分為三層：`summary` 回傳接受狀態、事件類型、欄位差額、目前金幣／經驗／等級／關卡、商店鎖定／免費刷新狀態、合法操作及狀態雜湊；`compact` 再附精簡現況，`full` 才包含完整定義、語意事件細節、完整戰報及驗證雜湊。MCP 的 `take_action` 預設為 `summary`。
 
-compact 現況固定保留階段、金幣、等級／經驗、主線進度、商店基本列、棋子實例／角色／星級／出戰狀態、啟用羈絆名稱與計數、裝備指派、完成遠征、待選獎勵摘要、合法操作類型及 `state_hash`。它不含每名棋子的計算屬性、羈絆成員／門檻／說明／貢獻、完整裝備效果、角色定義或完整戰鬥軌跡。
+compact 現況保留階段、金幣、利息及下一門檻、預估勝利收入、等級／經驗、禁棋容量、免費刷新、主線進度、商店、棋子、裝備指派、完成遠征、待選獎勵、合法操作及 `state_hash`。已持有但未啟用的羈絆也會列出，並以 `active_threshold`、`next_required_count`、`count_to_next_threshold` 表達進度。只在賭徒或 full 投影列出棋子的 luck 欄位；靜態天賦說明只在 full 或目錄查詢傳輸。`content_fingerprint` 識別目前規則內容。
+
+summary 的 `changes` 會直接攜帶變更後的商店欄位、`roster_upserts`、`removed_instance_ids`、編隊、裝備指派、禁棋、待選獎勵及已準備戰場。棋子變更另附該角色的 `upgrade_progress`。客戶端先刪除舊實例，再套用 upsert；集合欄位是完整替換。`reward_changed` 或 `prepared_battle_changed` 為 true 而對應物件省略時，表示該物件已清除。這些結果足以延續一般購買與刷新，無須每次再呼叫 observe。
+
+## 批次、規劃及聚焦診斷
+
+MCP `take_actions` 對應 JSONL `act_batch`，接受 `actions` 陣列及 summary／compact／full。一批最多六十四筆，語法先全部驗證，再依序提交；遇規則拒絕立即停止。`accepted_count`、零起算的 `failed_index` 及各筆狀態明示已執行前綴，`changes` 是整批的合併差異。每筆接受操作仍獨立寫入權威重播並更新自動存檔；已執行前綴不會回滾。
+
+`preview_actions` 使用獨立檢查點預覽 set_deployment、set_formation、equip、swap_positions、choose_map；操作仍需符合目前階段的規則。預覽回傳同樣的合併差異及 `projected_units` 的開戰屬性與 `stat_delta`，不改變原棋局、亂數、重播或存檔。已有戰場時使用該場敵人與地圖；管理階段使用無敵方的開戰初始化，`projected_stats_context` 會說明對手／地形條件的限制。未選圖時僅列基礎屬性。
+
+`inspect_plan` 可傳入 `role_ids`，省略時彙整全部持有角色。它列出一星等值份數、最高星級、下一升星所需份數、三星進度、候選池大小與目前每格機率，以及板凳容量、禁棋餘額和主線剩餘經驗。`paid_experience_needed` 扣除仍可由主線勝利取得的經驗，不含遠征或尚未確定的其他來源。機率沿用即時商店查詢，並非保證取得角色的金幣成本。
+
+`inspect_catalog` 批次取得 `role_ids`、`item_ids`、`combo_names` 的靜態定義，並提供目前天賦說明。以 `(content_fingerprint, talent, detail)` 作為快取鍵；規則或天賦改變才重新查詢。目錄中的羈絆是靜態門檻，不代表目前啟用狀態。
+
+`inspect_last_battle` 的 `sections` 可選 survivors、unit_stats、death_order、initial_board、board、important_effects、effect_activations、key_events。指定時只輸出所選區段；勝負、總結及戰鬥雜湊仍保留。`unit_ids` 過濾單位、存活者、死亡目標與效果的來源／目標；key_events 與總結保留全場敘述。`metrics` 選取 unit_stats 欄位，仍保留單位識別，明確指定的零值也會輸出。`effect_types` 限定效果種類。以下只查兩個單位的核心輸出與無敵觸發：
+
+```json
+{"sections":["unit_stats","death_order"],"unit_ids":[3,5],"metrics":["damage_dealt","damage_taken","kills","invulnerability_triggers"]}
+```
+
+暫存報告、驗證日誌及人工匯出的重播統一放在 Git 忽略的 `output/artifacts/`，程序的持久自動存檔留在既有 LocalAppData 目錄。
 
 管理決策可按需使用：`inspect_shop_slot` 分析單格的價格、持有份數、預期合成、羈絆前後計數及當前費用機率；`inspect_shop` 一次分析全部欄位，但機率只列各費用機率及剩餘池數量；`get_shop_odds` 才列出指定或目前等級的完整實際可用角色池；`inspect_chess_instance` 列出實際屬性、裝備、升星進度與羈絆貢獻；`inspect_bans` 列出禁棋、剩餘容量、依費用分組的可選角色及生效時機。
 
@@ -126,6 +146,6 @@ MCP 會持續緩衝 CLI 的標準錯誤。CLI 異常結束、沒有回應或回�
 
 GUI 與 CLI 共用原生 `ChessSaveFile` 讀寫實作及同一份檢查點格式。MCP launcher 以 `--autosave-file` 把 `%LOCALAPPDATA%\kys_chess_mcp\saves\autosave.json` 交給 C++ CLI，也可用 `KYS_CHESS_MCP_SAVE_DIR` 指定其父目錄。原生程序啟動時載入這一個 `autosave`；建立棋局、每次接受的行動及成功載入後都會更新它。直接使用 JSONL CLI 時可傳入 `--autosave-file` 取得相同行為。其他命名存檔只存在目前程序；需要可攜或長期存檔時使用 `export_save_file` 與 `import_save_file`。
 
-Python MCP 程序不再逐一宣告遊戲工具。原生程序提供唯一的工具名稱、說明、輸入結構及 JSONL 方法對應；Python 只把原生工具目錄轉成 MCP `tools/list`、泛型轉送 `tools/call`，並保留執行期監督、熱更新與回復。bridge 會明確建立 `CallToolResult`，以無縮排 UTF-8 JSON 填入文字內容並同時提供 `structuredContent`，不會觸發 Python MCP SDK 對普通字典使用 `ensure_ascii=True` 的自動序列化。`kys_chess_cli --mcp` 可不經 Python，直接作為 stdio MCP 伺服器使用。
+Python MCP 程序不再逐一宣告遊戲工具。原生程序提供唯一的工具名稱、說明、輸入結構及 JSONL 方法對應；Python 只把原生工具目錄轉成 MCP `tools/list`、泛型轉送 `tools/call`，並保留執行期監督、熱更新與回復。Python bridge 與 `kys_chess_cli --mcp` 都只在 `structuredContent` 提供一次結果，`content` 為空，避免把同一份 JSON 再複製成文字。客戶端需讀取結構化結果；原生要求錯誤也會設置 `isError`。`kys_chess_cli --mcp` 可不經 Python，直接作為 stdio MCP 伺服器使用。
 
 `kys_chess_cli.vcxproj` 的建置後步驟會把目前組態的 vcpkg DLL 複製到 CLI 執行檔旁，Debug 使用 `debug\bin`，Release 使用 `bin`，涵蓋 sqlite、yaml-cpp、zip、bz2 與 zlib 等執行期相依項目。

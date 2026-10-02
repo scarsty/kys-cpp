@@ -3,6 +3,7 @@
 #include "ChessActionText.h"
 #include "ChessAsciiBoard.h"
 #include "ChessBattleAnalysis.h"
+#include "ChessBattlePlanner.h"
 #include "ChessCatalogQueries.h"
 #include "ChessEffectDescription.h"
 #include "ChessGameQueries.h"
@@ -167,8 +168,11 @@ PieceDto pieceDto(
     dto.star = piece.star;
     dto.deployed = piece.deployed;
     dto.fights_won = piece.fightsWon;
-    dto.luck_stacks = piece.luckStacks;
-    dto.luck_chance_percent = content.balance().talent(observation.talent).luckChance(piece.luckStacks);
+    if (full || observation.talent == ChessTalentId::Gambler)
+    {
+        dto.luck_stacks = piece.luckStacks;
+        dto.luck_chance_percent = content.balance().talent(observation.talent).luckChance(piece.luckStacks);
+    }
     if (!full)
     {
         return dto;
@@ -419,6 +423,18 @@ ComboDto comboDto(const ChessComboMetadata& metadata, bool full)
     dto.name = metadata.name;
     dto.physical_count = metadata.physicalCount;
     dto.effective_count = metadata.effectiveCount;
+    for (const auto& threshold : metadata.thresholds)
+    {
+        if (threshold.active)
+        {
+            dto.active_threshold = threshold.requiredCount;
+        }
+        else if (!dto.next_required_count)
+        {
+            dto.next_required_count = threshold.requiredCount;
+            dto.count_to_next_threshold = threshold.requiredCount - metadata.effectiveCount;
+        }
+    }
     if (full)
     {
         dto.count_explanation = metadata.countExplanation;
@@ -583,7 +599,7 @@ PreparedBattleDto preparedBattleDto(
     if (analysis.identity.chosenMapId >= 0)
     {
         prepared.chosen_map_name = analysis.identity.chosenMapName;
-        if (!observationCompact)
+        if (full)
         {
             prepared.board = ChessAsciiBoard::render(battle, content);
         }
@@ -815,7 +831,7 @@ ObservationDto observationDto(
     ObservationDto dto{};
     dto.talent = chessTalentId(observation.talent);
     dto.talent_name = observation.talentName;
-    dto.talent_description = observation.talentDescription;
+    dto.content_fingerprint = chessSha256Hex(content.contentFingerprint());
     dto.talent_has_legendary_shop = observation.talentHasLegendaryShop;
     dto.legendary_shop_unlocked = observation.talentHasLegendaryShop
         && content.balance().legendaryShop.unlockFight > 0
@@ -824,6 +840,10 @@ ObservationDto observationDto(
     dto.next_basic_equipment_reward = observation.nextBasicEquipmentReward;
     dto.next_talent_equipment_reward = observation.nextTalentEquipmentReward;
     const bool full = detail == ObservationDetail::Full;
+    if (full)
+    {
+        dto.talent_description = observation.talentDescription;
+    }
     dto.detail = full ? "full" : "compact";
     dto.phase = phaseText(observation.phase);
     dto.money = observation.money;
@@ -834,28 +854,26 @@ ObservationDto observationDto(
     dto.maximum_deployment = observation.maximumDeployment;
     dto.fight = observation.fight;
     dto.campaign_complete = observation.campaignComplete;
+    dto.interest_gold = observation.interestGold;
+    dto.next_interest_threshold = observation.nextInterestThreshold;
+    dto.maximum_interest_gold = observation.maximumInterestGold;
+    dto.projected_victory_income = observation.projectedVictoryIncome;
+    dto.projected_victory_income_excludes_conditional_bonuses = true;
+    dto.current_ban_count = static_cast<int>(observation.bans.size());
+    dto.maximum_ban_count = observation.maximumBanCount;
+    dto.remaining_ban_capacity = std::max(0, observation.maximumBanCount - static_cast<int>(observation.bans.size()));
+    dto.shop_locked = observation.shopLocked;
+    dto.free_shop_refresh_available = observation.freeShopRefreshAvailable;
     if (full)
     {
         dto.difficulty = observation.difficulty == Difficulty::Easy
             ? "easy"
             : observation.difficulty == Difficulty::Normal ? "normal" : "hard";
         dto.position_swap_enabled = observation.options.positionSwapEnabled;
-        dto.interest_gold = observation.interestGold;
-        dto.next_interest_threshold = observation.nextInterestThreshold;
-        dto.maximum_interest_gold = observation.maximumInterestGold;
         dto.boss_interval = content.balance().bossInterval;
         dto.forced_bans_enabled = !content.balance().banUnlocks.empty();
         dto.projected_base_victory_gold = observation.projectedBaseVictoryGold;
-        dto.projected_victory_income = observation.projectedVictoryIncome;
-        dto.projected_victory_income_excludes_conditional_bonuses = true;
-        dto.current_ban_count = static_cast<int>(observation.bans.size());
-        dto.maximum_ban_count = observation.maximumBanCount;
-        dto.remaining_ban_capacity = std::max(
-            0,
-            observation.maximumBanCount - static_cast<int>(observation.bans.size()));
         dto.ban_effect_timing = "禁棋只影響之後生成或刷新的商店；目前商店既有棋子不會被移除，仍可購買";
-        dto.shop_locked = observation.shopLocked;
-        dto.free_shop_refresh_available = observation.freeShopRefreshAvailable;
         dto.free_shop_refresh_granted_fight = observation.freeShopRefreshGrantedFight;
     }
     for (int index = 0; index < static_cast<int>(observation.shop.size()); ++index)
@@ -907,7 +925,7 @@ ObservationDto observationDto(
     dto.completed_challenges = observation.completedChallengeNames;
     for (const auto& combo : observation.combos)
     {
-        if (combo.physicalCount == 0 || (!full && combo.activeThresholdIndex < 0))
+        if (combo.physicalCount == 0)
         {
             continue;
         }
@@ -1632,6 +1650,109 @@ ShopInspectionDto shopInspectionDto(const ChessGameSession& session)
     return dto;
 }
 
+PlanDto planDto(const ChessGameSession& session, std::span<const int> roleIds)
+{
+    const auto& state = session.state();
+    const auto& content = session.content();
+    const auto& balance = content.balance();
+    PlanDto dto{};
+    dto.content_fingerprint = chessSha256Hex(content.contentFingerprint());
+    dto.money = state.money;
+    dto.bench_used = static_cast<int>(std::ranges::count_if(state.roster,
+        [](const auto& entry) { return !entry.second.deployed; }));
+    dto.bench_capacity = balance.benchSize;
+    dto.remaining_ban_capacity = std::max(0,
+        ChessManagementRules::maximumBanCount(state, content) - static_cast<int>(state.bannedRoleIds.size()));
+    int requiredExperience{};
+    for (int level = state.level; level < balance.maxLevel; ++level)
+    {
+        requiredExperience += balance.expTable.at(level);
+    }
+    dto.experience_to_max_level = std::max(0, requiredExperience - state.experience);
+    for (int fight = state.fight + 1; fight <= balance.totalFights; ++fight)
+    {
+        const bool boss = balance.bossInterval > 0 && fight % balance.bossInterval == 0;
+        dto.remaining_campaign_experience += boss ? balance.bossBattleExp : balance.battleExp;
+    }
+    dto.paid_experience_needed = std::max(0,
+        dto.experience_to_max_level - dto.remaining_campaign_experience);
+    const auto odds = queryChessShopOdds(state, content, state.level);
+    dto.odds = shopOddsSummaryDto(odds);
+    std::set<int> targets(roleIds.begin(), roleIds.end());
+    if (targets.empty())
+    {
+        for (const auto& [id, piece] : state.roster) targets.insert(piece.roleId);
+    }
+    constexpr std::array requiredCopies{1, 3, 9};
+    for (const int roleId : targets)
+    {
+        const auto* role = content.role(roleId);
+        assert(role);
+        const auto copies = queryChessRoleCopies(state, roleId);
+        RoleUpgradeDto progress{};
+        progress.role_id = roleId;
+        progress.name = role->Name;
+        progress.cost = role->Cost;
+        progress.owned_copies = copies.ownedCopies;
+        progress.highest_star = copies.highestStar;
+        progress.copies_to_three_star = std::max(0, 9 - copies.ownedCopies);
+        if (copies.highestStar < 3)
+        {
+            progress.next_star = copies.highestStar + 1;
+            progress.copies_to_next_star = std::max(0,
+                requiredCopies.at(copies.highestStar) - copies.ownedCopies);
+        }
+        const auto& tier = odds.tiers.at(role->Cost - 1);
+        progress.pool_role_count = static_cast<int>(tier.availableRoleIds.size());
+        if (std::ranges::contains(tier.availableRoleIds, roleId))
+        {
+            progress.probability_per_slot = tier.probability / progress.pool_role_count;
+        }
+        dto.roles.push_back(std::move(progress));
+    }
+    return dto;
+}
+
+std::optional<CatalogDto> inspectCatalogDto(
+    const ChessGameSession& session,
+    const CatalogParams& params,
+    CatalogDetail detail)
+{
+    const auto& content = session.content();
+    CatalogDto dto{};
+    dto.content_fingerprint = chessSha256Hex(content.contentFingerprint());
+    dto.talent = chessTalentId(session.state().talent);
+    dto.talent_description = session.observe().talentDescription;
+    for (const int roleId : params.role_ids)
+    {
+        if (!content.role(roleId)) return std::nullopt;
+        dto.roles.push_back(roleDto(content, roleId, detail));
+    }
+    for (const int itemId : params.item_ids)
+    {
+        const auto equipment = inspectEquipmentDto(session, itemId);
+        if (!equipment) return std::nullopt;
+        dto.equipment.push_back(equipmentInfoDto(content, itemId, EquipmentProjection::Detailed,
+            detail == CatalogDetail::Full ? EffectDescriptionStyle::Full : EffectDescriptionStyle::Compact));
+    }
+    for (const auto& name : params.combo_names)
+    {
+        const auto found = std::ranges::find(content.combos(), name, &ComboDef::name);
+        if (found == content.combos().end()) return std::nullopt;
+        const auto metadata = chessComboMetadata(content, *found, 0, 0, -1, 0, {},
+            detail == CatalogDetail::Full ? EffectDescriptionStyle::Full : EffectDescriptionStyle::Compact);
+        CatalogComboDto combo{};
+        combo.name = metadata.name;
+        combo.members = metadata.members;
+        for (const auto& threshold : metadata.thresholds)
+        {
+            combo.thresholds.push_back(comboThresholdDto(threshold));
+        }
+        dto.combos.push_back(std::move(combo));
+    }
+    return dto;
+}
+
 ChessInstanceInspectionDto chessInstanceInspectionDto(
     const ChessGameSession& session,
     const ChessSessionPiece& piece)
@@ -1926,11 +2047,60 @@ SummaryActionResultDto summaryActionResultDto(
         }
     }
     dto.phase = phaseText(after.phase);
+    dto.money = after.money;
+    dto.experience = after.experience;
+    dto.level = after.level;
+    dto.fight = after.fight;
+    dto.shop_locked = after.shopLocked;
+    dto.free_shop_refresh_available = after.freeShopRefreshAvailable;
+    const auto observation = session.observe();
+    const auto compact = observationDto(observation, session.content(), ObservationDetail::Compact);
+    if (dto.changes.shop_changed)
+    {
+        dto.changes.shop = compact.shop;
+    }
+    if (dto.changes.roster_changed)
+    {
+        dto.changes.roster_upserts.emplace();
+        dto.changes.removed_instance_ids.emplace();
+        std::set<int> changedRoles;
+        for (const auto& piece : observation.roster)
+        {
+            const auto found = before.roster.find(piece.instanceId);
+            if (found == before.roster.end() || found->second != piece)
+            {
+                dto.changes.roster_upserts->push_back(pieceDto(session.content(), observation, piece, false));
+                changedRoles.insert(piece.roleId);
+            }
+        }
+        for (const auto& [id, piece] : before.roster)
+        {
+            if (!after.roster.contains(id))
+            {
+                dto.changes.removed_instance_ids->push_back(id);
+                changedRoles.insert(piece.roleId);
+            }
+        }
+        const std::vector<int> roleIds(changedRoles.begin(), changedRoles.end());
+        if (!roleIds.empty()) dto.changes.upgrade_progress = planDto(session, roleIds).roles;
+    }
+    if (dto.changes.deployment_changed) dto.changes.formation_slots = compact.formation_slots;
+    if (dto.changes.equipment_changed) dto.changes.equipment_inventory = compact.equipment_inventory;
+    if (dto.changes.bans_changed)
+    {
+        dto.changes.bans = std::vector<int>(after.bannedRoleIds.begin(), after.bannedRoleIds.end());
+    }
+    if (dto.changes.reward_changed) dto.changes.pending_reward = compact.pending_reward;
+    if (dto.changes.prepared_battle_changed) dto.changes.prepared_battle = compact.prepared_battle;
+    if (dto.changes.roster_changed || dto.changes.equipment_changed || dto.changes.deployment_changed)
+    {
+        dto.changes.combos = compact.combos;
+    }
     for (const auto& legal : session.legalActions())
     {
         dto.legal_action_types.push_back(chessActionTypeId(legal.type));
     }
-    dto.state_hash = chessSha256Hex(session.observe().stateHash);
+    dto.state_hash = chessSha256Hex(observation.stateHash);
     if (actionType == ChessActionType::StartBattle && session.lastBattleResult())
     {
         const auto& battle = *session.lastBattleResult();
@@ -2191,72 +2361,198 @@ BattleUnitStatsDto battleUnitStatsDto(
     return dto;
 }
 
+namespace
+{
+constexpr std::array<std::string_view, 8> kBattleSections{
+    "survivors", "unit_stats", "death_order", "initial_board", "board",
+    "important_effects", "effect_activations", "key_events"};
+
+using BattleStatsFields = std::map<std::string, glz::raw_json>;
+
+BattleStatsFields battleStatsFields(const BattleUnitStatsDto& stats)
+{
+    auto fields = readJson<BattleStatsFields>(writeJson(stats));
+    assert(fields);
+    return std::move(*fields);
+}
+
+glz::raw_json projectBattleStats(
+    const ChessBattleUnitAnalysis& analysis,
+    BattleReportDetail detail,
+    const InspectLastBattleParams& params)
+{
+    auto stats = battleUnitStatsDto(analysis, params.metrics ? BattleReportDetail::Full : detail);
+    if (params.metrics)
+    {
+        auto fields = battleStatsFields(stats);
+        constexpr std::array<std::string_view, 5> identity{"unit_id", "role_id", "name", "team", "star"};
+        std::erase_if(fields, [&](const auto& entry) {
+            return !std::ranges::contains(identity, entry.first)
+                && !std::ranges::contains(*params.metrics, entry.first);
+        });
+        return glz::raw_json(writeJson(fields));
+    }
+    if (detail != BattleReportDetail::Full)
+    {
+        stats.damage_breakdown.reset();
+        stats.skill_damage.reset();
+        stats.non_skill_damage_sources.reset();
+    }
+    return glz::raw_json(writeJson(stats));
+}
+}
+
+bool validBattleReportParams(const InspectLastBattleParams& params)
+{
+    if (params.sections && std::ranges::any_of(*params.sections,
+        [](const auto& section) { return !std::ranges::contains(kBattleSections, section); })) return false;
+    if (params.metrics)
+    {
+        const auto fields = battleStatsFields(battleUnitStatsDto({}, BattleReportDetail::Full));
+        if (std::ranges::any_of(*params.metrics,
+            [&](const auto& metric) { return !fields.contains(metric); })) return false;
+    }
+    return true;
+}
+
+std::vector<PreparedUnitDto> previewRosterStatsDto(
+    const ChessGameSession& session, const ChessGameSession& baseline)
+{
+    const auto analyze = [](const ChessGameSession& source) {
+        const auto prepared = source.state().preparedBattle
+            ? *source.state().preparedBattle
+            : ChessBattlePlanner::prepareRosterPreview(source.state(), source.content());
+        return analyzePreparedChessBattle(prepared, source.content(), kChessBattleFrameLimit, std::nullopt);
+    };
+    const auto analysis = analyze(session);
+    const auto before = analyze(baseline);
+    std::vector<PreparedUnitDto> result;
+    for (const auto& unit : analysis.units)
+    {
+        if (unit.team != 0) continue;
+        PreparedUnitDto dto{};
+        dto.unit_id = unit.unitId;
+        dto.chess_instance_id = unit.chessInstanceId;
+        dto.role_id = unit.roleId;
+        dto.name = unit.name;
+        dto.team = chessBattleTeamName(unit.team);
+        dto.star = unit.star;
+        dto.x = unit.x;
+        dto.y = unit.y;
+        if (unit.weaponItemId >= 0) dto.weapon = unit.weaponName;
+        if (unit.armorItemId >= 0) dto.armor = unit.armorName;
+        dto.preview_stats = roleStatsDto(unit.initializedCombatStats.value_or(unit.baselineStats));
+        const auto prior = std::ranges::find(before.units, unit.chessInstanceId,
+            &ChessPreparedBattleUnitAnalysis::chessInstanceId);
+        if (prior != before.units.end())
+        {
+            dto.stat_delta = roleStatsDto(chessStatDelta(
+                unit.initializedCombatStats.value_or(unit.baselineStats),
+                prior->initializedCombatStats.value_or(prior->baselineStats)));
+        }
+        dto.stats_note = unit.initializedCombatStats ? analysis.initializedStatsNote : analysis.baselineStatsNote;
+        result.push_back(std::move(dto));
+    }
+    return result;
+}
+
 BattleResultDto battleResultDto(
     const ChessGameContent& content,
     const PreparedChessBattle& prepared,
     const HeadlessBattleResult& battle,
-    BattleReportDetail detail)
+    BattleReportDetail detail,
+    const InspectLastBattleParams& params)
 {
     BattleResultDto dto;
     const bool compact = detail == BattleReportDetail::Compact;
     const bool full = detail == BattleReportDetail::Full;
     const auto analysis = analyzeChessBattleResult(content, prepared, battle);
     dto.detail = full ? "full" : compact ? "compact" : "summary";
-    if (full)
+    const auto includes = [&](std::string_view section, bool defaultIncluded) {
+        return params.sections ? std::ranges::contains(*params.sections, section) : defaultIncluded;
+    };
+    const auto matchesUnit = [&](int unitId) {
+        return params.unit_ids.empty() || std::ranges::contains(params.unit_ids, unitId);
+    };
+    const auto matchesEffect = [&](const auto& effect) {
+        const bool unitMatches = params.unit_ids.empty()
+            || (effect.sourceUnitId && matchesUnit(*effect.sourceUnitId))
+            || (effect.targetUnitId && matchesUnit(*effect.targetUnitId));
+        return unitMatches && (params.effect_types.empty()
+            || std::ranges::contains(params.effect_types, effect.type));
+    };
+    if (includes("initial_board", compact || full) || includes("board", full))
     {
         dto.initial_board = preparedBattleDto(
             content,
             prepared,
-            PreparedBattleDetail::Full,
+            full ? PreparedBattleDetail::Full : PreparedBattleDetail::Summary,
             kChessBattleFrameLimit);
-        dto.effect_activations.emplace();
-    }
-    else if (compact)
-    {
-        dto.initial_board = preparedBattleDto(
-            content,
-            prepared,
-            PreparedBattleDetail::Summary,
-            kChessBattleFrameLimit);
+        if (includes("board", full)) dto.initial_board->board = ChessAsciiBoard::render(prepared, content);
+        else dto.initial_board->board.reset();
+        std::erase_if(dto.initial_board->units, [&](const auto& unit) { return !matchesUnit(unit.unit_id); });
     }
     dto.outcome = battleOutcomeId(analysis.outcome);
     dto.outcome_description = analysis.outcomeDescription;
     dto.end_frame = analysis.endFrame;
-    for (const auto& survivor : analysis.survivors)
+    if (includes("survivors", true))
     {
-        dto.survivors.push_back({
-            survivor.unitId,
-            survivor.chessInstanceId,
-            survivor.roleId,
-            survivor.name,
-            chessBattleTeamName(survivor.team),
-            survivor.hp,
-            survivor.mp,
-            survivor.summoned,
-        });
+        dto.survivors.emplace();
+        for (const auto& survivor : analysis.survivors)
+        {
+            if (!matchesUnit(survivor.unitId)) continue;
+            dto.survivors->push_back({
+                survivor.unitId,
+                survivor.chessInstanceId,
+                survivor.roleId,
+                survivor.name,
+                chessBattleTeamName(survivor.team),
+                survivor.hp,
+                survivor.mp,
+                survivor.summoned,
+            });
+        }
     }
-    for (const auto& unit : analysis.unitStats)
+    if (includes("unit_stats", true))
     {
-        dto.unit_stats.push_back(battleUnitStatsDto(unit, detail));
+        dto.unit_stats.emplace();
+        for (const auto& unit : analysis.unitStats)
+        {
+            if (matchesUnit(unit.unitId)) dto.unit_stats->push_back(projectBattleStats(unit, detail, params));
+        }
     }
-    if (compact || full)
+    if (includes("important_effects", full))
     {
         dto.important_effects.emplace();
         for (const auto& effect : analysis.importantEffects)
         {
-            dto.important_effects->push_back(battleImportantEffectDto(effect));
+            if (matchesEffect(effect)) dto.important_effects->push_back(battleImportantEffectDto(effect));
         }
     }
-    if (full)
+    if (includes("effect_activations", full))
     {
+        dto.effect_activations.emplace();
         for (const auto& activation : analysis.effectActivations)
         {
-            dto.effect_activations->push_back(battleEffectActivationDto(activation, true));
+            if (matchesEffect(activation)) dto.effect_activations->push_back(battleEffectActivationDto(activation, full));
         }
     }
-    for (const auto& event : analysis.keyEvents)
+    if (includes("key_events", full))
     {
-        dto.key_events.push_back({event.frame, event.description});
+        dto.key_events.emplace();
+        for (const auto& event : analysis.keyEvents) dto.key_events->push_back({event.frame, event.description});
+    }
+    if (includes("death_order", true))
+    {
+        dto.death_order.emplace();
+        for (const auto& event : battle.report.events())
+        {
+            if (event.type == BattleReportEventType::Kill && matchesUnit(event.targetId))
+            {
+                dto.death_order->push_back({event.frame, event.targetId, event.targetName,
+                    chessBattleTeamName(event.targetTeam), event.sourceId});
+            }
+        }
     }
     dto.summary = analysis.summary;
     dto.digest = chessSha256Hex(analysis.digest);
@@ -2265,7 +2561,8 @@ BattleResultDto battleResultDto(
 
 std::optional<BattleResultDto> inspectLastBattleDto(
     const ChessGameSession& session,
-    BattleReportDetail detail)
+    BattleReportDetail detail,
+    const InspectLastBattleParams& params)
 {
     if (!session.lastBattlePrepared() || !session.lastBattleResult())
     {
@@ -2275,7 +2572,8 @@ std::optional<BattleResultDto> inspectLastBattleDto(
         session.content(),
         *session.lastBattlePrepared(),
         *session.lastBattleResult(),
-        detail);
+        detail,
+        params);
 }
 
 std::optional<BattleEventPageDto> inspectLastBattleEventsDto(

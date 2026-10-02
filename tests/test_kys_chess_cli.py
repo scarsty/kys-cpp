@@ -152,6 +152,7 @@ class ChessCliTests(unittest.TestCase):
         self.assertIn("export_save_file", names)
         self.assertNotIn("export_save", names)
         self.assertTrue(responses[2]["result"]["structuredContent"]["ok"])
+        self.assertEqual(responses[2]["result"]["content"], [])
 
     def test_standalone_stdio_mcp_interoperates_with_the_official_client(self):
         import anyio
@@ -172,6 +173,10 @@ class ChessCliTests(unittest.TestCase):
                     self.assertIn("export_save_file", {tool.name for tool in tools.tools})
                     self.assertFalse(created.isError)
                     self.assertTrue(created.structuredContent["ok"])
+                    self.assertEqual(created.content, [])
+                    missing = await session.call_tool("inspect_role", {"role_id": -999})
+                    self.assertTrue(missing.isError)
+                    self.assertFalse(missing.structuredContent["ok"])
 
         anyio.run(verify)
 
@@ -342,7 +347,7 @@ class ChessCliTests(unittest.TestCase):
                     "params": {"action": {"type": "set_deployment", "chess_instance_ids": [1, 2]}},
                 },
                 {"id": 5, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
-                {"id": 6, "method": "inspect_prepared_battle", "params": {}},
+                {"id": 6, "method": "inspect_prepared_battle", "params": {"include_board": True}},
                 {
                     "id": 7,
                     "method": "act",
@@ -416,6 +421,7 @@ class ChessCliTests(unittest.TestCase):
                     "params": {
                         "difficulty": "normal",
                         "seed": "0x0000000000005eed",
+                        "detail": "full",
                     },
                 },
                 {

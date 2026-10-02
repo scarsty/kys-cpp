@@ -10,6 +10,22 @@
 namespace KysChess
 {
 
+ChessRoleCopiesAnalysis queryChessRoleCopies(const ChessSessionState& state, int roleId)
+{
+    ChessRoleCopiesAnalysis result{};
+    constexpr std::array equivalents{1, 3, 9};
+    for (const auto& [id, piece] : state.roster)
+    {
+        if (piece.roleId == roleId)
+        {
+            ++result.copiesByStar.at(piece.star - 1);
+            result.ownedCopies += equivalents.at(piece.star - 1);
+            result.highestStar = std::max(result.highestStar, piece.star);
+        }
+    }
+    return result;
+}
+
 ChessShopOddsAnalysis queryChessShopOdds(
     const ChessSessionState& state,
     const ChessGameContent& content,
@@ -62,15 +78,11 @@ ChessShopSlotAnalysis queryChessShopSlot(
     result.roleId = role->ID;
     result.cost = role->Cost;
     result.shopTier = slot.tier;
+    const auto copies = queryChessRoleCopies(state, role->ID);
+    result.ownedCopies = copies.ownedCopies;
     for (int star = 1; star <= 3; ++star)
     {
-        const int count = static_cast<int>(std::ranges::count_if(
-            state.roster,
-            [&](const auto& entry) {
-                return entry.second.roleId == role->ID && entry.second.star == star;
-            }));
-        result.copiesByStar.push_back({star, count});
-        result.ownedCopies += count * (star == 1 ? 1 : star == 2 ? 3 : 9);
+        result.copiesByStar.push_back({star, copies.copiesByStar.at(star - 1)});
     }
     result.goldCost = ChessManagementRules::pieceValue(content, role->ID, 1);
     result.projectedGoldAfter = state.money - result.goldCost;
@@ -146,18 +158,9 @@ ChessInstanceAnalysis queryChessInstance(
     result.piece = foundPiece->second;
     result.luckChancePercent = content.balance().talent(state.talent).luckChance(result.piece.luckStacks);
     result.currentStats = chessPieceStats(content, result.piece, content.balance().talent(state.talent).amplifiedGrowthPercent);
-    for (const auto& [instanceId, owned] : state.roster)
-    {
-        if (owned.roleId != result.piece.roleId)
-        {
-            continue;
-        }
-        result.oneStarEquivalentCopies += owned.star == 1 ? 1 : owned.star == 2 ? 3 : 9;
-        if (owned.star == result.piece.star)
-        {
-            ++result.sameStarCopies;
-        }
-    }
+    const auto copies = queryChessRoleCopies(state, result.piece.roleId);
+    result.oneStarEquivalentCopies = copies.ownedCopies;
+    result.sameStarCopies = copies.copiesByStar.at(result.piece.star - 1);
     result.copiesRequiredForNextStar = result.piece.star >= 3
         ? 0
         : std::max(0, 3 - result.sameStarCopies);

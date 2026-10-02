@@ -11,6 +11,7 @@ class ChessTalentTests(unittest.TestCase):
     def test_jsonl_explicit_talent_identity(self):
         requests = [{"id": index, "method": "new", "params": {
             "difficulty": "hard", "seed": "0x0000000000000001", "talent": talent,
+            "detail": "full",
         }} for index, talent in enumerate(TALENTS)]
         completed = run_jsonl(requests)
         self.assertEqual(completed.returncode, 0, completed.stderr)

@@ -147,7 +147,8 @@ TEST_CASE("JSON codec battle projections keep summary and compact reports bounde
 
     CHECK(summary.contains("\"detail\":\"summary\""));
     CHECK(summary.contains("\"unit_stats\""));
-    CHECK(summary.contains("\"key_events\""));
+    CHECK(summary.contains("\"death_order\""));
+    CHECK_FALSE(summary.contains("\"key_events\""));
     CHECK_FALSE(summary.contains("\"initial_board\""));
     CHECK_FALSE(summary.contains("\"important_effects\""));
     CHECK_FALSE(summary.contains("\"effect_activations\""));
@@ -155,12 +156,47 @@ TEST_CASE("JSON codec battle projections keep summary and compact reports bounde
     CHECK(compact.contains("\"unit_stats\""));
     CHECK(compact.contains("\"summary\""));
     CHECK(compact.contains("\"initial_board\""));
-    CHECK(compact.contains("\"important_effects\""));
+    CHECK_FALSE(compact.contains("\"important_effects\""));
+    CHECK_FALSE(compact.contains("\"skill_damage\""));
+    CHECK_FALSE(compact.contains("\"board\""));
     CHECK_FALSE(compact.contains("\"effect_activations\""));
     CHECK(full.contains("\"detail\":\"full\""));
     CHECK(full.contains("\"initial_board\""));
     CHECK(full.contains("\"effect_activations\""));
     CHECK(full.contains("\"initial_combat_stats\""));
+
+    InspectLastBattleParams focused{};
+    focused.sections = std::vector<std::string>{"unit_stats", "death_order"};
+    focused.unit_ids = {1};
+    focused.metrics = std::vector<std::string>{"damage_dealt", "invulnerability_triggers"};
+    REQUIRE(validBattleReportParams(focused));
+    const auto focusedReport = inspectLastBattleDto(session, BattleReportDetail::Summary, focused);
+    REQUIRE(focusedReport);
+    REQUIRE(focusedReport->unit_stats);
+    REQUIRE(focusedReport->unit_stats->size() == 1);
+    CHECK(focusedReport->unit_stats->front().str.contains("\"unit_id\":1"));
+    CHECK(focusedReport->unit_stats->front().str.contains("\"invulnerability_triggers\""));
+    CHECK_FALSE(focusedReport->unit_stats->front().str.contains("\"damage_taken\""));
+    CHECK_FALSE(focusedReport->survivors);
+    CHECK_FALSE(focusedReport->initial_board);
+    REQUIRE(focusedReport->death_order);
+    for (const auto& death : *focusedReport->death_order) CHECK(death.unit_id == 1);
+    CHECK(writeJson(*focusedReport).size() < summary.size());
+    focused.metrics = std::vector<std::string>{"not_a_metric"};
+    CHECK_FALSE(validBattleReportParams(focused));
+    focused.metrics.reset();
+    focused.sections = std::vector<std::string>{"not_a_section"};
+    CHECK_FALSE(validBattleReportParams(focused));
+
+    InspectLastBattleParams effects{};
+    effects.sections = std::vector<std::string>{"effect_activations"};
+    effects.effect_types = {"ability_cast"};
+    const auto effectReport = inspectLastBattleDto(session, BattleReportDetail::Summary, effects);
+    REQUIRE(effectReport);
+    REQUIRE(effectReport->effect_activations);
+    REQUIRE_FALSE(effectReport->effect_activations->empty());
+    for (const auto& event : *effectReport->effect_activations) CHECK(event.type == "ability_cast");
+    CHECK_FALSE(effectReport->unit_stats);
 
     BattleEventsParams pageParams;
     pageParams.limit = 1;
