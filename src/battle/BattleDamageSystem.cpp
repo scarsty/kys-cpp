@@ -138,7 +138,7 @@ void applySignedDamageDelta(
 
 void applyTypedDefenderStatusModifiers(
     BattleFixed& damage,
-    const BattleStatusQuerySnapshot& statuses,
+    const BattleStatusPersistentModifiers& statuses,
     int& remainingDamageBasisPoints)
 {
     applyDamageReduction(
@@ -284,14 +284,14 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             BattleStatusSystem statusSystem({});
             if (input.attackerStatus.id == input.attacker.id)
             {
-                const auto attackerStatuses = statusSystem.snapshot(input.attackerStatus);
+                const auto attackerStatuses = statusSystem.persistentModifiers(input.attackerStatus.effects);
                 modifierInput.attacker.skillDamagePct = battleSaturatedAdd(
                     modifierInput.attacker.skillDamagePct,
                     attackerStatuses.skillDamagePct);
             }
             if (result.defenderStatus.id == input.defender.id)
             {
-                const auto defenderStatuses = statusSystem.snapshot(result.defenderStatus);
+                const auto defenderStatuses = statusSystem.persistentModifiers(result.defenderStatus.effects);
                 modifierInput.defender.damageReductionPct = battleSaturatedAdd(
                     modifierInput.defender.damageReductionPct,
                     defenderStatuses.damageReductionPct);
@@ -311,7 +311,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                  == BattlePreResolvedModifierPolicy::DefenderTypedStatuses)
         {
             assert(result.defenderStatus.id == input.defender.id);
-            const auto statuses = BattleStatusSystem({}).snapshot(result.defenderStatus);
+            const auto statuses = BattleStatusSystem({}).persistentModifiers(result.defenderStatus.effects);
             int remainingDamageBasisPoints = 10'000 - combinedReductionBasisPoints;
             applyTypedDefenderStatusModifiers(
                 resolvedDamage,

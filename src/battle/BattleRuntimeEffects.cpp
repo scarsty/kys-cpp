@@ -61,6 +61,12 @@ void appendComboIds(const BattleComboRuntimeFacts& comboFacts, std::set<int>& co
         comboFacts.appliedComboIds.end());
 }
 
+bool isPersistentMagicRule(const BoundEffectRule& bound)
+{
+    return bound.binding.kind == EffectSourceKind::Magic
+        && !bound.castScope;
+}
+
 void appendBoundMagicIds(
     const BattleRuntimeState& runtime,
     int ownerUnitId,
@@ -68,9 +74,8 @@ void appendBoundMagicIds(
 {
     for (const auto& bound : runtime.effectRules.rules())
     {
-        if (bound.binding.kind == EffectSourceKind::Magic
-            && bound.binding.ownerUnitId == ownerUnitId
-            && !bound.castScope)
+        if (isPersistentMagicRule(bound)
+            && bound.binding.ownerUnitId == ownerUnitId)
         {
             appendMagicId(magicIds, bound.binding.sourceId);
         }
@@ -172,8 +177,8 @@ int effectAndAreaAdjustedRateAttribute(
 
 int effectAndAreaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed)
 {
-    const auto status = BattleStatusSystem({}).snapshot(
-        state.units.require(unitId).statusDamageState());
+    const auto status = BattleStatusSystem({}).persistentModifiers(
+        state.units.require(unitId).status.effects);
     const int effectAdjusted = effectAdjustedAttribute(
         state, unitId, BattleAttribute::Speed, baseSpeed);
     const auto statusFactor = std::max<std::int64_t>(
@@ -315,7 +320,10 @@ void appendRuntimeMagicEffectRules(
     }
 }
 
-EffectUnitSnapshot makeEffectUnitSnapshot(
+namespace
+{
+
+EffectUnitSnapshot makeEffectUnitAttributeSnapshot(
     const BattleRuntimeState& runtime,
     const BattleRuntimeUnitRecord& record)
 {
@@ -341,6 +349,16 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
         BattleAttribute::Defence,
         unit.stats.defence);
     result.speed = effectAndAreaAdjustedSpeed(runtime, record.id(), record.core.stats.speed);
+    return result;
+}
+
+}  // namespace
+
+EffectUnitSnapshot makeEffectUnitSnapshot(
+    const BattleRuntimeState& runtime,
+    const BattleRuntimeUnitRecord& record)
+{
+    auto result = makeEffectUnitAttributeSnapshot(runtime, record);
     appendBoundMagicIds(runtime, record.id(), result.magicIds);
     return result;
 }
@@ -351,9 +369,20 @@ std::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(const BattleRuntimeState
     result.reserve(runtime.units.size());
     for (const auto& record : runtime.units.all())
     {
-        result.push_back(makeEffectUnitSnapshot(runtime, record));
+        result.push_back(makeEffectUnitAttributeSnapshot(runtime, record));
     }
     std::ranges::sort(result, {}, &EffectUnitSnapshot::id);
+    // 全場快照只掃描一次規則；單位已按 ID 排序，可直接定位擁有者。
+    for (const auto& bound : runtime.effectRules.rules())
+    {
+        if (!isPersistentMagicRule(bound)) continue;
+        const auto owner = std::ranges::lower_bound(
+            result, bound.binding.ownerUnitId, {}, &EffectUnitSnapshot::id);
+        if (owner != result.end() && owner->id == bound.binding.ownerUnitId)
+        {
+            appendMagicId(owner->magicIds, bound.binding.sourceId);
+        }
+    }
     return result;
 }
 

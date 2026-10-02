@@ -888,6 +888,11 @@ struct BattleEffectDispatchResult
 class BattleEffectSystem
 {
 public:
+    // 只排除事件或擁有者不可能匹配的規則；完整條件仍由實際查詢判定。
+    bool hasExactRuntimeRuleCandidates(
+        const BattleEffectRuleStore& store,
+        EffectEvent event,
+        int ownerUnitId) const;
     bool hasInvincibilityPiercingExecuteRule(
         const BattleEffectRuleStore& store,
         const EffectEventContext& context) const;
@@ -920,6 +925,10 @@ public:
         const StatusBehaviorDispatchLiveness* reducerLiveness = nullptr) const;
 
     static bool eventPayloadMatches(const EffectEventContext& context);
+    static bool statusBehaviorRuleMatchesEvent(
+        const EffectRule& rule,
+        EffectEvent event,
+        StatusBehaviorDispatchFilter filter);
     static int evaluateNumber(const EffectNumber& number,
                               const EffectEventContext& context,
                               const EffectUnitSnapshot& target);

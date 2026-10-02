@@ -210,6 +210,10 @@ std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
     EffectEvent event,
     Payload payload)
 {
+    if (!BattleEffectSystem().hasExactRuntimeRuleCandidates(state.effectRules, event, ownerUnitId))
+    {
+        return {};
+    }
     const auto owned = BattleEffectEventBridge().makeEvent(
         state,
         {
@@ -233,7 +237,9 @@ RuntimeCastPolicies runtimeCastPoliciesForSkill(
     int preferredTargetUnitId = -1,
     const BattleCastProvenance* provenance = nullptr)
 {
-    if (magicId < 0)
+    if (magicId < 0
+        || !BattleEffectSystem().hasExactRuntimeRuleCandidates(
+            state.effectRules, EffectEvent::CastPlanned, unit.id))
     {
         return {};
     }

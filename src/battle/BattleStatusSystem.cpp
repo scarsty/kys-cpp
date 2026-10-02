@@ -1484,18 +1484,10 @@ BattleNegativeEffectProtectionResult BattleStatusSystem::protectNegativeEffect(
     return result;
 }
 
-BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
+BattleStatusPersistentModifiers BattleStatusSystem::persistentModifiers(
     const BattleStatusEffectState& effects) const
 {
-    BattleStatusQuerySnapshot result;
-    result.statusShield = effects.statusShield;
-    result.staggerShield = effects.staggerShield;
-    result.statuses.assign(effects.statuses.begin(), effects.statuses.end());
-    std::sort(result.statuses.begin(), result.statuses.end(), [](const auto& lhs, const auto& rhs)
-    {
-        return std::tuple(lhs.appliedSequence, lhs.kind, lhs.sourceUnitId)
-            < std::tuple(rhs.appliedSequence, rhs.kind, rhs.sourceUnitId);
-    });
+    BattleStatusPersistentModifiers result;
 
     const auto persistentNumber = [](const EffectNumber& number, int quantity)
     {
@@ -1511,7 +1503,7 @@ BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
         EffectExecutionOrderKey order;
     };
     std::vector<OrderedPersistentAction> persistentActions;
-    for (const auto& status : result.statuses)
+    for (const auto& status : effects.statuses)
     {
         if (!status.behavior) continue;
         assert(status.origin);
@@ -1543,7 +1535,9 @@ BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
     }
     std::ranges::stable_sort(persistentActions, [](const auto& lhs, const auto& rhs)
     {
-        return lhs.order < rhs.order;
+        if (lhs.order != rhs.order) return lhs.order < rhs.order;
+        return std::tuple(lhs.status->kind, lhs.status->sourceUnitId)
+            < std::tuple(rhs.status->kind, rhs.status->sourceUnitId);
     });
 
     for (const auto& ordered : persistentActions)
@@ -1608,6 +1602,22 @@ BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
             }
         }, action.value);
     }
+    return result;
+}
+
+BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
+    const BattleStatusEffectState& effects) const
+{
+    BattleStatusQuerySnapshot result;
+    static_cast<BattleStatusPersistentModifiers&>(result) = persistentModifiers(effects);
+    result.statusShield = effects.statusShield;
+    result.staggerShield = effects.staggerShield;
+    result.statuses.assign(effects.statuses.begin(), effects.statuses.end());
+    std::sort(result.statuses.begin(), result.statuses.end(), [](const auto& lhs, const auto& rhs)
+    {
+        return std::tuple(lhs.appliedSequence, lhs.kind, lhs.sourceUnitId)
+            < std::tuple(rhs.appliedSequence, rhs.kind, rhs.sourceUnitId);
+    });
     return result;
 }
 

@@ -222,6 +222,42 @@ TEST_CASE("BattleRuntimeEffects snapshots include active typed core attributes",
     CHECK(snapshot.attack == runtime.units.requireCore(1).stats.attack + 30);
 }
 
+TEST_CASE("Full effect snapshots route persistent magic IDs to their owners and exclude borrowed aliases",
+          "[battle][effect][snapshot][magic]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    BattleActionPlanSeed plan;
+    plan.normalSkill.id = 5;
+    plan.ultimateSkill.id = 6;
+    runtime.units.require(1).setActionPlan(std::move(plan));
+    const auto rule = resourceRule(1, EffectEvent::UltimateCommitted, 10);
+    const auto ownMagic = binding(EffectSourceKind::Magic, 43, 1, 0);
+    runtime.effectRules.append(ownMagic, rule);
+    runtime.effectRules.append(ownMagic, resourceRule(2, EffectEvent::UltimateCommitted, 20));
+    runtime.effectRules.append(binding(EffectSourceKind::Magic, 16, 2, 1), rule);
+    runtime.effectRules.append(binding(EffectSourceKind::Equipment, 91, 1, 0), rule);
+    runtime.effectRules.append(binding(EffectSourceKind::Magic, 99, -1, 0), rule);
+    const std::array sourceIds{ 2 };
+    BorrowedRuleFilter filter;
+    filter.allowedActionCategories = { BorrowedRuleActionCategory::ResourceChange };
+    const auto aliases = runtime.effectRules.bindBorrowedUltimateRules(
+        BattleCastId(1), 1, 0, sourceIds, filter,
+        CastPropagationPolicy::BorrowedUltimateRules);
+    REQUIRE(aliases.size() == 1);
+
+    const auto snapshots = makeEffectUnitSnapshots(runtime);
+    REQUIRE(snapshots.size() == 2);
+    CHECK(snapshots[0].id == 1);
+    CHECK(snapshots[0].magicIds == std::set<int>{ 5, 6, 43 });
+    CHECK(snapshots[1].id == 2);
+    CHECK(snapshots[1].magicIds == std::set<int>{ 16 });
+    for (const auto& snapshot : snapshots)
+    {
+        CHECK(snapshot.magicIds == makeEffectUnitSnapshot(
+            runtime, runtime.units.require(snapshot.id)).magicIds);
+    }
+}
+
 TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer and the next rule",
           "[battle][effect][bridge][status][ordering]")
 {

@@ -2056,6 +2056,78 @@ TEST_CASE("BattleEffectSystem bound magic attack commit still requires its match
     CHECK(dispatch(133, false).commands.empty());
 }
 
+TEST_CASE("Exact runtime candidates exclude unrelated events and owners without dropping observers",
+          "[battle][effect][exact-runtime]")
+{
+    BattleEffectRuleStore store;
+    BattleEffectSystem system;
+    const auto owner = magicBinding();
+    CHECK_FALSE(system.hasExactRuntimeRuleCandidates(store, EffectEvent::CastPlanned, 1));
+
+    ChangeResourceAction shield;
+    shield.resource = BattleResource::Shield;
+    shield.kind = ResourceChangeKind::Grant;
+    shield.amount.flat = 10;
+    store.append(owner, makeRule(1, EffectEvent::CastPlanned, selfSelector(), { effectAction(shield) }));
+    CHECK_FALSE(system.hasExactRuntimeRuleCandidates(store, EffectEvent::CastPlanned, 1));
+
+    ModifyCastAction dash;
+    dash.mobility = CastMobilityPolicy::DashAttack;
+    const auto exact = makeRule(2, EffectEvent::CastPlanned, selfSelector(), { effectAction(dash) });
+    store.append(owner, exact);
+    CHECK(system.hasExactRuntimeRuleCandidates(store, EffectEvent::CastPlanned, 1));
+    CHECK_FALSE(system.hasExactRuntimeRuleCandidates(store, EffectEvent::CastPlanned, 2));
+    CHECK_FALSE(system.hasExactRuntimeRuleCandidates(store, EffectEvent::AttackCommitted, 1));
+
+    ForceMoveAction knockback;
+    knockback.direction = ForceMoveDirection::AwayFromSource;
+    knockback.distancePixels = 120;
+    knockback.lockFrames = 5;
+    auto observed = makeRule(
+        3, EffectEvent::MainProjectileBeforeDamage,
+        EffectSelector{ .kind = EffectSelectorKind::HitTarget }, { effectAction(knockback) });
+    observed.observation = EffectObservationScope::OwnerTeamEventSource;
+    store.append(owner, observed);
+    CHECK(system.hasExactRuntimeRuleCandidates(store, EffectEvent::MainProjectileBeforeDamage, 2));
+
+    store.clear();
+    CHECK_FALSE(system.hasExactRuntimeRuleCandidates(store, EffectEvent::CastPlanned, 1));
+    auto shared = owner;
+    shared.ownerUnitId = -1;
+    store.append(shared, exact);
+    CHECK(system.hasExactRuntimeRuleCandidates(store, EffectEvent::CastPlanned, 2));
+}
+
+TEST_CASE("Status behavior event filters include interceptors in nested conditional branches",
+          "[battle][effect][status][filter]")
+{
+    const auto matches = BattleEffectSystem::statusBehaviorRuleMatchesEvent;
+    const auto event = EffectEvent::HitBeforeDamage;
+    auto nested = std::make_shared<ConditionalEffectAction>();
+    nested->whenFalse = { effectAction(MakeIncomingAttackMissAction{}) };
+    auto conditional = std::make_shared<ConditionalEffectAction>();
+    conditional->whenTrue = { effectAction(SuppressCurrentCastContactsAction{}) };
+    conditional->whenFalse = { effectAction(nested) };
+    auto rule = makeRule(1, event, selfSelector(), { effectAction(conditional) });
+
+    CHECK(matches(rule, event, StatusBehaviorDispatchFilter::All));
+    CHECK(matches(rule, event, StatusBehaviorDispatchFilter::AttackInterceptorsOnly));
+    CHECK(matches(rule, event, StatusBehaviorDispatchFilter::OutgoingCastSuppressorsOnly));
+    CHECK(matches(rule, event, StatusBehaviorDispatchFilter::IncomingAttackMissOnly));
+    CHECK_FALSE(matches(rule, event, StatusBehaviorDispatchFilter::ExcludeAttackInterceptors));
+    CHECK_FALSE(matches(rule, EffectEvent::FrameAdvanced, StatusBehaviorDispatchFilter::All));
+
+    rule.actions = { effectAction(MakeIncomingAttackMissAction{}) };
+    CHECK_FALSE(matches(rule, event, StatusBehaviorDispatchFilter::OutgoingCastSuppressorsOnly));
+    rule.actions = { effectAction(SuppressCurrentCastContactsAction{}) };
+    CHECK_FALSE(matches(rule, event, StatusBehaviorDispatchFilter::IncomingAttackMissOnly));
+    rule.actions.clear();
+    CHECK(matches(rule, event, StatusBehaviorDispatchFilter::ExcludeAttackInterceptors));
+    CHECK_FALSE(matches(rule, event, StatusBehaviorDispatchFilter::AttackInterceptorsOnly));
+    rule.event = EffectEvent::StatusPersistent;
+    CHECK_FALSE(matches(rule, rule.event, StatusBehaviorDispatchFilter::All));
+}
+
 TEST_CASE("BattleEffectSystem exact runtime query uses canonical cast eligibility without activating",
           "[battle][effect][exact_runtime]")
 {

@@ -251,7 +251,7 @@ void appendRuntimeHealEvents(
 }  // namespace
 
 BattleHealModifierState battleStatusHealModifiers(
-    const BattleStatusQuerySnapshot& status,
+    const BattleStatusPersistentModifiers& status,
     BattleHealKind kind)
 {
     BattleHealModifierState result;
@@ -382,8 +382,8 @@ BattleHealResult BattleHealSystem::commit(
     const auto target = healSnapshot(targetUnit);
 
     auto effectiveModifiers = modifiers;
-    const auto status = BattleStatusSystem({}).snapshot(
-        targetRecord.statusDamageState());
+    const auto status = BattleStatusSystem({}).persistentModifiers(
+        targetRecord.status.effects);
     const auto statusModifiers = battleStatusHealModifiers(status, request.kind);
     effectiveModifiers.blocked = effectiveModifiers.blocked || statusModifiers.blocked;
     effectiveModifiers.receivedHealPcts.insert(

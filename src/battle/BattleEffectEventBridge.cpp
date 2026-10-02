@@ -88,11 +88,14 @@ void sortDispatchCommands(BattleEffectDispatchResult& result)
 }
 
 std::vector<ActiveStatusBehaviorView> gatherActiveStatusBehaviors(
-    BattleRuntimeState& runtime)
+    BattleRuntimeState& runtime,
+    EffectEvent event,
+    StatusBehaviorDispatchFilter filter)
 {
     std::vector<ActiveStatusBehaviorView> result;
     for (auto& holder : runtime.units.all())
     {
+        if (event == EffectEvent::FrameAdvanced && !holder.alive()) continue;
         for (auto& contribution : holder.status.effects.statuses)
         {
             if (!contribution.behavior) continue;
@@ -100,6 +103,10 @@ std::vector<ActiveStatusBehaviorView> gatherActiveStatusBehaviors(
             assert(contribution.producer);
             assert(contribution.behaviorRuntime.size()
                 == contribution.behavior->rules.size());
+            if (!std::ranges::any_of(contribution.behavior->rules, [&](const auto& rule)
+                {
+                    return BattleEffectSystem::statusBehaviorRuleMatchesEvent(rule, event, filter);
+                })) continue;
             result.push_back({
                 .binding = contribution.origin->binding,
                 .producerRuleId = contribution.origin->ruleId,
@@ -238,7 +245,10 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatch(
 {
     const auto context = event.context();
     BattleEffectSystem system;
-    auto activeStatusBehaviors = gatherActiveStatusBehaviors(runtime);
+    const auto filter = event.event() == EffectEvent::HitBeforeDamage
+        ? StatusBehaviorDispatchFilter::ExcludeAttackInterceptors
+        : StatusBehaviorDispatchFilter::All;
+    auto activeStatusBehaviors = gatherActiveStatusBehaviors(runtime, event.event(), filter);
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!activeStatusBehaviors.empty())
     {
@@ -249,9 +259,7 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatch(
         context,
         runtime.random,
         activeStatusBehaviors,
-        event.event() == EffectEvent::HitBeforeDamage
-            ? StatusBehaviorDispatchFilter::ExcludeAttackInterceptors
-            : StatusBehaviorDispatchFilter::All,
+        filter,
         false,
         liveness ? &liveness->hooks() : nullptr);
 
@@ -269,11 +277,8 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatchFrameAdvanced(
     const BattleEffectOwnedEvent& event) const
 {
     assert(event.event() == EffectEvent::FrameAdvanced);
-    auto behaviors = gatherActiveStatusBehaviors(runtime);
-    std::erase_if(behaviors, [&](const ActiveStatusBehaviorView& behavior)
-    {
-        return !runtime.units.requireCore(behavior.holderUnitId).alive;
-    });
+    auto behaviors = gatherActiveStatusBehaviors(
+        runtime, event.event(), StatusBehaviorDispatchFilter::All);
     const auto context = event.context();
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!behaviors.empty())
@@ -296,7 +301,7 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatchActiveStatusBehavior
     const BattleEffectOwnedEvent& event,
     StatusBehaviorDispatchFilter filter) const
 {
-    auto behaviors = gatherActiveStatusBehaviors(runtime);
+    auto behaviors = gatherActiveStatusBehaviors(runtime, event.event(), filter);
     const auto context = event.context();
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!behaviors.empty())

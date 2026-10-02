@@ -1104,7 +1104,7 @@ TEST_CASE("BattleStatusSystem rounds a bound persistent expression after layer s
 
     // floor((50 * 3% + 0) * 2) == 3. Rounding each layer first
     // would incorrectly produce 2.
-    CHECK(BattleStatusSystem({}).snapshot(effects).skillDamagePct == 3);
+    CHECK(BattleStatusSystem({}).persistentModifiers(effects).skillDamagePct == 3);
 }
 
 TEST_CASE("BattleStatusSystem keeps persistent heal modifiers scoped to their heal kinds",
@@ -1130,7 +1130,7 @@ TEST_CASE("BattleStatusSystem keeps persistent heal modifiers scoped to their he
         0,
         1,
         effects.nextStatusSequence++));
-    const auto status = BattleStatusSystem({}).snapshot(effects);
+    const auto status = BattleStatusSystem({}).persistentModifiers(effects);
 
     const auto direct = battleStatusHealModifiers(status, BattleHealKind::Direct);
     CHECK(direct.blocked);
@@ -1161,7 +1161,7 @@ TEST_CASE("Persistent status healing and speed effects preserve ordering gates a
         1,
         1,
         withered.nextStatusSequence++));
-    const auto witheredSnapshot = BattleStatusSystem({}).snapshot(withered);
+    const auto witheredSnapshot = BattleStatusSystem({}).persistentModifiers(withered);
     const auto ordered = battleStatusHealModifiers(
         witheredSnapshot,
         BattleHealKind::Direct);
@@ -1200,7 +1200,7 @@ TEST_CASE("Persistent status healing and speed effects preserve ordering gates a
         0,
         1,
         coldPoison.nextStatusSequence++));
-    const auto coldSnapshot = BattleStatusSystem({}).snapshot(coldPoison);
+    const auto coldSnapshot = BattleStatusSystem({}).persistentModifiers(coldPoison);
     CHECK(coldSnapshot.speedPctDelta == -25);
     const auto blockedModifiers = battleStatusHealModifiers(
         coldSnapshot,
@@ -1248,7 +1248,7 @@ TEST_CASE("Persistent status heal modifiers use structured cross-source order",
         1,
         effects.nextStatusSequence++));
 
-    const auto snapshot = BattleStatusSystem({}).snapshot(effects);
+    const auto snapshot = BattleStatusSystem({}).persistentModifiers(effects);
     const auto modifiers = battleStatusHealModifiers(snapshot, BattleHealKind::Direct);
     CHECK(modifiers.receivedHealPcts == std::vector<int>{ 50, 67 });
 
@@ -1314,11 +1314,42 @@ TEST_CASE("Persistent status aggregates saturate across independent producers",
             effects.nextStatusSequence++));
     }
 
-    const auto snapshot = BattleStatusSystem({}).snapshot(effects);
+    const auto snapshot = BattleStatusSystem({}).persistentModifiers(effects);
     CHECK(snapshot.speedPctDelta == std::numeric_limits<int>::max());
     CHECK(snapshot.skillDamagePct == std::numeric_limits<int>::max());
     CHECK(snapshot.damageReductionPct == std::numeric_limits<int>::max());
     CHECK(snapshot.damageTakenPct == std::numeric_limits<int>::max());
+}
+
+TEST_CASE("Persistent modifier queries preserve source order when saturation makes addition order matter",
+          "[battle][status][persistent][ordering][boundary]")
+{
+    const auto speedBehavior = [](int amount)
+    {
+        ModifyAttributeAction speed;
+        speed.attribute = BattleAttribute::Speed;
+        speed.operation = AttributeOperation::PercentAdd;
+        speed.amount.flat = amount;
+        return persistentStatusBehavior({ EffectAction{ speed } });
+    };
+    BattleStatusEffectState effects;
+    effects.statuses.push_back(persistentContribution(
+        BattleStatusKind::BattleSpirit, speedBehavior(-1),
+        EffectSourceKind::Magic, 8403, 0, 1, 1));
+    effects.statuses.push_back(persistentContribution(
+        BattleStatusKind::BattleSpirit, speedBehavior(1),
+        EffectSourceKind::Equipment, 8402, 0, 1, 2));
+    effects.statuses.push_back(persistentContribution(
+        BattleStatusKind::BattleSpirit, speedBehavior(std::numeric_limits<int>::max()),
+        EffectSourceKind::Combo, 8401, 0, 1, 3));
+
+    // 先加到上限，再扣一；直接依儲存順序相加會得到不同結果。
+    BattleStatusSystem system({});
+    const auto expected = std::numeric_limits<int>::max() - 1;
+    CHECK(system.persistentModifiers(effects).speedPctDelta == expected);
+    CHECK(system.snapshot(effects).speedPctDelta == expected);
+    CHECK(effects.statuses.front().appliedSequence == 1);
+    CHECK(system.persistentModifiers({}).speedPctDelta == 0);
 }
 
 TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]")

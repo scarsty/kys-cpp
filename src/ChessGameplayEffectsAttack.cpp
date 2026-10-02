@@ -110,7 +110,7 @@ struct CopyLivingAttack final : GameplayEffectDefinition
                 "個絕招攻擊。只複製攻擊本身，不複製其絕招效果；排除複製來源，避免遞迴複製。",
                 來源數);
         }
-        return std::format("絕招：隨機複製其他存活角色{}個絕招", 來源數);
+        return std::format("絕招：追加隨機其他存活角色的{}個絕招攻擊，不含絕招效果", 來源數);
     }
 };
 
@@ -614,7 +614,7 @@ struct BorrowEnemyEffects final : GameplayEffectDefinition
             return "施放絕招時，依星級隨機借用1至2名敵人的絕招效果。每兩星增加一個來源，向上取整，最低1、最多2；不借用"
                    "會造成遞迴複製或借用的效果。";
         }
-        return "絕招：依星級隨機借用1至2敵絕招";
+        return "絕招：本次出招依星級隨機借用1至2名敵人的絕招效果";
     }
 };
 

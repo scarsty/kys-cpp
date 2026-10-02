@@ -3386,6 +3386,22 @@ void BattleEffectSystem::finalizeEventDispatch(
         result.commands[ordinal].metadata.commandOrdinal = ordinal;
 }
 
+bool BattleEffectSystem::hasExactRuntimeRuleCandidates(
+    const BattleEffectRuleStore& store,
+    EffectEvent event,
+    int ownerUnitId) const
+{
+    const auto& indices = store.ruleIndicesByEvent_[static_cast<std::size_t>(event)];
+    return std::ranges::any_of(indices, [&](std::size_t index)
+    {
+        const auto& bound = store.rules_[index];
+        return (bound.rule.observation != EffectObservationScope::Owner
+                || bound.binding.ownerUnitId < 0
+                || bound.binding.ownerUnitId == ownerUnitId)
+            && requiresExactRuntimePhaseQuery(bound.rule);
+    });
+}
+
 std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRules(
     const BattleEffectRuleStore& store,
     const EffectEventContext& context,
@@ -3723,20 +3739,13 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
     return result;
 }
 
-BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
-    BattleEffectRuleStore& store,
-    const EffectEventContext& context,
-    BattleRuntimeRandom& random,
-    std::span<const ActiveStatusBehaviorView> behaviors,
-    StatusBehaviorDispatchFilter filter,
-    bool includeAllFrameOwners,
-    const StatusBehaviorDispatchLiveness* reducerLiveness) const
+bool BattleEffectSystem::statusBehaviorRuleMatchesEvent(
+    const EffectRule& rule,
+    EffectEvent event,
+    StatusBehaviorDispatchFilter filter)
 {
-    assert(!includeAllFrameOwners || context.event == EffectEvent::FrameAdvanced);
-    assert(behaviors.empty() || reducerLiveness);
-    assert(!reducerLiveness
-        || (reducerLiveness->contributionQuantity
-            && reducerLiveness->reduceRuleCommands));
+    if (rule.event != event || event == EffectEvent::StatusPersistent) return false;
+    if (filter == StatusBehaviorDispatchFilter::All) return true;
     const auto actionContains = [&]<typename Action>(
                                     const auto& self,
                                     const EffectAction& action) -> bool
@@ -3757,6 +3766,47 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
         return contains((*conditional)->whenTrue)
             || contains((*conditional)->whenFalse);
     };
+    const bool suppressesOutgoingCast = std::ranges::any_of(
+        rule.actions,
+        [&](const auto& action)
+        {
+            return actionContains.template operator()<
+                SuppressCurrentCastContactsAction>(actionContains, action);
+        });
+    const bool makesIncomingAttackMiss = std::ranges::any_of(
+        rule.actions,
+        [&](const auto& action)
+        {
+            return actionContains.template operator()<
+                MakeIncomingAttackMissAction>(actionContains, action);
+        });
+    const bool attackInterceptor = suppressesOutgoingCast || makesIncomingAttackMiss;
+    switch (filter)
+    {
+    case StatusBehaviorDispatchFilter::All: return true;
+    case StatusBehaviorDispatchFilter::AttackInterceptorsOnly: return attackInterceptor;
+    case StatusBehaviorDispatchFilter::OutgoingCastSuppressorsOnly: return suppressesOutgoingCast;
+    case StatusBehaviorDispatchFilter::IncomingAttackMissOnly: return makesIncomingAttackMiss;
+    case StatusBehaviorDispatchFilter::ExcludeAttackInterceptors: return !attackInterceptor;
+    }
+    assert(false);
+    return false;
+}
+
+BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
+    BattleEffectRuleStore& store,
+    const EffectEventContext& context,
+    BattleRuntimeRandom& random,
+    std::span<const ActiveStatusBehaviorView> behaviors,
+    StatusBehaviorDispatchFilter filter,
+    bool includeAllFrameOwners,
+    const StatusBehaviorDispatchLiveness* reducerLiveness) const
+{
+    assert(!includeAllFrameOwners || context.event == EffectEvent::FrameAdvanced);
+    assert(behaviors.empty() || reducerLiveness);
+    assert(!reducerLiveness
+        || (reducerLiveness->contributionQuantity
+            && reducerLiveness->reduceRuleCommands));
     struct PendingRule
     {
         std::optional<std::size_t> configuredRuleIndex;
@@ -3808,32 +3858,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
              ++ruleOrder)
         {
             const auto& rule = behavior.behavior->rules[ruleOrder];
-            if (rule.event != context.event || rule.event == EffectEvent::StatusPersistent)
-                continue;
-            const bool suppressesOutgoingCast = std::ranges::any_of(
-                rule.actions,
-                [&](const auto& action)
-                {
-                    return actionContains.template operator()<
-                        SuppressCurrentCastContactsAction>(actionContains, action);
-                });
-            const bool makesIncomingAttackMiss = std::ranges::any_of(
-                rule.actions,
-                [&](const auto& action)
-                {
-                    return actionContains.template operator()<
-                        MakeIncomingAttackMissAction>(actionContains, action);
-                });
-            const bool attackInterceptor = suppressesOutgoingCast
-                || makesIncomingAttackMiss;
-            if ((filter == StatusBehaviorDispatchFilter::AttackInterceptorsOnly
-                    && !attackInterceptor)
-                || (filter == StatusBehaviorDispatchFilter::OutgoingCastSuppressorsOnly
-                    && !suppressesOutgoingCast)
-                || (filter == StatusBehaviorDispatchFilter::IncomingAttackMissOnly
-                    && !makesIncomingAttackMiss)
-                || (filter == StatusBehaviorDispatchFilter::ExcludeAttackInterceptors
-                    && attackInterceptor))
+            if (!statusBehaviorRuleMatchesEvent(rule, context.event, filter))
                 continue;
 
             pendingRules.push_back({

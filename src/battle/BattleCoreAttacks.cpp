@@ -399,8 +399,7 @@ bool tryResolveDodgeHit(
 bool consumeNextAttackCritical(BattleRuntimeState& state, BattleFrameContext& frame, int attackerUnitId)
 {
     auto& attacker = state.units.require(attackerUnitId);
-    const auto snapshot = BattleStatusSystem({}).snapshot(attacker.statusDamageState());
-    if (!snapshot.has(BattleStatusKind::NextAttackCritical))
+    if (!attacker.status.effects.has(BattleStatusKind::NextAttackCritical))
     {
         return false;
     }
@@ -754,8 +753,8 @@ void collectHitDamageModifiers(
         }
     }
 
-    const auto attackerStatus = BattleStatusSystem({}).snapshot(
-        state.units.require(event.sourceUnitId).statusDamageState());
+    const auto attackerStatus = BattleStatusSystem({}).persistentModifiers(
+        state.units.require(event.sourceUnitId).status.effects);
     if (event.skillId >= 0 && attackerStatus.skillDamagePct != 0)
     {
         input.damageModifiers.outgoingBeforeCritical.push_back({
@@ -764,8 +763,8 @@ void collectHitDamageModifiers(
         });
     }
 
-    const auto defenderStatus = BattleStatusSystem({}).snapshot(
-        state.units.require(event.unitId).statusDamageState());
+    const auto defenderStatus = BattleStatusSystem({}).persistentModifiers(
+        state.units.require(event.unitId).status.effects);
     if (defenderStatus.damageReductionPct != 0)
     {
         input.damageModifiers.incomingBase.push_back({

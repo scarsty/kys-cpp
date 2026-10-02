@@ -419,13 +419,8 @@ struct BattleNegativeEffectProtectionResult
     bool blocked = false;
 };
 
-struct BattleStatusQuerySnapshot
+struct BattleStatusPersistentModifiers
 {
-    int holderUnitId = -1;
-    std::vector<BattleStatusContribution> statuses;
-    int statusShield = 0;
-    int staggerShield = 0;
-
     // Kept in deterministic contribution/action order. The heal boundary
     // filters by the actual transaction kind and rounds after each multiplier.
     std::vector<ModifyHealTransactionAction> healTransactionModifiers;
@@ -433,6 +428,14 @@ struct BattleStatusQuerySnapshot
     int damageTakenPct = 0;
     int damageReductionPct = 0;
     int skillDamagePct = 0;
+};
+
+struct BattleStatusQuerySnapshot : BattleStatusPersistentModifiers
+{
+    int holderUnitId = -1;
+    std::vector<BattleStatusContribution> statuses;
+    int statusShield = 0;
+    int staggerShield = 0;
 
     bool has(BattleStatusKind kind) const;
     int stacks(
@@ -498,6 +501,7 @@ public:
     BattleNegativeEffectProtectionResult protectNegativeEffect(
         BattleStatusUnitState target,
         int durationFrames) const;
+    BattleStatusPersistentModifiers persistentModifiers(const BattleStatusEffectState& effects) const;
     BattleStatusQuerySnapshot snapshot(const BattleStatusEffectState& effects) const;
     BattleStatusQuerySnapshot snapshot(const BattleStatusUnitState& target) const;
 

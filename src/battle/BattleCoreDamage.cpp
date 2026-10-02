@@ -50,7 +50,7 @@ BattleHealModifierState statusHealModifiers(
     const BattleRuntimeUnitRecord& record,
     BattleHealKind kind)
 {
-    const auto status = BattleStatusSystem({}).snapshot(record.statusDamageState());
+    const auto status = BattleStatusSystem({}).persistentModifiers(record.status.effects);
     return battleStatusHealModifiers(status, kind);
 }
 

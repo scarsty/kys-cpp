@@ -14,7 +14,7 @@ namespace KysChess::Battle
 
 struct BattleRuntimeState;
 class BattleRuntimeUnits;
-struct BattleStatusQuerySnapshot;
+struct BattleStatusPersistentModifiers;
 
 struct HealTransactionId
 {
@@ -80,7 +80,7 @@ struct BattleHealModifierState
 };
 
 BattleHealModifierState battleStatusHealModifiers(
-    const BattleStatusQuerySnapshot& status,
+    const BattleStatusPersistentModifiers& status,
     BattleHealKind kind);
 
 enum class BattleHealEventType
