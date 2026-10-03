@@ -1513,11 +1513,11 @@ BattleRuntimeUnit* findAntiComboTransferTarget(
         {
             continue;
         }
-        if (!candidateRecord.comboFacts.memberComboIds.contains(comboId))
+        if (!candidateRecord.comboFacts.isMember(comboId))
         {
             continue;
         }
-        if (candidateRecord.comboFacts.appliedComboIds.contains(comboId))
+        if (candidateRecord.comboFacts.hasApplied(comboId))
         {
             continue;
         }
@@ -1542,7 +1542,7 @@ void applyRuntimeAntiComboTransfer(
     {
         return;
     }
-    for (int comboId : deadRecord.comboFacts.appliedComboIds)
+    for (int comboId : deadRecord.comboFacts.appliedComboIds())
     {
         if (!state.antiComboIds.contains(comboId))
         {
@@ -1618,7 +1618,7 @@ void applyRuntimeAntiComboTransfer(
             target->id,
             target->team,
             comboId);
-        targetRecord.comboFacts.appliedComboIds.insert(comboId);
+        targetRecord.comboFacts.addApplied(comboId);
         logEvents.push_back(makeAntiComboTransferLog(deadUnitId, target->id));
     }
 }

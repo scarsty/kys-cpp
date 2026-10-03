@@ -276,6 +276,8 @@ TEST_CASE("BattleAreaEffectSystem_QueriesSortByIdAndApplyStrongestOrSemantics", 
     REQUIRE(block.modifiers.size() == 1);
     CHECK(block.modifiers[0].areaId == strongestArea.areaId);
     CHECK(block.modifiers[0].modifier.amount.flat == 25);
+    CHECK(BattleAreaEffectSystem::attributeDelta(
+        state, transform, units, 2, 0, BattleAttribute::BlockChance) == 25);
 
     const auto outgoing = BattleAreaEffectSystem::collectAreaUnitModifiers(
         state,
@@ -312,4 +314,37 @@ TEST_CASE("BattleAreaEffectSystem_QueriesSortByIdAndApplyStrongestOrSemantics", 
         2,
         0,
         ForceMoveDirection::TowardSource));
+}
+
+TEST_CASE("Area attribute queries combine additive and strongest values beyond the local arena",
+          "[battle][area][attribute][allocator]")
+{
+    const BattleGridTransform transform{ 10.0, 64 };
+    const Pointf center = areaGridWorldPosition(transform, 10, 10);
+    auto units = runtimeRecords({
+        runtimeUnitSnapshot(0, 0, 100, center),
+        runtimeUnitSnapshot(1, 1, 100, center),
+    });
+    AreaModifier speed;
+    speed.kind = AreaModifierKind::Attribute;
+    speed.relation = EffectTeamFilter::Ally;
+    speed.attribute = BattleAttribute::Speed;
+    speed.amount.flat = 1;
+    speed.overlap = AreaOverlapPolicy::Add;
+    auto request = fixedCircleAreaRequest(0, 0, { 1 }, center, 0, 100, AreaMergePolicy::Independent);
+    request.modifiers.assign(200, speed);
+    speed.overlap = AreaOverlapPolicy::KeepStrongest;
+    speed.amount.flat = -20;
+    request.modifiers.push_back(speed);
+    speed.amount.flat = -10;
+    request.modifiers.push_back(speed);
+    speed.attribute = BattleAttribute::BlockChance;
+    speed.amount.flat = 30;
+    request.modifiers.push_back(speed);
+    BattleAreaEffectState state;
+    BattleAreaEffectSystem::create(state, std::move(request));
+    CHECK(BattleAreaEffectSystem::attributeDelta(state, transform, units, 0, 0, BattleAttribute::Speed) == 180);
+    CHECK(BattleAreaEffectSystem::attributeDelta(state, transform, units, 0, 0, BattleAttribute::BlockChance) == 30);
+    CHECK(BattleAreaEffectSystem::attributeDelta(state, transform, units, 1, 0, BattleAttribute::Speed) == 0);
+    CHECK(BattleAreaEffectSystem::attributeDelta(state, transform, units, 0, 100, BattleAttribute::Speed) == 0);
 }

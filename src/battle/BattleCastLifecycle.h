@@ -7,6 +7,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <utility>
 #include <vector>
 
 namespace KysChess::Battle
@@ -283,9 +284,46 @@ struct BattleCastLifecycleSnapshot
     std::vector<BattleCastWorkSnapshot> work;
 };
 
+// 預測的值邊界包含全部可執行狀態；報告歷史由 lifecycle 另外持有。
+class BattleCastExecutionState
+{
+    friend class BattleCastLifecycle;
+
+    struct WorkRecord
+    {
+        CastWorkToken token;
+        CastWorkKind kind = CastWorkKind::CommitBarrier;
+        std::optional<BattleAttackId> attackId;
+        std::optional<int> attackOrdinal;
+    };
+
+    struct RuntimeRecord
+    {
+        BattleCastRuntime runtime;
+        int nextAttackOrdinal{};
+        bool rootAttackReserved = false;
+        std::optional<CastWorkToken> parentChildWork;
+        bool continuationWindowOpen = false;
+    };
+
+    std::uint64_t nextCastId_ = 1;
+    std::uint64_t nextWorkId_ = 1;
+    std::map<BattleCastId, RuntimeRecord> casts_;
+    std::map<BattleCastWorkId, WorkRecord> work_;
+    std::map<BattleAttackId, BattleCastWorkId> liveAttackWork_;
+    std::optional<int> battleEndedFrame_;
+};
+
 class BattleCastLifecycle
 {
 public:
+    BattleCastLifecycle() = default;
+    explicit BattleCastLifecycle(BattleCastExecutionState execution)
+        : execution_(std::move(execution))
+    {
+    }
+    const BattleCastExecutionState& executionState() const { return execution_; }
+
     BattleCastStart beginRootCast(const BattleRootCastRequest& request);
     BattleCastStart beginChildCast(
         BattleCastId parentCastId,
@@ -318,22 +356,8 @@ public:
     BattleCastLifecycleSnapshot snapshot() const;
 
 private:
-    struct WorkRecord
-    {
-        CastWorkToken token;
-        CastWorkKind kind = CastWorkKind::CommitBarrier;
-        std::optional<BattleAttackId> attackId;
-        std::optional<int> attackOrdinal;
-    };
-
-    struct RuntimeRecord
-    {
-        BattleCastRuntime runtime;
-        int nextAttackOrdinal{};
-        bool rootAttackReserved = false;
-        std::optional<CastWorkToken> parentChildWork;
-        bool continuationWindowOpen = false;
-    };
+    using WorkRecord = BattleCastExecutionState::WorkRecord;
+    using RuntimeRecord = BattleCastExecutionState::RuntimeRecord;
 
     BattleCastId allocateCastId();
     CastWorkToken reserveWork(BattleCastId castId, CastWorkKind kind);
@@ -349,13 +373,8 @@ private:
         AttackFinishReason reason);
     void retireCast(BattleCastId castId);
 
-    std::uint64_t nextCastId_ = 1;
-    std::uint64_t nextWorkId_ = 1;
-    std::map<BattleCastId, RuntimeRecord> casts_;
-    std::map<BattleCastWorkId, WorkRecord> work_;
-    std::map<BattleAttackId, BattleCastWorkId> liveAttackWork_;
+    BattleCastExecutionState execution_;
     std::vector<BattleCastRuntime> retiredCasts_;
-    std::optional<int> battleEndedFrame_;
 };
 
 }  // namespace KysChess::Battle

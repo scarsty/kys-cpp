@@ -134,17 +134,20 @@ bool livenessReductionStartsDamageContinuation(
 
 }  // namespace
 
-BattleEffectDispatchPrediction::BattleEffectDispatchPrediction(const BattleRuntimeState& source)
-    : runtime_(std::make_unique<BattleRuntimeState>(
-        BattleEffectCommandSystem::copyDispatchState(source)))
+BattleEffectDispatchPrediction::BattleEffectDispatchPrediction(const BattleRuntimeState& source, bool needsReduction)
+    : source_(source)
 {
+    // 可能修改狀態存活時在事件開始就複製，保留規則計時器供巢狀 dispatch 使用。
+    if (needsReduction)
+        runtime_ = std::make_unique<BattleRuntimeState>(
+            BattleEffectCommandSystem::copyDispatchState(source));
     hooks_.contributionQuantity = [&](
         int holderUnitId,
         std::uint64_t appliedSequence,
         BattleStatusKind kind) -> std::optional<int>
     {
         return BattleEffectCommandSystem::contributionQuantity(
-            runtime_->units.require(holderUnitId).status.effects,
+            (runtime_ ? *runtime_ : source_).units.require(holderUnitId).status.effects,
             appliedSequence, kind);
     };
     hooks_.reduceRuleCommands = [&](std::span<const EffectCommand> commands)
@@ -157,6 +160,8 @@ BattleEffectDispatchPrediction::~BattleEffectDispatchPrediction() = default;
 
 void BattleEffectDispatchPrediction::reduceRuleCommands(std::span<const EffectCommand> commands)
 {
+    // 已證明本次事件不能修改狀態存活時，quantity 直接讀取未被 reducer 改動的來源。
+    if (commands.empty() || !runtime_) return;
     std::size_t actionBegin{};
     while (actionBegin < commands.size())
     {
@@ -252,7 +257,8 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatch(
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!activeStatusBehaviors.empty())
     {
-        liveness.emplace(runtime);
+        liveness.emplace(runtime, system.rulesNeedStatusPrediction(
+            runtime.effectRules, context, activeStatusBehaviors, runtime.random));
     }
     auto result = system.dispatchMerged(
         runtime.effectRules,
@@ -283,7 +289,8 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatchFrameAdvanced(
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!behaviors.empty())
     {
-        liveness.emplace(runtime);
+        liveness.emplace(runtime, BattleEffectSystem().rulesNeedStatusPrediction(
+            runtime.effectRules, context, behaviors, runtime.random, true));
     }
     return BattleEffectSystem().dispatchMerged(
         runtime.effectRules,
@@ -306,7 +313,9 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatchActiveStatusBehavior
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!behaviors.empty())
     {
-        liveness.emplace(runtime);
+        const BattleEffectRuleStore statusOnly;
+        liveness.emplace(runtime, BattleEffectSystem().rulesNeedStatusPrediction(
+            statusOnly, context, behaviors, runtime.random));
     }
     auto result = BattleEffectSystem().dispatchStatusBehaviors(
         context,

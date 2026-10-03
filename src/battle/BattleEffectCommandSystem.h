@@ -298,6 +298,7 @@ class BattleEffectCommandSystem
 public:
     static std::optional<int> contributionQuantity(
         const BattleStatusEffectState& effects, std::uint64_t sequence, BattleStatusKind kind);
+    static bool actionMayAffectStatusLiveness(const EffectAction& action);
     static BattleRuntimeState copyDispatchState(const BattleRuntimeState& source);
     static BattleEffectDamageRequestOutput prepareDamageOutput(
         const EffectCommandMetadata& metadata,

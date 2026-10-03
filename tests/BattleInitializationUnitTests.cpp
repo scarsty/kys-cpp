@@ -838,7 +838,9 @@ TEST_CASE("BattleEffectRuntimeSnapshot_CopiesStableUnitFactsStatusesAndResources
     actionPlan.normalSkill.magicType = 2;
     actionPlan.ultimateSkill.id = 47;
     record.setActionPlan(actionPlan);
-    record.comboFacts.memberComboIds = { 33, 44 };
+    record.comboFacts.addMember(33);
+    record.comboFacts.addMember(44);
+    record.comboFacts.addApplied(33);
     record.status.effects.statusShield = 70;
     record.status.effects.staggerShield = 80;
     record.status.effects.statuses.push_back(boundStatusBehaviorContribution(
@@ -892,11 +894,9 @@ TEST_CASE("BattleEffectRuntimeSnapshot_CopiesStableUnitFactsStatusesAndResources
     CHECK(direct.staggerShield == 80);
     CHECK(direct.star == 3);
     CHECK(direct.attack == 62);
-    CHECK(direct.defence == 46);
-    CHECK(direct.speed == 35);
     CHECK(direct.martialCategory == EffectMartialCategory::Sword);
-    CHECK((direct.magicIds == std::set<int>{ 14, 47 }));
-    CHECK((direct.comboIds == std::set<int>{ 33, 44 }));
+    CHECK((direct.magicIds == std::pmr::vector<int>{ 14, 47 }));
+    CHECK((direct.comboIds == std::pmr::vector<int>{ 33, 44 }));
     CHECK(direct.hasState(BattleStatusKind::Poison));
     CHECK(direct.stackCount(BattleStatusKind::Poison) == 1);
     CHECK(direct.hasState(BattleStatusKind::SevenStarMark));

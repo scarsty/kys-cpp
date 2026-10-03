@@ -1641,8 +1641,8 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     unit.motion.position = { 32.0f, 48.0f, 0.0f };
 
     BattleComboRuntimeFacts comboFacts;
-    comboFacts.memberComboIds.insert(12);
-    comboFacts.appliedComboIds.insert(34);
+    comboFacts.addMember(12);
+    comboFacts.addApplied(34);
 
     BattleActionPlanSeed plan;
     plan.normalSkill.id = 99;

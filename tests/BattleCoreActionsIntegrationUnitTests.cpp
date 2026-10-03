@@ -1998,7 +1998,7 @@ TEST_CASE("BattleFrameRunner launches allied seven star swords without interrupt
         effects, rules, ruleId, "合擊整合測試"));
     for (int owner : {0, 2})
     {
-        state.units.require(owner).comboFacts.appliedComboIds.insert(12);
+        state.units.require(owner).comboFacts.addApplied(12);
         state.effectRules.append({.kind = EffectSourceKind::Combo, .sourceId = 12,
             .ownerUnitId = owner, .sourceTeam = 0}, rules);
     }

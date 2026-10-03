@@ -4,10 +4,11 @@
 #include "BattleRuntimeUnits.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <map>
+#include <memory_resource>
 #include <tuple>
 #include <utility>
 
@@ -225,6 +226,65 @@ std::optional<int> finishPercent(const PercentAccumulator& accumulator)
         + (accumulator.strongest ? *accumulator.strongest - 100 : 0);
 }
 
+struct AppliedModifierRef
+{
+    BattleAreaId areaId;
+    const AreaModifier* modifier{};
+};
+
+std::pmr::vector<AppliedModifierRef> collectUnitModifierRefs(
+    const BattleAreaEffectState& state,
+    const BattleGridTransform& gridTransform,
+    const BattleRuntimeUnits& units,
+    int unitId,
+    int frame,
+    BattleAreaQueryPhase phase,
+    std::pmr::memory_resource* memoryResource,
+    std::optional<BattleAttribute> attribute = std::nullopt)
+{
+    assert(phase == BattleAreaQueryPhase::UnitAttribute
+        || phase == BattleAreaQueryPhase::OutgoingDamage);
+    const auto& unit = units.requireCore(unitId);
+    std::pmr::vector<AppliedModifierRef> result(memoryResource);
+    std::pmr::vector<std::pair<std::uint64_t, std::size_t>> selectedByKey(memoryResource);
+    const auto areas = BattleAreaEffectSystem::areasContainingUnit(
+        state, gridTransform, units, unitId, frame, phase, memoryResource);
+    std::size_t modifierCount{};
+    for (const auto ref : areas) modifierCount += ref.area->modifiers.size();
+    result.reserve(modifierCount);
+    selectedByKey.reserve(modifierCount);
+    for (const auto ref : areas)
+    {
+        for (const auto& modifier : ref.area->modifiers)
+        {
+            if (!modifierMatchesPhase(modifier, phase)
+                || !relationMatches(modifier.relation, ref.area->sourceTeam, unit.team)
+                || (attribute && modifier.attribute != *attribute)) continue;
+            if (modifier.overlap == AreaOverlapPolicy::Add)
+            {
+                result.push_back({ ref.id, &modifier });
+                continue;
+            }
+            const auto key = modifierKey(modifier);
+            const auto selected = std::ranges::find(selectedByKey, key,
+                &std::pair<std::uint64_t, std::size_t>::first);
+            if (selected == selectedByKey.end())
+            {
+                selectedByKey.emplace_back(key, result.size());
+                result.push_back({ ref.id, &modifier });
+            }
+            else if (stronger(modifier, *result[selected->second].modifier))
+            {
+                result[selected->second] = { ref.id, &modifier };
+            }
+        }
+    }
+    std::ranges::sort(result, {}, [](const AppliedModifierRef& applied) {
+        return applied.areaId.value;
+    });
+    return result;
+}
+
 }  // namespace
 
 std::optional<BattleAreaDamageRedirect> BattleAreaEffectSystem::damageRedirect(
@@ -422,15 +482,17 @@ bool BattleAreaEffectSystem::containsUnit(
     return false;
 }
 
-std::vector<BattleAreaRef> BattleAreaEffectSystem::areasContainingUnit(
+std::pmr::vector<BattleAreaRef> BattleAreaEffectSystem::areasContainingUnit(
     const BattleAreaEffectState& state,
     const BattleGridTransform& gridTransform,
     const BattleRuntimeUnits& units,
     int unitId,
     int frame,
-    BattleAreaQueryPhase phase)
+    BattleAreaQueryPhase phase,
+    std::pmr::memory_resource* memoryResource)
 {
-    std::vector<BattleAreaRef> result;
+    std::pmr::vector<BattleAreaRef> result(memoryResource);
+    result.reserve(state.areas.size());
     for (const auto& area : state.areas)
     {
         if (areaMatchesPhase(area, phase)
@@ -443,6 +505,31 @@ std::vector<BattleAreaRef> BattleAreaEffectSystem::areasContainingUnit(
     return result;
 }
 
+int BattleAreaEffectSystem::attributeDelta(
+    const BattleAreaEffectState& state,
+    const BattleGridTransform& gridTransform,
+    const BattleRuntimeUnits& units,
+    int unitId,
+    int frame,
+    BattleAttribute attribute)
+{
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
+    const auto modifiers = collectUnitModifierRefs(
+        state, gridTransform, units, unitId, frame,
+        BattleAreaQueryPhase::UnitAttribute, &memory, attribute);
+    int delta{};
+    for (const auto& applied : modifiers)
+    {
+        const auto& amount = applied.modifier->amount;
+        assert(amount.base == EffectNumberBase::Constant);
+        assert(!amount.multiplierBase);
+        assert(amount.percent == 0);
+        delta += amount.flat;
+    }
+    return delta;
+}
+
 BattleAreaUnitModifiers BattleAreaEffectSystem::collectAreaUnitModifiers(
     const BattleAreaEffectState& state,
     const BattleGridTransform& gridTransform,
@@ -451,44 +538,14 @@ BattleAreaUnitModifiers BattleAreaEffectSystem::collectAreaUnitModifiers(
     int frame,
     BattleAreaQueryPhase phase)
 {
-    assert(phase == BattleAreaQueryPhase::UnitAttribute
-        || phase == BattleAreaQueryPhase::OutgoingDamage);
-    const auto& unit = units.requireCore(unitId);
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
+    const auto modifiers = collectUnitModifierRefs(
+        state, gridTransform, units, unitId, frame, phase, &memory);
     BattleAreaUnitModifiers result;
-    std::map<std::uint64_t, std::size_t> selectedByKey;
-
-    for (const auto ref : areasContainingUnit(state, gridTransform, units, unitId, frame, phase))
-    {
-        assert(ref.area);
-        for (const auto& modifier : ref.area->modifiers)
-        {
-            if (!modifierMatchesPhase(modifier, phase)
-                || !relationMatches(modifier.relation, ref.area->sourceTeam, unit.team))
-            {
-                continue;
-            }
-
-            if (modifier.overlap == AreaOverlapPolicy::Add)
-            {
-                result.modifiers.push_back({ ref.id, modifier });
-                continue;
-            }
-
-            const auto key = modifierKey(modifier);
-            const auto [selected, inserted] = selectedByKey.try_emplace(key, result.modifiers.size());
-            if (inserted)
-            {
-                result.modifiers.push_back({ ref.id, modifier });
-            }
-            else if (stronger(modifier, result.modifiers[selected->second].modifier))
-            {
-                result.modifiers[selected->second] = { ref.id, modifier };
-            }
-        }
-    }
-    std::ranges::sort(result.modifiers, {}, [](const BattleAreaAppliedModifier& applied) {
-        return applied.areaId.value;
-    });
+    result.modifiers.reserve(modifiers.size());
+    for (const auto& applied : modifiers)
+        result.modifiers.push_back({ applied.areaId, *applied.modifier });
     return result;
 }
 

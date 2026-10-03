@@ -4,6 +4,7 @@
 #include "../Point.h"
 
 #include <compare>
+#include <memory_resource>
 #include <optional>
 #include <vector>
 
@@ -191,13 +192,22 @@ public:
         int unitId,
         int frame);
 
-    static std::vector<BattleAreaRef> areasContainingUnit(
+    static std::pmr::vector<BattleAreaRef> areasContainingUnit(
         const BattleAreaEffectState& state,
         const BattleGridTransform& gridTransform,
         const BattleRuntimeUnits& units,
         int unitId,
         int frame,
-        BattleAreaQueryPhase phase = BattleAreaQueryPhase::Any);
+        BattleAreaQueryPhase phase = BattleAreaQueryPhase::Any,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
+
+    static int attributeDelta(
+        const BattleAreaEffectState& state,
+        const BattleGridTransform& gridTransform,
+        const BattleRuntimeUnits& units,
+        int unitId,
+        int frame,
+        BattleAttribute attribute);
 
     static BattleAreaUnitModifiers collectAreaUnitModifiers(
         const BattleAreaEffectState& state,

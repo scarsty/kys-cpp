@@ -3,6 +3,8 @@
 #include "BattleEffectSystem.h"
 
 #include <span>
+#include <memory>
+#include <memory_resource>
 #include <vector>
 
 namespace KysChess::Battle
@@ -12,7 +14,7 @@ struct BattleRuntimeState;
 struct BattleRuntimeUnit;
 struct BattleRuntimeUnitRecord;
 struct BattleActionPlanSeed;
-struct BattleComboRuntimeFacts;
+class BattleComboRuntimeFacts;
 struct BattleStatusEffectState;
 
 // Shared runtime attribute queries. effectAdjustedAttribute keeps the optional
@@ -46,13 +48,17 @@ void appendRuntimeMagicEffectRules(
 
 EffectUnitSnapshot makeEffectUnitSnapshot(
     const BattleRuntimeState& runtime,
-    const BattleRuntimeUnitRecord& record);
+    const BattleRuntimeUnitRecord& record,
+    std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
 EffectUnitSnapshot makeEffectUnitSnapshot(
     const BattleRuntimeUnit& unit,
     const BattleComboRuntimeFacts& comboFacts,
     const BattleStatusEffectState& statusEffects,
-    const BattleActionPlanSeed* actionPlan);
-std::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(const BattleRuntimeState& runtime);
+    const BattleActionPlanSeed* actionPlan,
+    std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
+std::pmr::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(
+    const BattleRuntimeState& runtime,
+    std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
 void refreshEffectStatusSnapshot(
     EffectUnitSnapshot& snapshot,
     const BattleStatusEffectState& effects);
@@ -63,13 +69,20 @@ class BattleEffectRuntimeSnapshot
 {
 public:
     explicit BattleEffectRuntimeSnapshot(const BattleRuntimeState& runtime);
+    ~BattleEffectRuntimeSnapshot();
+    BattleEffectRuntimeSnapshot(const BattleEffectRuntimeSnapshot&) = delete;
+    BattleEffectRuntimeSnapshot& operator=(const BattleEffectRuntimeSnapshot&) = delete;
+    BattleEffectRuntimeSnapshot(BattleEffectRuntimeSnapshot&&) noexcept;
+    BattleEffectRuntimeSnapshot& operator=(BattleEffectRuntimeSnapshot&&) noexcept;
 
     std::span<const EffectUnitSnapshot> units() const;
     BattleEffectReadView readView() const;
 
 private:
-    std::vector<EffectUnitSnapshot> units_;
-    float tileWidth_ = 1.0f;
+    struct Storage;
+    // Storage 的位址在移動快照時保持不變，內層容器的 allocator 不會懸空。
+    std::unique_ptr<Storage> storage_;
+    float tileWidth_{};
 };
 
 }  // namespace KysChess::Battle

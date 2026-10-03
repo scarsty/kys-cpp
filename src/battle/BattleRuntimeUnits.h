@@ -29,6 +29,7 @@
 #include <optional>
 #include <ranges>
 #include <set>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -68,19 +69,37 @@ struct BattleRescueUnitRuntime
     bool operator==(const BattleRescueUnitRuntime&) const = default;
 };
 
-struct BattleComboRuntimeFacts
+class BattleComboRuntimeFacts
 {
-    std::set<int> memberComboIds;
-    std::set<int> appliedComboIds;
+    std::vector<int> memberComboIds_;
+    std::vector<int> appliedComboIds_;
+
+    static void insertId(std::vector<int>& ids, int comboId)
+    {
+        const auto position = std::ranges::lower_bound(ids, comboId);
+        if (position == ids.end() || *position != comboId) ids.insert(position, comboId);
+    }
+
+public:
+    void reserve(std::size_t memberCount, std::size_t appliedCount)
+    {
+        memberComboIds_.reserve(memberCount);
+        appliedComboIds_.reserve(appliedCount);
+    }
+    void addMember(int comboId) { insertId(memberComboIds_, comboId); }
+    void addApplied(int comboId) { insertId(appliedComboIds_, comboId); }
+    void clearMembership() { memberComboIds_.clear(); }
+    std::span<const int> memberComboIds() const { return memberComboIds_; }
+    std::span<const int> appliedComboIds() const { return appliedComboIds_; }
 
     bool isMember(int comboId) const
     {
-        return memberComboIds.contains(comboId);
+        return std::ranges::binary_search(memberComboIds_, comboId);
     }
 
     bool hasApplied(int comboId) const
     {
-        return appliedComboIds.contains(comboId);
+        return std::ranges::binary_search(appliedComboIds_, comboId);
     }
 };
 

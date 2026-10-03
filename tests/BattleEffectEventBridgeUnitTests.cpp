@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <memory_resource>
 #include <ranges>
 #include <set>
 #include <utility>
@@ -198,6 +199,62 @@ std::vector<int> resourceAmounts(const BattleEffectDispatchResult& result)
 
 }  // namespace
 
+TEST_CASE("Dispatch prediction copies the complete execution state without retired report history",
+          "[battle][effect][bridge][prediction]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    auto& lifecycle = runtime.castLifecycle;
+    const auto retired = lifecycle.beginRootCast({ .sourceUnitId = 1, .magicId = 43 });
+    lifecycle.completeWork(retired.commitBarrier);
+    REQUIRE(lifecycle.drainReadyEvents(1).size() == 1);
+    REQUIRE(lifecycle.drainReadyEvents(2).size() == 1);
+
+    const auto root = lifecycle.beginRootCast({ .sourceUnitId = 1, .magicId = 43 });
+    const auto attack = lifecycle.reserveAttack(root.provenance.castId);
+    const auto attackId = BattleAttackId{ 91 };
+    lifecycle.transferToLiveAttack(attack.work, attackId);
+    const auto provenance = completeAttackProvenance(attack.provenance, attackId);
+    lifecycle.recordHit(provenance, 2);
+    lifecycle.recordActualHpDamage(provenance, 2, 17);
+    const auto child = lifecycle.beginChildCast(
+        root.provenance.castId, { .sourceUnitId = 1, .magicId = 43 });
+    lifecycle.completeWork(root.commitBarrier);
+
+    auto prediction = BattleEffectCommandSystem::copyDispatchState(runtime);
+    auto& predicted = prediction.castLifecycle;
+    const auto copied = predicted.snapshot();
+    CHECK(copied.retiredCasts.empty());
+    CHECK(lifecycle.snapshot().retiredCasts.size() == 1);
+    REQUIRE(copied.activeCasts.size() == 2);
+    CHECK(predicted.outstandingWork(root.provenance.castId) == 2);
+    CHECK(predicted.outstandingWork(child.provenance.castId) == 1);
+    CHECK(predicted.workKind(attack.work) == CastWorkKind::LiveAttack);
+    CHECK(predicted.runtime(root.provenance.castId).aggregate.totalActualHpDamage == 17);
+    CHECK(copied.nextCastId == lifecycle.snapshot().nextCastId);
+    CHECK(copied.nextWorkId == lifecycle.snapshot().nextWorkId);
+
+    predicted.completeWork(attack.work, CastWorkResult::attackFinished(AttackFinishReason::SpentOnHit));
+    predicted.completeWork(child.commitBarrier);
+    for (int frame = 3; frame <= 6; ++frame)
+    {
+        REQUIRE(predicted.drainReadyEvents(frame).size() == 1);
+    }
+    CHECK(predicted.activeCastCount() == 0);
+    CHECK(predicted.trackedWorkCount() == 0);
+    CHECK(predicted.snapshot().retiredCasts.size() == 2);
+    CHECK(lifecycle.snapshot().retiredCasts.size() == 1);
+    CHECK(lifecycle.activeCastCount() == 2);
+    CHECK(lifecycle.trackedWorkCount() == 3);
+
+    lifecycle.cancelOutstandingForBattleEnd(10);
+    const auto ended = BattleEffectCommandSystem::copyDispatchState(runtime).castLifecycle.snapshot();
+    CHECK(ended.terminalState == BattleCastLifecycleTerminalState::BattleEnded);
+    CHECK(ended.battleEndedFrame == 10);
+    CHECK(ended.activeCasts.empty());
+    CHECK(ended.work.empty());
+    CHECK(ended.retiredCasts.empty());
+}
+
 TEST_CASE("BattleRuntimeEffects snapshots include active typed core attributes",
           "[battle][effect][snapshot]")
 {
@@ -220,6 +277,13 @@ TEST_CASE("BattleRuntimeEffects snapshots include active typed core attributes",
     runtime.movement.frame = 6;
     const auto snapshot = makeEffectUnitSnapshot(runtime, runtime.units.require(1));
     CHECK(snapshot.attack == runtime.units.requireCore(1).stats.attack + 30);
+    const auto snapshots = makeEffectUnitSnapshots(runtime);
+    for (const auto& batched : snapshots)
+    {
+        const auto single = makeEffectUnitSnapshot(runtime, runtime.units.require(batched.id));
+        CHECK(batched.attack == single.attack);
+        CHECK(batched.maxHp == single.maxHp);
+    }
 }
 
 TEST_CASE("Full effect snapshots route persistent magic IDs to their owners and exclude borrowed aliases",
@@ -227,8 +291,8 @@ TEST_CASE("Full effect snapshots route persistent magic IDs to their owners and 
 {
     auto runtime = runtimeWithTwoUnits();
     BattleActionPlanSeed plan;
-    plan.normalSkill.id = 5;
-    plan.ultimateSkill.id = 6;
+    plan.normalSkill.id = 6;
+    plan.ultimateSkill.id = 5;
     runtime.units.require(1).setActionPlan(std::move(plan));
     const auto rule = resourceRule(1, EffectEvent::UltimateCommitted, 10);
     const auto ownMagic = binding(EffectSourceKind::Magic, 43, 1, 0);
@@ -248,14 +312,64 @@ TEST_CASE("Full effect snapshots route persistent magic IDs to their owners and 
     const auto snapshots = makeEffectUnitSnapshots(runtime);
     REQUIRE(snapshots.size() == 2);
     CHECK(snapshots[0].id == 1);
-    CHECK(snapshots[0].magicIds == std::set<int>{ 5, 6, 43 });
+    CHECK(snapshots[0].magicIds == std::pmr::vector<int>{ 5, 6, 43 });
     CHECK(snapshots[1].id == 2);
-    CHECK(snapshots[1].magicIds == std::set<int>{ 16 });
+    CHECK(snapshots[1].magicIds == std::pmr::vector<int>{ 16 });
     for (const auto& snapshot : snapshots)
     {
         CHECK(snapshot.magicIds == makeEffectUnitSnapshot(
             runtime, runtime.units.require(snapshot.id)).magicIds);
     }
+}
+
+TEST_CASE("Effect snapshot collections use the supplied resource and value copies outlive it",
+          "[battle][effect][snapshot][allocator]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    BattleActionPlanSeed plan;
+    plan.normalSkill.id = 6;
+    plan.ultimateSkill.id = 5;
+    auto& record = runtime.units.require(1);
+    record.setActionPlan(std::move(plan));
+    record.comboFacts.addMember(13);
+    record.comboFacts.addMember(12);
+    record.comboFacts.addMember(12);
+    record.comboFacts.addApplied(12);
+    record.status.effects.statuses.push_back({
+        .kind = BattleStatusKind::SevenStarMark,
+        .sourceUnitId = 2,
+        .remainingFrames = 30,
+        .stacks = 3,
+    });
+
+    EffectUnitSnapshot saved;
+    {
+        std::array<std::byte, 4096> buffer{};
+        std::pmr::monotonic_buffer_resource memory(
+            buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+        auto snapshots = makeEffectUnitSnapshots(runtime, &memory);
+        CHECK(snapshots.get_allocator().resource() == &memory);
+        const auto& snapshot = snapshots.front();
+        CHECK(snapshot.magicIds.get_allocator().resource() == &memory);
+        CHECK(snapshot.comboIds.get_allocator().resource() == &memory);
+        CHECK(snapshot.statusDetails.get_allocator().resource() == &memory);
+        saved = snapshot;
+        auto copied = snapshot;
+        CHECK(copied.magicIds.get_allocator().resource() == std::pmr::get_default_resource());
+        CHECK(copied.comboIds.get_allocator().resource() == std::pmr::get_default_resource());
+        CHECK(copied.statusDetails.get_allocator().resource() == std::pmr::get_default_resource());
+    }
+    CHECK(saved.magicIds == std::pmr::vector<int>{ 5, 6 });
+    CHECK(saved.comboIds == std::pmr::vector<int>{ 12, 13 });
+    CHECK(saved.stackCount(BattleStatusKind::SevenStarMark) == 3);
+
+    auto owned = BattleEffectEventBridge().makeEvent(
+        runtime, { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 1 },
+        EffectEvent::FrameAdvanced, FrameTickEventData{ .deltaFrames = 1 });
+    const auto* beforeMove = owned.context().scope.owner;
+    const auto moved = std::move(owned);
+    CHECK(moved.context().scope.owner == beforeMove);
+    CHECK(moved.context().scope.owner->usesMagic(6));
 }
 
 TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer and the next rule",
@@ -1065,6 +1179,43 @@ TEST_CASE("Bleed reapplication before a due frame tick preserves the clock and u
     REQUIRE(bleed->origin);
     CHECK(bleed->origin->binding == incomingSource);
     CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
+}
+
+TEST_CASE("Idle merged frame dispatch advances configured and status clocks before their due frames",
+          "[battle][effect][bridge][status][frame][prediction]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    const auto producer = binding(EffectSourceKind::Combo, 301, 1, 0);
+    const auto applied = BattleDamageSystem{}.applyBleed(
+        runtime.units.require(2).statusDamageState(),
+        makeBattleStatusProducerProvenance(producer, EffectRuleId{ 301 }), 2, 3);
+    REQUIRE(applied.applied);
+    runtime.units.require(2).writeStatusDamageResult(applied.target);
+    auto* bleed = runtime.units.require(2).status.effects.find(BattleStatusKind::Bleed);
+    REQUIRE(bleed);
+    bleed->behaviorRuntime.front().intervalFramesRemaining = 3;
+    auto configured = resourceRule(302, EffectEvent::FrameAdvanced, 11);
+    configured.intervalFrames = 2;
+    runtime.effectRules.append(producer, configured);
+    const auto dispatch = [&](int frame)
+    {
+        const auto event = BattleEffectEventBridge().makeEvent(
+            runtime, { .frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1 },
+            EffectEvent::FrameAdvanced, FrameTickEventData{ .deltaFrames = 1 });
+        return BattleEffectEventBridge().dispatchFrameAdvanced(runtime, event);
+    };
+    CHECK(dispatch(1).commands.empty());
+    CHECK(runtime.effectRules.runtime(producer, EffectRuleId{ 302 }).intervalFramesRemaining == 1);
+    CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 2);
+    const auto second = dispatch(2);
+    REQUIRE(second.commands.size() == 1);
+    CHECK(std::holds_alternative<ChangeResourceEffectCommand>(second.commands.front().value));
+    CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 1);
+    const auto third = dispatch(3);
+    REQUIRE(third.commands.size() == 1);
+    CHECK(std::get<DealDamageEffectCommand>(third.commands.front().value).kind == BattleDamageKind::Bleed);
+    CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
+    CHECK(bleed->stacks == 2);
 }
 
 TEST_CASE("Cloned status rules retain source definition identity and use the clone as logical owner",

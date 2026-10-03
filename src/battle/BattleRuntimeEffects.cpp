@@ -7,7 +7,9 @@
 #include "BattleStatusSystem.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <iterator>
 #include <ranges>
 
 namespace KysChess::Battle
@@ -27,11 +29,11 @@ const ChessMagicEffectDefinition* findMagicDefinition(
     return definition != definitions.end() ? &*definition : nullptr;
 }
 
-void appendMagicId(std::set<int>& magicIds, int magicId)
+void appendMagicId(std::pmr::vector<int>& magicIds, int magicId)
 {
-    if (magicId >= 0)
+    if (magicId >= 0 && !std::ranges::contains(magicIds, magicId))
     {
-        magicIds.insert(magicId);
+        magicIds.push_back(magicId);
     }
 }
 
@@ -51,14 +53,13 @@ EffectMartialCategory selectedMartialCategory(const BattleActionPlanSeed* action
     }
 }
 
-void appendComboIds(const BattleComboRuntimeFacts& comboFacts, std::set<int>& comboIds)
+void appendComboIds(const BattleComboRuntimeFacts& comboFacts, std::pmr::vector<int>& comboIds)
 {
-    comboIds.insert(
-        comboFacts.memberComboIds.begin(),
-        comboFacts.memberComboIds.end());
-    comboIds.insert(
-        comboFacts.appliedComboIds.begin(),
-        comboFacts.appliedComboIds.end());
+    comboIds.reserve(comboFacts.memberComboIds().size() + comboFacts.appliedComboIds().size());
+    std::ranges::set_union(
+        comboFacts.memberComboIds(),
+        comboFacts.appliedComboIds(),
+        std::back_inserter(comboIds));
 }
 
 bool isPersistentMagicRule(const BoundEffectRule& bound)
@@ -70,7 +71,7 @@ bool isPersistentMagicRule(const BoundEffectRule& bound)
 void appendBoundMagicIds(
     const BattleRuntimeState& runtime,
     int ownerUnitId,
-    std::set<int>& magicIds)
+    std::pmr::vector<int>& magicIds)
 {
     for (const auto& bound : runtime.effectRules.rules())
     {
@@ -80,6 +81,7 @@ void appendBoundMagicIds(
             appendMagicId(magicIds, bound.binding.sourceId);
         }
     }
+    std::ranges::sort(magicIds);
 }
 
 void populateEffectStatusSnapshot(
@@ -87,6 +89,7 @@ void populateEffectStatusSnapshot(
     const BattleStatusEffectState& effects)
 {
     result.statusDetails.clear();
+    result.statusDetails.reserve(effects.statuses.size());
     result.statusShield = effects.statusShield;
     result.staggerShield = effects.staggerShield;
     for (const auto& instance : effects.statuses)
@@ -133,26 +136,13 @@ int areaAttributeDelta(
     int unitId,
     BattleAttribute attribute)
 {
-    const auto modifiers = BattleAreaEffectSystem::collectAreaUnitModifiers(
+    return BattleAreaEffectSystem::attributeDelta(
         runtime.areas,
         runtime.gridTransform,
         runtime.units,
         unitId,
         runtime.movement.frame,
-        BattleAreaQueryPhase::UnitAttribute);
-    int delta{};
-    for (const auto& applied : modifiers.modifiers)
-    {
-        if (applied.modifier.attribute != attribute)
-        {
-            continue;
-        }
-        assert(applied.modifier.amount.base == EffectNumberBase::Constant);
-        assert(!applied.modifier.amount.multiplierBase);
-        assert(applied.modifier.amount.percent == 0);
-        delta += applied.modifier.amount.flat;
-    }
-    return delta;
+        attribute);
 }
 
 int areaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed)
@@ -247,9 +237,14 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
     const BattleRuntimeUnit& unit,
     const BattleComboRuntimeFacts& comboFacts,
     const BattleStatusEffectState& statusEffects,
-    const BattleActionPlanSeed* actionPlan)
+    const BattleActionPlanSeed* actionPlan,
+    std::pmr::memory_resource* memoryResource)
 {
-    EffectUnitSnapshot result;
+    EffectUnitSnapshot result{
+        .magicIds = std::pmr::vector<int>{ memoryResource },
+        .comboIds = std::pmr::vector<int>{ memoryResource },
+        .statusDetails = std::pmr::vector<EffectStatusSnapshot>{ memoryResource },
+    };
     result.id = unit.id;
     result.team = unit.team;
     result.star = unit.star;
@@ -263,15 +258,15 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
     result.activeCooldown = unit.animation.cooldown;
     result.invincible = unit.invincible > 0;
     result.attack = unit.stats.attack;
-    result.defence = unit.stats.defence;
-    result.speed = unit.stats.speed;
     result.position = unit.motion.position;
     result.martialCategory = selectedMartialCategory(actionPlan);
 
     if (actionPlan)
     {
+        result.magicIds.reserve(2);
         appendMagicId(result.magicIds, actionPlan->normalSkill.id);
         appendMagicId(result.magicIds, actionPlan->ultimateSkill.id);
+        std::ranges::sort(result.magicIds);
         result.ultimateMagicId = actionPlan->ultimateSkill.id;
     }
     appendComboIds(comboFacts, result.comboIds);
@@ -325,14 +320,16 @@ namespace
 
 EffectUnitSnapshot makeEffectUnitAttributeSnapshot(
     const BattleRuntimeState& runtime,
-    const BattleRuntimeUnitRecord& record)
+    const BattleRuntimeUnitRecord& record,
+    std::pmr::memory_resource* memoryResource)
 {
     const auto& unit = record.core;
     auto result = makeEffectUnitSnapshot(
         unit,
         record.comboFacts,
         record.status.effects,
-        record.actionPlan());
+        record.actionPlan(),
+        memoryResource);
     result.maxHp = effectAdjustedAttribute(
         runtime,
         unit.id,
@@ -343,12 +340,6 @@ EffectUnitSnapshot makeEffectUnitAttributeSnapshot(
         unit.id,
         BattleAttribute::Attack,
         unit.stats.attack);
-    result.defence = effectAdjustedAttribute(
-        runtime,
-        unit.id,
-        BattleAttribute::Defence,
-        unit.stats.defence);
-    result.speed = effectAndAreaAdjustedSpeed(runtime, record.id(), record.core.stats.speed);
     return result;
 }
 
@@ -356,20 +347,23 @@ EffectUnitSnapshot makeEffectUnitAttributeSnapshot(
 
 EffectUnitSnapshot makeEffectUnitSnapshot(
     const BattleRuntimeState& runtime,
-    const BattleRuntimeUnitRecord& record)
+    const BattleRuntimeUnitRecord& record,
+    std::pmr::memory_resource* memoryResource)
 {
-    auto result = makeEffectUnitAttributeSnapshot(runtime, record);
+    auto result = makeEffectUnitAttributeSnapshot(runtime, record, memoryResource);
     appendBoundMagicIds(runtime, record.id(), result.magicIds);
     return result;
 }
 
-std::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(const BattleRuntimeState& runtime)
+std::pmr::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(
+    const BattleRuntimeState& runtime,
+    std::pmr::memory_resource* memoryResource)
 {
-    std::vector<EffectUnitSnapshot> result;
+    std::pmr::vector<EffectUnitSnapshot> result(memoryResource);
     result.reserve(runtime.units.size());
     for (const auto& record : runtime.units.all())
     {
-        result.push_back(makeEffectUnitAttributeSnapshot(runtime, record));
+        result.push_back(makeEffectUnitAttributeSnapshot(runtime, record, memoryResource));
     }
     std::ranges::sort(result, {}, &EffectUnitSnapshot::id);
     // 全場快照只掃描一次規則；單位已按 ID 排序，可直接定位擁有者。
@@ -383,24 +377,44 @@ std::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(const BattleRuntimeState
             appendMagicId(owner->magicIds, bound.binding.sourceId);
         }
     }
+    for (auto& snapshot : result)
+    {
+        std::ranges::sort(snapshot.magicIds);
+    }
     return result;
 }
 
+struct BattleEffectRuntimeSnapshot::Storage
+{
+    explicit Storage(const BattleRuntimeState& runtime)
+        : units(makeEffectUnitSnapshots(runtime, &memory))
+    {
+    }
+
+    std::array<std::byte, 16 * 1024> buffer;
+    std::pmr::monotonic_buffer_resource memory{ buffer.data(), buffer.size() };
+    std::pmr::vector<EffectUnitSnapshot> units;
+};
+
 BattleEffectRuntimeSnapshot::BattleEffectRuntimeSnapshot(const BattleRuntimeState& runtime)
-    : units_(makeEffectUnitSnapshots(runtime))
+    : storage_(std::make_unique<Storage>(runtime))
     , tileWidth_(static_cast<float>(runtime.gridTransform.tileWidth))
 {
     assert(tileWidth_ > 0.0f);
 }
 
+BattleEffectRuntimeSnapshot::~BattleEffectRuntimeSnapshot() = default;
+BattleEffectRuntimeSnapshot::BattleEffectRuntimeSnapshot(BattleEffectRuntimeSnapshot&&) noexcept = default;
+BattleEffectRuntimeSnapshot& BattleEffectRuntimeSnapshot::operator=(BattleEffectRuntimeSnapshot&&) noexcept = default;
+
 std::span<const EffectUnitSnapshot> BattleEffectRuntimeSnapshot::units() const
 {
-    return units_;
+    return storage_->units;
 }
 
 BattleEffectReadView BattleEffectRuntimeSnapshot::readView() const
 {
-    return BattleEffectReadView(units_, tileWidth_);
+    return BattleEffectReadView(units(), tileWidth_);
 }
 
 }  // namespace KysChess::Battle

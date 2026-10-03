@@ -15,8 +15,8 @@
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <memory_resource>
 #include <optional>
-#include <set>
 #include <span>
 #include <string>
 #include <type_traits>
@@ -67,14 +67,13 @@ struct EffectUnitSnapshot
     int statusShield{};
     int staggerShield{};
     int attack{};
-    int defence{};
-    int speed{};
     Pointf position;
     EffectMartialCategory martialCategory = EffectMartialCategory::None;
     int ultimateMagicId = -1;
-    std::set<int> magicIds;
-    std::set<int> comboIds;
-    std::vector<EffectStatusSnapshot> statusDetails;
+    // 事件快照可使用自己的 arena；複製建構採用預設資源，複製指派保留目的端資源。
+    std::pmr::vector<int> magicIds;
+    std::pmr::vector<int> comboIds;
+    std::pmr::vector<EffectStatusSnapshot> statusDetails;
 
     bool hasState(BattleStatusKind state) const;
     bool hasStateFromSource(BattleStatusKind state, int sourceUnitId) const;
@@ -731,6 +730,7 @@ struct BoundEffectRule
     std::uint32_t order{};
     std::optional<BattleCastId> castScope;
     CastPropagationPolicy scopedPropagation = CastPropagationPolicy::SourceRules;
+    EffectRuleRuntimeState runtime{};
 };
 
 struct EffectRuleRuntimeKey
@@ -816,7 +816,7 @@ private:
 
     std::vector<BoundEffectRule> rules_;
     std::array<std::vector<std::size_t>, EventCount> ruleIndicesByEvent_;
-    std::map<EffectRuleRuntimeKey, EffectRuleRuntimeState> runtimeByRule_;
+    std::map<EffectRuleRuntimeKey, std::size_t> ruleIndexByKey_;
     std::map<EffectStateKey, std::int64_t> stateValues_;
     std::map<int, bool> blinkAttackWeakestTargetByOwner_;
     std::uint64_t nextRuntimeInstanceId_ = 1;
@@ -893,6 +893,11 @@ public:
         const BattleEffectRuleStore& store,
         EffectEvent event,
         int ownerUnitId) const;
+    // 只讀事件 metadata；篩選後才建立用於目標與條件求值的完整快照。
+    bool hasExactRuntimeRuleCandidates(
+        const BattleEffectRuleStore& store,
+        const EffectEventData& event,
+        int ownerUnitId) const;
     bool hasInvincibilityPiercingExecuteRule(
         const BattleEffectRuleStore& store,
         const EffectEventContext& context) const;
@@ -917,6 +922,12 @@ public:
         StatusBehaviorDispatchFilter filter = StatusBehaviorDispatchFilter::All,
         bool includeAllFrameOwners = false,
         const StatusBehaviorDispatchLiveness* reducerLiveness = nullptr) const;
+    bool rulesNeedStatusPrediction(
+        const BattleEffectRuleStore& store,
+        const EffectEventContext& context,
+        std::span<const ActiveStatusBehaviorView> behaviors,
+        BattleRuntimeRandom& random,
+        bool includeAllFrameOwners = false) const;
     BattleEffectDispatchResult dispatchStatusBehaviors(
         const EffectEventContext& context,
         BattleRuntimeRandom& random,

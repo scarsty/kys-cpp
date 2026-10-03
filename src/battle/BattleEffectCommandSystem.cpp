@@ -1650,6 +1650,42 @@ std::optional<int> BattleEffectCommandSystem::contributionQuantity(
     return found->stacks;
 }
 
+bool BattleEffectCommandSystem::actionMayAffectStatusLiveness(const EffectAction& action)
+{
+    return std::visit([](const auto& value)
+    {
+        using T = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<T, std::shared_ptr<ConditionalEffectAction>>)
+        {
+            assert(value);
+            return std::ranges::any_of(value->whenTrue, actionMayAffectStatusLiveness)
+                || std::ranges::any_of(value->whenFalse, actionMayAffectStatusLiveness);
+        }
+        else if constexpr (std::is_same_v<T, ChangeResourceAction>)
+        {
+            // MP 與一般護盾不影響 contribution 數量或狀態保護；HP 補血可能巢狀 dispatch。
+            return value.resource != BattleResource::Mp && value.resource != BattleResource::Shield;
+        }
+        else if constexpr (std::is_same_v<T, DealDamageAction>
+            || std::is_same_v<T, ModifyAttackAction>
+            || std::is_same_v<T, ForceMoveAction>
+            || std::is_same_v<T, ModifyCastAction>
+            || std::is_same_v<T, ModifyHealTransactionAction>
+            || std::is_same_v<T, SuppressCurrentCastContactsAction>
+            || std::is_same_v<T, MakeIncomingAttackMissAction>
+            || std::is_same_v<T, BlockPositiveDamageAction>)
+        {
+            // 這些命令只路由或準備後續傷害，不會在 prediction reducer 內修改狀態存活。
+            return false;
+        }
+        else
+        {
+            // 新動作預設走完整 reducer；漏分類只影響效能，不會略過必要的狀態預測。
+            return true;
+        }
+    }, action.value);
+}
+
 BattleRuntimeState BattleEffectCommandSystem::copyDispatchState(const BattleRuntimeState& source)
 {
     // 完整 reducer 仍處理補血和區域；補血可能巢狀 dispatch，不能只複製狀態陣列。
@@ -1658,7 +1694,7 @@ BattleRuntimeState BattleEffectCommandSystem::copyDispatchState(const BattleRunt
     state.gridTransform = source.gridTransform;
     state.units = source.units;
     state.movement.frame = source.movement.frame;
-    state.castLifecycle = source.castLifecycle;
+    state.castLifecycle = BattleCastLifecycle(source.castLifecycle.executionState());
     state.heals.nextTransactionId = source.heals.nextTransactionId;
     state.heals.committedTransactions = source.heals.committedTransactions;
     state.random = source.random;

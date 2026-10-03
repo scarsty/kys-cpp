@@ -71,7 +71,7 @@ BattleAttackId battleAttackIdFromRuntimeId(int runtimeAttackId)
 
 BattleCastStart BattleCastLifecycle::beginRootCast(const BattleRootCastRequest& request)
 {
-    assert(!battleEndedFrame_);
+    assert(!execution_.battleEndedFrame_);
     assert(request.sourceUnitId >= 0);
     assert(request.magicId >= -1);
 
@@ -90,7 +90,7 @@ BattleCastStart BattleCastLifecycle::beginRootCast(const BattleRootCastRequest& 
 
     RuntimeRecord record;
     record.runtime.provenance = provenance;
-    const auto [it, inserted] = casts_.emplace(castId, std::move(record));
+    const auto [it, inserted] = execution_.casts_.emplace(castId, std::move(record));
     assert(inserted);
     (void)it;
 
@@ -101,7 +101,7 @@ BattleCastStart BattleCastLifecycle::beginChildCast(
     BattleCastId parentCastId,
     const BattleChildCastRequest& request)
 {
-    assert(!battleEndedFrame_);
+    assert(!execution_.battleEndedFrame_);
     assert(request.sourceUnitId >= 0);
     assert(request.magicId >= -1);
     auto& parent = requireRuntime(parentCastId);
@@ -124,7 +124,7 @@ BattleCastStart BattleCastLifecycle::beginChildCast(
     RuntimeRecord record;
     record.runtime.provenance = provenance;
     record.parentChildWork = parentWork;
-    const auto [it, inserted] = casts_.emplace(castId, std::move(record));
+    const auto [it, inserted] = execution_.casts_.emplace(castId, std::move(record));
     assert(inserted);
     (void)it;
 
@@ -133,7 +133,7 @@ BattleCastStart BattleCastLifecycle::beginChildCast(
 
 void BattleCastLifecycle::cancelPlannedCast(const BattleCastStart& start, int frame)
 {
-    assert(!battleEndedFrame_);
+    assert(!execution_.battleEndedFrame_);
     assert(frame >= 0);
     assertCastProvenance(start.provenance);
     assert(start.commitBarrier.valid());
@@ -165,7 +165,7 @@ void BattleCastLifecycle::cancelPlannedCast(const BattleCastStart& start, int fr
     cast.runtime.cancelledBeforeCommit = true;
     cast.runtime.cancelledFrame = frame;
     cast.runtime.terminalReason = BattleCastTerminalReason::PlannedCastCancelled;
-    const auto erased = work_.erase(start.commitBarrier.id);
+    const auto erased = execution_.work_.erase(start.commitBarrier.id);
     assert(erased == 1);
     completeParentChildWork(cast);
 }
@@ -173,11 +173,11 @@ void BattleCastLifecycle::cancelPlannedCast(const BattleCastStart& start, int fr
 void BattleCastLifecycle::cancelOutstandingForBattleEnd(int frame)
 {
     assert(frame >= 0);
-    assert(!battleEndedFrame_);
-    battleEndedFrame_ = frame;
+    assert(!execution_.battleEndedFrame_);
+    execution_.battleEndedFrame_ = frame;
 
     std::map<BattleCastId, int> workCountByCast;
-    for (const auto& [workId, work] : work_)
+    for (const auto& [workId, work] : execution_.work_)
     {
         (void)workId;
         ++workCountByCast[work.token.castId];
@@ -189,7 +189,7 @@ void BattleCastLifecycle::cancelOutstandingForBattleEnd(int frame)
         if (work.kind == CastWorkKind::LiveAttack)
         {
             assert(work.attackId);
-            assert(liveAttackWork_.at(*work.attackId) == work.token.id);
+            assert(execution_.liveAttackWork_.at(*work.attackId) == work.token.id);
         }
         auto& cast = requireRuntime(work.token.castId);
         recordAttackWorkFinished(
@@ -197,14 +197,14 @@ void BattleCastLifecycle::cancelOutstandingForBattleEnd(int frame)
             work,
             AttackFinishReason::BattleEnded);
     }
-    for (const auto& [attackId, workId] : liveAttackWork_)
+    for (const auto& [attackId, workId] : execution_.liveAttackWork_)
     {
-        const auto& work = work_.at(workId);
+        const auto& work = execution_.work_.at(workId);
         assert(work.kind == CastWorkKind::LiveAttack);
         assert(work.attackId);
         assert(*work.attackId == attackId);
     }
-    for (const auto& [castId, record] : casts_)
+    for (const auto& [castId, record] : execution_.casts_)
     {
         const auto count = workCountByCast.contains(castId)
             ? workCountByCast.at(castId)
@@ -212,12 +212,12 @@ void BattleCastLifecycle::cancelOutstandingForBattleEnd(int frame)
         assert(record.runtime.outstandingWork == count);
     }
 
-    work_.clear();
-    liveAttackWork_.clear();
+    execution_.work_.clear();
+    execution_.liveAttackWork_.clear();
 
     std::vector<BattleCastId> castIds;
-    castIds.reserve(casts_.size());
-    for (auto& [castId, record] : casts_)
+    castIds.reserve(execution_.casts_.size());
+    for (auto& [castId, record] : execution_.casts_)
     {
         castIds.push_back(castId);
         record.runtime.outstandingWork = 0;
@@ -249,9 +249,9 @@ BattleAttackReservation BattleCastLifecycle::reserveAttack(
     {
         assert(request.parentAttackId->valid());
         assert(!request.rootAttack);
-        const auto parent = liveAttackWork_.find(*request.parentAttackId);
-        assert(parent != liveAttackWork_.end());
-        const auto parentCastId = work_.at(parent->second).token.castId;
+        const auto parent = execution_.liveAttackWork_.find(*request.parentAttackId);
+        assert(parent != execution_.liveAttackWork_.end());
+        const auto parentCastId = execution_.work_.at(parent->second).token.castId;
         assert(parentCastId == castId
             || record.runtime.provenance.parentCastId == parentCastId);
     }
@@ -295,11 +295,11 @@ void BattleCastLifecycle::transferToLiveAttack(CastWorkToken token, BattleAttack
     auto& work = requireWork(token);
     assert(work.kind == CastWorkKind::QueuedAttack);
     assert(!work.attackId);
-    assert(!liveAttackWork_.contains(attackId));
+    assert(!execution_.liveAttackWork_.contains(attackId));
 
     work.kind = CastWorkKind::LiveAttack;
     work.attackId = attackId;
-    const auto [it, inserted] = liveAttackWork_.emplace(attackId, token.id);
+    const auto [it, inserted] = execution_.liveAttackWork_.emplace(attackId, token.id);
     assert(inserted);
     (void)it;
 }
@@ -317,7 +317,7 @@ void BattleCastLifecycle::completeWork(CastWorkToken token, CastWorkResult resul
     if (work.kind == CastWorkKind::LiveAttack)
     {
         assert(work.attackId);
-        const auto erased = liveAttackWork_.erase(*work.attackId);
+        const auto erased = execution_.liveAttackWork_.erase(*work.attackId);
         assert(erased == 1);
     }
     if (attackWork)
@@ -327,7 +327,7 @@ void BattleCastLifecycle::completeWork(CastWorkToken token, CastWorkResult resul
 
     --cast.runtime.outstandingWork;
     assert(cast.runtime.outstandingWork >= 0);
-    const auto erased = work_.erase(token.id);
+    const auto erased = execution_.work_.erase(token.id);
     assert(erased == 1);
 }
 
@@ -340,9 +340,9 @@ void BattleCastLifecycle::recordHit(
     auto& cast = requireRuntime(provenance.cast.castId);
     assert(cast.runtime.provenance.rootCastId == provenance.cast.rootCastId);
 
-    const auto live = liveAttackWork_.find(provenance.attackId);
-    assert(live != liveAttackWork_.end());
-    const auto& work = work_.at(live->second);
+    const auto live = execution_.liveAttackWork_.find(provenance.attackId);
+    assert(live != execution_.liveAttackWork_.end());
+    const auto& work = execution_.work_.at(live->second);
     assert(work.token.castId == provenance.cast.castId);
     assert(work.attackOrdinal == provenance.attackOrdinal);
 
@@ -362,9 +362,9 @@ void BattleCastLifecycle::recordActualHpDamage(
     assert(targetUnitId >= 0);
     assert(actualHpDamage >= 0);
     auto& cast = requireRuntime(provenance.cast.castId);
-    const auto live = liveAttackWork_.find(provenance.attackId);
-    assert(live != liveAttackWork_.end());
-    const auto& work = work_.at(live->second);
+    const auto live = execution_.liveAttackWork_.find(provenance.attackId);
+    assert(live != execution_.liveAttackWork_.end());
+    const auto& work = execution_.work_.at(live->second);
     assert(work.token.castId == provenance.cast.castId);
     assert(work.attackOrdinal == provenance.attackOrdinal);
 
@@ -378,13 +378,13 @@ void BattleCastLifecycle::recordActualHpDamage(
 std::vector<BattleCastLifecycleEvent> BattleCastLifecycle::drainReadyEvents(int dispatchFrame)
 {
     assert(dispatchFrame >= 0);
-    if (battleEndedFrame_)
+    if (execution_.battleEndedFrame_)
     {
         return {};
     }
 
     std::vector<BattleCastId> cancelledCastIds;
-    for (auto& [castId, record] : casts_)
+    for (auto& [castId, record] : execution_.casts_)
     {
         record.continuationWindowOpen = false;
         if (record.runtime.cancelledBeforeCommit)
@@ -395,7 +395,7 @@ std::vector<BattleCastLifecycleEvent> BattleCastLifecycle::drainReadyEvents(int 
     }
 
     std::vector<BattleCastLifecycleEvent> events;
-    for (auto& [castId, record] : casts_)
+    for (auto& [castId, record] : execution_.casts_)
     {
         (void)castId;
         if (record.runtime.cancelledBeforeCommit)
@@ -427,7 +427,7 @@ std::vector<BattleCastLifecycleEvent> BattleCastLifecycle::drainReadyEvents(int 
     }
 
     std::vector<BattleCastId> settledCastIds;
-    for (auto& [castId, record] : casts_)
+    for (auto& [castId, record] : execution_.casts_)
     {
         if (record.runtime.cancelledBeforeCommit)
         {
@@ -490,36 +490,36 @@ CastWorkKind BattleCastLifecycle::workKind(CastWorkToken token) const
 
 bool BattleCastLifecycle::containsCast(BattleCastId castId) const
 {
-    return casts_.contains(castId);
+    return execution_.casts_.contains(castId);
 }
 
 std::size_t BattleCastLifecycle::activeCastCount() const
 {
-    return casts_.size();
+    return execution_.casts_.size();
 }
 
 std::size_t BattleCastLifecycle::trackedWorkCount() const
 {
-    return work_.size();
+    return execution_.work_.size();
 }
 
 BattleCastLifecycleSnapshot BattleCastLifecycle::snapshot() const
 {
-    if (battleEndedFrame_)
+    if (execution_.battleEndedFrame_)
     {
-        assert(casts_.empty());
-        assert(work_.empty());
-        assert(liveAttackWork_.empty());
+        assert(execution_.casts_.empty());
+        assert(execution_.work_.empty());
+        assert(execution_.liveAttackWork_.empty());
     }
     BattleCastLifecycleSnapshot result;
-    result.terminalState = battleEndedFrame_
+    result.terminalState = execution_.battleEndedFrame_
         ? BattleCastLifecycleTerminalState::BattleEnded
         : BattleCastLifecycleTerminalState::Running;
-    result.battleEndedFrame = battleEndedFrame_;
-    result.nextCastId = nextCastId_;
-    result.nextWorkId = nextWorkId_;
-    result.activeCasts.reserve(casts_.size());
-    for (const auto& [castId, record] : casts_)
+    result.battleEndedFrame = execution_.battleEndedFrame_;
+    result.nextCastId = execution_.nextCastId_;
+    result.nextWorkId = execution_.nextWorkId_;
+    result.activeCasts.reserve(execution_.casts_.size());
+    for (const auto& [castId, record] : execution_.casts_)
     {
         (void)castId;
         result.activeCasts.push_back({
@@ -538,8 +538,8 @@ BattleCastLifecycleSnapshot BattleCastLifecycle::snapshot() const
         {
             return runtime.provenance.castId;
         });
-    result.work.reserve(work_.size());
-    for (const auto& [workId, record] : work_)
+    result.work.reserve(execution_.work_.size());
+    for (const auto& [workId, record] : execution_.work_)
     {
         (void)workId;
         result.work.push_back({
@@ -554,23 +554,23 @@ BattleCastLifecycleSnapshot BattleCastLifecycle::snapshot() const
 
 BattleCastId BattleCastLifecycle::allocateCastId()
 {
-    assert(nextCastId_ > 0);
-    assert(nextCastId_ < std::numeric_limits<std::uint64_t>::max());
-    return BattleCastId{ nextCastId_++ };
+    assert(execution_.nextCastId_ > 0);
+    assert(execution_.nextCastId_ < std::numeric_limits<std::uint64_t>::max());
+    return BattleCastId{ execution_.nextCastId_++ };
 }
 
 CastWorkToken BattleCastLifecycle::reserveWork(BattleCastId castId, CastWorkKind kind)
 {
     auto& cast = requireRuntime(castId);
     assertMayCreateTrackedWork(cast);
-    assert(nextWorkId_ > 0);
-    assert(nextWorkId_ < std::numeric_limits<std::uint64_t>::max());
+    assert(execution_.nextWorkId_ > 0);
+    assert(execution_.nextWorkId_ < std::numeric_limits<std::uint64_t>::max());
 
-    CastWorkToken token{ BattleCastWorkId{ nextWorkId_++ }, castId };
+    CastWorkToken token{ BattleCastWorkId{ execution_.nextWorkId_++ }, castId };
     WorkRecord record;
     record.token = token;
     record.kind = kind;
-    const auto [it, inserted] = work_.emplace(token.id, std::move(record));
+    const auto [it, inserted] = execution_.work_.emplace(token.id, std::move(record));
     assert(inserted);
     (void)it;
     ++cast.runtime.outstandingWork;
@@ -581,24 +581,24 @@ CastWorkToken BattleCastLifecycle::reserveWork(BattleCastId castId, CastWorkKind
 BattleCastLifecycle::RuntimeRecord& BattleCastLifecycle::requireRuntime(BattleCastId castId)
 {
     assert(castId.valid());
-    const auto it = casts_.find(castId);
-    assert(it != casts_.end());
+    const auto it = execution_.casts_.find(castId);
+    assert(it != execution_.casts_.end());
     return it->second;
 }
 
 const BattleCastLifecycle::RuntimeRecord& BattleCastLifecycle::requireRuntime(BattleCastId castId) const
 {
     assert(castId.valid());
-    const auto it = casts_.find(castId);
-    assert(it != casts_.end());
+    const auto it = execution_.casts_.find(castId);
+    assert(it != execution_.casts_.end());
     return it->second;
 }
 
 BattleCastLifecycle::WorkRecord& BattleCastLifecycle::requireWork(CastWorkToken token)
 {
     assert(token.valid());
-    const auto it = work_.find(token.id);
-    assert(it != work_.end());
+    const auto it = execution_.work_.find(token.id);
+    assert(it != execution_.work_.end());
     assert(it->second.token.castId == token.castId);
     return it->second;
 }
@@ -606,15 +606,15 @@ BattleCastLifecycle::WorkRecord& BattleCastLifecycle::requireWork(CastWorkToken 
 const BattleCastLifecycle::WorkRecord& BattleCastLifecycle::requireWork(CastWorkToken token) const
 {
     assert(token.valid());
-    const auto it = work_.find(token.id);
-    assert(it != work_.end());
+    const auto it = execution_.work_.find(token.id);
+    assert(it != execution_.work_.end());
     assert(it->second.token.castId == token.castId);
     return it->second;
 }
 
 void BattleCastLifecycle::assertMayCreateTrackedWork(const RuntimeRecord& record) const
 {
-    assert(!battleEndedFrame_);
+    assert(!execution_.battleEndedFrame_);
     assert(!record.runtime.cancelledBeforeCommit);
     assert(!record.runtime.settledDispatched);
     assert(!record.runtime.settlementQueued);
@@ -652,8 +652,8 @@ void BattleCastLifecycle::recordAttackWorkFinished(
 
 void BattleCastLifecycle::retireCast(BattleCastId castId)
 {
-    const auto cast = casts_.find(castId);
-    assert(cast != casts_.end());
+    const auto cast = execution_.casts_.find(castId);
+    assert(cast != execution_.casts_.end());
     assert(cast->second.runtime.outstandingWork == 0);
     assert(cast->second.runtime.cancelledBeforeCommit
         || cast->second.runtime.settledDispatched
@@ -661,7 +661,7 @@ void BattleCastLifecycle::retireCast(BattleCastId castId)
             && *cast->second.runtime.terminalReason
                 == BattleCastTerminalReason::BattleEnded));
     assert(!cast->second.parentChildWork);
-    assert(std::ranges::none_of(work_, [castId](const auto& entry)
+    assert(std::ranges::none_of(execution_.work_, [castId](const auto& entry)
     {
         return entry.second.token.castId == castId;
     }));
@@ -677,7 +677,7 @@ void BattleCastLifecycle::retireCast(BattleCastId castId)
         break;
     }
     retiredCasts_.push_back(std::move(cast->second.runtime));
-    casts_.erase(cast);
+    execution_.casts_.erase(cast);
 }
 
 }  // namespace KysChess::Battle

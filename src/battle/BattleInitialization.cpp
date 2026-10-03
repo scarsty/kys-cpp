@@ -293,7 +293,7 @@ BattleRuntimeUnitSpawn makeInitializedCloneSpawn(
         cloneUnitId,
         gridTransform,
         cell);
-    clone.comboFacts.memberComboIds.clear();
+    clone.comboFacts.clearMembership();
     rewriteBattleStatusSourceUnitId(
         clone.status,
         initializedSource.unit.id,
@@ -447,17 +447,23 @@ void BattleStartInitializationRun::initializeSeededUnits()
         auto& spawn = this->spawn(seed.unitId);
         auto& unit = spawn.unit;
         auto& comboFacts = spawn.comboFacts;
+        const auto& resolved = resolvedForTeam(seed.team);
+        const auto matchesMember = [&](const auto& combo)
+        {
+            return std::ranges::find(combo.memberRoleIds, seed.realRoleId) != combo.memberRoleIds.end();
+        };
+        comboFacts.reserve(
+            std::ranges::count_if(setup_.comboDefinitions, matchesMember),
+            std::ranges::count_if(resolved.activeComboRules, matchesMember));
 
         for (const auto& combo : setup_.comboDefinitions)
         {
-            if (std::ranges::find(combo.memberRoleIds, seed.realRoleId)
-                != combo.memberRoleIds.end())
+            if (matchesMember(combo))
             {
-                comboFacts.memberComboIds.insert(combo.id);
+                comboFacts.addMember(combo.id);
             }
         }
 
-        const auto& resolved = resolvedForTeam(seed.team);
         const auto& roster = rosterForTeam(seed.team);
         const auto* rosterUnit = tryFindBy(roster, seed.unitId, &BattleSetupRosterUnit::unitId);
         int extraFightWinGrowthHP{};
@@ -553,7 +559,7 @@ void BattleStartInitializationRun::bindActiveComboRules()
             std::ranges::sort(ownerUnitIds);
             for (int ownerUnitId : ownerUnitIds)
             {
-                spawn(ownerUnitId).comboFacts.appliedComboIds.insert(
+                spawn(ownerUnitId).comboFacts.addApplied(
                     active.comboId);
             }
 
@@ -788,8 +794,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
             activeAntiComboIds_,
             [&](int comboId)
             {
-                return comboFacts.memberComboIds.contains(comboId)
-                    || comboFacts.appliedComboIds.contains(comboId);
+                return comboFacts.isMember(comboId) || comboFacts.hasApplied(comboId);
             });
         for (BattleAttribute attribute : initializedCoreAttributes)
         {

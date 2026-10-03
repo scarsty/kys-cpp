@@ -1351,9 +1351,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesTypedR
     state.projectileFollowUps.areaSpawnDistance = SceneTileWidth;
 
     state.antiComboIds.insert(33);
-    state.units.require(1).comboFacts.memberComboIds.insert(33);
-    state.units.require(1).comboFacts.appliedComboIds.insert(33);
-    state.units.require(2).comboFacts.memberComboIds.insert(33);
+    state.units.require(1).comboFacts.addMember(33);
+    state.units.require(1).comboFacts.addApplied(33);
+    state.units.require(2).comboFacts.addMember(33);
     appendDeathBlastRule(
         state.effectRules,
         {
@@ -1420,11 +1420,11 @@ TEST_CASE("BattleFrameRunner_SummonedCloneDoesNotTransferAntiComboOwnership", "[
     state.antiComboIds.insert(33);
     auto& clone = state.units.require(1);
     clone.core.cloneSourceUnitId = 9;
-    clone.comboFacts.appliedComboIds.insert(33);
-    state.units.require(2).comboFacts.memberComboIds.insert(33);
+    clone.comboFacts.addApplied(33);
+    state.units.require(2).comboFacts.addMember(33);
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
     runBattleFrame(state);
 
-    CHECK_FALSE(state.units.require(2).comboFacts.appliedComboIds.contains(33));
+    CHECK_FALSE(state.units.require(2).comboFacts.hasApplied(33));
 }

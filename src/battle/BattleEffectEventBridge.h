@@ -76,7 +76,7 @@ private:
 class BattleEffectDispatchPrediction
 {
 public:
-    explicit BattleEffectDispatchPrediction(const BattleRuntimeState& source);
+    explicit BattleEffectDispatchPrediction(const BattleRuntimeState& source, bool needsReduction = true);
     ~BattleEffectDispatchPrediction();
     BattleEffectDispatchPrediction(const BattleEffectDispatchPrediction&) = delete;
     BattleEffectDispatchPrediction& operator=(const BattleEffectDispatchPrediction&) = delete;
@@ -84,6 +84,7 @@ public:
 
 private:
     void reduceRuleCommands(std::span<const EffectCommand> commands);
+    const BattleRuntimeState& source_;
     std::unique_ptr<BattleRuntimeState> runtime_;
     StatusBehaviorDispatchLiveness hooks_;
 };

@@ -214,6 +214,13 @@ std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
     {
         return {};
     }
+    EffectEventData query{
+        .event = event,
+        .header = { .frame = state.movement.frame },
+        .payload = std::move(payload),
+    };
+    if (!BattleEffectSystem().hasExactRuntimeRuleCandidates(state.effectRules, query, ownerUnitId))
+        return {};
     const auto owned = BattleEffectEventBridge().makeEvent(
         state,
         {
@@ -222,7 +229,7 @@ std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
             .ownerUnitId = ownerUnitId,
         },
         event,
-        std::move(payload));
+        std::move(query.payload));
     return BattleEffectSystem().queryExactRuntimeRules(
         state.effectRules,
         owned.context(),

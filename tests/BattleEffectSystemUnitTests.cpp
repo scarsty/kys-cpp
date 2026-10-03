@@ -2128,6 +2128,41 @@ TEST_CASE("Status behavior event filters include interceptors in nested conditio
     CHECK_FALSE(matches(rule, rule.event, StatusBehaviorDispatchFilter::All));
 }
 
+TEST_CASE("Exact runtime metadata rejects unrelated magic and propagation before snapshots",
+          "[battle][effect][exact-runtime][metadata]")
+{
+    BattleEffectRuleStore store;
+    BattleEffectSystem system;
+    const auto owner = magicBinding();
+    ModifyCastAction dash;
+    dash.mobility = CastMobilityPolicy::DashAttack;
+    auto rule = makeRule(1, EffectEvent::CastPlanned, selfSelector(), { effectAction(dash) });
+    store.append(owner, rule);
+    const auto candidate = [&](BattleCastProvenance cast, int frame = 10)
+    {
+        const EffectEventData event{
+            .event = EffectEvent::CastPlanned,
+            .header = { .frame = frame },
+            .payload = CastPlanEventData{ .provenance = cast },
+        };
+        return system.hasExactRuntimeRuleCandidates(store, event, 1);
+    };
+    CHECK(candidate(castProvenance(59)));
+    CHECK_FALSE(candidate(castProvenance(60)));
+    auto normal = castProvenance(59);
+    normal.ultimate = false;
+    normal.origin = CastOriginKind::Normal;
+    CHECK_FALSE(candidate(normal));
+    CHECK_FALSE(candidate(castProvenance(59, CastPropagationPolicy::NoEffectRules)));
+    auto reflection = castProvenance(59);
+    reflection.origin = CastOriginKind::Reflection;
+    CHECK_FALSE(candidate(reflection));
+    rule.id = EffectRuleId{ 2 };
+    rule.castMatch = EffectCastMatch::OwnerAnyCast;
+    store.append(owner, rule);
+    CHECK(candidate(normal));
+}
+
 TEST_CASE("BattleEffectSystem exact runtime query uses canonical cast eligibility without activating",
           "[battle][effect][exact_runtime]")
 {
@@ -2471,6 +2506,58 @@ TEST_CASE("BattleEffectRuleStore never renumbers stable order tokens across borr
         CHECK(store.rules()[0].order == sourceOrder);
         CHECK(store.rules()[1].order == neighborOrder);
     }
+}
+
+TEST_CASE("BattleEffectRuleStore preserves later rule timers and cooldowns when a borrowed rule is removed",
+          "[battle][effect][borrow][interval][cooldown]")
+{
+    ChangeResourceAction shield;
+    shield.resource = BattleResource::Shield;
+    shield.kind = ResourceChangeKind::Grant;
+    shield.amount.flat = 1;
+    auto rule = makeRule(1, EffectEvent::UltimateCommitted, selfSelector(), { effectAction(shield) });
+    auto sourceBinding = magicBinding(70);
+    sourceBinding.ownerUnitId = 2;
+    sourceBinding.sourceTeam = 1;
+    BattleEffectRuleStore store;
+    store.append(sourceBinding, rule);
+    BorrowedRuleFilter filter;
+    filter.allowedActionCategories = { BorrowedRuleActionCategory::ResourceChange };
+    const std::array sourceUnitIds{ 2 };
+    const BattleCastId borrowedCast{ 1 };
+    REQUIRE(store.bindBorrowedUltimateRules(borrowedCast, 1, 0, sourceUnitIds, filter,
+        CastPropagationPolicy::BorrowedUltimateRules).size() == 1);
+
+    const auto binding = magicBinding(71);
+    rule.id = EffectRuleId{ 2 };
+    rule.event = EffectEvent::FrameAdvanced;
+    rule.intervalFrames = 3;
+    rule.sharedCooldownFrames = 5;
+    rule.maxActivations = 2;
+    store.append(binding, rule);
+    const auto owner = makeUnit(1, 0, 1000, 1000);
+    const std::vector units{ owner };
+    auto context = makeContext(EffectEvent::FrameAdvanced, binding, owner, units,
+        FrameTickEventData{ .deltaFrames = 1 });
+    context.header.frame = 1;
+    BattleRuntimeRandom random(1);
+    BattleEffectSystem system;
+    CHECK(system.dispatch(store, context, random).commands.empty());
+    CHECK(store.runtime(binding, rule.id).intervalFramesRemaining == 2);
+    store.recordRuntimeRuleActivation(binding, rule.id, 10);
+
+    store.removeCastScopedRules(borrowedCast);
+    REQUIRE(store.rules().size() == 2);
+    CHECK(store.activationCount(binding, rule.id) == 1);
+    CHECK(store.runtime(binding, rule.id).intervalFramesRemaining == 2);
+    CHECK_FALSE(store.canActivateRuntimeRule(binding, rule.id, 14));
+    CHECK(store.canActivateRuntimeRule(binding, rule.id, 15));
+    context.header.frame = 15;
+    std::get<FrameTickEventData>(context.payload).deltaFrames = 2;
+    REQUIRE(system.dispatch(store, context, random).commands.size() == 1);
+    CHECK(store.activationCount(binding, rule.id) == 2);
+    CHECK(store.runtime(binding, rule.id).intervalFramesRemaining == 3);
+    CHECK_FALSE(store.canActivateRuntimeRule(binding, rule.id, 20));
 }
 
 TEST_CASE("BattleEffectSystem inserts dynamically borrowed rules at their structured order",
@@ -3556,7 +3643,7 @@ TEST_CASE("BattleEffectSystem resolves a single living ally as an attack source"
 {
     const auto owner = makeUnit(1, 0, 1000, 1000, 100, 100, Pointf{ 0.0f, 0.0f });
     auto ally = makeUnit(2, 0, 1000, 1000, 30, 100, Pointf{ 20.0f, 40.0f });
-    ally.magicIds.insert(62);
+    ally.magicIds.push_back(62);
     const auto enemy = makeUnit(3, 1, 1000, 1000, 50, 100, Pointf{ 100.0f, 0.0f });
     const std::vector units{ owner, ally, enemy };
 
@@ -3600,7 +3687,7 @@ TEST_CASE("BattleEffectSystem couple-blade branch replaces its solo fallback",
 {
     const auto owner = makeUnit(1, 0, 1000, 1000, 100, 100, Pointf{ 0.0f, 0.0f });
     auto ally = makeUnit(2, 0, 1000, 1000, 30, 100, Pointf{ 20.0f, 40.0f });
-    ally.magicIds.insert(62);
+    ally.magicIds.push_back(62);
     const auto enemy = makeUnit(3, 1, 1000, 1000, 50, 100, Pointf{ 100.0f, 0.0f });
 
     ModifyAttackAction combined;
@@ -3917,9 +4004,9 @@ TEST_CASE("Seven star volley counts allied combo casts and fires once per living
 )"));
     std::vector units{makeUnit(1, 0, 100, 100), makeUnit(2, 0, 100, 100),
         makeUnit(3, 0, 100, 100), makeUnit(4, 1, 100, 100)};
-    units[0].comboIds.insert(12);
-    units[1].comboIds.insert(12);
-    units[3].comboIds.insert(12);
+    units[0].comboIds.push_back(12);
+    units[1].comboIds.push_back(12);
+    units[3].comboIds.push_back(12);
     units[0].attack = 100;
     units[1].attack = 240;
     const EffectSourceBinding binding{.kind = EffectSourceKind::Combo, .sourceId = 12,

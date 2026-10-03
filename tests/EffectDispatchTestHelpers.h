@@ -33,7 +33,7 @@ inline BattleRuntimeState dispatchRuntimeFixture(
         unit.team = snapshot.team;
         unit.alive = snapshot.alive;
         unit.vitals = { snapshot.hp, snapshot.maxHp, snapshot.mp, snapshot.maxMp };
-        unit.stats = { snapshot.attack, snapshot.defence, snapshot.speed };
+        unit.stats.attack = snapshot.attack;
         unit.shield = snapshot.shield;
         unit.invincible = snapshot.invincible ? 1 : 0;
         unit.motion.position = snapshot.position;
