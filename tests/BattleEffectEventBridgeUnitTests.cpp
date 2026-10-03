@@ -4,6 +4,9 @@
 #include "battle/BattleDamageSystem.h"
 #include "battle/BattleRuntimeUnits.h"
 #include "BattleCoreTestHelpers.h"
+#include "ChessGameplayEffect.h"
+
+#include <yaml-cpp/yaml.h>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -197,7 +200,172 @@ std::vector<int> resourceAmounts(const BattleEffectDispatchResult& result)
     return amounts;
 }
 
+EffectRule afflictedShieldRule()
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextRuleId{};
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 命中負面敵人護盾, 生命百分比: 5, 護盾上限百分比: 20}]"),
+        effects, rules, nextRuleId, "負面護盾測試"));
+    REQUIRE(rules.size() == 1);
+    return rules.front();
+}
+
 }  // namespace
+
+TEST_CASE("Afflicted hit shields accept harmful statuses applied by other allies",
+          "[battle][effect][bridge][afflicted-shield]")
+{
+    const auto status = GENERATE(BattleStatusKind::Poison, BattleStatusKind::Bleed,
+        BattleStatusKind::Stun, BattleStatusKind::MpBlocked, BattleStatusKind::ColdPoison,
+        BattleStatusKind::WitheredBone);
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {1000, 1000, 100, 100};
+    runtime.effectRules.append(binding(EffectSourceKind::Combo, 7, 1, 0), afflictedShieldRule());
+    const auto owner = makeEffectUnitSnapshot(runtime, runtime.units.require(1));
+    auto enemy = makeEffectUnitSnapshot(runtime, runtime.units.require(2));
+    enemy.statusDetails.push_back({.state = status, .sourceUnitId = 9});
+    auto deadEnemy = enemy;
+    deadEnemy.alive = false;
+    deadEnemy.hp = 0;
+    const auto result = BattleEffectEventBridge{}.dispatch(runtime,
+        {.frame = 1, .eventOrdinal = 1, .ownerUnitId = 1}, EffectEvent::DamageResolved,
+        DamageResultEventData{
+            .origin = EffectAttackDamageOrigin{attackProvenance(ultimateCast(1))},
+            .attackerBefore = owner,
+            .defenderBefore = enemy,
+            .defenderAfter = deadEnemy,
+            .finalHpDamage = enemy.hp,
+            .damageKind = BattleDamageKind::Skill,
+            .killed = true});
+    REQUIRE(result.commands.size() == 1);
+    CHECK(result.commands.front().metadata.targetUnitId == 1);
+    BattleEffectCommandSystem{}.reduce(runtime, result.commands);
+    CHECK(runtime.units.requireCore(1).shield == 50);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 1000);
+    CHECK(runtime.units.requireCore(2).shield == 0);
+}
+
+TEST_CASE("Afflicted hit shields trigger once per cast and replenish their own capped pool",
+          "[battle][effect][bridge][afflicted-shield]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {1000, 1000, 100, 100};
+    runtime.units.requireCore(1).shield = 300;
+    runtime.units.append(runtimeUnit(3, 1, 100, 100));
+    runtime.units.append(runtimeUnit(4, 0, 1000, 1000));
+    runtime.units.require(2).status.effects.setFrames(BattleStatusKind::MpBlocked, 60);
+    runtime.units.require(3).status.effects.setFrames(BattleStatusKind::Stun, 60);
+    const auto rule = afflictedShieldRule();
+    for (const int id : {1, 4})
+        runtime.effectRules.append(binding(EffectSourceKind::Combo, 7, id, 0), rule);
+    BattleEffectEventBridge bridge;
+    const auto hit = [&](std::uint64_t castId, int targetId = 2, int attackerId = 1)
+    {
+        auto cast = ultimateCast(castId);
+        cast.sourceUnitId = attackerId;
+        const auto enemy = makeEffectUnitSnapshot(runtime, runtime.units.require(targetId));
+        const auto result = bridge.dispatch(runtime,
+            {.frame = 1, .eventOrdinal = castId, .ownerUnitId = attackerId}, EffectEvent::DamageResolved,
+            DamageResultEventData{
+                .origin = EffectAttackDamageOrigin{attackProvenance(cast)},
+                .attackerBefore = makeEffectUnitSnapshot(runtime, runtime.units.require(attackerId)),
+                .defenderBefore = enemy,
+                .defenderAfter = enemy,
+                .resolvedDamage = 20,
+                .shieldAbsorbed = 20,
+                .damageKind = BattleDamageKind::Physical});
+        BattleEffectCommandSystem{}.reduce(runtime, result.commands);
+        return result;
+    };
+    CHECK(hit(1).commands.size() == 1);
+    CHECK(runtime.units.requireCore(1).shield == 350);
+    CHECK(hit(1).commands.empty());
+    CHECK(hit(1, 3).commands.empty());
+    CHECK(runtime.units.requireCore(1).shield == 350);
+    CHECK(hit(2, 2, 4).commands.size() == 1);
+    CHECK(runtime.units.requireCore(4).shield == 50);
+    for (const auto castId : {3, 4, 5, 6}) hit(castId);
+    CHECK(runtime.units.requireCore(1).shield == 500);
+
+    const auto defense = BattleDamageSystem{}.resolveDefense({
+        .damage = 70, .defender = runtime.units.require(1).damageState(0)});
+    CHECK(defense.shieldAbsorbed == 70);
+    runtime.units.writeDamageUnit(defense.defender);
+    CHECK(runtime.units.requireCore(1).shield == 430);
+    hit(7);
+    CHECK(runtime.units.requireCore(1).shield == 480);
+    hit(8);
+    CHECK(runtime.units.requireCore(1).shield == 500);
+
+    auto removal = hit(9).commands;
+    REQUIRE(removal.size() == 1);
+    auto& remove = std::get<ChangeResourceEffectCommand>(removal.front().value);
+    remove.kind = ResourceChangeKind::Remove;
+    remove.amount = 1000;
+    remove.sourceShieldMaxHpPct.reset();
+    BattleEffectCommandSystem{}.reduce(runtime, removal);
+    CHECK(runtime.units.requireCore(1).shield == 0);
+    hit(10);
+    CHECK(runtime.units.requireCore(1).shield == 50);
+    CHECK(runtime.units.requireCore(4).shield == 50);
+    bridge.dispatch(runtime, {.frame = 2, .eventOrdinal = 11, .ownerUnitId = 1},
+        EffectEvent::CastSettled, CastAggregateEventData{.provenance = ultimateCast(10)});
+    CHECK(runtime.effectRules.activationEvaluationCount(
+        binding(EffectSourceKind::Combo, 7, 1, 0), rule.id, BattleCastId{10}, 1) == 0);
+}
+
+TEST_CASE("Afflicted hit shields ignore clean targets, friendly hits, blocked hits and periodic damage",
+          "[battle][effect][bridge][afflicted-shield]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {1000, 1000, 100, 100};
+    runtime.units.require(2).status.effects.setFrames(BattleStatusKind::MpBlocked, 60);
+    runtime.effectRules.append(binding(EffectSourceKind::Combo, 7, 1, 0), afflictedShieldRule());
+    const auto owner = makeEffectUnitSnapshot(runtime, runtime.units.require(1));
+    const auto enemy = makeEffectUnitSnapshot(runtime, runtime.units.require(2));
+    DamageResultEventData damage{
+        .origin = EffectAttackDamageOrigin{attackProvenance(ultimateCast(1))},
+        .attackerBefore = owner,
+        .defenderBefore = enemy,
+        .defenderAfter = enemy,
+        .finalHpDamage = 10,
+        .damageKind = BattleDamageKind::Skill};
+    BattleEffectEventBridge bridge;
+    const auto dispatch = [&](const auto& payload)
+    {
+        return bridge.dispatch(runtime, {.frame = 1, .eventOrdinal = 1, .ownerUnitId = 1},
+            EffectEvent::DamageResolved, payload);
+    };
+    auto clean = damage;
+    clean.defenderBefore.statusDetails.clear();
+    CHECK(dispatch(clean).commands.empty());
+    clean.defenderBefore.statusDetails.push_back({.state = BattleStatusKind::TrueQi});
+    CHECK(dispatch(clean).commands.empty());
+    auto blocked = damage;
+    blocked.blocked = true;
+    CHECK(dispatch(blocked).commands.empty());
+    auto friendly = damage;
+    friendly.defenderBefore.team = 0;
+    CHECK(dispatch(friendly).commands.empty());
+    auto received = damage;
+    received.attackerBefore = enemy;
+    received.defenderBefore = owner;
+    CHECK(dispatch(received).commands.empty());
+    for (const auto kind : {BattleDamageKind::Poison, BattleDamageKind::Bleed, BattleDamageKind::Effect})
+    {
+        auto periodic = damage;
+        periodic.origin = EffectEnvironmentDamageOrigin{};
+        periodic.damageKind = kind;
+        CHECK(dispatch(periodic).commands.empty());
+    }
+    // 同次出招先碰到不合資格的目標，不會消耗稍後有效命中的觸發。
+    const auto qualifying = dispatch(damage);
+    REQUIRE(qualifying.commands.size() == 1);
+    BattleEffectCommandSystem{}.reduce(runtime, qualifying.commands);
+    CHECK(runtime.units.requireCore(1).shield == 50);
+}
 
 TEST_CASE("Dispatch prediction copies the complete execution state without retired report history",
           "[battle][effect][bridge][prediction]")
@@ -1221,6 +1389,136 @@ TEST_CASE("Bleed reapplication before a due frame tick preserves the clock and u
     REQUIRE(bleed->origin);
     CHECK(bleed->origin->binding == incomingSource);
     CHECK(bleed->behaviorRuntime.front().intervalFramesRemaining == 10);
+}
+
+TEST_CASE("Last combo member gains a single timed berserk window with attack lifesteal",
+          "[battle][effect][bridge][berserk]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextRuleId{};
+    REQUIRE(parseGameplayEffects(YAML::Load(R"(
+- 類型: 最後羈絆成員狂暴
+  暴擊百分比: 100
+  冷卻縮減百分比: 30
+  吸血百分比: 50
+  持續幀數: 90
+)"), effects, rules, nextRuleId, "狂暴測試"));
+    REQUIRE(rules.size() == 1);
+
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.append(runtimeUnit(3, 0, 100, 100));
+    runtime.units.append(runtimeUnit(4, 0, 100, 100));
+    runtime.units.append(runtimeUnit(5, 0, 100, 100));
+    runtime.units.append(runtimeUnit(6, 0, 100, 100));
+    runtime.units.require(1).core.vitals = {100, 1000, 100, 100};
+    for (const auto id : {1, 2, 3, 5}) runtime.units.require(id).comboFacts.addMember(7);
+    runtime.units.require(4).comboFacts.addMember(8);
+    for (const auto id : {1, 3})
+        runtime.effectRules.append(binding(EffectSourceKind::Combo, 7, id, 0), rules.front());
+
+    BattleEffectEventBridge bridge;
+    const auto kill = [&](int id)
+    {
+        const auto before = makeEffectUnitSnapshot(runtime, runtime.units.require(id));
+        auto& dead = runtime.units.requireCore(id);
+        dead.alive = false;
+        dead.vitals.hp = 0;
+        return DeathEventData{
+            .deadBefore = before,
+            .deadAfter = makeEffectUnitSnapshot(runtime, runtime.units.require(id)),
+            .cause = EffectEnvironmentDamageOrigin{},
+            .allyOfOwner = true,
+        };
+    };
+    const auto dispatchDeath = [&](const DeathEventData& death, int frame)
+    {
+        return bridge.dispatch(runtime,
+            {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1},
+            EffectEvent::AllyDied, death);
+    };
+    const auto dispatchFrame = [&](int frame)
+    {
+        const auto event = bridge.makeEvent(
+            runtime, {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1},
+            EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
+        return bridge.dispatchFrameAdvanced(runtime, event);
+    };
+    CHECK(dispatchDeath(kill(5), 1).commands.empty());
+    const auto lastMemberDeath = kill(3);
+    CHECK(dispatchDeath(kill(6), 2).commands.empty());
+    const auto activated = dispatchDeath(lastMemberDeath, 2);
+    REQUIRE(activated.commands.size() == 3);
+    for (const auto& command : activated.commands) CHECK(command.metadata.targetUnitId == 1);
+    BattleEffectCommandSystem().reduce(runtime, activated.commands);
+    CHECK(runtime.units.require(1).status.effects.remainingFrames(BattleStatusKind::Berserk) == 90);
+    CHECK(battleStatusLabel(BattleStatusKind::Berserk) == "狂暴");
+    CHECK_FALSE(runtime.units.require(2).status.effects.has(BattleStatusKind::Berserk));
+    CHECK_FALSE(runtime.units.require(4).status.effects.has(BattleStatusKind::Berserk));
+
+    const auto attribute = [&](BattleAttribute kind, int baseValue, int frame)
+    {
+        return BattleEffectCommandSystem::queryAttribute(runtime,
+            {.unitId = 1, .attribute = kind, .baseValue = baseValue, .frame = frame});
+    };
+    CHECK(attribute(BattleAttribute::CriticalChance, 11, 2) == 111);
+    CHECK(attribute(BattleAttribute::CooldownReduction, 7, 2) == 37);
+
+    const auto owner = makeEffectUnitSnapshot(runtime, runtime.units.require(1));
+    const auto enemy = makeEffectUnitSnapshot(runtime, runtime.units.require(2));
+    DamageResultEventData damage{
+        .origin = EffectAttackDamageOrigin{attackProvenance(ultimateCast(1))},
+        .attackerBefore = owner,
+        .defenderBefore = enemy,
+        .defenderAfter = enemy,
+        .resolvedDamage = 140,
+        .shieldAbsorbed = 40,
+        .finalHpDamage = 100,
+        .damageKind = BattleDamageKind::Skill,
+    };
+    const auto dispatchDamage = [&](const DamageResultEventData& payload, int frame = 2)
+    {
+        return bridge.dispatch(runtime,
+            {.frame = frame, .eventOrdinal = 100, .ownerUnitId = 1},
+            EffectEvent::DamageResolved, payload);
+    };
+    const auto healed = dispatchDamage(damage);
+    REQUIRE(healed.commands.size() == 1);
+    CHECK(std::get<ChangeResourceEffectCommand>(healed.commands.front().value).resolvedAmount() == 50);
+    CHECK(std::get<ChangeResourceEffectCommand>(healed.commands.front().value).healKind == EffectHealKind::Lifesteal);
+    BattleEffectCommandSystem().reduce(runtime, healed.commands);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 150);
+
+    auto received = damage;
+    received.attackerBefore = enemy;
+    received.defenderBefore = owner;
+    received.defenderAfter = owner;
+    CHECK(dispatchDamage(received).commands.empty());
+    auto otherAlly = damage;
+    otherAlly.attackerBefore = makeEffectUnitSnapshot(runtime, runtime.units.require(4));
+    CHECK(dispatchDamage(otherAlly).commands.empty());
+    auto nonAttack = damage;
+    nonAttack.origin = EffectEnvironmentDamageOrigin{};
+    CHECK(dispatchDamage(nonAttack).commands.empty());
+
+    for (int elapsed = 1; elapsed < 90; ++elapsed)
+    {
+        BattleStatusSystem(runtime.status.config).tick(runtime.units);
+        CHECK(dispatchFrame(2 + elapsed).commands.empty());
+    }
+    CHECK(runtime.units.require(1).status.effects.remainingFrames(BattleStatusKind::Berserk) == 1);
+    CHECK(attribute(BattleAttribute::CriticalChance, 11, 91) == 111);
+    CHECK(attribute(BattleAttribute::CooldownReduction, 7, 91) == 37);
+    CHECK(dispatchDamage(damage, 91).commands.size() == 1);
+    BattleStatusSystem(runtime.status.config).tick(runtime.units);
+    CHECK_FALSE(runtime.units.require(1).status.effects.has(BattleStatusKind::Berserk));
+    CHECK(attribute(BattleAttribute::CriticalChance, 11, 92) == 11);
+    CHECK(attribute(BattleAttribute::CooldownReduction, 7, 92) == 7);
+    CHECK(dispatchDamage(damage, 92).commands.empty());
+    CHECK(dispatchFrame(92).commands.empty());
+    CHECK(dispatchDeath(lastMemberDeath, 92).commands.empty());
+    CHECK(runtime.effectRules.activationCount(
+        binding(EffectSourceKind::Combo, 7, 1, 0), rules.front().id) == 1);
 }
 
 TEST_CASE("Idle merged frame dispatch advances configured and status clocks before their due frames",

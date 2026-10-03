@@ -648,6 +648,36 @@ struct HitHeal final : GameplayEffectDefinition
     }
 };
 
+struct HitAfflictedShield final : GameplayEffectDefinition
+{
+    int 生命百分比{};
+    int 護盾上限百分比{};
+    static constexpr std::string_view Name = "命中負面敵人護盾";
+    static constexpr auto Parameters = std::array<Parameter<HitAfflictedShield>, 2>{
+        {Parameter<HitAfflictedShield>{{"生命百分比", 1, 1000000}, &HitAfflictedShield::生命百分比},
+         Parameter<HitAfflictedShield>{{"護盾上限百分比", 1, 1000000}, &HitAfflictedShield::護盾上限百分比}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{
+            .event = EffectEvent::DamageResolved,
+            .selector = EffectSelector{.kind = EffectSelectorKind::Self},
+            .conditions = {DamagePerspectiveCondition{}, AcceptedHitCondition{}, EventTargetHasNegativeStatusCondition{}},
+            .activationLimit = EffectActivationLimit{.scope = EffectActivationScope::PerCastPerTarget, .maxEvaluations = 1},
+            .actions = {EffectAction{.value = ChangeResourceAction{
+                .resource = BattleResource::Shield,
+                .amount = EffectNumber{.base = EffectNumberBase::SourceMaxHp, .percent = 生命百分比},
+                .kind = ResourceChangeKind::Grant,
+                .sourceShieldMaxHpPct = 護盾上限百分比}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("命中：負面敵人→護盾+血上限{}%，上限{}%，每招一次", 生命百分比, 護盾上限百分比);
+        return std::format("命中負面狀態敵人獲得最大生命{}%護盾，累積上限{}%，每招一次。", 生命百分比, 護盾上限百分比);
+    }
+};
+
 struct DeathHealMembers final : GameplayEffectDefinition
 {
     int 生命百分比{};
@@ -801,6 +831,7 @@ void appendRecoveryEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<ChanceCastTeamMp>());
     entries.push_back(registration<ChanceCastTeamShield>());
     entries.push_back(registration<HitHeal>());
+    entries.push_back(registration<HitAfflictedShield>());
     entries.push_back(registration<DeathHealMembers>());
     entries.push_back(registration<UltimateReadyTeamHeal>());
     entries.push_back(registration<ChanceHitTeamHeal>());

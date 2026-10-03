@@ -518,6 +518,7 @@ struct ChangeResourceEffectCommand
     EffectHealSourcePolicy healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
     bool healRequiresFullMp = false;
     std::vector<int> transferDestinationUnitIds;
+    std::optional<int> sourceShieldMaxHpPct;
 
     int resolvedAmount() const { return std::get<int>(amount); }
 };

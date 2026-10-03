@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -100,6 +101,88 @@ TEST_CASE("BattleFrameRunner_GuardianReducesTransferredDamageWithoutRecursion", 
     runBattleFrame(state);
     CHECK(state.units.requireCore(1).vitals.hp == 1000);
     CHECK(state.units.requireCore(0).vitals.hp == 940);
+}
+
+TEST_CASE("BattleFrameRunner_GuardianTransferSharesThePercentageReductionCap", "[battle][area][reduction]")
+{
+    for (const int priorReductionBasisPoints : {0, 5000, 8000})
+    {
+        for (const int transferReductionPct : {80, 100, 1000000})
+        {
+            CAPTURE(priorReductionBasisPoints, transferReductionPct);
+            auto state = auraBattleState();
+            auto area = auraRequest({.kind = AreaModifierKind::DamageRedirect,
+                .relation = EffectTeamFilter::Ally, .percent = transferReductionPct});
+            BattleAreaEffectSystem::create(state.areas, area);
+            BattleDamageRequest damage;
+            damage.attackerUnitId = 2;
+            damage.defenderUnitId = 1;
+            damage.baseDamage = (10'000 - priorReductionBasisPoints) / 100;
+            damage.preResolvedDamage = true;
+            damage.preResolvedDamageReductionBasisPoints = priorReductionBasisPoints;
+            state.nextFrame.queueDamage({.request = damage});
+
+            runBattleFrame(state);
+
+            CHECK(state.units.requireCore(1).vitals.hp == 1000);
+            CHECK(state.units.requireCore(0).vitals.hp == 980);
+        }
+    }
+}
+
+TEST_CASE("BattleFrameRunner_DamageReductionAttributeAppliesToNormalHitsAndSharesTheCap", "[battle][core][reduction]")
+{
+    const auto damageWithReduction = [](int attributeReductionPct, int statusReductionPct)
+    {
+        auto frame = hitDamageFrameState(100, 1000);
+        frame.state.units.requireCore(1).vitals.maxHp = 1000;
+        addTypedAttributeModifier(frame.state, 1, BattleAttribute::DamageReduction,
+            AttributeOperation::PercentagePointAdd, attributeReductionPct);
+        if (statusReductionPct > 0)
+        {
+            frame.state.units.require(1).status.effects.statuses.push_back(boundStatusBehaviorContribution(
+                BattleStatusKind::BattleSpirit, battleSpiritStatusBehavior(0, statusReductionPct), 1, 9001));
+        }
+        runBattleFrame(frame.state);
+        return 1000 - frame.state.units.requireCore(1).vitals.hp;
+    };
+
+    const int ordinaryDamage = damageWithReduction(0, 0);
+    const int cappedDamage = damageWithReduction(80, 0);
+    CHECK(cappedDamage > 0);
+    CHECK(cappedDamage < ordinaryDamage);
+    CHECK(damageWithReduction(100, 0) == cappedDamage);
+    CHECK(damageWithReduction(50, 50) == cappedDamage);
+}
+
+TEST_CASE("BattleFrameRunner_DirectDamageMultipliesEachLayerAndSharesTheCap", "[battle][core][reduction]")
+{
+    for (const auto perspective : {DamageModifierPerspective::Outgoing, DamageModifierPerspective::Incoming})
+    {
+        CAPTURE(perspective);
+        auto frame = hitDamageFrameState(100, 100);
+        auto& state = frame.state;
+        state.attacks = attackWorld();
+        state.effectCommands.damageModifiers.push_back({
+            .sequence = state.effectCommands.nextDamageSequence++,
+            .targetUnitId = perspective == DamageModifierPerspective::Outgoing ? 0 : 1,
+            .perspective = perspective,
+            .stage = DamageModifierStage::BeforeDefense,
+            .channel = DamageChannel::All,
+            .operation = DamageModifierOperation::Multiply,
+            .amount = 50,
+            .stackCount = 3,
+        });
+        state.nextFrame.queueDamage({.request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 100,
+        }});
+
+        runBattleFrame(state);
+
+        CHECK(state.units.requireCore(1).vitals.hp == 80);
+    }
 }
 
 TEST_CASE("BattleFrameRunner_GuardianPersonalReductionProtectsDirectHits", "[battle][area][ultimate]")
@@ -351,6 +434,40 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
             return BattleLogTest::textOf(event) == "格擋了本次攻擊";
         }));
     }
+}
+
+TEST_CASE("BattleFrameRunner_DodgeChanceCapsAtEightyPercentAfterAllBonuses", "[battle][core][dodge][boundary]")
+{
+    auto frame = hitDamageFrameState(30, 100);
+    auto& state = frame.state;
+    bool expectedDodge{};
+    SECTION("79.99% roll evades at the cap")
+    {
+        state.random = BattleRuntimeRandom(3727);
+        expectedDodge = true;
+    }
+    SECTION("80% roll lands at the cap")
+    {
+        state.random = BattleRuntimeRandom(3378);
+    }
+    auto probe = state.random;
+    REQUIRE(probe.nextPercent() == (expectedDodge ? 79.99 : 80.0));
+
+    addTypedAttributeModifier(state, 1, BattleAttribute::DodgeChance,
+        AttributeOperation::PercentagePointAdd, std::numeric_limits<int>::max());
+    auto area = fixedCircleAreaRequest(0, 0, {1}, {105, 100, 0}, 0, 60);
+    area.modifiers = {{.kind = AreaModifierKind::Attribute,
+        .relation = EffectTeamFilter::Enemy, .attribute = BattleAttribute::DodgeChance,
+        .amount = {.flat = 50}}};
+    BattleAreaEffectSystem::create(state.areas, area);
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(std::ranges::any_of(result.logEvents, [](const BattleLogEvent& event)
+    {
+        return BattleLogTest::textOf(event) == "閃避了來襲攻擊";
+    }) == expectedDodge);
+    CHECK((state.units.requireCore(1).vitals.hp == 100) == expectedDodge);
 }
 
 TEST_CASE("BattleFrameRunner_GuaranteedHitOnlyBypassesDodgeAndBlock", "[battle][core][ultimate]")

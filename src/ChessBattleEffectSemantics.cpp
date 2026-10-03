@@ -320,6 +320,7 @@ std::shared_ptr<const StatusBehaviorDefinition> makeCatalogOwnedStatusBehavior(
     case BattleStatusKind::Shadowless:
     case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
+    case BattleStatusKind::Berserk:
         assert(false && "此狀態沒有目錄擁有的行為");
         break;
     }

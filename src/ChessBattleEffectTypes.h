@@ -170,6 +170,7 @@ enum class BattleStatusKind
     Shadowless,
     SwordGuard,
     NextAttackCritical,
+    Berserk,
     Count,
 };
 
@@ -271,6 +272,8 @@ struct DamageKindInCondition { std::vector<std::string> kinds; };
 struct TargetMpWasFullBeforeCastCondition {};
 struct RandomSelectionAvailableCondition {};
 struct TargetIsStatusHolderCondition {};
+struct SourceIsLastAliveComboMemberCondition {};
+struct EventTargetHasNegativeStatusCondition {};
 
 using EffectCondition = std::variant<
     IsUltimateCondition,
@@ -298,7 +301,9 @@ using EffectCondition = std::variant<
     DamageKindInCondition,
     TargetMpWasFullBeforeCastCondition,
     RandomSelectionAvailableCondition,
-    TargetIsStatusHolderCondition>;
+    TargetIsStatusHolderCondition,
+    SourceIsLastAliveComboMemberCondition,
+    EventTargetHasNegativeStatusCondition>;
 
 enum class BattleAttribute
 {
@@ -462,6 +467,7 @@ struct ChangeResourceAction
     EffectHealSourcePolicy healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
     bool healRequiresFullMp = false;
     std::optional<EffectNumber> additionalAmount;
+    std::optional<int> sourceShieldMaxHpPct;
 };
 
 enum class HealModifierOperation

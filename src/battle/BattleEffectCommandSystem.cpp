@@ -846,9 +846,9 @@ BattleResourceDelta applyResourceDelta(
         break;
     }
     case BattleResource::Shield:
-        record.core.shield = std::max(
+        record.setShield(std::max(
             0,
-            saturatedInt(static_cast<std::int64_t>(record.core.shield) + delta));
+            saturatedInt(static_cast<std::int64_t>(record.core.shield) + delta)));
         break;
     case BattleResource::StatusShield:
     case BattleResource::StaggerShield:
@@ -963,7 +963,18 @@ BattleResourceEffectResult changeDirectResource(
         addTo(metadata.targetUnitId, command.resolvedAmount(), true);
         break;
     case ResourceChangeKind::Grant:
-        addTo(metadata.targetUnitId, command.resolvedAmount(), false);
+        if (command.sourceShieldMaxHpPct)
+        {
+            assert(command.resource == BattleResource::Shield);
+            const int before = target.core.shield;
+            const int limit = saturatedInt(static_cast<std::int64_t>(target.core.vitals.maxHp)
+                * *command.sourceShieldMaxHpPct / 100);
+            target.grantSourceShield(metadata.binding, metadata.ruleId, command.resolvedAmount(), limit);
+            result.deltas.push_back(makeResourceDelta(
+                metadata.targetUnitId, BattleResource::Shield, before, target.core.shield));
+        }
+        else
+            addTo(metadata.targetUnitId, command.resolvedAmount(), false);
         break;
     case ResourceChangeKind::Remove:
         removeFrom(metadata.targetUnitId, command.resolvedAmount());

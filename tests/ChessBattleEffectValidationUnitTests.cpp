@@ -17,6 +17,38 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("Source shield caps require a positive limit on a combat shield grant",
+          "[battle][effects][schema][afflicted-shield]")
+{
+    ChangeResourceAction shield{
+        .resource = BattleResource::Shield,
+        .amount = EffectNumber{.flat = 50},
+        .kind = ResourceChangeKind::Grant,
+        .sourceShieldMaxHpPct = 20};
+    EffectRule rule{.id = EffectRuleId{1}, .event = EffectEvent::DamageResolved,
+        .conditions = {EventTargetHasNegativeStatusCondition{}}, .actions = {EffectAction{shield}}};
+    std::string error;
+    REQUIRE(validateEffectRule(rule, error));
+    auto& action = std::get<ChangeResourceAction>(rule.actions.front().value);
+    action.sourceShieldMaxHpPct = 0;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    action.sourceShieldMaxHpPct = -1;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    action.sourceShieldMaxHpPct = 20;
+    action.resource = BattleResource::Hp;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    action.resource = BattleResource::Shield;
+    action.kind = ResourceChangeKind::Restore;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    action.kind = ResourceChangeKind::Grant;
+    rule.event = EffectEvent::AttackCommitted;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    rule.conditions.clear();
+    CHECK(validateEffectRule(rule, error));
+    rule.event = EffectEvent::BattleInitialized;
+    CHECK_FALSE(validateEffectRule(rule, error));
+}
+
 TEST_CASE("ChessBattleEffects_FullMpHealingRequiresAnHpRestoreAction",
           "[battle][effects][schema][healing]")
 {

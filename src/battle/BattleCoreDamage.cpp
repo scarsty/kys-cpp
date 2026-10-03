@@ -1044,12 +1044,8 @@ BattleDamageModifierState runtimeDamageModifierState(
                 }
                 break;
             case DamageModifierOperation::PercentAdd:
-            case DamageModifierOperation::Multiply:
             {
-                const int percentDelta = modifier.operation
-                        == DamageModifierOperation::Multiply
-                    ? battleSaturatedAdd(amount, -100)
-                    : amount;
+                const int percentDelta = amount;
                 if (perspective == DamageModifierPerspective::Outgoing)
                 {
                     result.skillDamagePct = battleSaturatedAdd(
@@ -1070,6 +1066,9 @@ BattleDamageModifierState runtimeDamageModifierState(
                 }
                 break;
             }
+            case DamageModifierOperation::Multiply:
+                result.percentageMultipliers.push_back({modifier.amount, modifier.stackCount});
+                break;
             case DamageModifierOperation::CapSingleHitAtMaxHpPercent:
                 assert(perspective == DamageModifierPerspective::Incoming);
                 result.maxHitPctMaxHp = result.maxHitPctMaxHp == 0
@@ -2153,9 +2152,14 @@ void applyDamageAndLifecycle(
             BattleDamageRequest redirected;
             redirected.attackerUnitId = request.attackerUnitId;
             redirected.defenderUnitId = redirect->guardianUnitId;
-            redirected.baseDamage = static_cast<int>(
-                static_cast<std::int64_t>(transaction.redirectedHpDamage)
-                * (100 - redirect->reductionPct) / 100);
+            BattleFixed redirectedDamage = transaction.redirectedHpDamage;
+            int remainingDamageBasisPoints =
+                10'000 - transaction.combinedDamageReductionBasisPoints;
+            applyBattleDamageReduction(
+                redirectedDamage, redirect->reductionPct, remainingDamageBasisPoints);
+            redirected.baseDamage = redirectedDamage.toInt();
+            redirected.preResolvedDamageReductionBasisPoints =
+                10'000 - remainingDamageBasisPoints;
             redirected.damageKind = request.damageKind;
             redirected.preResolvedDamage = true;
             redirected.redirected = true;

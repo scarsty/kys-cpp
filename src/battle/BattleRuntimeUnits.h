@@ -103,6 +103,13 @@ public:
     }
 };
 
+struct BattleSourceShield
+{
+    EffectSourceBinding binding;
+    EffectRuleId ruleId;
+    int amount{};
+};
+
 struct BattleRuntimeUnitRecord
 {
     BattleRuntimeUnit core;
@@ -112,9 +119,45 @@ struct BattleRuntimeUnitRecord
     BattleMovementAgentState movement;
     BattleRescueUnitRuntime rescue;
     BattleRuntimeUnitActionState action;
+    std::vector<BattleSourceShield> sourceShields;
 
     int id() const { return core.id; }
     bool alive() const { return core.alive; }
+
+    void setShield(int amount)
+    {
+        assert(amount >= 0);
+        int consumed = std::max(0, core.shield - amount);
+        // 有上限的來源護盾優先承傷，消耗後可由該來源重新補充。
+        for (auto& shield : sourceShields)
+        {
+            const int absorbed = std::min(consumed, shield.amount);
+            shield.amount -= absorbed;
+            consumed -= absorbed;
+            if (consumed == 0) break;
+        }
+        std::erase_if(sourceShields, [](const auto& shield) { return shield.amount == 0; });
+        core.shield = amount;
+    }
+
+    int grantSourceShield(const EffectSourceBinding& binding, EffectRuleId ruleId, int amount, int limit)
+    {
+        assert(amount >= 0 && limit >= 0);
+        auto found = std::ranges::find_if(sourceShields, [&](const auto& shield)
+        {
+            return shield.binding == binding && shield.ruleId == ruleId;
+        });
+        const int existing = found == sourceShields.end() ? 0 : found->amount;
+        const int granted = std::min({amount, std::max(0, limit - existing),
+            std::numeric_limits<int>::max() - core.shield});
+        if (granted == 0) return 0;
+        if (found == sourceShields.end())
+            sourceShields.push_back({binding, ruleId, granted});
+        else
+            found->amount += granted;
+        core.shield += granted;
+        return granted;
+    }
 
     BattleRuntimeUnitFrameTickResult advanceFrameTick(const BattleRuntimeUnitFrameTickConfig& config);
 
@@ -329,12 +372,13 @@ public:
 
     void writeDamageUnit(const BattleDamageUnitState& source)
     {
-        auto& unit = requireCore(source.id);
+        auto& record = require(source.id);
+        auto& unit = record.core;
         unit.alive = source.alive;
         unit.vitals = source.vitals;
         unit.stats.attack = source.attack;
         unit.invincible = source.invincible;
-        unit.shield = source.shield;
+        record.setShield(source.shield);
     }
 
     void setPosition(int unitId, Pointf position, const BattleGridTransform& gridTransform)

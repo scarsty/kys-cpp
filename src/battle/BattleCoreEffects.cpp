@@ -111,6 +111,7 @@ BattleStatusSemanticId statusSemanticId(BattleStatusKind status)
     case BattleStatusKind::Shadowless:
     case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
+    case BattleStatusKind::Berserk:
         return BattleStatusSemanticId::None;
     case BattleStatusKind::Count:
         break;
@@ -962,6 +963,7 @@ BattleSemanticCueFamily statusCueFamily(BattleStatusKind status)
     case BattleStatusKind::TrueQi:
     case BattleStatusKind::PoisonExplosion:
     case BattleStatusKind::NextAttackCritical:
+    case BattleStatusKind::Berserk:
         return BattleSemanticCueFamily::Positive;
     }
     assert(false);

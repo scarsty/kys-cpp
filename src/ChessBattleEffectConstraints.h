@@ -558,6 +558,7 @@ constexpr EffectEventConstraint effectConditionConstraint(
     case 18: // DamageKilledTargetCondition
     case 19: // AcceptedHitCondition
     case 21: // DamagePerspectiveCondition
+    case 27: // EventTargetHasNegativeStatusCondition
         return { effectCapability(C::Damage), {} };
     case 20: // EventTargetBelongsToBoundSourceCondition
         return { effectCapability(C::Death), {} };

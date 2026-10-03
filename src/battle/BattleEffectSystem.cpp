@@ -813,6 +813,19 @@ bool conditionSatisfied(const EffectCondition& condition,
                         return unit.alive && unit.team == context.scope.owner->team;
                     }) == 1;
         },
+        [&](const SourceIsLastAliveComboMemberCondition&)
+        {
+            return context.scope.binding.kind == EffectSourceKind::Combo
+                && context.scope.owner->alive
+                && std::ranges::contains(context.scope.owner->comboIds, context.scope.binding.sourceId)
+                && std::ranges::count_if(
+                    context.header.battle.units(),
+                    [&](const EffectUnitSnapshot& unit)
+                    {
+                        return unit.alive && unit.team == context.scope.owner->team
+                            && std::ranges::contains(unit.comboIds, context.scope.binding.sourceId);
+                    }) == 1;
+        },
         [&](const TargetHpRatioAtMostCondition& value)
         {
             return target.maxHp > 0 &&
@@ -830,6 +843,15 @@ bool conditionSatisfied(const EffectCondition& condition,
         [&](const TargetHasStateCondition& value)
         {
             return target.hasState(value.state);
+        },
+        [&](const EventTargetHasNegativeStatusCondition&)
+        {
+            const auto& damage = std::get<DamageResultEventData>(context.payload);
+            return damage.defenderBefore.team != context.scope.owner->team
+                && std::ranges::any_of(damage.defenderBefore.statusDetails, [](const auto& status)
+                {
+                    return isNegativeBattleStatus(status.state);
+                });
         },
         [&](const TargetHasStateFromEffectOwnerCondition& value)
         {
@@ -3177,6 +3199,7 @@ ChangeResourceEffectCommand prepareChangeResource(
         .healSourcePolicy = action.healSourcePolicy,
         .healRequiresFullMp = action.healRequiresFullMp,
         .transferDestinationUnitIds = std::move(destinations),
+        .sourceShieldMaxHpPct = action.sourceShieldMaxHpPct,
     };
 }
 
@@ -3561,7 +3584,8 @@ void evaluateOrdinaryRule(
     const EffectEventContext* ruleContext = &context;
     std::optional<EffectEventContext> rewrittenContext;
     if (bound.rule().observation != EffectObservationScope::Owner
-        || bound.castScope)
+        || bound.castScope
+        || context.scope.binding != bound.binding)
     {
         rewrittenContext.emplace(context);
         rewriteObservedOwner(bound, *rewrittenContext);

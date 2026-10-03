@@ -640,6 +640,15 @@ inline constexpr std::array statusCatalog{
         .behaviorProfile = StatusBehaviorProfile::None,
         .authorable = false,
     },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Berserk,
+        .label = "狂暴",
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::AuthoredRefreshDuration,
+        .behaviorClassification = StatusBehaviorClassification::OpenMarker,
+        .behaviorProfile = StatusBehaviorProfile::None,
+    },
 };
 
 static_assert(statusCatalog.size()

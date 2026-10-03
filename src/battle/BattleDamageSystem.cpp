@@ -98,54 +98,85 @@ BattleDamageKind effectiveDamageKind(const BattleDamageRequest& request)
     return BattleDamageKind::Physical;
 }
 
-void applyDamageReduction(
+}  // namespace
+
+int cappedBattleDamageRemainingBasisPoints(int remainingDamageBasisPoints, int reductionPct)
+{
+    assert(remainingDamageBasisPoints >= (100 - FinalDamageReductionCapPct) * 100);
+    assert(remainingDamageBasisPoints <= 10'000);
+    assert(reductionPct >= 0);
+    return std::max(
+        (100 - FinalDamageReductionCapPct) * 100,
+        remainingDamageBasisPoints * (100 - std::min(reductionPct, 100)) / 100);
+}
+
+void applyBattleDamageReduction(
     BattleFixed& damage,
     int reductionPct,
     int& remainingDamageBasisPoints)
 {
-    if (reductionPct <= 0)
+    if (reductionPct <= 0 || damage <= BattleFixed{})
     {
         return;
     }
-    assert(remainingDamageBasisPoints >= (100 - FinalDamageReductionCapPct) * 100);
-    const int requestedRemaining = remainingDamageBasisPoints
-        * (100 - std::min(reductionPct, 100)) / 100;
-    const int cappedRemaining = std::max(
-        (100 - FinalDamageReductionCapPct) * 100,
-        requestedRemaining);
-    damage = damage.scaled(cappedRemaining, remainingDamageBasisPoints);
+    const int cappedRemaining = cappedBattleDamageRemainingBasisPoints(
+        remainingDamageBasisPoints, reductionPct);
+    // 先除後乘，保留餘數，避免極大傷害乘以基點時溢位。
+    damage = BattleFixed::fromRaw(
+        damage.raw() / remainingDamageBasisPoints * cappedRemaining
+        + damage.raw() % remainingDamageBasisPoints * cappedRemaining
+            / remainingDamageBasisPoints);
     remainingDamageBasisPoints = cappedRemaining;
 }
 
-void applySignedDamageDelta(
+void applyBattleDamagePercentDelta(
     BattleFixed& damage,
-    int pctDelta,
+    std::int64_t pctDelta,
     int& remainingDamageBasisPoints)
 {
     if (pctDelta < 0)
     {
-        const int reduction = pctDelta == std::numeric_limits<int>::min()
+        const int reduction = pctDelta <= -100
             ? 100
-            : -pctDelta;
-        applyDamageReduction(damage, reduction, remainingDamageBasisPoints);
+            : static_cast<int>(-pctDelta);
+        applyBattleDamageReduction(damage, reduction, remainingDamageBasisPoints);
     }
     else if (pctDelta > 0)
     {
         damage = damage.scaledPercentSaturated(
-            static_cast<std::int64_t>(100) + pctDelta);
+            static_cast<std::int64_t>(100) + battleSaturatedInt(pctDelta));
     }
 }
+
+void applyBattleDamageMultiplier(
+    BattleFixed& damage,
+    const BattleDamageMultiplier& multiplier,
+    int& remainingDamageBasisPoints)
+{
+    assert(multiplier.percent >= 0);
+    assert(multiplier.stacks >= 0);
+    for (int stack = 0; stack < multiplier.stacks; ++stack)
+    {
+        applyBattleDamagePercentDelta(
+            damage,
+            static_cast<std::int64_t>(multiplier.percent) - 100,
+            remainingDamageBasisPoints);
+    }
+}
+
+namespace
+{
 
 void applyTypedDefenderStatusModifiers(
     BattleFixed& damage,
     const BattleStatusPersistentModifiers& statuses,
     int& remainingDamageBasisPoints)
 {
-    applyDamageReduction(
+    applyBattleDamageReduction(
         damage,
         statuses.damageReductionPct,
         remainingDamageBasisPoints);
-    applySignedDamageDelta(
+    applyBattleDamagePercentDelta(
         damage,
         statuses.damageTakenPct,
         remainingDamageBasisPoints);
@@ -320,7 +351,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             combinedReductionBasisPoints = 10'000 - remainingDamageBasisPoints;
         }
         int remainingDamageBasisPoints = 10'000 - combinedReductionBasisPoints;
-        applySignedDamageDelta(
+        applyBattleDamagePercentDelta(
             resolvedDamage,
             input.liveOutgoingDamagePctDelta,
             remainingDamageBasisPoints);
@@ -668,10 +699,15 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     BattleFixed damage = input.damage;
     int remainingDamageBasisPoints = 10'000;
 
+    for (const auto& multiplier : input.attacker.percentageMultipliers)
+    {
+        applyBattleDamageMultiplier(damage, multiplier, remainingDamageBasisPoints);
+    }
+
     if ((input.usingSkill || input.damageKind == BattleDamageKind::Skill)
         && input.attacker.skillDamagePct != 0)
     {
-        applySignedDamageDelta(
+        applyBattleDamagePercentDelta(
             damage,
             input.attacker.skillDamagePct,
             remainingDamageBasisPoints);
@@ -688,10 +724,15 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     damage = std::max(BattleFixed{}, damage);
     if (input.defender.damageReductionPct > 0)
     {
-        applyDamageReduction(
+        applyBattleDamageReduction(
             damage,
             input.defender.damageReductionPct,
             remainingDamageBasisPoints);
+    }
+
+    for (const auto& multiplier : input.defender.percentageMultipliers)
+    {
+        applyBattleDamageMultiplier(damage, multiplier, remainingDamageBasisPoints);
     }
 
     if (input.defender.poisoned && input.attacker.poisonDamageAmpPct > 0)
@@ -701,7 +742,7 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     }
     if (input.defender.damageTakenIncreasePct != 0)
     {
-        applySignedDamageDelta(
+        applyBattleDamagePercentDelta(
             damage,
             input.defender.damageTakenIncreasePct,
             remainingDamageBasisPoints);
@@ -883,11 +924,8 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
         int absorbed{};
         if (!input.executed && result.damage > 0)
         {
-            const int requestedRemaining = result.remainingDamageBasisPoints
-                * (100 - layer.absorbedPct) / 100;
-            const int cappedRemaining = std::max(
-                (100 - FinalDamageReductionCapPct) * 100,
-                requestedRemaining);
+            const int cappedRemaining = cappedBattleDamageRemainingBasisPoints(
+                result.remainingDamageBasisPoints, layer.absorbedPct);
             absorbed = static_cast<int>(
                 static_cast<std::int64_t>(result.damage)
                 * (result.remainingDamageBasisPoints - cappedRemaining)

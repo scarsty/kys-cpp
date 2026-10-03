@@ -198,6 +198,48 @@ TEST_CASE("BattleDamageSystem_Modifiers_ApplySignedPersistentPercentagesAtTheSam
     CHECK_FALSE(result.maxHitCapped);
 }
 
+TEST_CASE("BattleDamageSystem_Modifiers_SharePercentageCapAndKeepFlatDeductionsSeparate", "[battle][damage][reduction][unit]")
+{
+    BattleDamageModifierInput input;
+    input.damage = 100;
+    input.defender.damageReductionPct = 50;
+    input.defender.damageTakenIncreasePct = -90;
+    input.defenderUnit = unit();
+    int expectedDamage = 20;
+    SECTION("percentage reductions share one cap")
+    {
+    }
+    SECTION("fixed deductions do not use the percentage budget")
+    {
+        input.defender.flatDamageReduction = 90;
+        expectedDamage = 2;
+    }
+    SECTION("stacked multipliers use the same budget")
+    {
+        input.defender.damageTakenIncreasePct = 0;
+        input.defender.percentageMultipliers = {{50, 3}};
+    }
+
+    const auto result = BattleDamageSystem().applyModifiers(input);
+
+    CHECK(result.damage.toInt() == expectedDamage);
+    CHECK(result.combinedDamageReductionBasisPoints == 8000);
+}
+
+TEST_CASE("BattleDamageSystem_PercentageReductionHandlesMaximumDamageWithoutOverflow", "[battle][damage][reduction][boundary][unit]")
+{
+    BattleDamageModifierInput input;
+    input.damage = std::numeric_limits<int>::max();
+    input.defender.damageReductionPct = 1;
+    input.defenderUnit = unit();
+
+    const auto result = BattleDamageSystem().applyModifiers(input);
+
+    CHECK(result.damage.toInt() == static_cast<int>(
+        static_cast<std::int64_t>(std::numeric_limits<int>::max()) * 99 / 100));
+    CHECK(result.combinedDamageReductionBasisPoints == 100);
+}
+
 TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesAttackDefenseCurve", "[battle][damage][unit]")
 {
     BattleMagicBaseDamageInput input;

@@ -310,57 +310,13 @@ BattleFixed addIntegerSaturated(BattleFixed value, std::int64_t amount)
         maximumRaw));
 }
 
-void applyDamageReductionPct(
-    BattleFixed& damage,
-    int reductionPct,
-    int& remainingDamageBasisPoints)
-{
-    if (reductionPct <= 0 || damage <= BattleFixed{})
-    {
-        return;
-    }
-    const int requestedRemaining = remainingDamageBasisPoints
-        * std::max(0, 100 - reductionPct) / 100;
-    const int cappedRemaining = std::max(
-        (100 - FinalDamageReductionCapPct) * 100,
-        requestedRemaining);
-    damage = damage.scaled(cappedRemaining, remainingDamageBasisPoints);
-    remainingDamageBasisPoints = cappedRemaining;
-}
-
-void applySignedPercentDelta(
-    BattleFixed& damage,
-    std::int64_t percentDelta,
-    int& remainingDamageBasisPoints)
-{
-    if (percentDelta < 0)
-    {
-        const int reductionPct = percentDelta <= -100
-            ? 100
-            : static_cast<int>(-percentDelta);
-        applyDamageReductionPct(
-            damage,
-            reductionPct,
-            remainingDamageBasisPoints);
-    }
-    else if (percentDelta > 0)
-    {
-        damage = damage.scaledPercentSaturated(
-            static_cast<std::int64_t>(100)
-            + battleSaturatedInt(percentDelta));
-    }
-}
-
 BattleFixed applyMultiplyModifier(
     BattleFixed damage,
-    const BattleHitDamageModifier& modifier)
+    const BattleHitDamageModifier& modifier,
+    int& remainingDamageBasisPoints)
 {
-    assert(modifier.amount >= 0);
-    assert(modifier.stackCount >= 0);
-    for (int stack = 0; stack < modifier.stackCount; ++stack)
-    {
-        damage = damage.scaledPercentSaturated(modifier.amount);
-    }
+    applyBattleDamageMultiplier(
+        damage, {modifier.amount, modifier.stackCount}, remainingDamageBasisPoints);
     return damage;
 }
 
@@ -373,7 +329,7 @@ BattleFixed applyOutgoingBeforeCriticalModifiers(
     {
         if (modifier.operation == DamageModifierOperation::Multiply)
         {
-            damage = applyMultiplyModifier(damage, modifier);
+            damage = applyMultiplyModifier(damage, modifier, remainingDamageBasisPoints);
         }
     }
 
@@ -390,7 +346,7 @@ BattleFixed applyOutgoingBeforeCriticalModifiers(
             accumulateModifierAmount(flat, modifier);
         }
     }
-    applySignedPercentDelta(damage, percent, remainingDamageBasisPoints);
+    applyBattleDamagePercentDelta(damage, percent, remainingDamageBasisPoints);
     damage = addIntegerSaturated(damage, flat);
     return damage;
 }
@@ -406,13 +362,13 @@ BattleFixed applyOutgoingAfterCriticalModifiers(
         {
             continue;
         }
-        damage = applyMultiplyModifier(damage, modifier);
+        damage = applyMultiplyModifier(damage, modifier, remainingDamageBasisPoints);
     }
     for (const auto& modifier : modifiers)
     {
         if (modifier.operation == DamageModifierOperation::PercentAdd)
         {
-            applySignedPercentDelta(
+            applyBattleDamagePercentDelta(
                 damage,
                 effectiveModifierAmount(modifier),
                 remainingDamageBasisPoints);
@@ -444,7 +400,14 @@ BattleFixed applyIncomingBaseModifiers(
         }
     }
     damage = addIntegerSaturated(damage, flat);
-    applySignedPercentDelta(damage, percent, remainingDamageBasisPoints);
+    applyBattleDamagePercentDelta(damage, percent, remainingDamageBasisPoints);
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation == DamageModifierOperation::Multiply)
+        {
+            damage = applyMultiplyModifier(damage, modifier, remainingDamageBasisPoints);
+        }
+    }
     return damage;
 }
 
@@ -462,10 +425,10 @@ BattleFixed applyIncomingAfterBaseModifiers(
             damage = addIntegerSaturated(damage, amount);
             break;
         case DamageModifierOperation::PercentAdd:
-            applySignedPercentDelta(damage, amount, remainingDamageBasisPoints);
+            applyBattleDamagePercentDelta(damage, amount, remainingDamageBasisPoints);
             break;
         case DamageModifierOperation::Multiply:
-            damage = applyMultiplyModifier(damage, modifier);
+            damage = applyMultiplyModifier(damage, modifier, remainingDamageBasisPoints);
             break;
         case DamageModifierOperation::IgnoreDefensePercent:
         case DamageModifierOperation::CapSingleHitAtMaxHpPercent:

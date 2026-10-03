@@ -56,6 +56,12 @@ struct BattleDamageRuntimeUnit
 
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
 
+struct BattleDamageMultiplier
+{
+    int percent{};
+    int stacks = 1;
+};
+
 struct BattleDamageModifierState
 {
     int flatDamageIncrease = 0;
@@ -67,6 +73,7 @@ struct BattleDamageModifierState
     int damageTakenIncreasePct = 0;
     bool poisoned = false;
     int maxHitPctMaxHp = 0;
+    std::vector<BattleDamageMultiplier> percentageMultipliers;
 };
 
 struct BattleDamageModifierInput
@@ -422,6 +429,10 @@ public:
 };
 
 int combineBattleBlockChancePct(int baseChancePct, int liveAreaChancePct);
+int cappedBattleDamageRemainingBasisPoints(int remainingDamageBasisPoints, int reductionPct);
+void applyBattleDamageReduction(BattleFixed& damage, int reductionPct, int& remainingDamageBasisPoints);
+void applyBattleDamagePercentDelta(BattleFixed& damage, std::int64_t percentDelta, int& remainingDamageBasisPoints);
+void applyBattleDamageMultiplier(BattleFixed& damage, const BattleDamageMultiplier& multiplier, int& remainingDamageBasisPoints);
 BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const BattleDamageRuntimeUnit* runtime);
 void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit);
 BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit);

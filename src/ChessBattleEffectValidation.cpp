@@ -195,7 +195,8 @@ bool validateConditionAtEvent(const EffectCondition& condition, EffectEvent even
                 if (!effectConditionAllowedAtEvent(condition.index(), event))
                     return reject("來源成員條件需要死亡事件");
             }
-            else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>)
+            else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>
+                || std::is_same_v<T, EventTargetHasNegativeStatusCondition>)
             {
                 if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("傷害方位條件需要傷害結算事件");
             }
@@ -1281,6 +1282,15 @@ bool validateActionPayload(
                 }
                 if ((typed.kind == ResourceChangeKind::Transfer) != typed.transferDestination.has_value())
                     return reject("只有轉移資源需要且必須提供轉移目標");
+                if (typed.sourceShieldMaxHpPct)
+                {
+                    if (typed.resource != BattleResource::Shield || typed.kind != ResourceChangeKind::Grant)
+                        return reject("來源護盾上限只支援增加護盾");
+                    if (*typed.sourceShieldMaxHpPct <= 0)
+                        return reject("來源護盾上限百分比必須為正數");
+                    if (event == EffectEvent::BattleInitialized)
+                        return reject("來源護盾上限不支援開場資源");
+                }
                 if (typed.kind == ResourceChangeKind::RefreshToAtLeast
                     && typed.resource != BattleResource::Shield
                     && typed.resource != BattleResource::StatusShield

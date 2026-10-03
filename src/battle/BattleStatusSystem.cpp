@@ -1116,6 +1116,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     case BattleStatusKind::Shadowless:
     case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
+    case BattleStatusKind::Berserk:
         break;
     }
 

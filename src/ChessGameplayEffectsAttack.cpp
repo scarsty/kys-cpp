@@ -709,9 +709,9 @@ struct ChanceHitKnockback final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("命中有{}%機率擊退敵人{}像素，鎖定{}幀。遇障礙停止。", 機率百分比, 距離像素, 鎖定幀數);
+            return std::format("命中有{}%機率將敵人擊退一段距離，並限制其移動{}幀。", 機率百分比, 鎖定幀數);
         }
-        return std::format("命中：{}%機率擊退{}像素，鎖定{}幀", 機率百分比, 距離像素, 鎖定幀數);
+        return std::format("命中：{}%機率擊退敵人，移動受限{}幀", 機率百分比, 鎖定幀數);
     }
 };
 
@@ -1007,9 +1007,9 @@ struct ChanceHitTrackingAttack final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("命中有{}%機率在{}像素內追加追蹤攻擊，造成{}%傷害。", 機率百分比, 範圍像素, 傷害百分比);
+            return std::format("命中時有{}%機率對附近敵人追加追蹤攻擊，造成{}%傷害。", 機率百分比, 傷害百分比);
         }
-        return std::format("命中：{}%機率追擊{}像素內敵人，{}%傷害", 機率百分比, 範圍像素, 傷害百分比);
+        return std::format("命中：{}%機率追擊附近敵人，{}%傷害", 機率百分比, 傷害百分比);
     }
 };
 
@@ -1112,8 +1112,8 @@ struct BouncingAttacks final : GameplayEffectDefinition
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中：{}%機率在{}像素內彈射，追加至多{}次", 機率百分比, 範圍像素, 追加命中次數);
-        return std::format("攻擊命中時有{}%機率在{}像素內彈射，最多追加命中{}次。", 機率百分比, 範圍像素, 追加命中次數);
+            return std::format("命中：{}%機率彈射至附近另一名敵人，追加至多{}次", 機率百分比, 追加命中次數);
+        return std::format("攻擊命中時有{}%機率彈射至附近另一名敵人，最多追加命中{}次。", 機率百分比, 追加命中次數);
     }
 };
 

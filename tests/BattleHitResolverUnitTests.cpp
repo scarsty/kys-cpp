@@ -226,6 +226,67 @@ TEST_CASE("BattleHitResolver saturates extreme additive damage modifiers",
     }
 }
 
+TEST_CASE("BattleHitResolver caps stacked multipliers in every damage phase", "[battle][hit_resolver][damage][reduction][unit]")
+{
+    for (int phase = 0; phase < 6; ++phase)
+    {
+        CAPTURE(phase);
+        auto input = hitInput();
+        input.skill.resolvedBaseDamage = 100;
+        const std::array phases{
+            &input.damageModifiers.outgoingBeforeCritical,
+            &input.damageModifiers.outgoingAfterCritical,
+            &input.damageModifiers.incomingBase,
+            &input.damageModifiers.incomingAfterBase,
+            &input.damageModifiers.outgoingFinal,
+            &input.damageModifiers.incomingFinal,
+        };
+        phases[phase]->push_back({KysChess::DamageModifierOperation::Multiply, 50, 3});
+
+        const auto result = resolveHit(input);
+
+        CHECK(result.finalHpDamage == 20);
+        const auto* damage = firstHpDamageCommand(result);
+        REQUIRE(damage);
+        CHECK(damage->combinedDamageReductionBasisPoints == 8000);
+    }
+}
+
+TEST_CASE("BattleHitResolver shares the percentage cap across phases and excludes flat deductions",
+          "[battle][hit_resolver][damage][reduction][unit]")
+{
+    auto input = hitInput();
+    input.skill.resolvedBaseDamage = 100;
+    int expectedDamage = 20;
+    SECTION("percentage and multiplier reductions share one budget")
+    {
+        input.damageModifiers.outgoingBeforeCritical = {{KysChess::DamageModifierOperation::PercentAdd, -50}};
+        input.damageModifiers.incomingBase = {{KysChess::DamageModifierOperation::Multiply, 50}};
+        input.damageModifiers.incomingAfterBase = {{KysChess::DamageModifierOperation::PercentAdd, -50}};
+        input.damageModifiers.outgoingFinal = {{KysChess::DamageModifierOperation::Multiply, 50}};
+        input.damageModifiers.incomingFinal = {{KysChess::DamageModifierOperation::PercentAdd, -50}};
+    }
+    SECTION("a zero multiplier still leaves twenty percent")
+    {
+        input.damageModifiers.incomingFinal = {{KysChess::DamageModifierOperation::Multiply, 0}};
+    }
+    SECTION("flat deduction stays outside the percentage budget")
+    {
+        input.damageModifiers.incomingBase = {
+            {KysChess::DamageModifierOperation::FlatAdd, -90},
+            {KysChess::DamageModifierOperation::PercentAdd, -100},
+        };
+        expectedDamage = 2;
+    }
+
+    const auto result = resolveHit(input);
+
+    CHECK(result.finalHpDamage == expectedDamage);
+    const auto* damage = firstHpDamageCommand(result);
+    REQUIRE(damage);
+    CHECK(damage->combinedDamageReductionBasisPoints == 8000);
+}
+
 TEST_CASE("BattleHitResolver applies final damage modifiers after random variance", "[battle][hit_resolver][damage][unit]")
 {
     auto input = hitInput();

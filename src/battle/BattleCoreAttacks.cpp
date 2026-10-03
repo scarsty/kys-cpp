@@ -1,6 +1,7 @@
 #include "BattleCoreDetail.h"
 
 #include "BattleMath.h"
+#include "BattleLimits.h"
 #include "../ChessEftIds.h"
 #include "../Find.h"
 #include "BattleAreaEffectSystem.h"
@@ -354,15 +355,15 @@ bool tryResolveDodgeHit(
 {
     const double roll = state.random.nextPercent();
     const int dodgeChancePct = std::clamp(
-        effectAdjustedAttribute(
+        battleSaturatedAdd(effectAdjustedAttribute(
             state,
             event.unitId,
             BattleAttribute::DodgeChance,
             0,
-            event.sourceUnitId)
-            + areaAttributeDelta(state, event.unitId, BattleAttribute::DodgeChance),
+            event.sourceUnitId),
+            areaAttributeDelta(state, event.unitId, BattleAttribute::DodgeChance)),
         0,
-        100);
+        kBattleDodgeChanceCapPct);
     if (dodgeChancePct <= 0 || roll >= dodgeChancePct)
     {
         return false;
@@ -765,11 +766,15 @@ void collectHitDamageModifiers(
 
     const auto defenderStatus = BattleStatusSystem({}).persistentModifiers(
         state.units.require(event.unitId).status.effects);
-    if (defenderStatus.damageReductionPct != 0)
+    const int damageReductionPct = battleSaturatedAdd(
+        effectAdjustedAttribute(state, event.unitId, BattleAttribute::DamageReduction,
+            0, event.sourceUnitId),
+        defenderStatus.damageReductionPct);
+    if (damageReductionPct > 0)
     {
         input.damageModifiers.incomingBase.push_back({
             DamageModifierOperation::PercentAdd,
-            -defenderStatus.damageReductionPct,
+            -damageReductionPct,
         });
     }
     if (defenderStatus.damageTakenPct != 0)

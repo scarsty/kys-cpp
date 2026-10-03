@@ -71,6 +71,17 @@ TEST_CASE("Descriptions belong to reusable effects and follow their parameters",
     CHECK(first.front()->describe(EffectDescriptionStyle::Full) == "技能傷害+15%。");
 }
 
+TEST_CASE("Afflicted hit shield descriptions retain the cap and cast limit in one short sentence",
+          "[chess][effects][description][afflicted-shield]")
+{
+    const auto effect = configured(
+        "[{類型: 命中負面敵人護盾, 生命百分比: 5, 護盾上限百分比: 20}]").front();
+    CHECK(effect->describe(EffectDescriptionStyle::Full)
+        == "命中負面狀態敵人獲得最大生命5%護盾，累積上限20%，每招一次。");
+    CHECK(effect->describe(EffectDescriptionStyle::Compact)
+        == "命中：負面敵人→護盾+血上限5%，上限20%，每招一次");
+}
+
 TEST_CASE("Descriptions distinguish damage channels and explain debuff consequences", "[chess][effects][description]")
 {
     auto effects = configured(R"(
