@@ -1318,6 +1318,8 @@ std::optional<BorrowedRuleActionCategory> borrowedActionCategory(
                 [](const GenerateClonesAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const PreventDeathAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigureRescueRepositionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+                [](const ConfigureGuardChargesAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+                [](const ConfigurePoisonConversionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
             }, machine);
         },
         [](const std::shared_ptr<ConditionalEffectAction>&)
@@ -2087,6 +2089,14 @@ struct CommandEmitter
                         append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const ConfigureRescueRepositionAction& value)
+                    {
+                        append(metadata, StateMachineEffectCommand{ value });
+                    },
+                    [&](const ConfigureGuardChargesAction& value)
+                    {
+                        append(metadata, StateMachineEffectCommand{ value });
+                    },
+                    [&](const ConfigurePoisonConversionAction& value)
                     {
                         append(metadata, StateMachineEffectCommand{ value });
                     },
@@ -3642,6 +3652,12 @@ void evaluateOrdinaryRule(
     if (eligibleTargets.empty())
     {
         return;
+    }
+    if (bound.rule().naturalCastsOnly)
+    {
+        const auto* cast = effectCastProvenance(*ruleContext);
+        if (!cast || (cast->origin != CastOriginKind::Normal && cast->origin != CastOriginKind::Ultimate))
+            return;
     }
     if (bound.rule().everyNthEvent > 0)
     {

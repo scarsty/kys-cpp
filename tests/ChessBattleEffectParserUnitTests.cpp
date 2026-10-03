@@ -286,3 +286,27 @@ TEST_CASE("Authored star-scaled spiral lifetime and target fire area preserve th
     CHECK(area.modifiers[0].amount.base == EffectNumberBase::SourceStar);
     CHECK(area.modifiers[0].amount.percent == 2500);
 }
+
+
+TEST_CASE("Lore equipment tuning rejects invalid windows and accepts activation on every cast",
+          "[chess][effects][lore-equipment]")
+{
+    for (const auto text : {
+        "[{類型: 輪轉護身, 開場層數: 6, 層數上限: 5, 減傷百分比: 30, 回復間隔幀數: 60, 每次回復層數: 1}]",
+        "[{類型: 輪轉護身, 開場層數: 5, 層數上限: 5, 減傷百分比: 30, 回復間隔幀數: 0, 每次回復層數: 1}]",
+        "[{類型: 化毒養身, 毒傷轉化百分比: 101, 治療上限窗口幀數: 30, 治療上限生命百分比: 2}]",
+        "[{類型: 化毒養身, 毒傷轉化百分比: 25, 治療上限窗口幀數: 0, 治療上限生命百分比: 2}]"})
+    {
+        std::vector<GameplayEffect> effects;
+        std::vector<EffectRule> rules;
+        std::uint64_t id{};
+        CHECK_FALSE(parseGameplayEffects(YAML::Load(text), effects, rules, id, "測試"));
+    }
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(R"([
+        {類型: 清音護心, 出招次數: 1, 生命護盾百分比: 12},
+        {類型: 五輪齊發, 出招次數: 1, 目標數: 5, 傷害百分比: 40}
+    ])"), effects, rules, id, "測試"));
+}

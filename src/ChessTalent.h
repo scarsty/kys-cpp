@@ -62,6 +62,8 @@ struct ChessTalentDefinition
     int luckInvincibleFrames{};
     int targetTier{};
     int mpPerExtraStar{};
+    int strengtheningChargesPerExtraStar{};
+    int strengtheningDamagePercent{};
     int extraStarCap{};
     int guaranteeStar{};
     int guaranteeCount{};

@@ -128,6 +128,9 @@ bool validatePiece(
         return false;
     }
     if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > 100 || piece.openingMp < 0
+        || piece.openingStrengthening.charges < 0
+        || piece.openingStrengthening.damagePercent < 0 || piece.openingStrengthening.damagePercent > 100
+        || (piece.openingStrengthening.charges > 0 && piece.openingStrengthening.damagePercent == 0)
         || (piece.lethalRecovery && (piece.lethalRecovery->chancePercent < 0
             || piece.lethalRecovery->chancePercent > 100 || piece.lethalRecovery->survivalHp < 1
             || piece.lethalRecovery->invincibleFrames < 0 || piece.lethalRecovery->used)))
@@ -165,6 +168,7 @@ void appendTeam(
         unit.fightsWon = piece.fightsWon;
         unit.amplifiedGrowthPercent = piece.amplifiedGrowthPercent;
         unit.openingMp = piece.openingMp;
+        unit.openingStrengthening = piece.openingStrengthening;
         unit.lethalRecovery = piece.lethalRecovery;
         if (source.formationSlots.empty())
         {
@@ -249,6 +253,7 @@ ChessStandaloneBattleTeam chessStandaloneBattleTeam(
             piece.fightsWon,
             piece.amplifiedGrowthPercent,
             piece.openingMp,
+            piece.openingStrengthening,
             piece.lethalRecovery,
         });
     }

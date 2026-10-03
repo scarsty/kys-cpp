@@ -1186,10 +1186,45 @@ struct DeathExplosionTracking final : GameplayEffectDefinition
     }
 };
 
+struct FiveWheelVolley final : GameplayEffectDefinition
+{
+    int 出招次數{};
+    int 目標數{};
+    int 傷害百分比{};
+    static constexpr std::string_view Name = "五輪齊發";
+    static constexpr auto Parameters = std::array<Parameter<FiveWheelVolley>, 3>{{
+        {{"出招次數", 1, 1000}, &FiveWheelVolley::出招次數},
+        {{"目標數", 1, 1000}, &FiveWheelVolley::目標數},
+        {{"傷害百分比", 0, 1000000}, &FiveWheelVolley::傷害百分比}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.event = EffectEvent::AttackCommitted,
+            .selector = EffectSelector{.kind = EffectSelectorKind::NearestEnemies, .count = 目標數},
+            .everyNthEvent = 出招次數 == 1 ? 0 : 出招次數,
+            .naturalCastsOnly = true,
+            .actions = {EffectAction{.value = ModifyAttackAction{
+                .pattern = AttackPattern{.kind = AttackPatternKind::MultiTarget, .projectileCount = 目標數},
+                .strengthPct = 傷害百分比, .through = false, .tracking = true,
+                .sameTargetHitLimit = 1, .targets = AttackTargetPolicy::SelectedTargets,
+                .propagation = CastPropagationPolicy::NoEffectRules, .addToBaseAttack = true,
+                .source = EffectSelector{.kind = EffectSelectorKind::Self},
+                .independentProjectile = IndependentProjectile{
+                    .visualEffectId = 48, .speed = 18, .lifetimeFrames = 90, .magicPower = 0},
+                .activationLog = "五輪齊發"}}}}};
+    }
+    std::string describe(EffectDescriptionStyle) const override
+    {
+        return std::format("每{}次出招：向至多{}名敵人各發一輪，造成{}%攻擊傷害；每敵至多一輪，不觸發其他攻擊效果。",
+            出招次數, 目標數, 傷害百分比);
+    }
+};
+
 }    // namespace
 
 void appendAttackEffects(std::vector<GameplayEffectRegistration>& entries)
 {
+    entries.push_back(registration<FiveWheelVolley>());
     entries.push_back(registration<SideAttacks>());
     entries.push_back(registration<PiercingFan>());
     entries.push_back(registration<CopyLivingAttack>());

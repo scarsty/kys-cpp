@@ -137,7 +137,7 @@ bool loadBalanceConfig(
             break;
         case ChessTalentId::Backbone:
             keys(n, {"說明", "目標費用", "額外星級加成", "刷新保證"});
-            keys(n["額外星級加成"], {"每顆開場內力", "計算上限"});
+            keys(n["額外星級加成"], {"每顆開場內力", "每顆強化次數", "強化傷害百分比", "計算上限"});
             keys(n["刷新保證"], {"觸發星級", "每次數量"});
             break;
         }
@@ -178,6 +178,8 @@ bool loadBalanceConfig(
         case ChessTalentId::Backbone:
             def.targetTier = number(n, "目標費用", 1, 5);
             def.mpPerExtraStar = number(n["額外星級加成"], "每顆開場內力", 0, 10000);
+            def.strengtheningChargesPerExtraStar = number(n["額外星級加成"], "每顆強化次數", 0, 100);
+            def.strengtheningDamagePercent = number(n["額外星級加成"], "強化傷害百分比", 1, 100);
             def.extraStarCap = number(n["額外星級加成"], "計算上限", 0, 100);
             def.guaranteeStar = number(n["刷新保證"], "觸發星級", 2, 2);
             def.guaranteeCount = number(n["刷新保證"], "每次數量", 1, 100);

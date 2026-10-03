@@ -857,14 +857,19 @@ ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
     const HeadlessBattleRandomDigest talentRandom{
         result.finalRuntime.talentRandom.seed(), result.finalRuntime.talentRandom.rawDrawCount()};
     std::map<int, std::optional<Battle::BattleLethalRecovery>> lethalRecoveries;
+    std::map<int, Battle::BattleStrengthening> strengthening;
     for (const auto& record : result.finalRuntime.units.all())
+    {
         lethalRecoveries.emplace(record.core.id, record.damage.lethalRecovery);
+        strengthening.emplace(record.core.id, record.damage.strengthening);
+    }
     const auto attacks = attackStateDigest(result.finalRuntime.attacks);
     const auto queues = queueStateDigest(result.finalRuntime);
     return chessBeveSha256(
         "KYS_CHESS_BATTLE_LIFECYCLE_V1",
         talentRandom,
         lethalRecoveries,
+        strengthening,
         result.digestEvents,
         result.summary.outcome,
         result.summary.endFrame,

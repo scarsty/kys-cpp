@@ -365,6 +365,16 @@ BattleHealResult resolveHeal(
     }
 
     result.appliedAmount = std::min(result.modifiedAmount, target.maxHp - target.hp);
+    if (request.maximumAppliedAmount)
+    {
+        assert(*request.maximumAppliedAmount >= 0);
+        result.appliedAmount = std::min(result.appliedAmount, *request.maximumAppliedAmount);
+    }
+    if (result.appliedAmount == 0)
+    {
+        result.outcome = BattleHealOutcome::ZeroAfterModifier;
+        return result;
+    }
     assert(result.appliedAmount > 0);
     result.hpAfter = target.hp + result.appliedAmount;
     result.outcome = BattleHealOutcome::Applied;

@@ -131,6 +131,8 @@ constexpr std::string_view talentsFixtureText = R"(棋手天賦:
     目標費用: 4
     額外星級加成:
       每顆開場內力: 12
+      每顆強化次數: 2
+      強化傷害百分比: 37
       計算上限: 6
     刷新保證:
       觸發星級: 2
@@ -397,6 +399,22 @@ TEST_CASE("challenge configuration reads Traditional Chinese star and equipment 
     CHECK(result.challenges.front().enemies.front().armorId == 200);
 }
 
+TEST_CASE("talent configuration reads the shared strengthening parameters", "[chess][content][talent][backbone]")
+{
+    TemporaryConfigDirectory files;
+    const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 中堅, 可選: [中堅]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
+    const auto challenge = files.write("challenge.yaml", "遠征挑戰: []\n");
+    ChessDiagnosticCollector diagnostics;
+    BalanceConfig result;
+    REQUIRE(loadBalanceConfig(balance.generic_string(), challenge.generic_string(),
+        [](std::string_view text) { return std::string(text); }, diagnostics.sink(), result));
+
+    const auto& talent = result.talent(ChessTalentId::Backbone);
+    CHECK(talent.strengtheningChargesPerExtraStar == 2);
+    CHECK(talent.strengtheningDamagePercent == 37);
+    CHECK(talent.extraStarCap == 6);
+}
+
 TEST_CASE("pool configuration rejects duplicate role identifiers", "[chess][content][config]")
 {
     TemporaryConfigDirectory files;
@@ -507,6 +525,10 @@ TEST_CASE("talent configuration rejects malformed identities ranges and legacy k
     SECTION("stack cap") { talents["棋手天賦"]["賭徒"]["賭運"]["層數上限"] = 0; }
     SECTION("ban range") { talents["棋手天賦"]["賭徒"]["開局額外禁棋"]["最低費用"] = 3; }
     SECTION("zero guarantee count") { talents["棋手天賦"]["中堅"]["刷新保證"]["每次數量"] = 0; }
+    SECTION("negative strengthening count") { talents["棋手天賦"]["中堅"]["額外星級加成"]["每顆強化次數"] = -1; }
+    SECTION("missing strengthening count") { talents["棋手天賦"]["中堅"]["額外星級加成"].remove("每顆強化次數"); }
+    SECTION("zero strengthening percentage") { talents["棋手天賦"]["中堅"]["額外星級加成"]["強化傷害百分比"] = 0; }
+    SECTION("excessive strengthening percentage") { talents["棋手天賦"]["中堅"]["額外星級加成"]["強化傷害百分比"] = 101; }
     SECTION("equipment range") { balance["玩家裝備獎勵"]["基本"][0]["最低層級"] = 4; }
     SECTION("missing equipment minimum") { balance["玩家裝備獎勵"]["基本"][0].remove("最低層級"); }
     SECTION("duplicate reward round") { balance["玩家裝備獎勵"]["基本"][1]["關卡"] = 3; }

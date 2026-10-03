@@ -103,6 +103,7 @@ struct BattleSetupRosterUnit
     int sourceOrder = 0;
     int amplifiedGrowthPercent{};
     int openingMp{};
+    BattleStrengthening openingStrengthening{};
     std::optional<BattleLethalRecovery> lethalRecovery;
 };
 

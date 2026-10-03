@@ -6,10 +6,12 @@
 #include "BattleHealSystem.h"
 #include "BattleOperation.h"
 #include "BattleStatusSystem.h"
+#include "BattleStrengthening.h"
 #include "BattleUnitValues.h"
 #include "../Point.h"
 
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace KysChess::Battle
@@ -32,6 +34,7 @@ struct BattleDamageUnitState
 
     int shield = 0;
     int dualWieldBlocksRemaining = 0;
+    BattleStrengthening strengthening{};
 
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
@@ -46,6 +49,7 @@ struct BattleDamageRuntimeUnit
 {
     int hurtInvincFrames = 0;
     int dualWieldBlocksRemaining = 0;
+    BattleStrengthening strengthening{};
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
@@ -174,10 +178,12 @@ struct BattleDamageDefenseInput
     int singleHitCap = 0;
     int remainingDamageBasisPoints = 10'000;
     std::vector<BattleDamageAbsorptionLayer> absorptionLayers;
+    int guardReductionPct{};
 };
 
 struct BattleDamageDefenseResult
 {
+    bool guardChargeConsumed{};
     int damage = 0;
     BattleDamageUnitState defender;
     int shieldAbsorbed = 0;
@@ -351,6 +357,9 @@ struct BattleUnitDelta
 
 struct BattleDamageTransactionInput
 {
+    int guardReductionPct{};
+    // 防禦與護盾結算後，以實際可能扣除的生命傷害進行毒傷轉化。
+    std::function<BattleHealResult(int)> convertPoisonDamage;
     bool redirectHpDamage = false;
     BattleDamageRequest request;
     BattleDamageUnitState attacker;
@@ -369,6 +378,7 @@ struct BattleDamageTransactionInput
 
 struct BattleDamageTransactionResult
 {
+    bool guardChargeConsumed{};
     BattleDamageUnitState attacker;
     BattleDamageUnitState defender;
     BattleUnitDelta attackerDelta;

@@ -401,9 +401,9 @@ const BattleAttackInstance* copiedRuntimeAttack(const BattleRuntimeState& state)
 TEST_CASE("BattleRuntimeScenario_EffectRefactorBattleGoldens", "[battle][scenario][determinism][effect-golden]")
 {
     const std::map<int, std::pair<std::string, std::uint64_t>> goldens{
-        { 18, { "05226f72c8cfb3743356b707ea1d271a6950d7ba63776b0a2fb7b64a983a377b", 45 } },
-        { 94, { "09dabbdddebb6d229f45f5fd089000d270a9f46cad74d268d3881e04a0300295", 60 } },
-        { 133, { "3de24dfd20cecebd407d86999d37899d79b22f8d0dec29e6fcc894a6767a06b3", 60 } },
+        { 18, { "e2f642fa103f601aa79d28d4ff2d9e0e81de1e1b4ff559cbe64bd409fb4ae95c", 45 } },
+        { 94, { "964b0c8276bb704c08a01630492aefa5f47ed61bd05ea4bdb4ab0c12ab938fe8", 60 } },
+        { 133, { "8d4ea8e076a6ed845a091995d50a56e7865d5ffd29067d1af4370adab5ab143f", 60 } },
     };
     for (const auto& [magicId, expected] : goldens)
     {

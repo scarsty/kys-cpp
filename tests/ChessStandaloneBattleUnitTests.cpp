@@ -134,6 +134,23 @@ ChessStandaloneBattleRequest basicRequest()
 
 }
 
+TEST_CASE("standalone setup preserves the opening strengthening of both teams", "[chess][standalone][talent][backbone]")
+{
+    auto request = basicRequest();
+    request.teams[0].pieces[0].openingStrengthening = {3, 50};
+    request.teams[1].pieces[0].openingStrengthening = {2, 37};
+    std::string error;
+    auto built = ChessStandaloneBattle::prepare(standaloneContent(), request, error);
+    REQUIRE(built);
+    CHECK(built->preparedBattle.units[0].openingStrengthening == (Battle::BattleStrengthening{3, 50}));
+    CHECK(built->preparedBattle.units[1].openingStrengthening == (Battle::BattleStrengthening{2, 37}));
+    const auto input = BattleSetupFactory::build(built->preparedBattle, *built->content, kChessBattleFrameLimit);
+    REQUIRE(input.setup.allyRoster.size() == 1);
+    REQUIRE(input.setup.enemyRoster.size() == 1);
+    CHECK(input.setup.allyRoster[0].openingStrengthening == (Battle::BattleStrengthening{3, 50}));
+    CHECK(input.setup.enemyRoster[0].openingStrengthening == (Battle::BattleStrengthening{2, 37}));
+}
+
 TEST_CASE("ChessStandaloneBattle_ClassicProfileUsesCurrentRoleStatsWithoutAutoChessEffects", "[chess][standalone]")
 {
     auto request = basicRequest();

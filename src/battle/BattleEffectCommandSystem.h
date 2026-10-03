@@ -122,6 +122,25 @@ struct BattleAntiComboTransfer
     std::vector<EffectCommand> commands;
 };
 
+struct BattleGuardCharges
+{
+    ConfigureGuardChargesAction config{};
+    int charges{};
+    int lastRecoveryFrame{};
+
+    void advanceTo(int frame);
+};
+
+struct BattlePoisonConversion
+{
+    ConfigurePoisonConversionAction config{};
+    EffectSourceBinding binding;
+    // 保留實際治療回執，所有目標共用滑動幀窗口。
+    std::vector<std::pair<int, int>> healingHistory;
+
+    int remainingAllowance(int frame, int maxHp);
+};
+
 struct BattleEffectCommandRuntimeState
 {
     std::uint64_t nextAttributeSequence = 1;
@@ -130,6 +149,8 @@ struct BattleEffectCommandRuntimeState
     std::vector<BattleAttributeModifierInstance> attributeModifiers;
     std::vector<BattleDamageModifierInstance> damageModifiers;
     std::vector<BattleDamageAbsorptionInstance> damageAbsorptions;
+    std::map<int, BattleGuardCharges> guardCharges;
+    std::map<int, BattlePoisonConversion> poisonConversions;
     std::map<BattleAntiComboAttributeKey, BattleAntiComboAttributeBasis>
         antiComboAttributeBases;
     std::vector<BattleAntiComboInitializationRecord> antiComboInitializationRecords;

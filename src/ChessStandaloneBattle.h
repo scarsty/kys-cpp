@@ -33,6 +33,7 @@ struct ChessStandaloneBattlePiece
     int fightsWon{};
     int amplifiedGrowthPercent{};
     int openingMp{};
+    Battle::BattleStrengthening openingStrengthening{};
     std::optional<Battle::BattleLethalRecovery> lethalRecovery;
 };
 

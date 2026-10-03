@@ -654,10 +654,41 @@ struct ExecuteReposition final : GameplayEffectDefinition
     }
 };
 
+struct RevolvingGuard final : GameplayEffectDefinition
+{
+    int 開場層數{};
+    int 層數上限{};
+    int 減傷百分比{};
+    int 回復間隔幀數{};
+    int 每次回復層數{};
+    static constexpr std::string_view Name = "輪轉護身";
+    static constexpr auto Parameters = std::array<Parameter<RevolvingGuard>, 5>{{
+        {{"開場層數", 0, 1000}, &RevolvingGuard::開場層數},
+        {{"層數上限", 1, 1000}, &RevolvingGuard::層數上限},
+        {{"減傷百分比", 0, 100}, &RevolvingGuard::減傷百分比},
+        {{"回復間隔幀數", 1, 1000000}, &RevolvingGuard::回復間隔幀數},
+        {{"每次回復層數", 1, 1000}, &RevolvingGuard::每次回復層數}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.actions = {EffectAction{.value = StateMachineAction{
+            ConfigureGuardChargesAction{開場層數, 層數上限, 減傷百分比, 回復間隔幀數, 每次回復層數}}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("開場：{}層護身，上限{}；直接受擊耗一層減傷{}%，每{}幀回復{}層，毒與流血不耗層",
+                開場層數, 層數上限, 減傷百分比, 回復間隔幀數, 每次回復層數);
+        return std::format("開場{}層護身，上限{}；直接攻擊造成傷害時耗一層減傷{}%，每{}幀回復{}層。中毒與流血不消耗。",
+            開場層數, 層數上限, 減傷百分比, 回復間隔幀數, 每次回復層數);
+    }
+};
+
 }    // namespace
 
 void appendTacticalEffects(std::vector<GameplayEffectRegistration>& entries)
 {
+    entries.push_back(registration<RevolvingGuard>());
     entries.push_back(registration<SevenStarVolley>());
     entries.push_back(registration<MemberDeathShield>());
     entries.push_back(registration<MemberDeathAttribute>());

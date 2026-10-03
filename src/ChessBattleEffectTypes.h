@@ -1063,6 +1063,22 @@ struct ConfigureRescueRepositionAction
     int activations{};
 };
 
+struct ConfigureGuardChargesAction
+{
+    int initialCharges{};
+    int maximumCharges{};
+    int reductionPct{};
+    int recoveryIntervalFrames{};
+    int recoveryCharges{};
+};
+
+struct ConfigurePoisonConversionAction
+{
+    int conversionPct{};
+    int healingWindowFrames{};
+    int healingMaxHpPct{};
+};
+
 using StateMachineAction = std::variant<
     ChangeStateValueAction,
     TransferStateValueAction,
@@ -1075,7 +1091,9 @@ using StateMachineAction = std::variant<
     SettleRemainingStatusDamageAction,
     GenerateClonesAction,
     PreventDeathAction,
-    ConfigureRescueRepositionAction>;
+    ConfigureRescueRepositionAction,
+    ConfigureGuardChargesAction,
+    ConfigurePoisonConversionAction>;
 
 struct EffectAction;
 
@@ -1178,6 +1196,7 @@ struct EffectRule
     // Every-N activation counts otherwise eligible observed events per bound
     // rule. Zero means every event; N activates on N, 2N, and so on.
     int everyNthEvent = 0;
+    bool naturalCastsOnly = false;
     std::optional<EffectActivationLimit> activationLimit;
     // Ordered repetition replays the complete action list. Unlike an action's
     // transaction/application count, later actions settle between repetitions.

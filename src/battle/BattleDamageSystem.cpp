@@ -268,6 +268,7 @@ BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState&
     BattleDamageRuntimeUnit runtime;
     runtime.hurtInvincFrames = unit.hurtInvincFrames;
     runtime.dualWieldBlocksRemaining = unit.dualWieldBlocksRemaining;
+    runtime.strengthening = unit.strengthening;
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
@@ -299,12 +300,26 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
     if (input.request.baseDamage > 0)
     {
         BattleFixed resolvedDamage = input.request.baseDamage;
+        const bool strengthenedAttack = result.attacker.strengthening.charges > 0
+            && result.attacker.id >= 0
+            && result.attacker.id != result.defender.id
+            && !input.request.redirected
+            && result.damageKind != BattleDamageKind::Poison
+            && result.damageKind != BattleDamageKind::Bleed
+            && result.damageKind != BattleDamageKind::Execute;
+        if (strengthenedAttack)
+        {
+            assert(result.attacker.strengthening.damagePercent > 0
+                && result.attacker.strengthening.damagePercent <= 100);
+            resolvedDamage = resolvedDamage.scaledPercentSaturated(
+                100 + result.attacker.strengthening.damagePercent);
+        }
         int combinedReductionBasisPoints =
             input.request.preResolvedDamageReductionBasisPoints;
         if (!input.request.preResolvedDamage)
         {
             BattleDamageModifierInput modifierInput;
-            modifierInput.damage = input.request.baseDamage;
+            modifierInput.damage = resolvedDamage;
             modifierInput.damageKind = result.damageKind;
             modifierInput.usingSkill = input.request.usingSkill;
             modifierInput.ignoreDefense = input.request.ignoreDefense;
@@ -415,6 +430,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         }
 
         BattleDamageDefenseInput defenseInput;
+        defenseInput.guardReductionPct = input.guardReductionPct;
         defenseInput.damage = resolvedDamageValue;
         defenseInput.executed = result.executed;
         defenseInput.defenderWasInvincible = result.defender.invincible > 0;
@@ -428,6 +444,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             10'000 - result.combinedDamageReductionBasisPoints;
         defenseInput.absorptionLayers = input.absorptionLayers;
         auto defense = resolveDefense(defenseInput);
+        result.guardChargeConsumed = defense.guardChargeConsumed;
         result.defender = defense.defender;
         result.shieldAbsorbed = defense.shieldAbsorbed;
         result.absorptionReceipts = std::move(defense.absorptionReceipts);
@@ -457,6 +474,11 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         acceptedHit = !defense.blockedByInvincible
             && !defense.blockedByDualWield
             && !defense.blockedByDamageLayer;
+        if (strengthenedAttack && acceptedHit
+            && (resolvedDamageValue > 0 || result.executed))
+        {
+            --result.attacker.strengthening.charges;
+        }
         resolvedDamageValue = defense.damage;
 
         if (defense.shieldAbsorbed > 0)
@@ -511,6 +533,12 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         {
             result.redirectedHpDamage = hpDamage;
             hpDamage = 0;
+        }
+        if (input.convertPoisonDamage && hpDamage > 0 && result.damageKind == BattleDamageKind::Poison)
+        {
+            const auto healing = input.convertPoisonDamage(std::min(hpDamage, result.defender.vitals.hp));
+            hpDamage = std::min(hpDamage, result.defender.vitals.hp) - healing.appliedAmount;
+            result.attacker.vitals.hp = healing.hpAfter;
         }
         auto taken = applyDamageTaken(result.defender, hpDamage, input.request.triggersDefenseEffects, recoveryRandom);
         result.defender = taken.defender;
@@ -901,6 +929,25 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
         result.damage = 0;
         result.blockedByDamageLayer = true;
         return result;
+    }
+
+    if (!input.executed && result.damage > 0 && result.defender.strengthening.charges > 0)
+    {
+        assert(result.defender.strengthening.damagePercent > 0
+            && result.defender.strengthening.damagePercent <= 100);
+        BattleFixed damage = result.damage;
+        applyBattleDamageReduction(damage, result.defender.strengthening.damagePercent,
+            result.remainingDamageBasisPoints);
+        result.damage = damage.toInt();
+        --result.defender.strengthening.charges;
+    }
+
+    if (!input.executed && result.damage > 0 && input.guardReductionPct > 0)
+    {
+        BattleFixed damage = result.damage;
+        applyBattleDamageReduction(damage, input.guardReductionPct, result.remainingDamageBasisPoints);
+        result.damage = damage.toInt();
+        result.guardChargeConsumed = true;
     }
 
     if (!input.executed && result.damage > 0 && input.singleHitCap > 0)

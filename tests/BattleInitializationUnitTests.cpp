@@ -5,6 +5,8 @@
 #include "BattleCoreTestHelpers.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "Find.h"
+#include "ChessGameplayEffect.h"
+#include <yaml-cpp/yaml.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -1089,7 +1091,7 @@ TEST_CASE("BattleRuntimeUnit_UsesSharedUnitValueObjects", "[battle][initializati
     CHECK(unit.animation.cooldown == 7);
 }
 
-TEST_CASE("talent initialization amplifies complete growth and adds capped opening MP", "[battle][talent][initialization]")
+TEST_CASE("talent initialization amplifies complete growth and adds opening MP and shared strengthening", "[battle][talent][initialization]")
 {
     auto spawns = runtimeSpawns({runtimeUnit(0, 0, 100, 20, 30, 40)});
     spawns[0].unit.vitals.maxMp = 100;
@@ -1097,6 +1099,7 @@ TEST_CASE("talent initialization amplifies complete growth and adds capped openi
     BattleRuntimeSetupSeed setup;
     setup.allyRoster.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
         .fightsWon = 3, .amplifiedGrowthPercent = 100, .openingMp = 50,
+        .openingStrengthening = {3, 50},
         .lethalRecovery = BattleLethalRecovery{70, 1, 120}});
     setup.units.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
         .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40});
@@ -1119,10 +1122,48 @@ TEST_CASE("talent initialization amplifies complete growth and adds capped openi
     REQUIRE(output.spawns.size() == 1);
     const auto& spawn = output.spawns[0];
     CHECK(spawn.unit.vitals.mp == 100);
+    CHECK(spawn.damage.strengthening == BattleStrengthening{3, 50});
     const auto expected = computeStarBoostedStats({100, 20, 30, 40}, setup.starGrowth, 2, 3, 2, 1, 3, 100);
     CHECK(spawn.unit.vitals.maxHp == expected.hp);
     CHECK(spawn.unit.stats.attack == expected.atk);
     CHECK(spawn.unit.stats.defence == expected.def);
     REQUIRE(spawn.damage.lethalRecovery);
     CHECK(spawn.damage.lethalRecovery->chancePercent == 70);
+}
+
+
+TEST_CASE("Lore equipment initializes its configurable defense and conversion only for the bonded wearer",
+          "[battle][initialization][lore-equipment]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(R"([
+      {類型: 輪轉護身, 開場層數: 2, 層數上限: 7, 減傷百分比: 42, 回復間隔幀數: 9, 每次回復層數: 3},
+      {類型: 化毒養身, 毒傷轉化百分比: 33, 治療上限窗口幀數: 11, 治療上限生命百分比: 4}
+    ])"), effects, rules, nextId, "測試"));
+    auto spawns = runtimeSpawns({runtimeUnit(0, 0, 100, 20, 30, 40), runtimeUnit(1, 0, 100, 20, 30, 40)});
+    BattleRuntimeSetupSeed setup;
+    setup.units = {{0, 1001, 0, 1, 1, 100, 20, 30, 40}, {1, 1002, 0, 1, 1, 100, 20, 30, 40}};
+    setup.allyRoster = {{.unitId = 0, .realRoleId = 1001, .weaponId = 777},
+                       {.unitId = 1, .realRoleId = 1002, .weaponId = 777}};
+    setup.equipmentDefinitions.push_back({.itemId = 777});
+    setup.equipmentSynergies.push_back({.roleIds = {1001}, .equipmentId = 777, .rules = rules});
+    auto output = initializeBattleStartForTest(std::move(spawns), setup, testInitializationContext(5));
+    REQUIRE(output.effectCommands.guardCharges.size() == 1);
+    REQUIRE(output.effectCommands.poisonConversions.size() == 1);
+    auto& guard = output.effectCommands.guardCharges.at(0);
+    CHECK(guard.charges == 2);
+    guard.advanceTo(13);
+    CHECK(guard.charges == 2);
+    guard.advanceTo(14);
+    CHECK(guard.charges == 5);
+    guard.advanceTo(23);
+    CHECK(guard.charges == 7);
+    CHECK(guard.config.reductionPct == 42);
+    const auto& poison = output.effectCommands.poisonConversions.at(0);
+    CHECK(poison.config.conversionPct == 33);
+    CHECK(poison.config.healingWindowFrames == 11);
+    CHECK(poison.config.healingMaxHpPct == 4);
+    CHECK(poison.binding.ownerUnitId == 0);
 }

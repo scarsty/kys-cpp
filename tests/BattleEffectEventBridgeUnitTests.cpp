@@ -2167,3 +2167,85 @@ TEST_CASE("Poison settlement prediction defers later status mutations only for s
         CHECK(std::holds_alternative<BattleSkippedEffectResult>(reduction.entries.front().value));
     }
 }
+
+
+TEST_CASE("Clear melody shields persist, replenish their own pool and count only natural casts",
+          "[battle][effect][lore-equipment]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {900, 1000, 100, 100};
+    runtime.units.append(runtimeUnit(3, 0, 300, 1000));
+    runtime.units.requireCore(3).shield = 50;
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 清音護心, 出招次數: 3, 生命護盾百分比: 12}]"),
+        effects, rules, nextId, "測試"));
+    runtime.effectRules.append(binding(EffectSourceKind::Equipment, 241, 1, 0), rules.front());
+    BattleEffectEventBridge bridge;
+    int ordinal{};
+    const auto cast = [&](CastOriginKind origin = CastOriginKind::Normal)
+    {
+        auto provenance = ultimateCast(++ordinal);
+        provenance.origin = origin;
+        auto result = bridge.dispatch(runtime,
+            {.frame = ordinal * 100, .eventOrdinal = static_cast<std::uint64_t>(ordinal), .ownerUnitId = 1},
+            EffectEvent::AttackCommitted, CastCommitEventData{.provenance = provenance, .targetUnitId = 2});
+        BattleEffectCommandSystem{}.reduce(runtime, result.commands);
+        return result;
+    };
+    CHECK(cast().commands.empty());
+    CHECK(cast(CastOriginKind::FreeRepeat).commands.empty());
+    CHECK(cast(CastOriginKind::CopiedAttack).commands.empty());
+    CHECK(cast().commands.empty());
+    REQUIRE(cast().commands.size() == 1);
+    CHECK(runtime.units.requireCore(3).shield == 170);
+    CHECK(runtime.units.requireCore(1).shield == 0);
+    cast(); cast(); cast();
+    CHECK(runtime.units.requireCore(3).shield == 170);
+    auto defense = runtime.units.require(3).damageState(0);
+    defense.shield = 100;
+    runtime.units.writeDamageUnit(defense);
+    cast(); cast(); cast();
+    CHECK(runtime.units.requireCore(3).shield == 170);
+    runtime.units.requireCore(1).vitals.hp = 100;
+    cast(); cast(); cast();
+    CHECK(runtime.units.requireCore(1).shield == 120);
+    CHECK(runtime.units.requireCore(3).shield == 170);
+}
+
+TEST_CASE("Five wheel volley counts natural casts and selects distinct enemies",
+          "[battle][effect][lore-equipment]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.append(runtimeUnit(3, 1, 100, 100));
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 五輪齊發, 出招次數: 3, 目標數: 5, 傷害百分比: 40}]"),
+        effects, rules, nextId, "測試"));
+    runtime.effectRules.append(binding(EffectSourceKind::Equipment, 242, 1, 0), rules.front());
+    BattleEffectEventBridge bridge;
+    for (int i = 1; i <= 3; ++i)
+    {
+        auto cast = ultimateCast(i);
+        cast.origin = CastOriginKind::Normal;
+        const auto result = bridge.dispatch(runtime, {.frame = i, .eventOrdinal = 1, .ownerUnitId = 1},
+            EffectEvent::AttackCommitted, CastCommitEventData{.provenance = cast, .targetUnitId = 2});
+        if (i < 3) CHECK(result.commands.empty());
+        else
+        {
+            REQUIRE(result.commands.size() == 2);
+            CHECK(result.commands[0].metadata.targetUnitId != result.commands[1].metadata.targetUnitId);
+            for (const auto& command : result.commands)
+            {
+                const auto& wheel = std::get<ModifyAttackEffectCommand>(command.value);
+                CHECK(wheel.propagation == CastPropagationPolicy::NoEffectRules);
+                CHECK(wheel.strengthPct == 40);
+                REQUIRE(wheel.independentProjectile);
+            }
+        }
+    }
+}

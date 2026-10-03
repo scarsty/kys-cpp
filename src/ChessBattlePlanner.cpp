@@ -660,7 +660,14 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
             unit.lethalRecovery = Battle::BattleLethalRecovery{
                 talent.luckChance(piece.luckStacks), talent.luckSurvivalHp, talent.luckInvincibleFrames};
         if (content.role(piece.roleId)->Cost == talent.targetTier)
-            unit.openingMp = std::min(talent.extraStarCap, extraStars) * talent.mpPerExtraStar;
+        {
+            const int contributedStars = std::min(talent.extraStarCap, extraStars);
+            unit.openingMp = contributedStars * talent.mpPerExtraStar;
+            unit.openingStrengthening = {
+                contributedStars * talent.strengtheningChargesPerExtraStar,
+                talent.strengtheningDamagePercent,
+            };
+        }
     }
 }
 

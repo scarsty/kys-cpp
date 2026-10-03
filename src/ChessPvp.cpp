@@ -83,6 +83,7 @@ ChessPvpComposition extractChessPvpComposition(const ChessGameSession& session)
     {
         result.pieces[i].amplifiedGrowthPercent = battle.units[i].amplifiedGrowthPercent;
         result.pieces[i].openingMp = battle.units[i].openingMp;
+        result.pieces[i].openingStrengthening = battle.units[i].openingStrengthening;
         result.pieces[i].lethalRecovery = battle.units[i].lethalRecovery;
     }
     return result;

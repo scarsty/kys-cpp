@@ -801,10 +801,66 @@ struct InitialHealthShield final : GameplayEffectDefinition
     }
 };
 
+struct ClearMelodyShield final : GameplayEffectDefinition
+{
+    int 出招次數{};
+    int 生命護盾百分比{};
+    static constexpr std::string_view Name = "清音護心";
+    static constexpr auto Parameters = std::array<Parameter<ClearMelodyShield>, 2>{{
+        {{"出招次數", 1, 1000}, &ClearMelodyShield::出招次數},
+        {{"生命護盾百分比", 1, 1000000}, &ClearMelodyShield::生命護盾百分比}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.event = EffectEvent::AttackCommitted,
+            .selector = EffectSelector{.kind = EffectSelectorKind::LowestHpAllies, .count = 1},
+            .everyNthEvent = 出招次數 == 1 ? 0 : 出招次數,
+            .naturalCastsOnly = true,
+            .actions = {EffectAction{.value = ChangeResourceAction{
+                .resource = BattleResource::Shield,
+                .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp, .percent = 生命護盾百分比},
+                .kind = ResourceChangeKind::Grant,
+                .sourceShieldMaxHpPct = 生命護盾百分比}}}}};
+    }
+    std::string describe(EffectDescriptionStyle) const override
+    {
+        return std::format("每{}次出招：最低生命比例友軍獲最大生命{}%護盾，可選自身；持續至耗盡，同來源補滿不疊加。",
+            出招次數, 生命護盾百分比);
+    }
+};
+
+struct PoisonConversion final : GameplayEffectDefinition
+{
+    int 毒傷轉化百分比{};
+    int 治療上限窗口幀數{};
+    int 治療上限生命百分比{};
+    static constexpr std::string_view Name = "化毒養身";
+    static constexpr auto Parameters = std::array<Parameter<PoisonConversion>, 3>{{
+        {{"毒傷轉化百分比", 0, 100}, &PoisonConversion::毒傷轉化百分比},
+        {{"治療上限窗口幀數", 1, 1000000}, &PoisonConversion::治療上限窗口幀數},
+        {{"治療上限生命百分比", 0, 1000000}, &PoisonConversion::治療上限生命百分比}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.actions = {EffectAction{.value = StateMachineAction{
+            ConfigurePoisonConversionAction{毒傷轉化百分比, 治療上限窗口幀數, 治療上限生命百分比}}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("自身毒傷{}%轉為吸血並等量扣傷；任意{}幀共用上限為血上限{}%，受禁療減療影響",
+                毒傷轉化百分比, 治療上限窗口幀數, 治療上限生命百分比);
+        return std::format("自身毒傷{}%轉為回血並等量扣除毒傷；任意{}幀內共回復至多血上限{}%。受禁療減療影響，未轉化部分仍造成傷害。",
+            毒傷轉化百分比, 治療上限窗口幀數, 治療上限生命百分比);
+    }
+};
+
 }    // namespace
 
 void appendRecoveryEffects(std::vector<GameplayEffectRegistration>& entries)
 {
+    entries.push_back(registration<ClearMelodyShield>());
+    entries.push_back(registration<PoisonConversion>());
     entries.push_back(registration<CastSelfHeal>());
     entries.push_back(registration<CastShield<BattleResource::Shield>>());
     entries.push_back(registration<CastShield<BattleResource::StatusShield>>());

@@ -17,6 +17,7 @@ struct EquipmentDef
     std::vector<EffectRule> rules;
     std::vector<ChessNonBattleRule> managementRules;
     std::vector<GameplayEffect> effects;
+    std::string name;
 };
 
 inline const char* chessEquipmentTypeName(int equipType)

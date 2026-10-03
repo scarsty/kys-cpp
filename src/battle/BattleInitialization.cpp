@@ -741,6 +741,20 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                     : rescue.forcePullExecuteRemaining;
                 remaining += action.activations;
             },
+            [&](const ConfigureGuardChargesAction& action)
+            {
+                const auto [it, inserted] = effectCommands_.guardCharges.emplace(
+                    command.metadata.targetUnitId,
+                    BattleGuardCharges{action, action.initialCharges, context_.frame});
+                assert(inserted);
+            },
+            [&](const ConfigurePoisonConversionAction& action)
+            {
+                const auto [it, inserted] = effectCommands_.poisonConversions.emplace(
+                    command.metadata.targetUnitId,
+                    BattlePoisonConversion{action, command.metadata.binding});
+                assert(inserted);
+            },
             [](const auto&) { assert(false); },
         }, stateMachine->value);
     }
@@ -828,6 +842,19 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 &BattleSetupRosterUnit::unitId))
         {
             seededSpawn.damage.lethalRecovery = rosterUnit->lethalRecovery;
+            seededSpawn.damage.strengthening = rosterUnit->openingStrengthening;
+            if (rosterUnit->openingStrengthening.charges > 0)
+            {
+                const auto& strengthening = rosterUnit->openingStrengthening;
+                BattleLogEvent log;
+                log.type = BattleLogEventType::Status;
+                log.sourceUnitId = log.targetUnitId = unitId;
+                log.segments = battleLogText(
+                    std::format("天賦攻防強化 {}次（增傷或減傷{}%，攻防共用）",
+                        strengthening.charges, strengthening.damagePercent),
+                    BattleLogTextTone::Positive);
+                result_.logEvents.push_back(std::move(log));
+            }
         }
         if (const auto prevention = deathPreventionFramesByUnitId_.find(unitId);
             prevention != deathPreventionFramesByUnitId_.end())

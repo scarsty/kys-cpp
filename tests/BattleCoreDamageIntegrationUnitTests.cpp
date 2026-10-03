@@ -11,6 +11,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -55,6 +56,36 @@ BattleAreaCreateRequest auraRequest(AreaModifier modifier)
     request.modifiers = {modifier};
     return request;
 }
+}
+
+TEST_CASE("BattleFrameRunner_PersistsOneStrengtheningPoolAcrossAttackAndDefense", "[battle][core][talent][backbone]")
+{
+    auto state = auraBattleState();
+    state.units.require(0).damage.strengthening = {2, 50};
+    for (const auto [attacker, defender] : {std::pair{0, 2}, std::pair{2, 0}, std::pair{0, 2}})
+    {
+        state.nextFrame.queueDamage({.request = {
+            .attackerUnitId = attacker, .defenderUnitId = defender, .baseDamage = 100,
+        }});
+    }
+
+    const auto frame = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.hp == 950);
+    CHECK(state.units.requireCore(2).vitals.hp == 750);
+    CHECK(state.units.require(0).damage.strengthening.charges == 0);
+    CHECK(std::ranges::count_if(frame.logEvents, [](const auto& log)
+    {
+        return BattleLogTest::textOf(log).contains("中堅強化");
+    }) == 2);
+    CHECK(std::ranges::any_of(frame.logEvents, [](const auto& log)
+    {
+        return BattleLogTest::textOf(log).contains("增傷50%（剩餘1次");
+    }));
+    CHECK(std::ranges::any_of(frame.logEvents, [](const auto& log)
+    {
+        return BattleLogTest::textOf(log).contains("減傷50%（剩餘0次");
+    }));
 }
 
 TEST_CASE("BattleFrameRunner_AuraPulsesUseElapsedFramesAndRespectImmunity", "[battle][area][ultimate]")
@@ -1544,4 +1575,139 @@ TEST_CASE("BattleFrameRunner_SummonedCloneDoesNotTransferAntiComboOwnership", "[
     runBattleFrame(state);
 
     CHECK_FALSE(state.units.require(2).comboFacts.hasApplied(33));
+}
+
+
+TEST_CASE("Poison conversion shares a rolling healing budget across victims and obeys healing rules",
+          "[battle][damage][lore-equipment]")
+{
+    auto state = auraBattleState();
+    state.units.requireCore(0).vitals = {500, 1000, 20, 50};
+    for (int id : {1, 2}) state.units.requireCore(id).vitals = {1000, 1000, 20, 50};
+    state.effectCommands.poisonConversions.emplace(0, BattlePoisonConversion{
+        .config = {25, 30, 2},
+        .binding = {.kind = EffectSourceKind::Equipment, .sourceId = 243, .ownerUnitId = 0, .sourceTeam = 0}});
+    const auto poison = [&](int target, int damage = 100, int source = 0)
+    {
+        BattleDamageRequest request;
+        request.attackerUnitId = source;
+        request.defenderUnitId = target;
+        request.baseDamage = damage;
+        request.damageKind = BattleDamageKind::Poison;
+        request.preResolvedDamage = true;
+        request.triggersDefenseEffects = false;
+        state.nextFrame.queueDamage({.request = request});
+        runBattleFrame(state);
+    };
+    SECTION("共用上限與滑動窗口")
+    {
+        poison(1);
+        CHECK(state.units.requireCore(0).vitals.hp == 520);
+        CHECK(state.units.requireCore(1).vitals.hp == 920);
+        poison(2);
+        CHECK(state.units.requireCore(0).vitals.hp == 520);
+        CHECK(state.units.requireCore(2).vitals.hp == 900);
+        for (int i = 0; i < 28; ++i) runBattleFrame(state);
+        poison(2);
+        CHECK(state.units.requireCore(0).vitals.hp == 540);
+        CHECK(state.units.requireCore(2).vitals.hp == 820);
+    }
+    SECTION("滿血保留完整毒傷")
+    {
+        state.units.requireCore(0).vitals.hp = 1000;
+        poison(1);
+        CHECK(state.units.requireCore(0).vitals.hp == 1000);
+        CHECK(state.units.requireCore(1).vitals.hp == 900);
+    }
+    SECTION("只轉化缺失生命")
+    {
+        state.units.requireCore(0).vitals.hp = 993;
+        poison(1);
+        CHECK(state.units.requireCore(0).vitals.hp == 1000);
+        CHECK(state.units.requireCore(1).vitals.hp == 907);
+    }
+    SECTION("護盾吸收不產生治療")
+    {
+        state.units.requireCore(1).shield = 100;
+        poison(1);
+        CHECK(state.units.requireCore(0).vitals.hp == 500);
+        CHECK(state.units.requireCore(1).vitals.hp == 1000);
+        CHECK(state.units.requireCore(1).shield == 0);
+    }
+    SECTION("過量擊殺傷害不產生額外治療")
+    {
+        state.units.requireCore(1).vitals.hp = 20;
+        poison(1);
+        CHECK(state.units.requireCore(0).vitals.hp == 505);
+        CHECK(state.units.requireCore(1).vitals.hp == 5);
+        CHECK(state.units.requireCore(1).alive);
+    }
+    SECTION("其他來源的毒不治療持杖者")
+    {
+        poison(2, 100, 1);
+        CHECK(state.units.requireCore(0).vitals.hp == 500);
+    }
+    SECTION("來源陣亡不復活")
+    {
+        state.units.requireCore(0).vitals.hp = 0;
+        state.units.requireCore(0).alive = false;
+        poison(1);
+        CHECK(state.units.requireCore(0).vitals.hp == 0);
+        CHECK(state.units.requireCore(1).vitals.hp == 900);
+    }
+    SECTION("禁療與減療走標準治療流程")
+    {
+        const int receivedPct = GENERATE(0, 50, 100);
+        EffectRule rule;
+        rule.id = {100};
+        rule.event = EffectEvent::HealAttempted;
+        rule.actions = {EffectAction{.value = ModifyHealTransactionAction{
+            .operation = HealModifierOperation::MultiplyReceived, .kinds = {"吸血"}, .percent = receivedPct}}};
+        state.effectRules.append({.kind = EffectSourceKind::Equipment, .sourceId = 99,
+            .ownerUnitId = 0, .sourceTeam = 0}, rule);
+        poison(1);
+        const int healed = receivedPct == 0 ? 0 : receivedPct == 50 ? 12 : 20;
+        CHECK(state.units.requireCore(0).vitals.hp == 500 + healed);
+        CHECK(state.units.requireCore(1).vitals.hp == 900 + healed);
+    }
+}
+
+TEST_CASE("Revolving guard affects direct attacks but not poison and regenerates configurable charges",
+          "[battle][damage][lore-equipment]")
+{
+    BattleGuardCharges charges{{2, 5, 30, 6, 2}, 0, 0};
+    charges.advanceTo(5);
+    CHECK(charges.charges == 0);
+    charges.advanceTo(6);
+    CHECK(charges.charges == 2);
+    charges.advanceTo(18);
+    CHECK(charges.charges == 5);
+    --charges.charges;
+    charges.advanceTo(18);
+    CHECK(charges.charges == 4);
+    const auto damage = [](bool guarded)
+    {
+        auto frame = hitDamageFrameState(100, 1000);
+        frame.state.units.requireCore(1).vitals.maxHp = 1000;
+        if (guarded) frame.state.effectCommands.guardCharges.emplace(1,
+            BattleGuardCharges{{5, 5, 30, 60, 1}, 5, 0});
+        runBattleFrame(frame.state);
+        if (guarded) CHECK(frame.state.effectCommands.guardCharges.at(1).charges == 4);
+        return 1000 - frame.state.units.requireCore(1).vitals.hp;
+    };
+    CHECK(damage(true) < damage(false));
+    auto state = auraBattleState();
+    state.units.requireCore(2).vitals = {1000, 1000, 20, 50};
+    state.effectCommands.guardCharges.emplace(2, BattleGuardCharges{{5, 5, 30, 60, 1}, 5, 0});
+    BattleDamageRequest request;
+    request.attackerUnitId = 0;
+    request.defenderUnitId = 2;
+    request.baseDamage = 100;
+    request.damageKind = BattleDamageKind::Poison;
+    request.preResolvedDamage = true;
+    request.triggersDefenseEffects = false;
+    state.nextFrame.queueDamage({.request = request});
+    runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == 900);
+    CHECK(state.effectCommands.guardCharges.at(2).charges == 5);
 }

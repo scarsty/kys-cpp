@@ -470,6 +470,7 @@ bool hasDefaultStatusTriggerAccounting(const EffectRule& rule)
         && rule.maxActivations == 0
         && rule.sharedCooldownFrames == 0
         && rule.everyNthEvent == 0
+        && !rule.naturalCastsOnly
         && !rule.activationLimit
         && !rule.repetitionCount;
 }
@@ -619,6 +620,7 @@ bool validatePersistentStatusRule(const EffectRule& rule, std::string& error)
         || rule.sharedCooldownFrames != 0
         || rule.intervalFrames != 0
         || rule.everyNthEvent != 0
+        || rule.naturalCastsOnly
         || rule.activationLimit
         || rule.repetitionCount)
     {
@@ -1599,6 +1601,20 @@ bool validateActionPayload(
                         {
                             if (machine.activations <= 0) return reject("挪移次數必須為正數");
                         }
+                        else if constexpr (std::is_same_v<M, ConfigureGuardChargesAction>)
+                        {
+                            if (machine.initialCharges < 0 || machine.maximumCharges < 1
+                                || machine.initialCharges > machine.maximumCharges
+                                || machine.reductionPct < 0 || machine.reductionPct > 100
+                                || machine.recoveryIntervalFrames < 1 || machine.recoveryCharges < 1)
+                                return reject("護身層數、減傷或回復設定無效");
+                        }
+                        else if constexpr (std::is_same_v<M, ConfigurePoisonConversionAction>)
+                        {
+                            if (machine.conversionPct < 0 || machine.conversionPct > 100
+                                || machine.healingWindowFrames < 1 || machine.healingMaxHpPct < 0)
+                                return reject("毒傷轉化比例或治療窗口無效");
+                        }
                         else if constexpr (std::is_same_v<M, RecordMaximumDamageAction>)
                         {
                             // 只有封閉 enum 欄位，沒有額外數值限制。
@@ -1971,7 +1987,9 @@ bool validateBattleInitializedAction(
                         || reject("生成分身的戰鬥初始化規則必須以自身為目標");
                 }
                 else if constexpr (std::is_same_v<M, PreventDeathAction>
-                    || std::is_same_v<M, ConfigureRescueRepositionAction>)
+                    || std::is_same_v<M, ConfigureRescueRepositionAction>
+                    || std::is_same_v<M, ConfigureGuardChargesAction>
+                    || std::is_same_v<M, ConfigurePoisonConversionAction>)
                 {
                     return true;
                 }
@@ -2016,6 +2034,7 @@ bool validateBattleInitializedRule(const EffectRule& rule, std::string& error)
         || rule.sharedCooldownFrames != 0
         || rule.intervalFrames != 0
         || rule.everyNthEvent != 0
+        || rule.naturalCastsOnly
         || rule.repetitionCount
         || rule.activationLimit)
     {
@@ -2167,6 +2186,11 @@ bool validateEffectRule(
         error = "間隔幀數只允許用於每幀事件";
         return false;
     }
+    if (rule.naturalCastsOnly && rule.event != EffectEvent::AttackCommitted)
+    {
+        error = "自主出招篩選只允許用於出招事件";
+        return false;
+    }
     if (rule.everyNthEvent < 0)
     {
         error = "每N次事件不可為負數";
@@ -2283,6 +2307,7 @@ bool validateEffectRule(
             || rule.sharedCooldownFrames != 0
             || rule.intervalFrames != 0
             || rule.everyNthEvent != 0
+            || rule.naturalCastsOnly
             || rule.activationLimit
             || rule.repetitionCount)
         {

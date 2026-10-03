@@ -384,6 +384,20 @@ inline ChessTalentPresentation buildChessTalentPresentation(
                 talent.extraStarCap,
                 talent.mpPerExtraStar * talent.extraStarCap));
         appendMechanic(
+            "攻防強化",
+            "開場次數",
+            std::format(
+                "同開場內力的星級計算；每多1星 +{}次，最多{}次",
+                talent.strengtheningChargesPerExtraStar,
+                talent.strengtheningChargesPerExtraStar * talent.extraStarCap));
+        appendMechanic(
+            "攻防強化",
+            "共用消耗",
+            std::format(
+                "造成直接傷害 +{}%或受到傷害 -{}%，每次消耗1次；攻防共用",
+                talent.strengtheningDamagePercent,
+                talent.strengtheningDamagePercent));
+        appendMechanic(
             "定向增援",
             "觸發時機",
             std::format(

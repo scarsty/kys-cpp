@@ -165,6 +165,15 @@ bool loadChessEquipment(
         def.itemId = entry["裝備ID"].as<int>();
         def.tier = entry["層級"].as<int>();
         def.equipType = entry["裝備類型"].as<int>();
+        if (entry["名稱"])
+        {
+            def.name = toTraditional(entry["名稱"].as<std::string>());
+            if (def.name.empty())
+            {
+                emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "裝備配置", "裝備名稱不可為空");
+                return false;
+            }
+        }
 
         if (entry["效果"] && !entry["效果"].IsSequence())
         {

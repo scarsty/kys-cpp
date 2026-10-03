@@ -272,6 +272,7 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
         }, { "角色ID" });
         const auto equipment = objectSchema({
             { "裝備ID", object({{ "type", "integer" }}) },
+            { "名稱", object({{ "type", "string" }, { "minLength", 1 }}) },
             { "層級", object({{ "type", "integer" }}) },
             { "裝備類型", object({{ "type", "integer" }}) },
             { "效果", effectList },

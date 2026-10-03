@@ -25,6 +25,7 @@ struct ChessPvpPiece
     int fightsWon{};
     int amplifiedGrowthPercent{};
     int openingMp{};
+    Battle::BattleStrengthening openingStrengthening{};
     std::optional<Battle::BattleLethalRecovery> lethalRecovery;
 
     auto operator<=>(const ChessPvpPiece&) const = default;

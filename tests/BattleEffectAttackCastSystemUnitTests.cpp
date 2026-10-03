@@ -630,3 +630,41 @@ TEST_CASE("Independent volley projectiles discard the triggering skill payload",
     CHECK(shot.initial.strengthPct == 100);
     CHECK(shot.provenance.propagation == CastPropagationPolicy::NoEffectRules);
 }
+
+
+TEST_CASE("Five wheel projectiles stay independent and do not concentrate on fewer targets",
+          "[battle][effect][lore-equipment]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId{};
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 五輪齊發, 出招次數: 3, 目標數: 5, 傷害百分比: 40}]"),
+        effects, rules, nextId, "測試"));
+    const auto& wheel = std::get<ModifyAttackAction>(rules.front().actions.front().value);
+    auto input = castInput();
+    auto original = baseAttack();
+    original.initial.bounceRemaining = 3;
+    original.initial.scriptedBleedStacks = 4;
+    original.initial.strengthPct = 300;
+    std::vector<BattleAttackSpawnRequest> requests{original};
+    const ResolvedEffectAttackSource source{.unitId = 1, .attack = 200};
+    const std::vector commands{
+        attackCommand(wheel, 2, 0, 0, std::nullopt, source),
+        attackCommand(wheel, 3, 1, 1, std::nullopt, source)};
+    BattleEffectAttackApplyState state;
+    BattleEffectAttackCastSystem{}.applyAttackCommands(input, requests, commands, state);
+    REQUIRE(requests.size() == 3);
+    CHECK(requests[1].initial.preferredTargetUnitId != requests[2].initial.preferredTargetUnitId);
+    for (std::size_t i = 1; i < requests.size(); ++i)
+    {
+        const auto& shot = requests[i];
+        CHECK(shot.initial.strengthPct == 40);
+        CHECK(shot.initial.bounceRemaining == 0);
+        CHECK(shot.initial.scriptedBleedStacks == 0);
+        REQUIRE(shot.initial.potencySnapshot);
+        CHECK(shot.initial.potencySnapshot->effectiveAttack == 200);
+        CHECK(shot.initial.potencySnapshot->magicPower == 0);
+        CHECK(shot.provenance.propagation == CastPropagationPolicy::NoEffectRules);
+    }
+}

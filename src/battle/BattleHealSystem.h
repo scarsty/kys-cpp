@@ -63,6 +63,7 @@ struct BattleHealRequest
     BattleHealKind kind{};
     BattleHealAmount amount{};
     BattleHealSourcePolicy sourcePolicy{};
+    std::optional<int> maximumAppliedAmount;
 };
 
 struct BattleHealUnitSnapshot

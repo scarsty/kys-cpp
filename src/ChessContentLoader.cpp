@@ -371,6 +371,17 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
         return std::nullopt;
     }
 
+    // 具名棋戰裝備由配置提供物品定義，不依賴外部資料庫新增記錄。
+    for (const auto& equipment : data.equipment)
+    {
+        if (equipment.name.empty()) continue;
+        data.items.insert_or_assign(equipment.itemId, ChessItemDefinition{
+            .id = equipment.itemId,
+            .equipType = equipment.equipType,
+            .itemType = 1,
+            .name = equipment.name});
+    }
+
     std::vector<Item> legacyItems;
     legacyItems.reserve(data.items.size());
     for (const auto& [id, source] : data.items)

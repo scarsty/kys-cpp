@@ -1930,6 +1930,17 @@ void BattleEffectCommandSystem::inheritCloneEffectModifiers(
     assert(sourceUnitId >= 0);
     assert(cloneUnitId >= 0);
 
+    if (const auto source = runtime.guardCharges.find(sourceUnitId); source != runtime.guardCharges.end())
+        runtime.guardCharges.emplace(cloneUnitId, source->second);
+    if (const auto source = runtime.poisonConversions.find(sourceUnitId); source != runtime.poisonConversions.end())
+    {
+        auto cloned = source->second;
+        cloned.binding.ownerUnitId = cloneUnitId;
+        cloned.binding.sourceTeam = cloneTeam;
+        cloned.binding.runtimeInstanceId = 0;
+        runtime.poisonConversions.emplace(cloneUnitId, std::move(cloned));
+    }
+
     const auto cloneUnitScopedInstances = [&]<class Instance>(
         std::vector<Instance>& instances,
         std::uint64_t& nextSequence)
@@ -2314,6 +2325,27 @@ BattleEffectCommandSystem::removeDamageAbsorptionsForSourceDeath(
         return absorption.binding.ownerUnitId == sourceUnitId
             && absorption.settleOnSourceDeath;
     });
+}
+
+void BattleGuardCharges::advanceTo(int frame)
+{
+    assert(frame >= lastRecoveryFrame);
+    const int periods = (frame - lastRecoveryFrame) / config.recoveryIntervalFrames;
+    charges = static_cast<int>(std::min<std::int64_t>(config.maximumCharges,
+        charges + static_cast<std::int64_t>(periods) * config.recoveryCharges));
+    lastRecoveryFrame += periods * config.recoveryIntervalFrames;
+}
+
+int BattlePoisonConversion::remainingAllowance(int frame, int maxHp)
+{
+    std::erase_if(healingHistory, [&](const auto& receipt)
+    {
+        return static_cast<std::int64_t>(frame) - receipt.first >= config.healingWindowFrames;
+    });
+    std::int64_t used{};
+    for (const auto& [healedFrame, amount] : healingHistory) used += amount;
+    return saturatedInt(std::max<std::int64_t>(0,
+        static_cast<std::int64_t>(maxHp) * config.healingMaxHpPct / 100 - used));
 }
 
 }  // namespace KysChess::Battle

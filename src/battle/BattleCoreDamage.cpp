@@ -2135,7 +2135,64 @@ void applyDamageAndLifecycle(
         auto transactionInput = makeFrameDamageTransactionInput(state, request);
         transactionInput.redirectHpDamage = redirect.has_value();
         if (request.redirected) transactionInput.liveOutgoingDamagePctDelta = 0;
+        auto guard = state.effectCommands.guardCharges.find(request.defenderUnitId);
+        if (guard != state.effectCommands.guardCharges.end())
+        {
+            guard->second.advanceTo(state.movement.frame);
+            if (guard->second.charges > 0
+                && std::holds_alternative<EffectAttackDamageOrigin>(intent.effectOrigin)
+                && request.damageKind != BattleDamageKind::Poison
+                && request.damageKind != BattleDamageKind::Bleed)
+                transactionInput.guardReductionPct = guard->second.config.reductionPct;
+        }
+        auto conversion = state.effectCommands.poisonConversions.find(request.attackerUnitId);
+        if (conversion != state.effectCommands.poisonConversions.end()
+            && request.damageKind == BattleDamageKind::Poison
+            && state.units.requireCore(request.attackerUnitId).alive)
+        {
+            transactionInput.convertPoisonDamage = [&](int hpDamage)
+            {
+                auto& runtime = conversion->second;
+                const auto& owner = state.units.requireCore(request.attackerUnitId);
+                const int allowance = runtime.remainingAllowance(state.movement.frame, owner.vitals.maxHp);
+                const int converted = static_cast<int>(static_cast<std::int64_t>(hpDamage)
+                    * runtime.config.conversionPct / 100);
+                BattleHealRequest healing;
+                healing.sourceUnitId = owner.id;
+                healing.targetUnitId = owner.id;
+                healing.source = runtime.binding;
+                healing.kind = BattleHealKind::Lifesteal;
+                healing.amount = fixedHealAmount(converted);
+                // 增療不能超出毒傷轉化比例或共用窗口上限。
+                healing.maximumAppliedAmount = std::min(converted, allowance);
+                const auto result = BattleHealSystem().commit(state, healing);
+                if (result.appliedAmount > 0)
+                    runtime.healingHistory.emplace_back(state.movement.frame, result.appliedAmount);
+                return result;
+            };
+        }
         auto transaction = BattleDamageSystem().resolveTransaction(transactionInput, &state.talentRandom);
+        const auto appendStrengtheningConsumption = [&](const BattleDamageUnitState& before,
+                                                       const BattleDamageUnitState& after,
+                                                       bool outgoing)
+        {
+            if (before.strengthening.charges > after.strengthening.charges)
+            {
+                appendStatusEventLog(frame.logEvents, after.id, after.id,
+                    std::format("中堅強化{}{}%（剩餘{}次，攻防共用）",
+                        outgoing ? "增傷" : "減傷", after.strengthening.damagePercent,
+                        after.strengthening.charges));
+            }
+        };
+        appendStrengtheningConsumption(transactionInput.attacker, transaction.attacker, true);
+        appendStrengtheningConsumption(transactionInput.defender, transaction.defender, false);
+        if (transaction.guardChargeConsumed)
+        {
+            assert(guard != state.effectCommands.guardCharges.end());
+            --guard->second.charges;
+            appendStatusEventLog(frame.logEvents, request.defenderUnitId,
+                request.defenderUnitId, "輪轉護身");
+        }
         if (transaction.executed && !presentation.executed)
         {
             presentation.executed = true;
@@ -2560,6 +2617,7 @@ BattleDamageUnitState makeBattleDamageUnitStateFromRuntime(
     {
         damage.hurtInvincFrames = runtime->hurtInvincFrames;
         damage.dualWieldBlocksRemaining = runtime->dualWieldBlocksRemaining;
+        damage.strengthening = runtime->strengthening;
         damage.deathPrevention = runtime->deathPrevention;
         damage.deathPreventionUsed = runtime->deathPreventionUsed;
         damage.deathPreventionFrames = runtime->deathPreventionFrames;
@@ -2600,6 +2658,7 @@ void writeBattleDamageRuntimeUnitImpl(BattleDamageRuntimeUnit& runtime, const Ba
 {
     runtime.hurtInvincFrames = unit.hurtInvincFrames;
     runtime.dualWieldBlocksRemaining = unit.dualWieldBlocksRemaining;
+    runtime.strengthening = unit.strengthening;
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;

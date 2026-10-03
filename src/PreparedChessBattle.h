@@ -2,6 +2,7 @@
 
 #include "ChessRunRandom.h"
 #include "battle/BattleLethalRecovery.h"
+#include "battle/BattleStrengthening.h"
 #include <optional>
 
 #include <array>
@@ -42,6 +43,7 @@ struct PreparedChessBattleUnit
     int formationSlot = -1;
     int amplifiedGrowthPercent{};
     int openingMp{};
+    Battle::BattleStrengthening openingStrengthening{};
     std::optional<Battle::BattleLethalRecovery> lethalRecovery;
 
     auto operator<=>(const PreparedChessBattleUnit&) const = default;

@@ -622,7 +622,9 @@ void visitActionNumbers(
                     || std::is_same_v<M, SettleRemainingStatusDamageAction>
                     || std::is_same_v<M, GenerateClonesAction>
                     || std::is_same_v<M, PreventDeathAction>
-                    || std::is_same_v<M, ConfigureRescueRepositionAction>)
+                    || std::is_same_v<M, ConfigureRescueRepositionAction>
+                    || std::is_same_v<M, ConfigureGuardChargesAction>
+                    || std::is_same_v<M, ConfigurePoisonConversionAction>)
                 {
                 }
                 else

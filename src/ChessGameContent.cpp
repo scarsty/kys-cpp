@@ -333,6 +333,13 @@ ChessSha256 stateMachineContentHash(const StateMachineAction& machine)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.count);
             else if constexpr (std::is_same_v<T, PreventDeathAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.invincibilityFrames);
+            else if constexpr (std::is_same_v<T, ConfigureGuardChargesAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    typed.initialCharges, typed.maximumCharges, typed.reductionPct,
+                    typed.recoveryIntervalFrames, typed.recoveryCharges);
+            else if constexpr (std::is_same_v<T, ConfigurePoisonConversionAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    typed.conversionPct, typed.healingWindowFrames, typed.healingMaxHpPct);
             else
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
                     static_cast<int>(typed.mode), typed.activations);
@@ -464,6 +471,7 @@ using RuleContentView = std::tuple<
     int,
     int,
     int,
+    bool,
     std::optional<std::pair<int, int>>,
     std::optional<ChessSha256>,
     std::vector<ChessSha256>>;
@@ -488,6 +496,7 @@ std::vector<RuleContentView> effectRuleContentViews(
             rule.sharedCooldownFrames,
             rule.intervalFrames,
             rule.everyNthEvent,
+            rule.naturalCastsOnly,
             rule.activationLimit
                 ? std::optional{ std::pair{
                     static_cast<int>(rule.activationLimit->scope),
@@ -623,6 +632,7 @@ auto equipmentContentViews(const std::vector<EquipmentDef>& definitions)
         int,
         int,
         int,
+        std::string,
         std::vector<RuleContentView>,
         std::vector<NonBattleRuleContentView>>;
     std::vector<DefinitionView> result;
@@ -633,6 +643,7 @@ auto equipmentContentViews(const std::vector<EquipmentDef>& definitions)
             definition.itemId,
             definition.tier,
             definition.equipType,
+            definition.name,
             effectRuleContentViews(definition.rules),
             nonBattleRuleContentViews(definition.managementRules));
     }

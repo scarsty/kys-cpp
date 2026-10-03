@@ -347,7 +347,7 @@ struct EffectEventConstraint
 using EffectEventMask = std::uint32_t;
 
 static_assert(std::variant_size_v<EffectActionValue> == 18);
-static_assert(std::variant_size_v<StateMachineAction> == 12);
+static_assert(std::variant_size_v<StateMachineAction> == 14);
 
 constexpr EffectEventMask effectEventBit(EffectEvent event)
 {
@@ -470,6 +470,8 @@ constexpr EffectEventMask effectStateMachineActionEventMask(std::size_t variantI
         return effectEventBit(EffectEvent::UltimateCommitted);
     case 9:  // GenerateClonesAction
     case 10: // PreventDeathAction
+    case 12: // ConfigureGuardChargesAction
+    case 13: // ConfigurePoisonConversionAction
     case 11: // ConfigureRescueRepositionAction
         return effectEventBit(EffectEvent::BattleInitialized);
     default:

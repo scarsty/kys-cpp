@@ -3,6 +3,8 @@
 #include "ChessRewardRules.h"
 #include "ChessReplayVerifier.h"
 #include "ChessSessionCheckpoint.h"
+#include "ChessPvp.h"
+#include "ChessStandaloneBattle.h"
 #include "BattleSetupFactory.h"
 #include "BattleStarStats.h"
 #include "battle/BattleDamageSystem.h"
@@ -55,6 +57,8 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
             .description = "測試中堅",
             .targetTier = 3,
             .mpPerExtraStar = 15,
+            .strengtheningChargesPerExtraStar = 2,
+            .strengtheningDamagePercent = 37,
             .extraStarCap = 2,
             .guaranteeStar = 2,
             .guaranteeCount = 1,
@@ -397,17 +401,89 @@ TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[c
         CHECK(battle.units[1].openingMp == 30);
         CHECK(battle.units[2].openingMp == 0);
         CHECK(battle.units[3].openingMp == 0);
+        CHECK(battle.units[0].openingStrengthening == (Battle::BattleStrengthening{4, 37}));
+        CHECK(battle.units[1].openingStrengthening == (Battle::BattleStrengthening{4, 37}));
+        CHECK(battle.units[2].openingStrengthening.charges == 0);
+        CHECK(battle.units[3].openingStrengthening.charges == 0);
     }
     state.talent = ChessTalentId::LateBloomer;
     auto battle = ChessBattlePlanner::prepareChallenge(state, *content, random, challenge);
     CHECK(battle.units[0].amplifiedGrowthPercent == 100);
     CHECK(battle.units.back().amplifiedGrowthPercent == 0);
+    CHECK(battle.units[0].openingStrengthening.charges == 0);
     state.talent = ChessTalentId::Gambler;
     state.roster.at(1).luckStacks = 5;
     battle = ChessBattlePlanner::prepareChallenge(state, *content, random, challenge);
     REQUIRE(battle.units[0].lethalRecovery);
     CHECK(battle.units[0].lethalRecovery->chancePercent == 75);
     CHECK_FALSE(battle.units.back().lethalRecovery);
+}
+
+TEST_CASE("backbone counts only deployed extra stars and caps both opening benefits", "[chess][talent][backbone]")
+{
+    const auto content = talentContent();
+    ChessSessionState state;
+    state.talent = ChessTalentId::Backbone;
+    state.roster.emplace(1, ChessSessionPiece{1, 300, 3, true});
+    state.roster.emplace(2, ChessSessionPiece{2, 100, 1, true});
+    state.roster.emplace(3, ChessSessionPiece{3, 200, 1, true});
+    state.roster.emplace(4, ChessSessionPiece{4, 400, 3, false});
+    ChessManagementRules::maintainFormation(state);
+
+    SECTION("one-star supporters and bench pieces provide no charges") {}
+    SECTION("each extra star contributes") { state.roster.at(2).star = 2; }
+    SECTION("contributions from different costs are summed")
+    {
+        state.roster.at(2).star = 2;
+        state.roster.at(3).star = 2;
+    }
+    SECTION("the extra-star cap applies to MP and charges together")
+    {
+        state.roster.at(2).star = 3;
+        state.roster.at(3).star = 3;
+    }
+    const int stars = std::min(2, state.roster.at(2).star + state.roster.at(3).star - 2);
+    PreparedChessBattle battle;
+    for (const int id : {1, 2, 3})
+    {
+        const auto& piece = state.roster.at(id);
+        battle.units.push_back({.chessInstanceId = id, .roleId = piece.roleId,
+            .team = 0, .star = piece.star});
+    }
+    battle.units.push_back({.roleId = 300, .team = 1, .star = 3});
+    ChessBattlePlanner::applyPlayerTalents(battle, state, *content);
+
+    CHECK(battle.units[0].openingMp == stars * 15);
+    CHECK(battle.units[0].openingStrengthening == (Battle::BattleStrengthening{stars * 2, 37}));
+    for (const int index : {1, 2, 3})
+    {
+        CHECK(battle.units[index].openingMp == 0);
+        CHECK(battle.units[index].openingStrengthening.charges == 0);
+    }
+}
+
+TEST_CASE("PvP extraction preserves backbone opening strengthening", "[chess][talent][backbone][pvp]")
+{
+    const auto content = talentContent();
+    ChessGameSession session(content, 88, {.talent = ChessTalentId::Backbone});
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    checkpoint.state.roster.emplace(1, ChessSessionPiece{1, 300, 2, true});
+    checkpoint.state.roster.emplace(2, ChessSessionPiece{2, 100, 3, true});
+    checkpoint.state.nextChessInstanceId = 3;
+    ChessManagementRules::maintainFormation(checkpoint.state);
+    REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+
+    const auto composition = extractChessPvpComposition(session);
+    REQUIRE(composition.pieces.size() == 2);
+    const auto team = chessStandaloneBattleTeam(composition);
+    REQUIRE(team.pieces.size() == 2);
+    const auto target = std::ranges::find(composition.pieces, 300, &ChessPvpPiece::roleId);
+    REQUIRE(target != composition.pieces.end());
+    CHECK(target->openingMp == 30);
+    CHECK(target->openingStrengthening == (Battle::BattleStrengthening{4, 37}));
+    const auto transferred = std::ranges::find(team.pieces, 300, &ChessStandaloneBattlePiece::roleId);
+    REQUIRE(transferred != team.pieces.end());
+    CHECK(transferred->openingStrengthening == target->openingStrengthening);
 }
 
 TEST_CASE("equipment rewards respect both tier bounds and talent shop capability", "[chess][talent][reward]")
