@@ -519,6 +519,7 @@ struct ChangeResourceEffectCommand
     bool healRequiresFullMp = false;
     std::vector<int> transferDestinationUnitIds;
     std::optional<int> sourceShieldMaxHpPct;
+    std::string activationLog;
 
     int resolvedAmount() const { return std::get<int>(amount); }
 };

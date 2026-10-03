@@ -8,6 +8,8 @@
 #include "BattlePresentationTestHelpers.h"
 #include "BattleRuntimeRecordTestHelpers.h"
 #include "BattleRuntimeStateTestHelpers.h"
+#include "ChessGameplayEffect.h"
+#include <yaml-cpp/yaml.h>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -16,6 +18,7 @@
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
+#include <format>
 #include <limits>
 #include <optional>
 #include <string>
@@ -1597,7 +1600,26 @@ TEST_CASE("Poison conversion shares a rolling healing budget across victims and 
         request.preResolvedDamage = true;
         request.triggersDefenseEffects = false;
         state.nextFrame.queueDamage({.request = request});
-        runBattleFrame(state);
+        const int before = state.units.requireCore(0).vitals.hp;
+        const auto frame = runBattleFrame(state);
+        const int healed = state.units.requireCore(0).vitals.hp - before;
+        const auto count = std::ranges::count_if(frame.logEvents, [](const auto& log)
+        {
+            return log.skillName == "化毒養身";
+        });
+        CHECK(count == (healed > 0 ? 1 : 0));
+        if (healed > 0)
+        {
+            const auto log = std::ranges::find(frame.logEvents, "化毒養身", &BattleLogEvent::skillName);
+            REQUIRE(log != frame.logEvents.end());
+            CHECK(log->type == BattleLogEventType::Heal);
+            CHECK(log->sourceUnitId == 0);
+            CHECK(log->targetUnitId == 0);
+            CHECK(log->amount == healed);
+            CHECK(log->previousAmount == before);
+            CHECK(log->newAmount == before + healed);
+            CHECK(BattleLogTest::textOf(*log).contains(std::format("毒傷轉化{}", healed)));
+        }
     };
     SECTION("共用上限與滑動窗口")
     {
@@ -1691,8 +1713,16 @@ TEST_CASE("Revolving guard affects direct attacks but not poison and regenerates
         frame.state.units.requireCore(1).vitals.maxHp = 1000;
         if (guarded) frame.state.effectCommands.guardCharges.emplace(1,
             BattleGuardCharges{{5, 5, 30, 60, 1}, 5, 0});
-        runBattleFrame(frame.state);
-        if (guarded) CHECK(frame.state.effectCommands.guardCharges.at(1).charges == 4);
+        const auto result = runBattleFrame(frame.state);
+        if (guarded)
+        {
+            CHECK(frame.state.effectCommands.guardCharges.at(1).charges == 4);
+            const auto log = std::ranges::find(result.logEvents, "輪轉護身", &BattleLogEvent::skillName);
+            REQUIRE(log != result.logEvents.end());
+            CHECK(log->amount > 0);
+            CHECK(BattleLogTest::textOf(*log).contains("消耗1層"));
+            CHECK(BattleLogTest::textOf(*log).contains("剩餘4/5層"));
+        }
         return 1000 - frame.state.units.requireCore(1).vitals.hp;
     };
     CHECK(damage(true) < damage(false));
@@ -1710,4 +1740,77 @@ TEST_CASE("Revolving guard affects direct attacks but not poison and regenerates
     runBattleFrame(state);
     CHECK(state.units.requireCore(2).vitals.hp == 900);
     CHECK(state.effectCommands.guardCharges.at(2).charges == 5);
+}
+
+TEST_CASE("Guard recovery is logged on its frame with actual gains and stays quiet at the cap",
+          "[battle][damage][lore-equipment][logging]")
+{
+    auto state = auraBattleState();
+    state.effectCommands.guardCharges.emplace(0, BattleGuardCharges{{0, 3, 30, 3, 2}, 0, 0});
+    for (int frameNumber = 1; frameNumber <= 9; ++frameNumber)
+    {
+        const auto frame = runBattleFrame(state);
+        const auto count = std::ranges::count_if(frame.logEvents, [](const auto& log)
+        {
+            return log.skillName == "輪轉護身";
+        });
+        CHECK(count == (frameNumber == 3 || frameNumber == 6 ? 1 : 0));
+        if (count == 1)
+        {
+            const auto log = std::ranges::find(frame.logEvents, "輪轉護身", &BattleLogEvent::skillName);
+            CHECK(log->frame == frameNumber);
+            CHECK(log->amount == (frameNumber == 3 ? 2 : 1));
+            CHECK(log->previousAmount == (frameNumber == 3 ? 0 : 2));
+            CHECK(log->newAmount == (frameNumber == 3 ? 2 : 3));
+            CHECK(BattleLogTest::textOf(*log).contains("回復"));
+        }
+    }
+}
+
+TEST_CASE("Melody shield logs its name and actual replenishment without full-shield spam",
+          "[battle][effect][lore-equipment][logging]")
+{
+    auto state = auraBattleState();
+    state.units.requireCore(1).vitals.hp = 100;
+    state.units.requireCore(1).vitals.maxHp = 1000;
+    state.units.requireCore(1).shield = 50;
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 清音護心, 出招次數: 1, 生命護盾百分比: 12}]"),
+        effects, rules, nextId, "測試"));
+    // 此處只測日誌結算；自主出招觸發由事件橋接測試覆蓋。
+    auto rule = rules.front();
+    rule.event = EffectEvent::FrameAdvanced;
+    rule.naturalCastsOnly = false;
+    rule.intervalFrames = 1;
+    state.effectRules.append({.kind = EffectSourceKind::Equipment, .sourceId = 777,
+        .ownerUnitId = 0, .sourceTeam = 0}, rule);
+    const auto checkShield = [&](int expectedGain, int before, int after)
+    {
+        const auto frame = runBattleFrame(state);
+        const auto count = std::ranges::count_if(frame.logEvents, [](const auto& log)
+        {
+            return log.skillName == "清音護心";
+        });
+        CHECK(count == (expectedGain > 0 ? 1 : 0));
+        if (expectedGain > 0)
+        {
+            const auto log = std::ranges::find(frame.logEvents, "清音護心", &BattleLogEvent::skillName);
+            REQUIRE(log != frame.logEvents.end());
+            CHECK(log->sourceUnitId == 0);
+            CHECK(log->targetUnitId == 1);
+            CHECK(log->amount == expectedGain);
+            CHECK(log->previousAmount == before);
+            CHECK(log->newAmount == after);
+            CHECK(BattleLogTest::textOf(*log).contains("清音護心：護盾+"));
+        }
+    };
+    checkShield(120, 50, 170);
+    checkShield(0, 170, 170);
+    auto defender = state.units.require(1).damageState(state.movement.frame);
+    defender.shield = 100;
+    state.units.writeDamageUnit(defender);
+    checkShield(70, 100, 170);
 }

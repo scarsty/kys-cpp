@@ -373,7 +373,8 @@ ChessSha256 actionContentHash(const EffectAction& action)
                     typed.transferDestination ? std::optional{ selectorContentHash(*typed.transferDestination) } : std::nullopt,
                     static_cast<int>(typed.healKind), static_cast<int>(typed.healSourcePolicy),
                     typed.healRequiresFullMp,
-                    typed.additionalAmount ? std::optional{effectNumberContentHash(*typed.additionalAmount)} : std::nullopt);
+                    typed.additionalAmount ? std::optional{effectNumberContentHash(*typed.additionalAmount)} : std::nullopt,
+                    typed.sourceShieldMaxHpPct, typed.activationLog);
             else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     static_cast<int>(typed.operation), typed.kinds, typed.percent);

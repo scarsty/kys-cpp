@@ -447,6 +447,7 @@ void appendEffectResourceLogEvents(
         event.newAmount = delta.after;
         event.statusId = BattleStatusSemanticId::ResourceChanged;
         event.resourceId = semanticResource;
+        event.skillName = command.activationLog;
         event.segments = battleLogText(
             std::format(
                 "{}{:+}（{}→{}）",
@@ -457,6 +458,9 @@ void appendEffectResourceLogEvents(
             event.amount > 0
                 ? BattleLogTextTone::Positive
                 : BattleLogTextTone::Negative);
+        if (!command.activationLog.empty())
+            event.segments.insert(event.segments.begin(),
+                {command.activationLog + "：", BattleLogTextTone::SkillName});
         logEvents.push_back(std::move(event));
     }
 }

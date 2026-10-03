@@ -468,6 +468,7 @@ struct ChangeResourceAction
     bool healRequiresFullMp = false;
     std::optional<EffectNumber> additionalAmount;
     std::optional<int> sourceShieldMaxHpPct;
+    std::string activationLog;
 };
 
 enum class HealModifierOperation

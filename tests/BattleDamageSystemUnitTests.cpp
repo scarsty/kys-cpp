@@ -639,11 +639,13 @@ TEST_CASE("Revolving guard preserves charges on full blocks and shares the reduc
         CHECK(result.damage == 20);
         CHECK(result.remainingDamageBasisPoints == 2000);
         CHECK(result.guardChargeConsumed);
+        CHECK(result.guardPreventedDamage == 5);
     }
     else
     {
         CHECK(result.damage == 0);
         CHECK_FALSE(result.guardChargeConsumed);
+        CHECK(result.guardPreventedDamage == 0);
     }
 }
 

@@ -184,6 +184,7 @@ struct BattleDamageDefenseInput
 struct BattleDamageDefenseResult
 {
     bool guardChargeConsumed{};
+    int guardPreventedDamage{};
     int damage = 0;
     BattleDamageUnitState defender;
     int shieldAbsorbed = 0;
@@ -379,6 +380,7 @@ struct BattleDamageTransactionInput
 struct BattleDamageTransactionResult
 {
     bool guardChargeConsumed{};
+    int guardPreventedDamage{};
     BattleDamageUnitState attacker;
     BattleDamageUnitState defender;
     BattleUnitDelta attackerDelta;

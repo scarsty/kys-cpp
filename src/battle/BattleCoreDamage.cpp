@@ -2138,7 +2138,6 @@ void applyDamageAndLifecycle(
         auto guard = state.effectCommands.guardCharges.find(request.defenderUnitId);
         if (guard != state.effectCommands.guardCharges.end())
         {
-            guard->second.advanceTo(state.movement.frame);
             if (guard->second.charges > 0
                 && std::holds_alternative<EffectAttackDamageOrigin>(intent.effectOrigin)
                 && request.damageKind != BattleDamageKind::Poison
@@ -2167,7 +2166,21 @@ void applyDamageAndLifecycle(
                 healing.maximumAppliedAmount = std::min(converted, allowance);
                 const auto result = BattleHealSystem().commit(state, healing);
                 if (result.appliedAmount > 0)
+                {
                     runtime.healingHistory.emplace_back(state.movement.frame, result.appliedAmount);
+                    auto log = makeEffectLogEvent(state, runtime.binding, owner.id, state.movement.frame);
+                    log.type = BattleLogEventType::Heal;
+                    log.skillName = "化毒養身";
+                    log.resourceId = BattleResourceSemanticId::HitPoints;
+                    log.amount = result.appliedAmount;
+                    log.previousAmount = result.hpBefore;
+                    log.newAmount = result.hpAfter;
+                    log.segments = battleLogText(
+                        std::format("化毒養身（毒傷轉化{}，毒傷{}→{}）",
+                            result.appliedAmount, hpDamage, hpDamage - result.appliedAmount),
+                        BattleLogTextTone::SkillName);
+                    frame.logEvents.push_back(std::move(log));
+                }
                 return result;
             };
         }
@@ -2191,7 +2204,10 @@ void applyDamageAndLifecycle(
             assert(guard != state.effectCommands.guardCharges.end());
             --guard->second.charges;
             appendStatusEventLog(frame.logEvents, request.defenderUnitId,
-                request.defenderUnitId, "輪轉護身");
+                request.defenderUnitId, std::format("輪轉護身：消耗1層，減傷{}點（剩餘{}/{}層）",
+                    transaction.guardPreventedDamage, guard->second.charges, guard->second.config.maximumCharges));
+            frame.logEvents.back().skillName = "輪轉護身";
+            frame.logEvents.back().amount = transaction.guardPreventedDamage;
         }
         if (transaction.executed && !presentation.executed)
         {

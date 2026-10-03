@@ -9,6 +9,7 @@
 #include "BattleRuntimeEffects.h"
 #include <algorithm>
 #include <cassert>
+#include <format>
 #include <memory_resource>
 #include <optional>
 #include <span>
@@ -465,6 +466,24 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
         frameMemoryStorage_.size());
 
     const int upcomingFrame = state.movement.frame + 1;
+    for (auto& [unitId, guard] : state.effectCommands.guardCharges)
+    {
+        if (!state.units.requireCore(unitId).alive) continue;
+        const int before = guard.charges;
+        guard.advanceTo(upcomingFrame);
+        if (guard.charges > before)
+        {
+            CoreDetail::appendStatusEventLog(frame.logEvents, unitId, unitId,
+                std::format("輪轉護身：回復{}層（現有{}/{}層）",
+                    guard.charges - before, guard.charges, guard.config.maximumCharges));
+            auto& log = frame.logEvents.back();
+            log.frame = upcomingFrame;
+            log.skillName = "輪轉護身";
+            log.amount = guard.charges - before;
+            log.previousAmount = before;
+            log.newAmount = guard.charges;
+        }
+    }
     CoreDetail::appendAreaLifecycleLogs(state, frame.logEvents,
         BattleAreaEffectSystem::removeExpired(state.areas, upcomingFrame), upcomingFrame);
     auto expiredDamageAbsorptions =

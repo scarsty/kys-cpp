@@ -820,7 +820,8 @@ struct ClearMelodyShield final : GameplayEffectDefinition
                 .resource = BattleResource::Shield,
                 .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp, .percent = 生命護盾百分比},
                 .kind = ResourceChangeKind::Grant,
-                .sourceShieldMaxHpPct = 生命護盾百分比}}}}};
+                .sourceShieldMaxHpPct = 生命護盾百分比,
+                .activationLog = "清音護心"}}}}};
     }
     std::string describe(EffectDescriptionStyle) const override
     {

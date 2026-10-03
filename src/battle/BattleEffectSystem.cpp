@@ -3210,6 +3210,7 @@ ChangeResourceEffectCommand prepareChangeResource(
         .healRequiresFullMp = action.healRequiresFullMp,
         .transferDestinationUnitIds = std::move(destinations),
         .sourceShieldMaxHpPct = action.sourceShieldMaxHpPct,
+        .activationLog = action.activationLog,
     };
 }
 

@@ -445,6 +445,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         defenseInput.absorptionLayers = input.absorptionLayers;
         auto defense = resolveDefense(defenseInput);
         result.guardChargeConsumed = defense.guardChargeConsumed;
+        result.guardPreventedDamage = defense.guardPreventedDamage;
         result.defender = defense.defender;
         result.shieldAbsorbed = defense.shieldAbsorbed;
         result.absorptionReceipts = std::move(defense.absorptionReceipts);
@@ -946,6 +947,7 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     {
         BattleFixed damage = result.damage;
         applyBattleDamageReduction(damage, input.guardReductionPct, result.remainingDamageBasisPoints);
+        result.guardPreventedDamage = result.damage - damage.toInt();
         result.damage = damage.toInt();
         result.guardChargeConsumed = true;
     }
