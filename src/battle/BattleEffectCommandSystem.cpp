@@ -1686,18 +1686,24 @@ bool BattleEffectCommandSystem::actionMayAffectStatusLiveness(const EffectAction
     }, action.value);
 }
 
-BattleRuntimeState BattleEffectCommandSystem::copyDispatchState(const BattleRuntimeState& source)
+BattleRuntimeState BattleEffectCommandSystem::copyDispatchState(
+    const BattleRuntimeState& source,
+    std::pmr::memory_resource* memoryResource)
 {
     // 完整 reducer 仍處理補血和區域；補血可能巢狀 dispatch，不能只複製狀態陣列。
     // 不複製攻擊世界、物理地形、救援搜尋或未執行的佇列，也不複製已輸出的事件。
-    BattleRuntimeState state;
+    BattleRuntimeState state{
+        .castLifecycle = BattleCastLifecycle(BattleCastExecutionState(
+            source.castLifecycle.executionState(), memoryResource)),
+        .random = source.random,
+        .talentRandom = BattleRuntimeRandom{},
+        .effectRules = BattleEffectRuleStore(memoryResource),
+    };
     state.gridTransform = source.gridTransform;
     state.units = source.units;
     state.movement.frame = source.movement.frame;
-    state.castLifecycle = BattleCastLifecycle(source.castLifecycle.executionState());
     state.heals.nextTransactionId = source.heals.nextTransactionId;
     state.heals.committedTransactions = source.heals.committedTransactions;
-    state.random = source.random;
     state.areas = source.areas;
     state.effectRules = source.effectRules;
     state.effectCommands = source.effectCommands;

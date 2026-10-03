@@ -9,8 +9,10 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <limits>
 #include <memory>
+#include <memory_resource>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -2193,12 +2195,17 @@ TEST_CASE("BattleEffectSystem exact runtime query uses canonical cast eligibilit
     BattleRuntimeRandom random(1);
     BattleEffectSystem system;
 
-    const auto matches = system.queryExactRuntimeRules(store, context, random);
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(
+        buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+    const auto matches = system.queryExactRuntimeRules(store, context, random, &memory);
     REQUIRE(matches.size() == 1);
+    CHECK(matches.get_allocator().resource() == &memory);
+    CHECK(matches[0].targetUnitIds.get_allocator().resource() == &memory);
     CHECK(matches[0].bound->binding.kind == binding.kind);
     CHECK(matches[0].bound->binding.sourceId == binding.sourceId);
     CHECK(matches[0].bound->binding.ownerUnitId == binding.ownerUnitId);
-    CHECK(matches[0].targetUnitIds == std::vector{ owner.id });
+    CHECK(matches[0].targetUnitIds == std::pmr::vector{ owner.id });
     CHECK(random.rawDrawCount() == 0);
     CHECK(store.activationCount(binding, rule.id) == 0);
 
@@ -2444,6 +2451,61 @@ TEST_CASE("BattleEffectSystem orders every configured source kind by explicit pr
     };
     for (std::size_t index = 0; index < expected.size(); ++index)
         CHECK(result.commands[index].metadata.binding.kind == expected[index]);
+}
+
+TEST_CASE("Rule store copies isolate runtime state and survive their source arena",
+          "[battle][effect][rule_store][allocator]")
+{
+    const auto binding = magicBinding(70);
+    ChangeResourceAction shield;
+    shield.resource = BattleResource::Shield;
+    shield.kind = ResourceChangeKind::Grant;
+    shield.amount.flat = 7;
+    auto rule = makeRule(1, EffectEvent::FrameAdvanced, selfSelector(), { effectAction(shield) });
+    rule.intervalFrames = 2;
+    rule.sharedCooldownFrames = 5;
+    rule.maxActivations = 2;
+    const auto owner = makeUnit(1, 0, 1000, 1000);
+    const std::vector units{ owner };
+    auto context = makeContext(EffectEvent::FrameAdvanced, binding, owner, units,
+        FrameTickEventData{ .deltaFrames = 2 });
+    context.header.frame = 15;
+    BattleRuntimeRandom random(1);
+    std::optional<BattleEffectRuleStore> copied;
+    BattleEffectRuleStore assigned;
+    {
+        BattleEffectRuleStore source;
+        source.append(binding, rule);
+        source.setStateValue(binding, EffectStateSlot::AbsorbedDamage, 11);
+        std::get<ChangeResourceAction>(rule.actions.front().value).amount.flat = 99;
+
+        std::array<std::byte, 16 * 1024> buffer;
+        std::pmr::monotonic_buffer_resource memory(
+            buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+        BattleEffectRuleStore branch(&memory);
+        branch = source;
+        branch.recordRuntimeRuleActivation(binding, rule.id, 10);
+        branch.setStateValue(binding, EffectStateSlot::AbsorbedDamage, 22);
+        branch.advanceBlinkAttackTargetMode(owner.id);
+        CHECK(source.activationCount(binding, rule.id) == 0);
+        CHECK(source.stateValue(binding, EffectStateSlot::AbsorbedDamage) == 11);
+        CHECK_FALSE(source.blinkAttackUsesWeakestTarget(owner.id));
+        CHECK_FALSE(branch.canActivateRuntimeRule(binding, rule.id, 14));
+        copied.emplace(branch);
+        assigned = branch;
+        source.clear();
+    }
+    for (auto* store : { &*copied, &assigned })
+    {
+        CHECK(store->activationCount(binding, rule.id) == 1);
+        CHECK(store->stateValue(binding, EffectStateSlot::AbsorbedDamage) == 22);
+        CHECK(store->blinkAttackUsesWeakestTarget(owner.id));
+        const auto dispatched = BattleEffectSystem().dispatch(*store, context, random);
+        REQUIRE(dispatched.commands.size() == 1);
+        CHECK(std::get<ChangeResourceEffectCommand>(dispatched.commands.front().value).resolvedAmount() == 7);
+        CHECK(store->activationCount(binding, rule.id) == 2);
+        CHECK_FALSE(store->canActivateRuntimeRule(binding, rule.id, 20));
+    }
 }
 
 TEST_CASE("BattleEffectRuleStore never renumbers stable order tokens across borrowed cycles",

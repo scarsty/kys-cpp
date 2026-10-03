@@ -8,6 +8,7 @@
 #include "BattleMovementPhysics.h"
 #include "BattleRuntimeEffects.h"
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <format>
@@ -84,7 +85,7 @@ RuntimeCastPolicies runtimeCastPolicies(
     {
         assert(match.bound);
         const auto* bound = match.bound;
-        for (const auto& effectAction : bound->rule.actions)
+        for (const auto& effectAction : bound->rule().actions)
         {
             const auto* action = std::get_if<ModifyCastAction>(&effectAction.value);
             if (!action)
@@ -117,7 +118,7 @@ BattleAttackBouncePrime collectRuntimeProjectileBouncePrime(
     {
         assert(match.bound);
         const auto* bound = match.bound;
-        for (const auto& effectAction : bound->rule.actions)
+        for (const auto& effectAction : bound->rule().actions)
         {
             const auto* action = std::get_if<ModifyAttackAction>(&effectAction.value);
             if (!action)
@@ -148,7 +149,7 @@ int collectRuntimeUltimateExtraProjectileCount(
     {
         assert(match.bound);
         const auto* bound = match.bound;
-        for (const auto& effectAction : bound->rule.actions)
+        for (const auto& effectAction : bound->rule().actions)
         {
             const auto* action = std::get_if<ModifyCastAction>(&effectAction.value);
             if (!action || action->additionalProjectiles <= 0)
@@ -157,7 +158,7 @@ int collectRuntimeUltimateExtraProjectileCount(
             }
             if (state.effectRules.tryActivateRuntimeRule(
                     bound->binding,
-                    bound->rule.id,
+                    bound->rule().id,
                     state.movement.frame,
                     state.random))
             {
@@ -175,7 +176,7 @@ std::optional<DelayedAlternateAttackBehavior> runtimeDelayedAlternateAttack(
     {
         assert(match.bound);
         const auto* bound = match.bound;
-        for (const auto& effectAction : bound->rule.actions)
+        for (const auto& effectAction : bound->rule().actions)
         {
             const auto* action = std::get_if<ModifyAttackAction>(&effectAction.value);
             if (!action)
@@ -204,15 +205,16 @@ void appendAttackSpawnRequests(
 }
 
 template <class Payload>
-std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
+std::pmr::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
     BattleRuntimeState& state,
     int ownerUnitId,
     EffectEvent event,
-    Payload payload)
+    Payload payload,
+    std::pmr::memory_resource* memoryResource)
 {
     if (!BattleEffectSystem().hasExactRuntimeRuleCandidates(state.effectRules, event, ownerUnitId))
     {
-        return {};
+        return std::pmr::vector<EffectExactRuntimeRuleMatch>{ memoryResource };
     }
     EffectEventData query{
         .event = event,
@@ -220,7 +222,7 @@ std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
         .payload = std::move(payload),
     };
     if (!BattleEffectSystem().hasExactRuntimeRuleCandidates(state.effectRules, query, ownerUnitId))
-        return {};
+        return std::pmr::vector<EffectExactRuntimeRuleMatch>{ memoryResource };
     const auto owned = BattleEffectEventBridge().makeEvent(
         state,
         {
@@ -233,7 +235,8 @@ std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
     return BattleEffectSystem().queryExactRuntimeRules(
         state.effectRules,
         owned.context(),
-        state.random);
+        state.random,
+        memoryResource);
 }
 
 RuntimeCastPolicies runtimeCastPoliciesForSkill(
@@ -262,11 +265,14 @@ RuntimeCastPolicies runtimeCastPoliciesForSkill(
         false,
         resources,
         provenance);
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
     return runtimeCastPolicies(queryExactRuntimeRules(
         state,
         unit.id,
         EffectEvent::CastPlanned,
-        std::move(payload)));
+        std::move(payload),
+        &memory));
 }
 
 
@@ -659,12 +665,15 @@ void refreshRuntimeCastSkillBonuses(
 {
     if (input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp)
     {
+        std::array<std::byte, 4096> buffer;
+        std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
         const auto resources = CoreDetail::snapshotEffectResourcesBeforeCast(state);
         const auto matches = queryExactRuntimeRules(
             state,
             input.unit.id,
             EffectEvent::CastPlanned,
-            CoreDetail::makeCastPlanEventData(input, true, resources, provenance));
+            CoreDetail::makeCastPlanEventData(input, true, resources, provenance),
+            &memory);
         input.ultimateSkill.extraProjectileCount =
             collectRuntimeUltimateExtraProjectileCount(
                 state,
@@ -1183,11 +1192,14 @@ BattleActionCommitInput makeCommittedCastActionInput(
     payload.rangeMode = effectPreparation.rangeMode.value_or(CastRangeMode::Preserve);
     payload.attackPattern = cast.attackPattern;
     payload.resourcesBeforeCast = resourcesBeforeCast;
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
     const auto exactMatches = queryExactRuntimeRules(
         state,
         unit.id,
         EffectEvent::AttackCommitted,
-        std::move(payload));
+        std::move(payload),
+        &memory);
 
     BattleActionCommitInput actionInput;
     actionInput.hasCast = cast.decision.canCast;
@@ -1246,7 +1258,8 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
                 *castInput,
                 true,
                 pending.effectResourcesBeforeCast,
-                &provenance));
+                &provenance),
+            frameMemoryResource);
         selectedSkill.extraProjectileCount =
             collectRuntimeUltimateExtraProjectileCount(
                 state,

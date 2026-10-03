@@ -804,10 +804,10 @@ TEST_CASE("BattleRuntimeSession_LoadsSelectedUltimateRulesOnce", "[battle][initi
         const auto& store = session.runtime().effectRules;
         const auto rules = store.rules();
         REQUIRE(rules.size() == 3);
-        CHECK(rules[0].rule.id == EffectRuleId{ 101 });
-        CHECK(rules[1].rule.id == EffectRuleId{ 102 });
-        CHECK(rules[2].rule.id == EffectRuleId{ 103 });
-        CHECK(store.runtime(rules[2].binding, rules[2].rule.id).intervalFramesRemaining == 30);
+        CHECK(rules[0].rule().id == EffectRuleId{ 101 });
+        CHECK(rules[1].rule().id == EffectRuleId{ 102 });
+        CHECK(rules[2].rule().id == EffectRuleId{ 103 });
+        CHECK(store.runtime(rules[2].binding, rules[2].rule().id).intervalFramesRemaining == 30);
         for (const auto& rule : rules)
         {
             CHECK(rule.binding.kind == EffectSourceKind::Magic);

@@ -3136,12 +3136,12 @@ void BattleSceneHades::renderExtraRoleInfo(
         for (const auto& bound : effects.rules())
         {
             if (bound.binding.ownerUnitId != unit.id
-                || bound.rule.observation != KysChess::EffectObservationScope::ComboMemberEventSource)
+                || bound.rule().observation != KysChess::EffectObservationScope::ComboMemberEventSource)
                 continue;
-            const int count = effects.runtime(bound.binding, bound.rule.id).eligibleEventCount
-                % bound.rule.everyNthEvent;
-            const int spacing = ROLE_STATUS_BAR_WIDTH / bound.rule.everyNthEvent;
-            for (int star = 0; star < bound.rule.everyNthEvent; ++star)
+            const int count = effects.runtime(bound.binding, bound.rule().id).eligibleEventCount
+                % bound.rule().everyNthEvent;
+            const int spacing = ROLE_STATUS_BAR_WIDTH / bound.rule().everyNthEvent;
+            for (int star = 0; star < bound.rule().everyNthEvent; ++star)
             {
                 Rect point{barLeft + star * spacing, hpBarY - 6, 4, 4};
                 Engine::getInstance()->renderSquareTexture(&point,

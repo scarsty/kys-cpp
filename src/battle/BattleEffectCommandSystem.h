@@ -299,7 +299,9 @@ public:
     static std::optional<int> contributionQuantity(
         const BattleStatusEffectState& effects, std::uint64_t sequence, BattleStatusKind kind);
     static bool actionMayAffectStatusLiveness(const EffectAction& action);
-    static BattleRuntimeState copyDispatchState(const BattleRuntimeState& source);
+    static BattleRuntimeState copyDispatchState(
+        const BattleRuntimeState& source,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
     static BattleEffectDamageRequestOutput prepareDamageOutput(
         const EffectCommandMetadata& metadata,
         const DealDamageEffectCommand& command,

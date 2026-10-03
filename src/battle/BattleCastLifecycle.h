@@ -5,6 +5,7 @@
 #include <compare>
 #include <cstdint>
 #include <map>
+#include <memory_resource>
 #include <optional>
 #include <set>
 #include <utility>
@@ -287,6 +288,21 @@ struct BattleCastLifecycleSnapshot
 // 預測的值邊界包含全部可執行狀態；報告歷史由 lifecycle 另外持有。
 class BattleCastExecutionState
 {
+public:
+    BattleCastExecutionState() = default;
+    BattleCastExecutionState(
+        const BattleCastExecutionState& source,
+        std::pmr::memory_resource* memoryResource)
+        : nextCastId_(source.nextCastId_)
+        , nextWorkId_(source.nextWorkId_)
+        , casts_(source.casts_, memoryResource)
+        , work_(source.work_, memoryResource)
+        , liveAttackWork_(source.liveAttackWork_, memoryResource)
+        , battleEndedFrame_(source.battleEndedFrame_)
+    {
+    }
+
+private:
     friend class BattleCastLifecycle;
 
     struct WorkRecord
@@ -308,9 +324,9 @@ class BattleCastExecutionState
 
     std::uint64_t nextCastId_ = 1;
     std::uint64_t nextWorkId_ = 1;
-    std::map<BattleCastId, RuntimeRecord> casts_;
-    std::map<BattleCastWorkId, WorkRecord> work_;
-    std::map<BattleAttackId, BattleCastWorkId> liveAttackWork_;
+    std::pmr::map<BattleCastId, RuntimeRecord> casts_;
+    std::pmr::map<BattleCastWorkId, WorkRecord> work_;
+    std::pmr::map<BattleAttackId, BattleCastWorkId> liveAttackWork_;
     std::optional<int> battleEndedFrame_;
 };
 

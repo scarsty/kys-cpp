@@ -87,12 +87,13 @@ void sortDispatchCommands(BattleEffectDispatchResult& result)
         result.commands[ordinal].metadata.commandOrdinal = ordinal;
 }
 
-std::vector<ActiveStatusBehaviorView> gatherActiveStatusBehaviors(
+std::pmr::vector<ActiveStatusBehaviorView> gatherActiveStatusBehaviors(
     BattleRuntimeState& runtime,
     EffectEvent event,
-    StatusBehaviorDispatchFilter filter)
+    StatusBehaviorDispatchFilter filter,
+    std::pmr::memory_resource* memoryResource)
 {
-    std::vector<ActiveStatusBehaviorView> result;
+    std::pmr::vector<ActiveStatusBehaviorView> result(memoryResource);
     for (auto& holder : runtime.units.all())
     {
         if (event == EffectEvent::FrameAdvanced && !holder.alive()) continue;
@@ -139,8 +140,11 @@ BattleEffectDispatchPrediction::BattleEffectDispatchPrediction(const BattleRunti
 {
     // 可能修改狀態存活時在事件開始就複製，保留規則計時器供巢狀 dispatch 使用。
     if (needsReduction)
-        runtime_ = std::make_unique<BattleRuntimeState>(
-            BattleEffectCommandSystem::copyDispatchState(source));
+    {
+        // 直接初始化以保證省略暫存值的移動；MSVC 的 map 移動仍會分配空節點。
+        runtime_.reset(new BattleRuntimeState(
+            BattleEffectCommandSystem::copyDispatchState(source, &memory_)));
+    }
     hooks_.contributionQuantity = [&](
         int holderUnitId,
         std::uint64_t appliedSequence,
@@ -253,7 +257,9 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatch(
     const auto filter = event.event() == EffectEvent::HitBeforeDamage
         ? StatusBehaviorDispatchFilter::ExcludeAttackInterceptors
         : StatusBehaviorDispatchFilter::All;
-    auto activeStatusBehaviors = gatherActiveStatusBehaviors(runtime, event.event(), filter);
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
+    auto activeStatusBehaviors = gatherActiveStatusBehaviors(runtime, event.event(), filter, &memory);
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!activeStatusBehaviors.empty())
     {
@@ -283,8 +289,10 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatchFrameAdvanced(
     const BattleEffectOwnedEvent& event) const
 {
     assert(event.event() == EffectEvent::FrameAdvanced);
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
     auto behaviors = gatherActiveStatusBehaviors(
-        runtime, event.event(), StatusBehaviorDispatchFilter::All);
+        runtime, event.event(), StatusBehaviorDispatchFilter::All, &memory);
     const auto context = event.context();
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!behaviors.empty())
@@ -308,7 +316,9 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatchActiveStatusBehavior
     const BattleEffectOwnedEvent& event,
     StatusBehaviorDispatchFilter filter) const
 {
-    auto behaviors = gatherActiveStatusBehaviors(runtime, event.event(), filter);
+    std::array<std::byte, 4096> buffer;
+    std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
+    auto behaviors = gatherActiveStatusBehaviors(runtime, event.event(), filter, &memory);
     const auto context = event.context();
     std::optional<BattleEffectDispatchPrediction> liveness;
     if (!behaviors.empty())

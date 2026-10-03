@@ -220,7 +220,10 @@ TEST_CASE("Dispatch prediction copies the complete execution state without retir
         root.provenance.castId, { .sourceUnitId = 1, .magicId = 43 });
     lifecycle.completeWork(root.commitBarrier);
 
-    auto prediction = BattleEffectCommandSystem::copyDispatchState(runtime);
+    std::array<std::byte, 16 * 1024> buffer;
+    std::pmr::monotonic_buffer_resource memory(
+        buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+    auto prediction = BattleEffectCommandSystem::copyDispatchState(runtime, &memory);
     auto& predicted = prediction.castLifecycle;
     const auto copied = predicted.snapshot();
     CHECK(copied.retiredCasts.empty());
@@ -363,13 +366,52 @@ TEST_CASE("Effect snapshot collections use the supplied resource and value copie
     CHECK(saved.comboIds == std::pmr::vector<int>{ 12, 13 });
     CHECK(saved.stackCount(BattleStatusKind::SevenStarMark) == 3);
 
-    auto owned = BattleEffectEventBridge().makeEvent(
+    const auto owned = BattleEffectEventBridge().makeEvent(
         runtime, { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 1 },
         EffectEvent::FrameAdvanced, FrameTickEventData{ .deltaFrames = 1 });
-    const auto* beforeMove = owned.context().scope.owner;
-    const auto moved = std::move(owned);
-    CHECK(moved.context().scope.owner == beforeMove);
-    CHECK(moved.context().scope.owner->usesMagic(6));
+    static_assert(!std::is_move_constructible_v<BattleEffectOwnedEvent>);
+    const auto* owner = owned.context().scope.owner;
+    record.core.vitals.hp = 23;
+    record.comboFacts.addApplied(99);
+    {
+        const auto nested = BattleEffectEventBridge().makeEvent(
+            runtime, { .frame = 1, .eventOrdinal = 2, .ownerUnitId = 1 },
+            EffectEvent::FrameAdvanced, FrameTickEventData{ .deltaFrames = 1 });
+        CHECK(nested.context().scope.owner->hp == 23);
+        CHECK(nested.context().scope.owner->comboIds == std::pmr::vector<int>{ 12, 13, 99 });
+        CHECK(owned.context().scope.owner == owner);
+        CHECK(owner->hp == 100);
+        CHECK(owner->comboIds == std::pmr::vector<int>{ 12, 13 });
+    }
+    CHECK(owned.context().scope.owner == owner);
+    CHECK(owner->usesMagic(6));
+}
+
+TEST_CASE("Owned events preserve snapshots when the stack arena overflows",
+          "[battle][effect][snapshot][allocator]")
+{
+    BattleRuntimeState runtime;
+    runtime.gridTransform.tileWidth = 32.0;
+    for (int id = 256; id > 0; --id)
+    {
+        auto record = runtimeUnit(id, id % 2, 90, 100);
+        record.comboFacts.addMember(id);
+        runtime.units.append(std::move(record));
+    }
+    EffectUnitSnapshot saved;
+    {
+        const auto event = BattleEffectEventBridge().makeEvent(
+            runtime, { .frame = 1, .eventOrdinal = 1, .ownerUnitId = 256 },
+            EffectEvent::FrameAdvanced, FrameTickEventData{ .deltaFrames = 1 });
+        const auto view = event.context().header.battle;
+        REQUIRE(view.units().size() == 256);
+        CHECK(view.units().front().id == 1);
+        CHECK(view.units().back().id == 256);
+        runtime.units.requireCore(256).vitals.hp = 1;
+        saved = *view.findUnit(256);
+    }
+    CHECK(saved.hp == 90);
+    CHECK(saved.comboIds == std::pmr::vector<int>{ 256 });
 }
 
 TEST_CASE("BattleEffectEventBridge orders a status behavior between its producer and the next rule",
@@ -1236,7 +1278,7 @@ TEST_CASE("Cloned status rules retain source definition identity and use the clo
     CHECK(cloned.binding.sourceId == 106);
     CHECK(cloned.binding.ownerUnitId == 4);
     CHECK(cloned.binding.runtimeInstanceId == 0);
-    CHECK(cloned.rule.id == EffectRuleId{ 10 });
+    CHECK(cloned.rule().id == EffectRuleId{ 10 });
 
     auto cast = ultimateCast(20, 106);
     cast.sourceUnitId = 4;
@@ -1675,9 +1717,9 @@ TEST_CASE("BattleEffectEventBridge exposes borrowed planning and exact cast rule
     CHECK(exactMatches.front().bound->binding.sourceId == sourceMagic.sourceId);
     CHECK(exactMatches.front().bound->binding.ownerUnitId == 1);
     CHECK(exactMatches.front().bound->binding.runtimeInstanceId == borrowedInstanceId);
-    REQUIRE(exactMatches.front().bound->rule.actions.size() == 1);
+    REQUIRE(exactMatches.front().bound->rule().actions.size() == 1);
     const auto& exactAction = std::get<ModifyCastAction>(
-        exactMatches.front().bound->rule.actions.front().value);
+        exactMatches.front().bound->rule().actions.front().value);
     REQUIRE(exactAction.rangeMode);
     CHECK(*exactAction.rangeMode == CastRangeMode::Ranged);
 

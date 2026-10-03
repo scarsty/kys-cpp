@@ -47,13 +47,13 @@ RuntimeMainHitPolicies runtimeMainHitPolicies(
     {
         assert(match.bound);
         const auto& bound = *match.bound;
-        for (const auto& effectAction : bound.rule.actions)
+        for (const auto& effectAction : bound.rule().actions)
         {
             if (const auto* movement = std::get_if<ForceMoveAction>(&effectAction.value);
                 movement && movement->distancePixels > 0)
             {
                 result.knockbackProcs.push_back({
-                    .chancePct = bound.rule.chancePct,
+                    .chancePct = bound.rule().chancePct,
                     .action = *movement,
                 });
                 continue;
@@ -67,8 +67,8 @@ RuntimeMainHitPolicies runtimeMainHitPolicies(
                     &attack->runtimeBehavior))
             {
                 result.nearbyTrackingProcs.push_back({
-                    .rule = { bound.binding, bound.rule.id },
-                    .chancePct = bound.rule.chancePct,
+                    .rule = { bound.binding, bound.rule().id },
+                    .chancePct = bound.rule().chancePct,
                     .behavior = *nearby,
                 });
             }

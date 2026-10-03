@@ -1376,8 +1376,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesTypedR
             return bound.binding.kind == EffectSourceKind::Combo
                 && bound.binding.sourceId == 33
                 && bound.binding.ownerUnitId == 2
-                && bound.rule.event == EffectEvent::UnitDied
-                && std::ranges::any_of(bound.rule.actions, [](const EffectAction& action)
+                && bound.rule().event == EffectEvent::UnitDied
+                && std::ranges::any_of(bound.rule().actions, [](const EffectAction& action)
                 {
                     const auto* damage = std::get_if<DealDamageAction>(&action.value);
                     return damage && damage->areaProjectiles.has_value();

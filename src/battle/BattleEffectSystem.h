@@ -726,11 +726,14 @@ struct EffectCommand
 struct BoundEffectRule
 {
     EffectSourceBinding binding;
-    EffectRule rule;
+    // 定義在綁定後不再改動；預測分支只需複製各自的執行狀態。
+    std::shared_ptr<const EffectRule> definition;
     std::uint32_t order{};
     std::optional<BattleCastId> castScope;
     CastPropagationPolicy scopedPropagation = CastPropagationPolicy::SourceRules;
     EffectRuleRuntimeState runtime{};
+
+    const EffectRule& rule() const { return *definition; }
 };
 
 struct EffectRuleRuntimeKey
@@ -759,6 +762,15 @@ struct EffectStateKey
 class BattleEffectRuleStore
 {
 public:
+    BattleEffectRuleStore() = default;
+    explicit BattleEffectRuleStore(std::pmr::memory_resource* memoryResource)
+        : rules_(memoryResource)
+        , ruleIndexByKey_(memoryResource)
+        , stateValues_(memoryResource)
+        , blinkAttackWeakestTargetByOwner_(memoryResource)
+    {
+    }
+
     void clear();
     std::size_t append(
         EffectSourceBinding binding,
@@ -814,11 +826,11 @@ private:
     static constexpr std::size_t EventCount =
         static_cast<std::size_t>(EffectEvent::StatusPersistent) + 1;
 
-    std::vector<BoundEffectRule> rules_;
+    std::pmr::vector<BoundEffectRule> rules_;
     std::array<std::vector<std::size_t>, EventCount> ruleIndicesByEvent_;
-    std::map<EffectRuleRuntimeKey, std::size_t> ruleIndexByKey_;
-    std::map<EffectStateKey, std::int64_t> stateValues_;
-    std::map<int, bool> blinkAttackWeakestTargetByOwner_;
+    std::pmr::map<EffectRuleRuntimeKey, std::size_t> ruleIndexByKey_;
+    std::pmr::map<EffectStateKey, std::int64_t> stateValues_;
+    std::pmr::map<int, bool> blinkAttackWeakestTargetByOwner_;
     std::uint64_t nextRuntimeInstanceId_ = 1;
     std::uint32_t nextRuleOrder_{};
 
@@ -876,7 +888,7 @@ struct StatusBehaviorDispatchLiveness
 struct EffectExactRuntimeRuleMatch
 {
     const BoundEffectRule* bound{};
-    std::vector<int> targetUnitIds;
+    std::pmr::vector<int> targetUnitIds;
 };
 
 struct BattleEffectDispatchResult
@@ -901,10 +913,11 @@ public:
     bool hasInvincibilityPiercingExecuteRule(
         const BattleEffectRuleStore& store,
         const EffectEventContext& context) const;
-    std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
+    std::pmr::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
         const BattleEffectRuleStore& store,
         const EffectEventContext& context,
-        BattleRuntimeRandom& random) const;
+        BattleRuntimeRandom& random,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource()) const;
     BattleEffectDispatchResult dispatch(BattleEffectRuleStore& store,
                                         const EffectEventContext& context,
                                         BattleRuntimeRandom& random) const;

@@ -141,9 +141,9 @@ public:
         });
     }
 
-    std::vector<BattleFrameEffectCommandBatch> drainEffectCommandBatches()
+    BattleFrameVector<BattleFrameEffectCommandBatch> drainEffectCommandBatches()
     {
-        return std::exchange(effectCommandBatches_, {});
+        return drainFrameVector(effectCommandBatches_);
     }
 
     BattleFrameVector<BattleGameplayCommand> drainCommands()
@@ -172,9 +172,9 @@ public:
         castCommitBarriers_.push_back(barrier);
     }
 
-    std::vector<CastWorkToken> drainCastCommitBarriers()
+    BattleFrameVector<CastWorkToken> drainCastCommitBarriers()
     {
-        return std::exchange(castCommitBarriers_, {});
+        return drainFrameVector(castCommitBarriers_);
     }
 
     BattleFrameVector<BattleFrameMpRestore> drainLateMpRestores()
@@ -220,9 +220,9 @@ public:
         }
     }
 
-    std::vector<BattleSemanticCueRequest> drainSemanticCues()
+    BattleFrameVector<BattleSemanticCueRequest> drainSemanticCues()
     {
-        return std::exchange(semanticCues_, {});
+        return drainFrameVector(semanticCues_);
     }
 
 private:
@@ -237,6 +237,9 @@ private:
         , lateMpRestores_(&frameMemoryResource_)
         , attackSpawns_(state.nextFrame.drainAttacks())
         , pendingDamage_(state.nextFrame.drainDamage())
+        , castCommitBarriers_(&frameMemoryResource_)
+        , effectCommandBatches_(&frameMemoryResource_)
+        , semanticCues_(&frameMemoryResource_)
         , frameStartMotion_(makeUnitMotionSnapshot(state.units, &frameMemoryResource_))
         , gameplayEvents(std::move(recycledPresentation.gameplayEvents))
         , logEvents(std::move(recycledPresentation.logEvents))
@@ -266,9 +269,9 @@ private:
     BattleFrameVector<BattleFrameMpRestore> lateMpRestores_;
     std::vector<BattleAttackSpawnRequest> attackSpawns_;
     std::vector<BattlePendingDamageIntent> pendingDamage_;
-    std::vector<CastWorkToken> castCommitBarriers_;
-    std::vector<BattleFrameEffectCommandBatch> effectCommandBatches_;
-    std::vector<BattleSemanticCueRequest> semanticCues_;
+    BattleFrameVector<CastWorkToken> castCommitBarriers_;
+    BattleFrameVector<BattleFrameEffectCommandBatch> effectCommandBatches_;
+    BattleFrameVector<BattleSemanticCueRequest> semanticCues_;
     UnitMotionSnapshotList frameStartMotion_;
 
 public:

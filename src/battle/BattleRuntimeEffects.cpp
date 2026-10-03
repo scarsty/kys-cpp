@@ -365,7 +365,8 @@ std::pmr::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(
     {
         result.push_back(makeEffectUnitAttributeSnapshot(runtime, record, memoryResource));
     }
-    std::ranges::sort(result, {}, &EffectUnitSnapshot::id);
+    if (!std::ranges::is_sorted(result, {}, &EffectUnitSnapshot::id))
+        std::ranges::sort(result, {}, &EffectUnitSnapshot::id);
     // 全場快照只掃描一次規則；單位已按 ID 排序，可直接定位擁有者。
     for (const auto& bound : runtime.effectRules.rules())
     {
@@ -384,32 +385,16 @@ std::pmr::vector<EffectUnitSnapshot> makeEffectUnitSnapshots(
     return result;
 }
 
-struct BattleEffectRuntimeSnapshot::Storage
-{
-    explicit Storage(const BattleRuntimeState& runtime)
-        : units(makeEffectUnitSnapshots(runtime, &memory))
-    {
-    }
-
-    std::array<std::byte, 16 * 1024> buffer;
-    std::pmr::monotonic_buffer_resource memory{ buffer.data(), buffer.size() };
-    std::pmr::vector<EffectUnitSnapshot> units;
-};
-
 BattleEffectRuntimeSnapshot::BattleEffectRuntimeSnapshot(const BattleRuntimeState& runtime)
-    : storage_(std::make_unique<Storage>(runtime))
+    : units_(makeEffectUnitSnapshots(runtime, &memory_))
     , tileWidth_(static_cast<float>(runtime.gridTransform.tileWidth))
 {
     assert(tileWidth_ > 0.0f);
 }
 
-BattleEffectRuntimeSnapshot::~BattleEffectRuntimeSnapshot() = default;
-BattleEffectRuntimeSnapshot::BattleEffectRuntimeSnapshot(BattleEffectRuntimeSnapshot&&) noexcept = default;
-BattleEffectRuntimeSnapshot& BattleEffectRuntimeSnapshot::operator=(BattleEffectRuntimeSnapshot&&) noexcept = default;
-
 std::span<const EffectUnitSnapshot> BattleEffectRuntimeSnapshot::units() const
 {
-    return storage_->units;
+    return units_;
 }
 
 BattleEffectReadView BattleEffectRuntimeSnapshot::readView() const

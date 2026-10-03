@@ -2,6 +2,7 @@
 
 #include "BattleEffectSystem.h"
 
+#include <array>
 #include <span>
 #include <memory>
 #include <memory_resource>
@@ -63,25 +64,21 @@ void refreshEffectStatusSnapshot(
     EffectUnitSnapshot& snapshot,
     const BattleStatusEffectState& effects);
 
-// Owns the copied unit facts used by an effect event. readView() is recreated
-// on demand, so moving this snapshot never leaves a cached dangling span.
+// 事件生命週期內的快照與內層容器共用堆疊 arena；禁止移動以固定 allocator 位址。
 class BattleEffectRuntimeSnapshot
 {
 public:
     explicit BattleEffectRuntimeSnapshot(const BattleRuntimeState& runtime);
-    ~BattleEffectRuntimeSnapshot();
     BattleEffectRuntimeSnapshot(const BattleEffectRuntimeSnapshot&) = delete;
     BattleEffectRuntimeSnapshot& operator=(const BattleEffectRuntimeSnapshot&) = delete;
-    BattleEffectRuntimeSnapshot(BattleEffectRuntimeSnapshot&&) noexcept;
-    BattleEffectRuntimeSnapshot& operator=(BattleEffectRuntimeSnapshot&&) noexcept;
 
     std::span<const EffectUnitSnapshot> units() const;
     BattleEffectReadView readView() const;
 
 private:
-    struct Storage;
-    // Storage 的位址在移動快照時保持不變，內層容器的 allocator 不會懸空。
-    std::unique_ptr<Storage> storage_;
+    std::array<std::byte, 16 * 1024> buffer_;
+    std::pmr::monotonic_buffer_resource memory_{ buffer_.data(), buffer_.size() };
+    std::pmr::vector<EffectUnitSnapshot> units_;
     float tileWidth_{};
 };
 

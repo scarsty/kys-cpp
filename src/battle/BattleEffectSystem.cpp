@@ -964,17 +964,18 @@ std::optional<CastPropagationPolicy> propagationPolicy(const EffectEventContext&
 struct BoundEffectRuleView
 {
     const EffectSourceBinding& binding;
-    const EffectRule& rule;
+    const EffectRule& definition;
+    const EffectRule& rule() const { return definition; }
     std::uint32_t order{};
     std::optional<BattleCastId> castScope;
     CastPropagationPolicy scopedPropagation = CastPropagationPolicy::SourceRules;
 
     BoundEffectRuleView(const BoundEffectRule& bound)
-        : binding(bound.binding), rule(bound.rule), order(bound.order)
+        : binding(bound.binding), definition(bound.rule()), order(bound.order)
         , castScope(bound.castScope), scopedPropagation(bound.scopedPropagation) {}
     BoundEffectRuleView(const EffectSourceBinding& binding, const EffectRule& rule,
                        std::uint32_t order)
-        : binding(binding), rule(rule), order(order) {}
+        : binding(binding), definition(rule), order(order) {}
 };
 
 bool isOwnerObservation(const BoundEffectRuleView& bound,
@@ -1007,7 +1008,7 @@ bool isOwnerObservation(const BoundEffectRuleView& bound,
 bool ruleObservesEvent(const BoundEffectRuleView& bound,
                        const EffectEventContext& context)
 {
-    switch (bound.rule.observation)
+    switch (bound.rule().observation)
     {
     case EffectObservationScope::Owner:
         return bound.binding.ownerUnitId < 0
@@ -1060,7 +1061,7 @@ bool ruleObservesEvent(const BoundEffectRuleView& bound,
 void rewriteObservedOwner(const BoundEffectRuleView& bound,
                           EffectEventContext& context)
 {
-    if (bound.rule.observation == EffectObservationScope::Owner)
+    if (bound.rule().observation == EffectObservationScope::Owner)
     {
         return;
     }
@@ -1164,7 +1165,7 @@ bool ruleAllowedByPropagation(const BoundEffectRuleView& bound,
     {
         return true;
     }
-    if (bound.rule.observation != EffectObservationScope::Owner)
+    if (bound.rule().observation != EffectObservationScope::Owner)
     {
         return *policy != CastPropagationPolicy::NoEffectRules;
     }
@@ -1203,7 +1204,7 @@ bool ruleMatchesMagicCast(const BoundEffectRuleView& bound,
         // 作為呈現與威力 metadata，任何武功綁定規則都不可觀察此 synthetic cast。
         return false;
     }
-    if (bound.rule.observation != EffectObservationScope::Owner)
+    if (bound.rule().observation != EffectObservationScope::Owner)
     {
         return true;
     }
@@ -1213,7 +1214,7 @@ bool ruleMatchesMagicCast(const BoundEffectRuleView& bound,
         // to the incoming attacker's selected magic.
         return true;
     }
-    if (bound.rule.castMatch == EffectCastMatch::OwnerAnyCast)
+    if (bound.rule().castMatch == EffectCastMatch::OwnerAnyCast)
     {
         return cast->sourceUnitId == bound.binding.ownerUnitId;
     }
@@ -1359,7 +1360,7 @@ bool copiedMagicMatchesFilter(
                         && bound.binding.ownerUnitId == unit.id
                         && bound.binding.sourceId == unit.ultimateMagicId
                         && std::ranges::any_of(
-                            bound.rule.actions,
+                            bound.rule().actions,
                             actionContainsRecursiveRuleTransfer);
                 }))
             {
@@ -1497,14 +1498,14 @@ std::int64_t percentOf(std::int64_t value, int percent)
         EffectRounding::TowardZero);
 }
 
-std::int64_t effectStateValue(const std::map<EffectStateKey, std::int64_t>& values,
+std::int64_t effectStateValue(const std::pmr::map<EffectStateKey, std::int64_t>& values,
     const EffectSourceBinding& binding, EffectStateSlot slot, std::uint64_t scope)
 {
     const auto found = values.find(stateKey(binding, slot, scope));
     return found == values.end() ? 0 : found->second;
 }
 
-void setEffectStateValue(std::map<EffectStateKey, std::int64_t>& values,
+void setEffectStateValue(std::pmr::map<EffectStateKey, std::int64_t>& values,
     const EffectSourceBinding& binding, EffectStateSlot slot, std::int64_t value,
     std::uint64_t scope)
 {
@@ -1513,7 +1514,7 @@ void setEffectStateValue(std::map<EffectStateKey, std::int64_t>& values,
 
 struct EffectStateAccess
 {
-    std::map<EffectStateKey, std::int64_t>& values;
+    std::pmr::map<EffectStateKey, std::int64_t>& values;
     std::int64_t stateValue(const EffectSourceBinding& binding, EffectStateSlot slot,
                             std::uint64_t scope = 0) const
     {
@@ -1747,7 +1748,7 @@ struct CommandEmitter
 
         auto metadata = EffectCommandMetadata{
             .binding = bound.binding,
-            .ruleId = bound.rule.id,
+            .ruleId = bound.rule().id,
             .event = context.event,
             .ruleOrder = bound.order,
             .authoredActionOrder = authoredActionOrder,
@@ -2232,7 +2233,7 @@ std::size_t BattleEffectRuleStore::append(
     const auto index = rules_.size();
     rules_.push_back({
         .binding = binding,
-        .rule = rule,
+        .definition = std::make_shared<const EffectRule>(rule),
         .order = allocateRuleOrder(),
         .runtime = { .intervalFramesRemaining = rule.intervalFrames },
     });
@@ -2261,7 +2262,7 @@ void BattleEffectRuleStore::appendClonedOwnerRules(
     for (const auto& bound : rules_)
     {
         if (bound.binding.ownerUnitId != sourceOwnerUnitId
-            || bound.rule.event == EffectEvent::BattleInitialized
+            || bound.rule().event == EffectEvent::BattleInitialized
             || bound.castScope)
         {
             continue;
@@ -2274,11 +2275,11 @@ void BattleEffectRuleStore::appendClonedOwnerRules(
         binding.ownerUnitId = cloneOwnerUnitId;
         binding.sourceTeam = cloneTeam;
         binding.runtimeInstanceId = 0;
-        const auto index = append(binding, bound.rule);
-        if (bound.rule.observation == EffectObservationScope::ComboMemberEventSource)
+        const auto index = append(binding, bound.rule());
+        if (bound.rule().observation == EffectObservationScope::ComboMemberEventSource)
         {
             rules_[index].runtime.eligibleEventCount
-                = runtime(bound.binding, bound.rule.id).eligibleEventCount;
+                = runtime(bound.binding, bound.rule().id).eligibleEventCount;
         }
     }
 }
@@ -2297,7 +2298,7 @@ void BattleEffectRuleStore::appendAntiComboTransferredRules(
         if (bound.binding.ownerUnitId != sourceOwnerUnitId
             || bound.binding.kind != EffectSourceKind::Combo
             || bound.binding.sourceId != comboId
-            || bound.rule.event == EffectEvent::BattleInitialized
+            || bound.rule().event == EffectEvent::BattleInitialized
             || bound.castScope)
         {
             continue;
@@ -2310,7 +2311,7 @@ void BattleEffectRuleStore::appendAntiComboTransferredRules(
         binding.ownerUnitId = targetOwnerUnitId;
         binding.sourceTeam = targetTeam;
         binding.runtimeInstanceId = 0;
-        append(binding, bound.rule);
+        append(binding, bound.rule());
     }
 }
 
@@ -2345,7 +2346,7 @@ std::vector<std::size_t> BattleEffectRuleStore::bindBorrowedUltimateRules(
             if (bound.castScope
                 || bound.binding.kind != EffectSourceKind::Magic
                 || bound.binding.ownerUnitId != sourceUnitId
-                || !ruleAllowedByBorrowFilter(bound.rule, filter))
+                || !ruleAllowedByBorrowFilter(bound.rule(), filter))
             {
                 continue;
             }
@@ -2371,14 +2372,14 @@ std::vector<std::size_t> BattleEffectRuleStore::bindBorrowedUltimateRules(
             const std::size_t index = rules_.size();
             rules_.push_back({
                 .binding = binding,
-                .rule = source.rule,
+                .definition = source.definition,
                 .order = allocateRuleOrder(),
                 .castScope = castId,
                 .scopedPropagation = propagation,
-                .runtime = { .intervalFramesRemaining = source.rule.intervalFrames },
+                .runtime = { .intervalFramesRemaining = source.rule().intervalFrames },
             });
-            ruleIndicesByEvent_[static_cast<std::size_t>(source.rule.event)].push_back(index);
-            ruleIndexByKey_.emplace(runtimeKey(binding, source.rule.id), index);
+            ruleIndicesByEvent_[static_cast<std::size_t>(source.rule().event)].push_back(index);
+            ruleIndexByKey_.emplace(runtimeKey(binding, source.rule().id), index);
             addedIndices.push_back(index);
         }
     }
@@ -2440,8 +2441,8 @@ void BattleEffectRuleStore::rebuildEventIndices()
     for (std::size_t index = 0; index < rules_.size(); ++index)
     {
         const auto& bound = rules_[index];
-        ruleIndicesByEvent_[static_cast<std::size_t>(bound.rule.event)].push_back(index);
-        ruleIndexByKey_.emplace(runtimeKey(bound.binding, bound.rule.id), index);
+        ruleIndicesByEvent_[static_cast<std::size_t>(bound.rule().event)].push_back(index);
+        ruleIndexByKey_.emplace(runtimeKey(bound.binding, bound.rule().id), index);
     }
 }
 
@@ -2491,7 +2492,7 @@ bool BattleEffectRuleStore::canActivateRuntimeRule(
         return false;
     }
     const auto& bound = rules_[index->second];
-    return ruleActivationAvailable(bound.rule, bound.runtime, frame);
+    return ruleActivationAvailable(bound.rule(), bound.runtime, frame);
 }
 
 bool BattleEffectRuleStore::tryActivateRuntimeRule(
@@ -2505,7 +2506,7 @@ bool BattleEffectRuleStore::tryActivateRuntimeRule(
         return false;
     }
     const auto& bound = rules_[ruleIndexByKey_.at(runtimeKey(binding, ruleId))];
-    if (!random.chance(bound.rule.chancePct))
+    if (!random.chance(bound.rule().chancePct))
     {
         return false;
     }
@@ -2522,10 +2523,10 @@ void BattleEffectRuleStore::recordRuntimeRuleActivation(
     auto& bound = rules_[ruleIndexByKey_.at(runtimeKey(binding, ruleId))];
     auto& runtime = bound.runtime;
     ++runtime.activationCount;
-    if (bound.rule.sharedCooldownFrames > 0)
+    if (bound.rule().sharedCooldownFrames > 0)
     {
         runtime.sharedCooldownUntilFrame =
-            static_cast<std::int64_t>(frame) + bound.rule.sharedCooldownFrames;
+            static_cast<std::int64_t>(frame) + bound.rule().sharedCooldownFrames;
     }
 }
 
@@ -3396,13 +3397,13 @@ bool exactRuntimeRuleAvailable(
     const BoundEffectRule& bound,
     const EffectEventContext& context)
 {
-    if (!requiresExactRuntimePhaseQuery(bound.rule)
+    if (!requiresExactRuntimePhaseQuery(bound.rule())
         || !castScopeMatches(bound, context)) return false;
     auto ruleContext = context;
     rewriteScopedRuleContext(bound, ruleContext);
     return ruleAllowedByPropagation(bound, ruleContext)
         && ruleMatchesMagicCast(bound, ruleContext)
-        && ruleActivationAvailable(bound.rule, bound.runtime, context.header.frame);
+        && ruleActivationAvailable(bound.rule(), bound.runtime, context.header.frame);
 }
 
 }  // namespace
@@ -3416,10 +3417,10 @@ bool BattleEffectSystem::hasExactRuntimeRuleCandidates(
     return std::ranges::any_of(indices, [&](std::size_t index)
     {
         const auto& bound = store.rules_[index];
-        return (bound.rule.observation != EffectObservationScope::Owner
+        return (bound.rule().observation != EffectObservationScope::Owner
                 || bound.binding.ownerUnitId < 0
                 || bound.binding.ownerUnitId == ownerUnitId)
-            && requiresExactRuntimePhaseQuery(bound.rule);
+            && requiresExactRuntimePhaseQuery(bound.rule());
     });
 }
 
@@ -3433,17 +3434,18 @@ bool BattleEffectSystem::hasExactRuntimeRuleCandidates(
     return std::ranges::any_of(indices, [&](std::size_t index)
     {
         const auto& bound = store.rules_[index];
-        return (bound.rule.observation != EffectObservationScope::Owner
+        return (bound.rule().observation != EffectObservationScope::Owner
                 || bound.binding.ownerUnitId < 0
                 || bound.binding.ownerUnitId == ownerUnitId)
             && exactRuntimeRuleAvailable(bound, context);
     });
 }
 
-std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRules(
+std::pmr::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRules(
     const BattleEffectRuleStore& store,
     const EffectEventContext& context,
-    BattleRuntimeRandom& random) const
+    BattleRuntimeRandom& random,
+    std::pmr::memory_resource* memoryResource) const
 {
     if (!eventPayloadMatches(context))
     {
@@ -3455,11 +3457,12 @@ std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRu
     std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
     const auto ordered = orderedRuleIndices(store.rules_, indices, &memory);
 
-    std::vector<EffectExactRuntimeRuleMatch> result;
+    std::pmr::vector<EffectExactRuntimeRuleMatch> result(memoryResource);
+    result.reserve(ordered.size());
     for (const auto index : ordered)
     {
         const auto* bound = &store.rules_[index];
-        if (!requiresExactRuntimePhaseQuery(bound->rule)
+        if (!requiresExactRuntimePhaseQuery(bound->rule())
             || !ruleObservesEvent(*bound, context)
             || !exactRuntimeRuleAvailable(*bound, context))
         {
@@ -3469,8 +3472,11 @@ std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRu
         auto ruleContext = context;
         rewriteObservedOwner(*bound, ruleContext);
         rewriteScopedRuleContext(*bound, ruleContext);
-        const auto selectedIds = selectTargetsWithResource(bound->rule.selector, ruleContext, random, {}, &memory);
-        EffectExactRuntimeRuleMatch match{ .bound = bound };
+        const auto selectedIds = selectTargetsWithResource(bound->rule().selector, ruleContext, random, {}, &memory);
+        EffectExactRuntimeRuleMatch match{
+            .bound = bound,
+            .targetUnitIds = std::pmr::vector<int>{ memoryResource },
+        };
         match.targetUnitIds.reserve(selectedIds.size());
         for (const auto unitId : selectedIds)
         {
@@ -3479,7 +3485,7 @@ std::vector<EffectExactRuntimeRuleMatch> BattleEffectSystem::queryExactRuntimeRu
             {
                 throw std::logic_error("selector 傳回了 read view 中不存在的單位");
             }
-            if (conditionsSatisfied(bound->rule.conditions, ruleContext, *target, true))
+            if (conditionsSatisfied(bound->rule().conditions, ruleContext, *target, true))
             {
                 match.targetUnitIds.push_back(unitId);
             }
@@ -3500,9 +3506,9 @@ bool BattleEffectSystem::hasInvincibilityPiercingExecuteRule(
     // 實際目標條件、次數限制與機率仍在命中事件中照常判定。
     for (const auto& bound : store.rules_)
     {
-        if ((bound.rule.event != EffectEvent::MainProjectileBeforeDamage
-                && bound.rule.event != EffectEvent::HitBeforeDamage)
-            || !ruleContainsExecute(bound.rule)
+        if ((bound.rule().event != EffectEvent::MainProjectileBeforeDamage
+                && bound.rule().event != EffectEvent::HitBeforeDamage)
+            || !ruleContainsExecute(bound.rule())
             || !ruleObservesEvent(bound, context)
             || !castScopeMatches(bound, context))
         {
@@ -3545,7 +3551,7 @@ void evaluateOrdinaryRule(
     BattleEffectDispatchResult& result,
     std::uint64_t& nextCommandOrdinal)
 {
-    if (bound.rule.event != context.event
+    if (bound.rule().event != context.event
         || !ruleObservesEvent(bound, context)
         || !castScopeMatches(bound, context))
     {
@@ -3554,7 +3560,7 @@ void evaluateOrdinaryRule(
 
     const EffectEventContext* ruleContext = &context;
     std::optional<EffectEventContext> rewrittenContext;
-    if (bound.rule.observation != EffectObservationScope::Owner
+    if (bound.rule().observation != EffectObservationScope::Owner
         || bound.castScope)
     {
         rewrittenContext.emplace(context);
@@ -3567,13 +3573,13 @@ void evaluateOrdinaryRule(
     {
         return;
     }
-    if (requiresExactRuntimePhaseQuery(bound.rule))
+    if (requiresExactRuntimePhaseQuery(bound.rule()))
     {
         return;
     }
 
-    if (!ruleActivationAvailable(bound.rule, runtime, context.header.frame)) return;
-    if (bound.rule.intervalFrames > 0)
+    if (!ruleActivationAvailable(bound.rule(), runtime, context.header.frame)) return;
+    if (bound.rule().intervalFrames > 0)
     {
         assert(context.event == EffectEvent::FrameAdvanced);
         const auto& tick = std::get<FrameTickEventData>(context.payload);
@@ -3584,12 +3590,12 @@ void evaluateOrdinaryRule(
         {
             return;
         }
-        runtime.intervalFramesRemaining = bound.rule.intervalFrames;
+        runtime.intervalFramesRemaining = bound.rule().intervalFrames;
     }
 
     std::array<std::byte, 4096> buffer;
     std::pmr::monotonic_buffer_resource memory(buffer.data(), buffer.size());
-    const auto selectedIds = selectTargetsWithResource(bound.rule.selector, *ruleContext, random, {}, &memory);
+    const auto selectedIds = selectTargetsWithResource(bound.rule().selector, *ruleContext, random, {}, &memory);
     if (selectedIds.empty())
     {
         return;
@@ -3604,7 +3610,7 @@ void evaluateOrdinaryRule(
         {
             throw std::logic_error("selector 傳回了 read view 中不存在的單位");
         }
-        if (conditionsSatisfied(bound.rule.conditions, *ruleContext, *target, true))
+        if (conditionsSatisfied(bound.rule().conditions, *ruleContext, *target, true))
         {
             eligibleTargets.push_back(target);
         }
@@ -3613,10 +3619,10 @@ void evaluateOrdinaryRule(
     {
         return;
     }
-    if (bound.rule.everyNthEvent > 0)
+    if (bound.rule().everyNthEvent > 0)
     {
         ++runtime.eligibleEventCount;
-        if (runtime.eligibleEventCount % bound.rule.everyNthEvent != 0)
+        if (runtime.eligibleEventCount % bound.rule().everyNthEvent != 0)
         {
             return;
         }
@@ -3624,7 +3630,7 @@ void evaluateOrdinaryRule(
 
     std::pmr::vector<const EffectUnitSnapshot*> activationTargets(&memory);
     activationTargets.reserve(eligibleTargets.size());
-    if (bound.rule.activationLimit)
+    if (bound.rule().activationLimit)
     {
         const auto* cast = effectCastProvenance(*ruleContext);
         if (!cast)
@@ -3634,7 +3640,7 @@ void evaluateOrdinaryRule(
         activationTargets.reserve(eligibleTargets.size());
         for (const auto* target : eligibleTargets)
         {
-            switch (bound.rule.activationLimit->scope)
+            switch (bound.rule().activationLimit->scope)
             {
             case EffectActivationScope::PerCastPerTarget:
             {
@@ -3642,7 +3648,7 @@ void evaluateOrdinaryRule(
                     runtime,
                     cast->castId,
                     target->id);
-                if (evaluationCount >= bound.rule.activationLimit->maxEvaluations)
+                if (evaluationCount >= bound.rule().activationLimit->maxEvaluations)
                 {
                     continue;
                 }
@@ -3651,7 +3657,7 @@ void evaluateOrdinaryRule(
                 break;
             }
             }
-            if (random.chance(bound.rule.chancePct))
+            if (random.chance(bound.rule().chancePct))
             {
                 activationTargets.push_back(target);
             }
@@ -3659,7 +3665,7 @@ void evaluateOrdinaryRule(
     }
     else
     {
-        if (!random.chance(bound.rule.chancePct))
+        if (!random.chance(bound.rule().chancePct))
         {
             return;
         }
@@ -3671,15 +3677,15 @@ void evaluateOrdinaryRule(
     }
 
     ++runtime.activationCount;
-    if (bound.rule.sharedCooldownFrames > 0)
+    if (bound.rule().sharedCooldownFrames > 0)
     {
         runtime.sharedCooldownUntilFrame =
             static_cast<std::int64_t>(context.header.frame)
-            + bound.rule.sharedCooldownFrames;
+            + bound.rule().sharedCooldownFrames;
     }
     EffectRuleActivation activation{
         .binding = bound.binding,
-        .ruleId = bound.rule.id,
+        .ruleId = bound.rule().id,
     };
     activation.targetUnitIds.reserve(activationTargets.size());
     for (const auto* target : activationTargets)
@@ -3697,13 +3703,13 @@ void evaluateOrdinaryRule(
         .commands = result.commands,
         .nextCommandOrdinal = nextCommandOrdinal,
     };
-    const int repetitionCount = bound.rule.repetitionCount
-        ? emitter.evaluate(*bound.rule.repetitionCount, *ruleContext->scope.owner)
+    const int repetitionCount = bound.rule().repetitionCount
+        ? emitter.evaluate(*bound.rule().repetitionCount, *ruleContext->scope.owner)
         : 1;
     assert(repetitionCount > 0);
     const auto authoredLeafCount = std::accumulate(
-        bound.rule.actions.begin(),
-        bound.rule.actions.end(),
+        bound.rule().actions.begin(),
+        bound.rule().actions.end(),
         std::uint64_t{},
         [](std::uint64_t count, const EffectAction& action)
         {
@@ -3716,7 +3722,7 @@ void evaluateOrdinaryRule(
     for (int repetition = 0; repetition < repetitionCount; ++repetition)
     {
         std::uint64_t authoredActionOffset{};
-        for (const auto& action : bound.rule.actions)
+        for (const auto& action : bound.rule().actions)
         {
             const auto actionOrder = static_cast<std::uint32_t>(repetition)
                 * static_cast<std::uint32_t>(authoredLeafCount)
@@ -3859,22 +3865,22 @@ bool BattleEffectSystem::rulesNeedStatusPrediction(
         if (!ruleAllowedByPropagation(bound, ruleContext) || !ruleMatchesMagicCast(bound, ruleContext))
             return false;
         // 隨機選擇保守地視為可能執行；預檢不可消耗 RNG 或改變規則計時器。
-        if (bound.rule.selector.tieBreak == EffectTieBreak::BattleRandom) return true;
+        if (bound.rule().selector.tieBreak == EffectTieBreak::BattleRandom) return true;
         const auto drawsBefore = random.rawDrawCount();
-        const auto targets = selectTargetsWithResource(bound.rule.selector, ruleContext, random, {}, &memory);
+        const auto targets = selectTargetsWithResource(bound.rule().selector, ruleContext, random, {}, &memory);
         assert(random.rawDrawCount() == drawsBefore);
         (void)drawsBefore;
         return std::ranges::any_of(targets, [&](int unitId)
         {
             const auto* target = snapshotForTarget(ruleContext, unitId);
             assert(target);
-            return conditionsSatisfied(bound.rule.conditions, ruleContext, *target, true);
+            return conditionsSatisfied(bound.rule().conditions, ruleContext, *target, true);
         });
     };
     for (const auto index : store.ruleIndicesByEvent_[static_cast<std::size_t>(context.event)])
     {
         const auto& bound = store.rules_[index];
-        if (!couldEmit(bound.rule, bound.runtime)) continue;
+        if (!couldEmit(bound.rule(), bound.runtime)) continue;
         auto ruleContext = context;
         if (includeAllFrameOwners)
         {
@@ -3957,7 +3963,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
         if (ruleIndex >= store.rules_.size())
             throw std::out_of_range("效果規則索引超出範圍");
         const auto& bound = store.rules_[ruleIndex];
-        if (bound.rule.event != context.event) return;
+        if (bound.rule().event != context.event) return;
         if (context.event == EffectEvent::FrameAdvanced
             && includeAllFrameOwners)
         {
@@ -4016,7 +4022,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
     const auto isPoisonMergePreflightRule = [&](const PendingRule& pending)
     {
         if (!pending.configuredRuleIndex) return false;
-        const auto& rule = store.rules_[*pending.configuredRuleIndex].rule;
+        const auto& rule = store.rules_[*pending.configuredRuleIndex].rule();
         if (rule.actions.size() != 1) return false;
         const auto* application = std::get_if<ApplyStatusAction>(
             &rule.actions.front().value);
@@ -4050,7 +4056,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
             if (!candidate.configuredRuleIndex) return false;
             const auto& bound = store.rules_[*candidate.configuredRuleIndex];
             return bound.binding == command.metadata.binding
-                && bound.rule.id == command.metadata.ruleId;
+                && bound.rule().id == command.metadata.ruleId;
         });
         assert(pending != pendingRules.end());
         assert(pending->precomputed);
@@ -4110,7 +4116,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchMerged(
             const auto& rule = behavior.behavior->rules[ruleOrder];
 
             // 狀態行為的啟用狀態屬於 contribution；狀態槽維持原本每次規則求值的生命期。
-            std::map<EffectStateKey, std::int64_t> statusStateValues;
+            std::pmr::map<EffectStateKey, std::int64_t> statusStateValues(&memory);
             auto& statusRuntime = (*behavior.runtime)[ruleOrder];
             auto statusContext = context;
             statusContext.scope.statusContribution = EffectStatusContributionContext{

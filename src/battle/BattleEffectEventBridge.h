@@ -58,8 +58,6 @@ public:
 
     BattleEffectOwnedEvent(const BattleEffectOwnedEvent&) = delete;
     BattleEffectOwnedEvent& operator=(const BattleEffectOwnedEvent&) = delete;
-    BattleEffectOwnedEvent(BattleEffectOwnedEvent&&) = default;
-    BattleEffectOwnedEvent& operator=(BattleEffectOwnedEvent&&) = default;
 
     EffectEvent event() const;
     const EffectEventPayload& payload() const;
@@ -85,6 +83,8 @@ public:
 private:
     void reduceRuleCommands(std::span<const EffectCommand> commands);
     const BattleRuntimeState& source_;
+    std::array<std::byte, 16 * 1024> buffer_;
+    std::pmr::monotonic_buffer_resource memory_{ buffer_.data(), buffer_.size() };
     std::unique_ptr<BattleRuntimeState> runtime_;
     StatusBehaviorDispatchLiveness hooks_;
 };
