@@ -16,7 +16,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORK_ROOT = ROOT / "work" / "game-dev"
-DEFAULT_OUTPUT_DIR = ROOT / "work" / "subscenes"
+DEFAULT_OUTPUT_DIR = ROOT / "output" / "subscenes"
 
 COORD_COUNT = 64
 LAYER_COUNT = 6
@@ -219,7 +219,7 @@ def parse_args() -> argparse.Namespace:
         "output_dir",
         nargs="?",
         default=str(DEFAULT_OUTPUT_DIR),
-        help="Directory to write PNGs to. Defaults to work/subscenes.",
+        help="Directory to write PNGs to. Defaults to output/subscenes.",
     )
     parser.add_argument(
         "--work-root",

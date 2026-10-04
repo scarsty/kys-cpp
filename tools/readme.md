@@ -20,7 +20,7 @@ makeRanger.exe ranger.xlsx
 
 ## pack_smap_atlas.py
 
-将 `work/game-dev/resource/smap` 下的资源打包为单个 atlas blob 和清单文件，供 wasm 下减少文件数使用。
+將 `tmp/asset-sources/smap` 下的完整來源打包為單個 atlas blob 和清單檔案，供 wasm 下減少檔案數使用。
 
 默认用法：
 
@@ -31,16 +31,16 @@ python tools/pack_smap_atlas.py
 会生成：
 
 ```text
-work/game-dev/resource/smap.atlas
-work/game-dev/resource/smap.atlas.json
+output/assets/smap.atlas
+output/assets/smap.atlas.json
 ```
 
-运行时会按 `smap.zip -> smap atlas -> smap目录` 的顺序查找，因此旧的平铺目录和 `smap.zip` 仍可继续使用。
+執行時先讀取 `smap.zip`；正式套件使用 ZIP，完整來源與待檢查的 atlas 不放在執行目錄。
 
 
 ## pack_chess_smap_zip.py
 
-根據棋局模式實際會用到的資源，打包更小的 `smap.zip`。腳本會從 `ChessBattleMapCatalog.cpp` 讀取策劃過的戰鬥 ID，再由 `war.sta` 解析其戰場 ID，讀取 `warfld.idx` / `warfld.grp` 的戰場圖層資料，並合併主場景 `53` 的地形與事件資源，最後把需要的貼圖和 `index.ka` 寫入一個 zip。
+根據棋局模式實際會用到的資源，從 `tmp/asset-sources/smap` 打包更小的 `smap.zip`。腳本會從 `ChessBattleMapCatalog.cpp` 讀取策劃過的戰鬥 ID，再由 `war.sta` 解析其戰場 ID，讀取 `warfld.idx` / `warfld.grp` 的戰場圖層資料，並合併主場景 `53` 的地形與事件資源，最後把需要的貼圖和 `index.ka` 寫入一個 zip。可用 `--source-dir` 指定另一份完整來源。
 
 預設用法：
 
@@ -51,10 +51,12 @@ python tools/pack_chess_smap_zip.py
 預設輸出：
 
 ```text
-work/game-dev/resource/smap.chess-battle.zip
+output/assets/smap.chess-battle.zip
 ```
 
 如果要直接替換執行時讀取的套件，可以把輸出路徑改成 `work/game-dev/resource/smap.zip`。若要檢查另一份目錄，可用 `--battle-map-catalog` 指定對應的 `ChessBattleMapCatalog.cpp`。
+
+天賦圖片、戰鬥特效與本機執行目錄的整理方式，請參閱 [runtime-assets.md](../docs/runtime-assets.md)。
 
 
 ## convert_index_ka_to_txt.py

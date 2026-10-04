@@ -280,8 +280,8 @@ TEST_CASE("BattleSceneFrameApplier_AppliesSemanticCuePathTintAndAreaSnapshot", "
     BattleVisualEvent cue;
     cue.type = BattleVisualEventType::RoleEffect;
     cue.targetUnitId = 1;
-    cue.visualPath = BattleCueNegativeVisualPath;
-    cue.color = { 136, 220, 96, 235 };
+    cue.visualPath = BattleCuePositiveVisualPath;
+    cue.color = { 112, 224, 255, 235 };
     cue.durationFrames = 15;
     frame.visualEvents.push_back(cue);
     frame.areas.push_back({
@@ -301,10 +301,10 @@ TEST_CASE("BattleSceneFrameApplier_AppliesSemanticCuePathTintAndAreaSnapshot", "
     REQUIRE(fixture.attackEffects.size() == 1);
     const auto& effect = fixture.attackEffects.front();
     CHECK(effect.FollowUnitId == 1);
-    CHECK(effect.Path == BattleCueNegativeVisualPath);
-    CHECK(effect.Tint.r == 136);
-    CHECK(effect.Tint.g == 220);
-    CHECK(effect.Tint.b == 96);
+    CHECK(effect.Path == BattleCuePositiveVisualPath);
+    CHECK(effect.Tint.r == 112);
+    CHECK(effect.Tint.g == 224);
+    CHECK(effect.Tint.b == 255);
     CHECK(effect.Tint.a == 235);
     REQUIRE(fixture.areaEffects.size() == 1);
     CHECK(fixture.areaEffects.front().areaId == 7);

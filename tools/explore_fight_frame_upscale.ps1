@@ -1,10 +1,10 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$ZipPath,
-    [string]$OutRoot = "work\game-dev\resource\fight\_explore",
+    [string]$OutRoot = "output\fight-frame-upscale",
     [int]$Scale = 8,
     [int]$PreviewFrame = -1,
-    [string]$Scale2xExecutable = "work\scale2x-4.0-windows-x86\scalex.exe"
+    [string]$Scale2xExecutable = "tmp\tools\scale2x-4.0-windows-x86\scalex.exe"
 )
 
 $ErrorActionPreference = "Stop"

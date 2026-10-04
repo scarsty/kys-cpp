@@ -327,21 +327,11 @@ BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
         event.color = { 112, 224, 255, 210 };
         break;
     case BattleSemanticCueFamily::Poison:
-        event.visualPath = BattleCueNegativeVisualPath;
-        event.color = { 136, 220, 96, 170 };
-        break;
     case BattleSemanticCueFamily::Bleed:
-        event.visualPath = BattleCueBleedVisualPath;
-        event.color = { 255, 94, 86, 220 };
-        break;
     case BattleSemanticCueFamily::Control:
-        event.visualPath = BattleCueControlVisualPath;
-        event.color = { 104, 160, 255, 190 };
-        break;
     case BattleSemanticCueFamily::Curse:
-        event.visualPath = BattleCueNegativeVisualPath;
-        event.color = { 190, 112, 255, 170 };
-        break;
+        assert(false && "負面狀態提示必須在排入佇列前被抑制");
+        std::unreachable();
     case BattleSemanticCueFamily::Cleanse:
         event.visualPath = BattleCueCleanseVisualPath;
         event.color = { 184, 255, 246, 205 };

@@ -25,7 +25,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORK_ROOT = ROOT / "work" / "game-dev"
-DEFAULT_OUTPUT = DEFAULT_WORK_ROOT / "resource" / "smap.chess-battle.zip"
+DEFAULT_SOURCE = ROOT / "tmp" / "asset-sources" / "smap"
+DEFAULT_OUTPUT = ROOT / "output" / "assets" / "smap.chess-battle.zip"
 DEFAULT_BATTLE_MAP_CATALOG = ROOT / "src" / "ChessBattleMapCatalog.cpp"
 DEFAULT_MAIN_SUBMAP_ID = 53
 
@@ -262,6 +263,10 @@ def write_zip(output_path: Path, index_path: Path, texture_files: list[Path]) ->
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pack the chess-battle SMAP subset into a zip archive")
     parser.add_argument(
+        "--source-dir", type=Path, default=DEFAULT_SOURCE,
+        help="Full SMAP source directory (default: tmp/asset-sources/smap)",
+    )
+    parser.add_argument(
         "--work-root",
         type=Path,
         default=DEFAULT_WORK_ROOT,
@@ -283,7 +288,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
-        help="Output zip path (default: work/game-dev/resource/smap.chess-battle.zip)",
+        help="Output zip path (default: output/assets/smap.chess-battle.zip)",
     )
     return parser.parse_args()
 
@@ -291,7 +296,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     work_root = args.work_root.resolve()
-    source_dir = work_root / "resource" / "smap"
+    source_dir = args.source_dir.resolve()
     index_path = source_dir / "index.ka"
 
     if not source_dir.is_dir():

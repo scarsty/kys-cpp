@@ -104,7 +104,7 @@ figcaption{
 .stat i{font-style:normal; color:var(--muted); font-size:13px}
 
 /* ===== 章節 ===== */
-section{padding:46px 0 8px}
+section{padding:46px 0 8px; scroll-margin-top:58px}
 .sec-head{display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:22px; position:relative}
 .sec-head::after{content:""; position:absolute; left:0; bottom:-1px; width:90px; height:1px; background:var(--red)}
 .sec-no{background:var(--red); color:var(--ink-strong); padding:2px 10px; border-radius:2px; font-size:17px}
@@ -121,14 +121,14 @@ section{padding:46px 0 8px}
 .hl{color:var(--red2)}
 .mut{color:var(--muted)}
 .file-name{white-space:nowrap}
-.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:18px}
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:14px; margin-top:18px}
 .card{background:var(--panel); border:1px solid var(--line); border-left:2px solid rgba(217,47,39,.46); border-radius:6px; padding:18px 20px}
 .card h3{color:var(--ink-strong); font-size:19px; margin-bottom:8px}
 .card h3 .tag{font-size:12px; color:var(--red2); border:1px solid var(--red-dark); border-radius:2px; padding:1px 6px; margin-left:8px; vertical-align:2px}
 .card p{font-size:14.5px; color:var(--ink)}
 .card ul{margin:6px 0 0 1.2em; font-size:14.5px}
 .card li{margin:3px 0}
-.steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:18px}
+.steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:16px; margin-top:18px}
 .step{background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden}
 .step .txt{padding:14px 18px}
 .step h3{color:var(--ink-strong); font-size:18px; margin-bottom:6px}
@@ -136,6 +136,52 @@ section{padding:46px 0 8px}
 .step p{font-size:14px; color:var(--ink)}
 .two-col{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start}
 @media(max-width:760px){.two-col{grid-template-columns:1fr}}
+.talent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.talent-card{position:relative; padding-bottom:34px}
+.talent-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:14px 0}
+.talent-metrics>div{background:var(--panel2); border-radius:4px; padding:10px 4px; text-align:center}
+.talent-metrics b{display:block; font-size:24px; line-height:1.35; color:var(--red2); font-variant-numeric:tabular-nums}
+.talent-metrics span{display:block; font-size:12px; color:var(--muted); margin-top:5px}
+@media(max-width:360px){.talent-metrics b{font-size:19px; white-space:nowrap}}
+.talent-flow{display:flex; gap:18px; list-style:none; margin:14px 0; padding:0}
+.talent-flow li{position:relative; flex:1; background:var(--panel2); border-radius:4px; text-align:center; padding:8px 6px; font-size:13px; line-height:1.5}
+.talent-flow li+li::before{content:"→"; position:absolute; left:-15px; top:50%; transform:translateY(-50%); color:var(--red2)}
+.talent-caption{font-size:12px; color:var(--muted); margin:12px 0 7px}
+.talent-chips,.reward-stages{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0}
+.talent-chips span,.reward-stages span{background:var(--panel2); border-radius:3px; padding:3px 8px; font-size:12px; color:var(--ink)}
+.reward-stages span{color:var(--red2); font-weight:700}
+.talent-note{font-size:12px!important; color:var(--muted)!important; margin-top:8px}
+.talent-scope{position:absolute; right:18px; bottom:10px; font-size:11px; color:var(--muted)}
+.talent-rule{display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; font-size:12px; margin-top:6px}
+.talent-rule span{color:var(--muted)}
+.talent-rule b{font-weight:500; color:var(--ink)}
+.growth-chart>div{display:grid; grid-template-columns:25px minmax(0,1fr) 64px; align-items:center; gap:10px; margin:8px 0; font-size:13px}
+.growth-track{height:12px; background:var(--panel2); border-radius:3px; overflow:hidden}
+.growth-track i{display:block; height:100%; background:var(--red)}
+.growth-chart b{text-align:right; font-weight:500; font-variant-numeric:tabular-nums}
+.luck-ladder{display:flex; gap:5px; flex-wrap:wrap}
+.luck-ladder>div{flex:1; min-width:38px; padding:8px 2px; background:var(--panel2); border-radius:4px; text-align:center}
+.luck-ladder b{display:block; color:var(--red2); font-size:15px; line-height:1.4}
+.luck-ladder span{display:block; color:var(--muted); font-size:11px}
+.table-scroll .talent-choice-table{min-width:0}
+.card p+p{margin-top:8px}
+details{margin-top:12px}
+summary{cursor:pointer; color:var(--red2); font-size:14px}
+summary:hover{color:var(--ink-strong)}
+.reward-schedule{border-top:1px solid var(--line); padding-top:10px}
+.ultimate-owners{display:flex; flex-wrap:wrap; gap:5px; align-items:center; color:var(--muted)!important; font-size:12px!important; margin-bottom:10px}
+.ultimate-owners>span:not(.owner-label){background:var(--panel2); color:var(--ink); border-radius:3px; padding:2px 7px}
+.ultimate-owners small{color:var(--red2); margin-left:5px; white-space:nowrap}
+.owner-label{margin-right:2px}
+.ultimate-card p{font-size:14px; line-height:1.75}
+.ultimate-card p strong{color:var(--red2); font-weight:600}
+.ultimate-catalog{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:16px 20px}
+.catalog-search{display:block; margin-top:16px; font-size:14px}
+.catalog-search input{display:block; width:100%; margin-top:6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink); padding:10px 12px; font:inherit}
+.ultimate-card[hidden]{display:none}
+.catalog-empty{margin-top:16px; color:var(--muted)}
+@media(max-width:760px){.talent-grid{grid-template-columns:1fr}}
+:focus-visible{outline:2px solid var(--red2); outline-offset:3px}
 
 /* ===== 表格 ===== */
 table{width:100%; border-collapse:collapse; font-size:13.5px; margin:12px 0}
@@ -167,15 +213,15 @@ td small{color:var(--muted)}
   transition:opacity .15s, transform .15s;
 }
 .piece .tip span{display:block}
-.piece .tip .lb{color:var(--red2)}
-.piece:hover .tip,.piece:active .tip{opacity:1; transform:translateX(-50%) translateY(0)}
+.piece .tip .lb{color:var(--red2); display:inline}
+.piece:hover .tip,.piece:active .tip,.piece:focus .tip{opacity:1; transform:translateX(-50%) translateY(0)}
 @media(max-width:760px){
   .gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
   .piece .tip{width:min(240px,calc(100vw - 40px)); min-width:0; max-width:none}
   .piece:nth-child(odd) .tip{left:0; right:auto; transform:translateX(0) translateY(5px)}
   .piece:nth-child(even) .tip{left:auto; right:0; transform:translateX(0) translateY(5px)}
-  .piece:nth-child(odd):hover .tip,.piece:nth-child(odd):active .tip,
-  .piece:nth-child(even):hover .tip,.piece:nth-child(even):active .tip{transform:translateX(0) translateY(0)}
+  .piece:nth-child(odd):hover .tip,.piece:nth-child(odd):active .tip,.piece:nth-child(odd):focus .tip,
+  .piece:nth-child(even):hover .tip,.piece:nth-child(even):active .tip,.piece:nth-child(even):focus .tip{transform:translateX(0) translateY(0)}
 }
 
 /* ===== 技巧 / 頁腳 ===== */
@@ -185,7 +231,7 @@ td small{color:var(--muted)}
 .tips li b{color:var(--red2)}
 footer{border-top:1px solid var(--line); margin-top:56px; padding:28px 0 46px; color:var(--muted); font-size:13.5px}
 footer p{margin:6px 0}
-#top-btn{
+.top-btn{
   position:fixed; right:22px; bottom:22px; width:44px; height:44px; border-radius:4px;
   background:rgba(9,9,10,.94); border:1px solid var(--red-dark); color:var(--red2);
   cursor:pointer; font-size:18px; display:none; z-index:90;
@@ -200,7 +246,9 @@ footer p{margin:6px 0}
     <div class="links">
       <a href="#" data-nav="intro">緣起</a>
       <a href="#" data-nav="howto">上手</a>
+      <a href="#" data-nav="talents">天賦</a>
       <a href="#" data-nav="rules">規則</a>
+      <a href="#" data-nav="ultimates">絕招</a>
       <a href="#" data-nav="combos">羈絆</a>
       <a href="#" data-nav="equip">裝備內功</a>
       <a href="#" data-nav="difficulty">難度</a>
@@ -227,9 +275,9 @@ footer p{margin:6px 0}
       </div>
     </div>
     <div class="tagline">珍瓏棋局，落子江湖 —— <em>近百位金庸群俠，皆為你掌中棋子</em></div>
-    <div class="sub">招募 · 佈陣 · 羈絆 · 升星 —— 坐看群俠自動交鋒</div>
+    <div class="sub">選天賦 · 招群俠 · 湊羈絆 · 放絕招 —— 一盤棋，走出你的江湖流派</div>
     <div class="badges">
-      <span>近百位金庸群俠</span><span>全自動即時戰鬥</span><span>單機 · 免費 · 零懲罰</span>
+      <span>%%C:talents%% 種棋手天賦</span><span>%%C:ultimates%% 門特色絕招</span><span>全自動即時戰鬥</span><span>單機 · 免費 · 零懲罰</span>
     </div>
     <div class="cta">
       <a class="btn primary" href="%%PLAY_URL%%" target="_blank" rel="noopener">網頁版即點即玩</a>
@@ -248,6 +296,7 @@ footer p{margin:6px 0}
     <div class="lead">
       <p>《金群自走棋》是開源項目「金庸群俠傳復刻版」（kys-cpp）中的自走棋玩法。擂鼓山上，蘇星河奉師命守護珍瓏棋局——棋盤之上，<span class="hl">江湖群俠化為棋子，各展所長，自行廝殺</span>；而你，才是執子之人。</p>
       <p>招募棋子、排兵佈陣、湊齊羈絆、授予神兵內功，隨後坐看群俠自動交鋒。從江南七怪到掃地老僧，從華山五絕到天龍三兄弟，金庸筆下的英雄盡在一盤棋中。</p>
+      <p><span class="hl">棋手天賦決定養成路線，特色絕招決定臨場變化。</span>神兵重裝備、晚成養老將、賭徒搏生機、中堅扶三費；群俠則各有護身、控場、治療、連擊與反制的拿手本領。</p>
       <p>純單機、無內購、<span class="hl">失敗零懲罰</span>，輸了隨時捲土重來。本頁隨 PC 版一同分發；若想立即體驗，網頁版打開即玩（推薦 Edge / Firefox / Chrome / Opera 瀏覽器），安卓與 Windows 亦有對應版本。</p>
     </div>
     <figure class="shot">
@@ -259,12 +308,12 @@ footer p{margin:6px 0}
 
 <section data-a="howto">
   <div class="sec-head"><span class="sec-no">貳</span><h2>三分鐘上手</h2><small>每回合：招募 → 佈陣 → 觀戰 → 提升</small></div>
-  <p class="lead">每一回合，你先在商店補強陣容，隨後棋子們自動出戰。<span class="hl">你只管運籌，廝殺交給群俠。</span></p>
+  <p class="lead">開局先選難度與棋手天賦；可選項見下方<a href="#" data-nav="talents">天賦表</a>。每一回合，你先在商店補強陣容，隨後棋子們自動出戰。<span class="hl">你只管運籌，廝殺交給群俠。</span></p>
   <div class="steps">
     <div class="step">
       %%SHOT:shop%%
       <div class="txt"><h3><b>1</b>招募棋子</h3>
-      <p>商店每回合隨機擺出 %%Y:nb:商店数量%% 枚棋子（簡單難度 %%Y:eb:商店数量%% 枚），1~5 費標價，越高費越強也越難遇見。不滿意可花 %%Y:nb:经济.刷新费用%% 金刷新；看中了卻買不起，可<b>鎖定商店</b>留到下一回合。</p></div>
+      <p>商店每回合隨機擺出 %%Y:nb:商店數量%% 枚棋子（簡單難度 %%Y:eb:商店數量%% 枚），1~5 費標價，越高費越強也越難遇見。不滿意可花 %%Y:nb:經濟.刷新費用%% 金刷新；看中了卻買不起，可<b>鎖定商店</b>留到下一回合。</p></div>
     </div>
     <div class="step">
       %%SHOT:piece%%
@@ -274,7 +323,7 @@ footer p{margin:6px 0}
     <div class="step">
       %%SHOT:lineup%%
       <div class="txt"><h3><b>3</b>選擇出戰</h3>
-      <p>能上幾人隨等級提升（最低 %%Y:nb:最低出战人数%% 人）；上不了場的先存進背包（上限 %%Y:nb:背包上限%% 枚），留著合成升星或調整陣容。</p></div>
+      <p>能上幾人隨等級提升（最低 %%Y:nb:最低出戰人數%% 人）；上不了場的先存進背包（上限 %%Y:nb:背包上限%% 枚），留著合成升星或調整陣容。</p></div>
     </div>
     <div class="step">
       %%SHOT:prebattle%%
@@ -284,7 +333,7 @@ footer p{margin:6px 0}
     <div class="step">
       %%SHOT:battle%%
       <div class="txt"><h3><b>5</b>自動戰鬥</h3>
-      <p>戰鬥按幀即時推進，可以切倍速、換視角。棋子自己索敵、走位、出招；內力一滿就換上當前星級的<b>絕招武功</b>——絕招強在哪，得看它的範圍類型。</p></div>
+      <p>戰鬥按幀即時推進，可以切倍速、換視角。棋子自己索敵、走位、出招；內力一滿就施放當前星級的<b>絕招武功</b>。除了攻擊形態，還有各門武功獨有的護盾、控場、治療與追加攻擊，見下方<a href="#" data-nav="ultimates">特色絕招</a>。</p></div>
     </div>
     <div class="step">
       %%SHOT:victory%%
@@ -294,8 +343,18 @@ footer p{margin:6px 0}
   </div>
 </section>
 
+<section data-a="talents">
+  <div class="sec-head"><span class="sec-no">叄</span><h2>棋手天賦 · 先定一局的路線</h2><small>裝備、成長、賭運、三費核心</small></div>
+  <p class="lead">開局選定天賦，走出你的養成路線。</p>
+  <div class="table-scroll">
+    <table class="talent-choice-table"><thead><tr><th>難度</th><th>可選天賦</th><th>預設</th></tr></thead><tbody>%%GEN:TALENT_CHOICES%%</tbody></table>
+  </div>
+  <div class="cards talent-grid">%%GEN:TALENTS%%</div>
+  <p class="mut" style="margin-top:12px">數值以困難配置為例。各難度裝備獎勵詳見<a href="#" data-nav="equip">獎勵時程</a>。</p>
+</section>
+
 <section data-a="rules">
-  <div class="sec-head"><span class="sec-no">叄</span><h2>核心規則詳解</h2><small>比遊戲內「遊戲說明」更展開一些；完整數值仍以遊戲內為準</small></div>
+  <div class="sec-head"><span class="sec-no">肆</span><h2>核心規則詳解</h2><small>招募、升星、經濟與勝場成長</small></div>
   <div class="cards">
     <div class="card">
       <h3>棋子與升星</h3>
@@ -303,15 +362,16 @@ footer p{margin:6px 0}
         <li>棋子分一至五費，售價即費用（1費1金 …… 5費5金），越高費越難刷出。</li>
         <li>三枚相同一星合成二星，三枚二星再合三星；每顆額外星大幅提升屬性，另有固定加成，升星後脫胎換骨。</li>
         <li>出售按 <span class="hl">費用 × 3<sup>星級-1</sup></span> 全額返還，換陣不虧。</li>
-        <li><b>勝場成長：</b>打贏主線、或首次通關遠征時，所有出戰棋子的個人勝場 +1。以普通難度當前配置為例，每個勝場值生命 +%%Y:nb:棋子成长.每胜生命%%、攻擊 +%%Y:nb:棋子成长.每胜攻击%%、防禦 +%%Y:nb:棋子成长.每胜防御%%、各項兵器熟練度 +%%Y:nb:棋子成长.每胜兵器%%、輕功 +%%Y:nb:棋子成长.每胜轻功%%；帶小數的按總勝場累計後向下取整。合成時只繼承三枚棋子裡最高的勝場，不會相加；部分羈絆還會按現有勝場再追加成長。</li>
+        <li><b>勝場成長：</b>打贏主線、或首次通關遠征時，所有出戰棋子的個人勝場 +1。以普通難度當前配置為例，每個勝場值生命 +%%Y:nb:棋子成長.每勝生命%%、攻擊 +%%Y:nb:棋子成長.每勝攻擊%%、防禦 +%%Y:nb:棋子成長.每勝防禦%%、各項兵器熟練度 +%%Y:nb:棋子成長.每勝兵器%%、輕功 +%%Y:nb:棋子成長.每勝輕功%%；帶小數的按總勝場累計後向下取整。合成時只繼承三枚棋子裡最高的勝場，不會相加；部分羈絆還會按現有勝場再追加成長。</li>
+        <li><b>晚成的差別：</b>一般天賦的勝場成長不受星級倍率放大；晚成讓其中 %%Y:talents:晚成.勝場成長受加成比例%%% 參與星級與其他百分比加成。一星尚未獲得額外星級放大，升至二、三星後收益更明顯。</li>
       </ul>
     </div>
     <div class="card">
       <h3>經濟與等級</h3>
       <ul>
-        <li>開局揣著 %%Y:nb:经济.初始金币%% 金；刷新商店一次 %%Y:nb:经济.刷新费用%% 金；%%Y:nb:经济.购买经验费用%% 金可買 %%Y:nb:经济.购买经验数量%% 點經驗。</li>
-        <li>主線打贏後，按開戰前存款的 %%Y:nb:经济.利息百分比%%% 發利息，最多 %%Y:nb:经济.利息上限%% 金——打輸了沒有，遠征也不發。</li>
-        <li>普通關卡勝利 +%%Y:nb:经济.战斗经验%% 經驗；打贏強敵（Boss）+%%Y:nb:经济.Boss战斗经验%% 經驗，外加一筆金幣。</li>
+        <li>開局揣著 %%Y:nb:經濟.初始金幣%% 金；刷新商店一次 %%Y:nb:經濟.刷新費用%% 金；%%Y:nb:經濟.購買經驗費用%% 金可買 %%Y:nb:經濟.購買經驗數量%% 點經驗。</li>
+        <li>主線打贏後，按開戰前存款的 %%Y:nb:經濟.利息百分比%%% 發利息，最多 %%Y:nb:經濟.利息上限%% 金——打輸了沒有，遠征也不發。</li>
+        <li>普通關卡勝利 +%%Y:nb:經濟.戰鬥經驗%% 經驗；打贏強敵（Boss）+%%Y:nb:經濟.Boss戰鬥經驗%% 經驗，外加一筆金幣。</li>
         <li>升級既能多上人，也會改變商店各費階的出現權重——高費棋子得等級上去了才刷得出來。</li>
       </ul>
     </div>
@@ -329,10 +389,10 @@ footer p{margin:6px 0}
       <ul>
         <li>戰鬥失敗<b>不扣金幣、不扣生命、不掉棋子</b>，直接回到整備階段。</li>
         <li>換陣容、練級、買裝備，收拾好了再戰，直到打過去為止。</li>
-        <li>也可以花 %%Y:nb:经济.逆天改命费用%% 金<b>逆天改命</b>，把下一場的敵方陣容和隨機種子重抽一遍。</li>
+        <li>也可以花 %%Y:nb:經濟.逆天改命費用%% 金<b>逆天改命</b>，把下一場的敵方陣容和隨機種子重抽一遍。</li>
         <li>贏下全部主線關卡即「恭喜通關」；通關之後，遠征挑戰還能接著打。</li>
       </ul>
-      <p class="mut" style="margin-top:8px">第 %%Y:nb:无羁绊关卡%% 關的敵人沒有羈絆，開局可以放心穩紮穩打；逆天改命改的是敵方陣容與戰鬥隨機種子，地圖不保證會換。</p>
+      <p class="mut" style="margin-top:8px">第 %%Y:nb:無羈絆關卡%% 關的敵人沒有羈絆，開局可以放心穩紮穩打；逆天改命改的是敵方陣容與戰鬥隨機種子，地圖不保證會換。</p>
     </div>
   </div>
   <div class="two-col" style="margin-top:16px">
@@ -342,13 +402,33 @@ footer p{margin:6px 0}
     </figure>
     <div class="card">
       <h3>規則與數值的關係</h3>
-      <p>費用、成長、商店權重、關卡數、獎勵進度，這些都寫在難度配置裡；角色武功、羈絆、裝備、內功則各有各的內容配置。本頁講的是系統怎麼運轉，具體數值還是以當前版本遊戲內一覽為準。</p>
+      <p>本頁的天賦、絕招描述、裝備獎勵時程與標出的玩法數值，均由目前配置生成。天賦會改變成長與裝備取得方式；角色當前星級的武功、羈絆、裝備與全隊內功，則共同決定實際戰力。</p>
     </div>
   </div>
 </section>
 
+<section data-a="ultimates">
+  <div class="sec-head"><span class="sec-no">伍</span><h2>特色絕招 · 群俠各有拿手戲</h2><small>%%C:ultimates%% 門武功，護身、控場、續航與反制</small></div>
+  <p class="lead">內力充滿，施放<span class="hl">當前星級威力最高的武功</span>。每門絕招各有護身、控場、續航或反制效果。</p>
+  <div class="cards">
+    %%ULTIMATE:47%%
+    %%ULTIMATE:96%%
+    %%ULTIMATE:106%%
+    %%ULTIMATE:92%%
+    %%ULTIMATE:98%%
+    %%ULTIMATE:95%%
+  </div>
+  <details class="ultimate-catalog">
+    <summary>查看全部 %%C:ultimates%% 門絕招 · 可按武功或群俠搜尋</summary>
+    <label class="catalog-search">搜尋絕招或群俠<input type="search" class="ultimate-search" placeholder="例如：降龍十八掌、郭靖、護盾" autocomplete="off"></label>
+    <p class="catalog-empty" hidden>沒有符合的絕招，試試其他武功、群俠或效果關鍵字。</p>
+    <div class="cards ultimate-list">%%GEN:ULTIMATE_CATALOG%%</div>
+  </details>
+  <p class="mut" style="margin-top:12px">使用者未標星級：1～3★皆以此招作絕招；有標星級：僅限所列星級。更多機制見<a href="#" data-nav="battle">戰鬥參考</a>。</p>
+</section>
+
 <section data-a="combos">
-  <div class="sec-head"><span class="sec-no">肆</span><h2>羈絆系統</h2><small>同門同路，其利斷金</small></div>
+  <div class="sec-head"><span class="sec-no">陸</span><h2>羈絆系統</h2><small>同門同路，其利斷金</small></div>
   <div class="lead">
     <p>同羈絆的棋子一起上陣，湊夠人數就點亮對應檔位。<span class="hl">要注意：大部分屬性和被動只加在真正計入羈絆的成員身上；標了「全隊」的才雨露均霑；治療光環這類效果，則是由成員當源頭去照顧隊友。</span>這裡面還有三個門道：</p>
     <ul style="margin:8px 0 0 1.2em">
@@ -360,10 +440,10 @@ footer p{margin:6px 0}
   <div class="cards">
     <div class="card"><h3>五絕</h3><p>不用湊齊五人：上陣兩名五絕，五絕成員就有攻防和速度加成；湊到四名數值更猛，還額外給一層能吃掉控制幀數的僵直護盾。</p></div>
     <div class="card"><h3>天龍三兄弟</h3><p>喬峰、段譽、虛竹三人聚首，兄弟三人同享大量生命與命中回藍——只加兄弟三人，並非全隊加成。</p></div>
-    <div class="card"><h3>神鵰俠侶</h3><p>楊過、小龍女一起上陣後，我方第一次有人被打到低血時觸發玉女素心，二人短時間內攻擊暴增。</p></div>
+    <div class="card"><h3>神鵰俠侶</h3><p>楊過、小龍女一起上陣後，羈絆成員進入低血時觸發玉女素心，二人短時間內攻擊暴增。</p></div>
     <div class="card"><h3>丐幫</h3><p>打贏主線時，場上至少得有一名丐幫成員活著，才發這筆額外金幣；發多少，看羈絆檔位和存活成員裡的最高星級。</p></div>
-    <div class="card"><h3>智將</h3><p>每贏一場主線就攢一次免費刷新，不用會一直留著；高階還能自選戰場，並明明白白給全隊加生命、攻擊與防禦。趙敏、黃蓉皆在其列。</p></div>
-    <div class="card"><h3>紅顏</h3><p>紅顏看的是名單而不是性別——只有在配置名單裡的角色才算數，並非所有女性角色自動入陣。成員能帶來治療光環、受治療加速與冷卻干擾，高檔位才追加攻擊冷卻延長。</p></div>
+    <div class="card"><h3>智將</h3><p>每贏一場主線可取得一次免費刷新，最多保留一次；高階還能自選戰場，並給全隊加生命、攻擊與防禦。趙敏、黃蓉皆在其列。</p></div>
+    <div class="card"><h3>紅顏</h3><p>紅顏看的是配置名單，並非所有女性角色自動入陣。成員帶來治療光環與受擊時延長敵方冷卻；更高檔位追加縮短友軍冷卻的光環，最高檔再增加命中時延長敵方冷卻。</p></div>
     <div class="card"><h3>獨行<span class="tag">反向羈絆</span></h3><p>獨行俠上了好幾個，也只有費用最高的那位獨享攻速防加成；其他非獨行隊友不礙事。等他戰至最後，還會再漲攻擊與格擋。</p></div>
     <div class="card"><h3>江湖龍套</h3><p>雜魚的逆襲：成員陣亡時殉爆傷敵，人越多炸得越狠。龍套也有春天。</p></div>
   </div>
@@ -375,14 +455,14 @@ footer p{margin:6px 0}
 </section>
 
 <section data-a="equip">
-  <div class="sec-head"><span class="sec-no">伍</span><h2>裝備與內功</h2><small>神兵利器，絕世心法</small></div>
+  <div class="sec-head"><span class="sec-no">柒</span><h2>裝備與內功</h2><small>神兵利器，絕世心法</small></div>
   <div class="cards">
     <div class="card">
       <h3>裝備怎麼來</h3>
       <ul>
         <li>推主線會多次觸發裝備獎勵，候選數量和最高層級由難度配置決定。獎勵列表會直接列出可購買的追加候選，並在條目旁標明費用；選中後按標價扣除金幣。</li>
         <li>遠征挑戰的通關獎勵中也包含裝備。</li>
-        <li>第 %%Y:nb:神兵商店.通关后%% 關（困難 %%Y:hb:神兵商店.通关后%% 關）後開放<b>神兵商店</b>，只售四階傳說裝備，每件 %%Y:nb:神兵商店.价格%% 金（困難 %%Y:hb:神兵商店.价格%% 金）。</li>
+        <li><b>神兵天賦</b>另有額外裝備獎勵，並可使用<b>神兵商店</b>。標準第 %%Y:nb:神兵商店.通關後%% 關、困難第 %%Y:hb:神兵商店.通關後%% 關後開放，只售四階傳說裝備，每件 %%Y:nb:神兵商店.價格%% 金（困難 %%Y:hb:神兵商店.價格%% 金）。其他天賦仍有基本獎勵與遠征裝備。</li>
       </ul>
       <p class="mut" style="margin-top:8px">全部 %%C:equip%% 件裝備的效果與專屬加成，以遊戲內「裝備管理」為準。</p>
     </div>
@@ -396,13 +476,18 @@ footer p{margin:6px 0}
       </ul>
     </div>
   </div>
+  <div class="card" style="margin-top:14px">
+    <h3>各難度的裝備獎勵時程</h3>
+    <p>所有天賦都有基本獎勵；神兵再取得額外獎勵。每次從免費候選中選一件，也可改選標價的追加候選。以下按目前配置列出通關關卡、層級範圍、候選數量與價格。</p>
+    %%GEN:EQUIPMENT_REWARDS%%
+  </div>
   <figure class="shot" style="margin-top:16px">
     %%SHOT:yitian-sword%%
     <figcaption>倚天劍示例：層級、類型、特殊效果、計作羈絆與角色專屬加成都集中顯示</figcaption>
   </figure>
   <div class="card" style="margin-top:14px">
     <h3>內功心法</h3>
-    <p>每擊敗一位強敵（每 %%Y:nb:进度.Boss间隔%% 關一位），就能從隨機 %%Y:ng:選擇數量%% 本還沒學過的內功裡挑一本；隨著主線進度推進，候選內功的最高層級也會提高。獎勵列表會直接列出可購買的追加候選，每本標價 %%Y:ng:追加選項費用%% 金，選中後直接扣款。內功一經習得，<span class="hl">全隊生效</span>，後期陣容強不強，很大程度就看它了。</p>
+    <p>每擊敗一位強敵（每 %%Y:nb:進度.Boss間隔%% 關一位），就能從隨機 %%Y:ng:選擇數量%% 本還沒學過的內功裡挑一本；隨著主線進度推進，候選內功的最高層級也會提高。獎勵列表會直接列出可購買的追加候選，每本標價 %%Y:ng:追加選項費用%% 金，選中後直接扣款。內功一經習得，<span class="hl">全隊生效</span>，後期陣容強不強，很大程度就看它了。</p>
     <p class="mut" style="margin-top:8px">共 %%C:neigong%% 種內功、分四個層級，具體效果以遊戲內「棋局總覽 → 查看內功」為準。</p>
   </div>
   <figure class="shot" style="margin-top:16px">
@@ -412,31 +497,32 @@ footer p{margin:6px 0}
 </section>
 
 <section data-a="difficulty">
-  <div class="sec-head"><span class="sec-no">陸</span><h2>三種棋局難度</h2><small>總有一款適合你</small></div>
+  <div class="sec-head"><span class="sec-no">捌</span><h2>三種棋局難度</h2><small>從入門到自選天賦</small></div>
   <div class="cards">
     <div class="card">
       <h3>簡單<span class="tag">新手推薦</span></h3>
       <ul>
         <li>入門模式，棋池固定 %%C:pool_easy%% 人，適合剛上手的新手。</li>
-        <li>商店每回合 %%Y:eb:商店数量%% 格；初始 %%Y:eb:经济.初始金币%% 金。</li>
-        <li>金幣還有額外加成：戰鬥勝利獎勵基礎 %%Y:eb:经济.战斗奖励基础%% 金、逐關遞增，最後一關再多 %%Y:eb:经济.战斗奖励增长%% 金——困難難度只有 %%Y:hb:经济.战斗奖励基础%% / %%Y:hb:经济.战斗奖励增长%% 金。</li>
-        <li>共 %%Y:eb:进度.总关卡数%% 關；神兵商店每件 %%Y:eb:神兵商店.价格%% 金。</li>
+        <li>商店每回合 %%Y:eb:商店數量%% 格；初始 %%Y:eb:經濟.初始金幣%% 金。</li>
+        <li>金幣還有額外加成：戰鬥勝利獎勵基礎 %%Y:eb:經濟.戰鬥獎勵基礎%% 金、逐關遞增，最後一關再多 %%Y:eb:經濟.戰鬥獎勵增長%% 金——困難難度只有 %%Y:hb:經濟.戰鬥獎勵基礎%% / %%Y:hb:經濟.戰鬥獎勵增長%% 金。</li>
+        <li>共 %%Y:eb:進度.總關卡數%% 關；固定神兵天賦，神兵商店每件 %%Y:eb:神兵商店.價格%% 金。</li>
       </ul>
     </div>
     <div class="card">
       <h3>標準<span class="tag">完整體驗</span></h3>
       <ul>
         <li>完整 %%C:pool%% 人棋池，需要進行棋子禁用來控制棋池。</li>
-        <li>商店每回合 %%Y:nb:商店数量%% 格；初始 %%Y:nb:经济.初始金币%% 金。</li>
-        <li>共 %%Y:nb:进度.总关卡数%% 關；神兵商店每件 %%Y:nb:神兵商店.价格%% 金。</li>
+        <li>商店每回合 %%Y:nb:商店數量%% 格；初始 %%Y:nb:經濟.初始金幣%% 金。</li>
+        <li>共 %%Y:nb:進度.總關卡數%% 關；固定神兵天賦，神兵商店每件 %%Y:nb:神兵商店.價格%% 金。</li>
       </ul>
     </div>
     <div class="card">
       <h3>困難<span class="tag">高手挑戰</span></h3>
       <ul>
-        <li>挑戰模式：共 %%Y:hb:进度.总关卡数%% 關，戰線拉得更長，金幣收益略少。</li>
-        <li>初始僅 %%Y:hb:经济.初始金币%% 金；敵人更早就帶著裝備上場，後期甚至一人兩件。</li>
-        <li>神兵商店第 %%Y:hb:神兵商店.通关后%% 關後開放，每件 %%Y:hb:神兵商店.价格%% 金。</li>
+        <li>挑戰模式：共 %%Y:hb:進度.總關卡數%% 關，戰線拉得更長，金幣收益略少。</li>
+        <li>初始僅 %%Y:hb:經濟.初始金幣%% 金；敵人更早就帶著裝備上場，後期甚至一人兩件。</li>
+        <li>可選 %%Y:hb:棋手天賦.可選%%，體驗不同的養成路線。</li>
+        <li>選神兵時，神兵商店第 %%Y:hb:神兵商店.通關後%% 關後開放，每件 %%Y:hb:神兵商店.價格%% 金。</li>
         <li>限定解鎖<b>離線對戰</b>。</li>
       </ul>
     </div>
@@ -450,7 +536,7 @@ footer p{margin:6px 0}
       <h3>禁棋系統（標準 / 困難）</h3>
       <ul>
         <li>把<b>已見過</b>的棋子永久踢出本局後續刷新池，候選池一下就乾淨了；當前商店裡已經擺著的不會被刪掉，照買不誤。</li>
-        <li>開局 %%Y:nb:基础禁棋数%% 個禁位，每升 1 級再增 %%Y:nb:每级增加禁棋数%% 個；後續關卡還會追加禁棋位（先禁低費，後禁高費）。</li>
+        <li>開局 %%Y:nb:基礎禁棋數%% 個禁位，每升 1 級再增 %%Y:nb:每級增加禁棋數%% 個；後續關卡還會追加禁棋位（先禁低費，後禁高費）。</li>
         <li>關卡獎勵帶來的強制禁棋階段，可以少選或乾脆放棄，但放棄的次數不會攢到以後。</li>
         <li>困難難度限定<b>離線對戰</b>：導出自己的存檔陣容、導入朋友的存檔，就能異步 PVP 一較高下（存檔帶校驗）。</li>
       </ul>
@@ -459,7 +545,7 @@ footer p{margin:6px 0}
 </section>
 
 <section data-a="expedition">
-  <div class="sec-head"><span class="sec-no">柒</span><h2>遠征挑戰</h2><small>不佔主線回合的額外試煉</small></div>
+  <div class="sec-head"><span class="sec-no">玖</span><h2>遠征挑戰</h2><small>不佔主線回合的額外試煉</small></div>
   <p class="lead">共 %%C:challenge%% 關額外挑戰，整備階段只要手裡有出戰棋子就能打，<span class="hl">輸了不罰，也不耽誤主線進度</span>。每關獎勵只能領一次；給幾個候選看關卡配置，並非固定三選一，可能是金幣、棋子、升星、內功或裝備——哪項當前沒有合法目標，那一項就乾脆不出現。從單挑三星喬峰的「聚賢莊內」，到全員三星神裝的「九陽宗師」，一關比一關難纏。</p>
   <div class="two-col" style="margin-top:16px">
     <figure class="shot">
@@ -479,64 +565,66 @@ footer p{margin:6px 0}
 </section>
 
 <section data-a="gallery">
-  <div class="sec-head"><span class="sec-no">捌</span><h2>群俠圖鑑</h2><small>%%C:pool%% 名角色，盡出自金庸筆下</small></div>
+  <div class="sec-head"><span class="sec-no">拾</span><h2>群俠圖鑑</h2><small>%%C:pool%% 名角色，盡出自金庸筆下</small></div>
   <p class="lead">標準棋池共 %%C:pool%% 名角色，分一至五費；五費宗師僅 6 名——王重陽、掃地老僧、無崖子、東方不敗、黃裳、張三丰。完整名單與費用以遊戲內「棋局總覽 → 棋子一覽」為準。</p>
 
   <div class="novel">射鵰英雄傳</div>
   <div class="gallery">
-    <div class="piece">%%HEAD:55%%<div class="nm">郭靖</div><div class="cost">3費</div>%%TIP:55%%</div>
-    <div class="piece">%%HEAD:56%%<div class="nm">黃蓉</div><div class="cost">2費</div>%%TIP:56%%</div>
-    <div class="piece">%%HEAD:57%%<div class="nm">黃藥師</div><div class="cost">4費</div>%%TIP:57%%</div>
-    <div class="piece">%%HEAD:69%%<div class="nm">洪七公</div><div class="cost">4費</div>%%TIP:69%%</div>
-    <div class="piece">%%HEAD:60%%<div class="nm">歐陽鋒</div><div class="cost">4費</div>%%TIP:60%%</div>
-    <div class="piece">%%HEAD:64%%<div class="nm">周伯通</div><div class="cost">4費</div>%%TIP:64%%</div>
-    <div class="piece">%%HEAD:129%%<div class="nm">王重陽</div><div class="cost">5費</div>%%TIP:129%%</div>
+    <div class="piece" tabindex="0">%%HEAD:55%%<div class="nm">郭靖</div><div class="cost">3費</div>%%TIP:55%%</div>
+    <div class="piece" tabindex="0">%%HEAD:56%%<div class="nm">黃蓉</div><div class="cost">2費</div>%%TIP:56%%</div>
+    <div class="piece" tabindex="0">%%HEAD:57%%<div class="nm">黃藥師</div><div class="cost">4費</div>%%TIP:57%%</div>
+    <div class="piece" tabindex="0">%%HEAD:69%%<div class="nm">洪七公</div><div class="cost">4費</div>%%TIP:69%%</div>
+    <div class="piece" tabindex="0">%%HEAD:60%%<div class="nm">歐陽鋒</div><div class="cost">4費</div>%%TIP:60%%</div>
+    <div class="piece" tabindex="0">%%HEAD:64%%<div class="nm">周伯通</div><div class="cost">4費</div>%%TIP:64%%</div>
+    <div class="piece" tabindex="0">%%HEAD:129%%<div class="nm">王重陽</div><div class="cost">5費</div>%%TIP:129%%</div>
   </div>
   <div class="novel">神鵰俠侶</div>
   <div class="gallery">
-    <div class="piece">%%HEAD:58%%<div class="nm">楊過</div><div class="cost">4費</div>%%TIP:58%%</div>
-    <div class="piece">%%HEAD:59%%<div class="nm">小龍女</div><div class="cost">3費</div>%%TIP:59%%</div>
-    <div class="piece">%%HEAD:161%%<div class="nm">李莫愁</div><div class="cost">1費</div>%%TIP:161%%</div>
-    <div class="piece">%%HEAD:62%%<div class="nm">金輪法王</div><div class="cost">4費</div>%%TIP:62%%</div>
-    <div class="piece">%%HEAD:603%%<div class="nm">郭襄</div><div class="cost">4費</div>%%TIP:603%%</div>
+    <div class="piece" tabindex="0">%%HEAD:58%%<div class="nm">楊過</div><div class="cost">4費</div>%%TIP:58%%</div>
+    <div class="piece" tabindex="0">%%HEAD:59%%<div class="nm">小龍女</div><div class="cost">3費</div>%%TIP:59%%</div>
+    <div class="piece" tabindex="0">%%HEAD:161%%<div class="nm">李莫愁</div><div class="cost">1費</div>%%TIP:161%%</div>
+    <div class="piece" tabindex="0">%%HEAD:62%%<div class="nm">金輪法王</div><div class="cost">4費</div>%%TIP:62%%</div>
+    <div class="piece" tabindex="0">%%HEAD:603%%<div class="nm">郭襄</div><div class="cost">4費</div>%%TIP:603%%</div>
   </div>
   <div class="novel">倚天屠龍記</div>
   <div class="gallery">
-    <div class="piece">%%HEAD:9%%<div class="nm">張無忌</div><div class="cost">4費</div>%%TIP:9%%</div>
-    <div class="piece">%%HEAD:605%%<div class="nm">趙敏</div><div class="cost">1費</div>%%TIP:605%%</div>
-    <div class="piece">%%HEAD:593%%<div class="nm">周芷若</div><div class="cost">3費</div>%%TIP:593%%</div>
-    <div class="piece">%%HEAD:13%%<div class="nm">謝遜</div><div class="cost">4費</div>%%TIP:13%%</div>
-    <div class="piece">%%HEAD:5%%<div class="nm">張三丰</div><div class="cost">5費</div>%%TIP:5%%</div>
+    <div class="piece" tabindex="0">%%HEAD:9%%<div class="nm">張無忌</div><div class="cost">4費</div>%%TIP:9%%</div>
+    <div class="piece" tabindex="0">%%HEAD:605%%<div class="nm">趙敏</div><div class="cost">1費</div>%%TIP:605%%</div>
+    <div class="piece" tabindex="0">%%HEAD:593%%<div class="nm">周芷若</div><div class="cost">3費</div>%%TIP:593%%</div>
+    <div class="piece" tabindex="0">%%HEAD:13%%<div class="nm">謝遜</div><div class="cost">4費</div>%%TIP:13%%</div>
+    <div class="piece" tabindex="0">%%HEAD:5%%<div class="nm">張三丰</div><div class="cost">5費</div>%%TIP:5%%</div>
   </div>
   <div class="novel">天龍八部</div>
   <div class="gallery">
-    <div class="piece">%%HEAD:50%%<div class="nm">喬峰</div><div class="cost">4費</div>%%TIP:50%%</div>
-    <div class="piece">%%HEAD:53%%<div class="nm">段譽</div><div class="cost">3費</div>%%TIP:53%%</div>
-    <div class="piece">%%HEAD:49%%<div class="nm">虛竹</div><div class="cost">4費</div>%%TIP:49%%</div>
-    <div class="piece">%%HEAD:51%%<div class="nm">慕容復</div><div class="cost">3費</div>%%TIP:51%%</div>
-    <div class="piece">%%HEAD:76%%<div class="nm">王語嫣</div><div class="cost">3費</div>%%TIP:76%%</div>
-    <div class="piece">%%HEAD:114%%<div class="nm">掃地老僧</div><div class="cost">5費</div>%%TIP:114%%</div>
+    <div class="piece" tabindex="0">%%HEAD:50%%<div class="nm">喬峰</div><div class="cost">4費</div>%%TIP:50%%</div>
+    <div class="piece" tabindex="0">%%HEAD:53%%<div class="nm">段譽</div><div class="cost">3費</div>%%TIP:53%%</div>
+    <div class="piece" tabindex="0">%%HEAD:49%%<div class="nm">虛竹</div><div class="cost">4費</div>%%TIP:49%%</div>
+    <div class="piece" tabindex="0">%%HEAD:51%%<div class="nm">慕容復</div><div class="cost">3費</div>%%TIP:51%%</div>
+    <div class="piece" tabindex="0">%%HEAD:76%%<div class="nm">王語嫣</div><div class="cost">3費</div>%%TIP:76%%</div>
+    <div class="piece" tabindex="0">%%HEAD:114%%<div class="nm">掃地老僧</div><div class="cost">5費</div>%%TIP:114%%</div>
   </div>
   <div class="novel">笑傲江湖 · 及其他</div>
   <div class="gallery">
-    <div class="piece">%%HEAD:35%%<div class="nm">令狐沖</div><div class="cost">4費</div>%%TIP:35%%</div>
-    <div class="piece">%%HEAD:27%%<div class="nm">東方不敗</div><div class="cost">5費</div>%%TIP:27%%</div>
-    <div class="piece">%%HEAD:612%%<div class="nm">韋小寶</div><div class="cost">2費</div>%%TIP:612%%</div>
-    <div class="piece">%%HEAD:1%%<div class="nm">胡斐</div><div class="cost">3費</div>%%TIP:1%%</div>
-    <div class="piece">%%HEAD:38%%<div class="nm">石破天</div><div class="cost">4費</div>%%TIP:38%%</div>
-    <div class="piece">%%HEAD:54%%<div class="nm">袁承志</div><div class="cost">2費</div>%%TIP:54%%</div>
-    <div class="piece">%%HEAD:37%%<div class="nm">狄雲</div><div class="cost">2費</div>%%TIP:37%%</div>
+    <div class="piece" tabindex="0">%%HEAD:35%%<div class="nm">令狐沖</div><div class="cost">4費</div>%%TIP:35%%</div>
+    <div class="piece" tabindex="0">%%HEAD:27%%<div class="nm">東方不敗</div><div class="cost">5費</div>%%TIP:27%%</div>
+    <div class="piece" tabindex="0">%%HEAD:612%%<div class="nm">韋小寶</div><div class="cost">2費</div>%%TIP:612%%</div>
+    <div class="piece" tabindex="0">%%HEAD:1%%<div class="nm">胡斐</div><div class="cost">3費</div>%%TIP:1%%</div>
+    <div class="piece" tabindex="0">%%HEAD:38%%<div class="nm">石破天</div><div class="cost">4費</div>%%TIP:38%%</div>
+    <div class="piece" tabindex="0">%%HEAD:54%%<div class="nm">袁承志</div><div class="cost">2費</div>%%TIP:54%%</div>
+    <div class="piece" tabindex="0">%%HEAD:37%%<div class="nm">狄雲</div><div class="cost">2費</div>%%TIP:37%%</div>
   </div>
 </section>
 
 <section data-a="tips">
-  <div class="sec-head"><span class="sec-no">玖</span><h2>江湖錦囊</h2><small>老玩家的經驗之談</small></div>
+  <div class="sec-head"><span class="sec-no">拾壹</span><h2>江湖錦囊</h2><small>老玩家的經驗之談</small></div>
   <ul class="tips">
-    <li><b>攢錢吃息</b>：主線勝利才按開戰前存款結算利息，上限 %%Y:nb:经济.利息上限%% 金。開戰後想攢就晚了——開戰前就想好，這筆錢留著吃息還是換成即時戰力。</li>
+    <li><b>攢錢吃息</b>：主線勝利才按開戰前存款結算利息，上限 %%Y:nb:經濟.利息上限%% 金。開戰後想攢就晚了——開戰前就想好，這筆錢留著吃息還是換成即時戰力。</li>
     <li><b>鎖定商店</b>：遇到想要卻買不起的棋子，鎖定留到下回合，別硬刷新。</li>
     <li><b>看中的趁早買</b>：沒買走的一至四費角色，拒絕名單只管緊接著的一次刷新，並非永久禁棋；五費角色不受此限。</li>
     <li><b>賣棋不虧</b>：出售全額返還，前期打工棋子放心換。</li>
-    <li><b>連敗不慌</b>：失敗零懲罰，先把等級和裝備補起來再戰，或花 %%Y:nb:经济.逆天改命费用%% 金逆天改命換個對手。</li>
+    <li><b>連敗不慌</b>：失敗零懲罰，先把等級和裝備補起來再戰，或花 %%Y:nb:經濟.逆天改命費用%% 金逆天改命換個對手。</li>
+    <li><b>天賦配養法</b>：神兵多拿裝備，晚成保留高勝場主力；賭徒的付費刷新優先為已上陣低費棋子累積賭運，中堅則需要非三費友軍的額外星級來支援三費核心。</li>
+    <li><b>看絕招再排陣</b>：護身與治療放在能照顧隊友的位置，控場配合主力輸出時機；別只看面板攻擊，也要看絕招能替全隊做什麼。</li>
     <li><b>羈絆優先</b>：低費棋子湊出關鍵羈絆，往往強過散兵遊勇的高費棋子。</li>
     <li><b>智將理財</b>：智將羈絆每贏一場主線送一次免費刷新，不用就先留著——但不會越攢越多。</li>
     <li><b>丐幫開源</b>：丐幫成員得活到主線勝利結算才產金；別讓唯一的丐幫棋子太早倒下。</li>
@@ -546,7 +634,7 @@ footer p{margin:6px 0}
 </section>
 
 <section data-a="battle">
-  <div class="sec-head"><span class="sec-no">拾</span><h2>自動戰鬥機制</h2><small>供復盤與查證的戰鬥參考</small></div>
+  <div class="sec-head"><span class="sec-no">拾貳</span><h2>自動戰鬥機制</h2><small>供復盤與查證的戰鬥參考</small></div>
   <p class="lead">開戰後沒人閒著：所有棋子按幀同時行動——接敵、出招、打出近戰判定或放飛投射物，再一一結算命中、傷害與狀態。<span class="hl">這一章講的是這些機制怎麼串起來；具體幀數與倍率可能隨版本調整，不必死記。</span></p>
 
   <div class="card" style="margin-top:14px">
@@ -564,7 +652,7 @@ footer p{margin:6px 0}
     </div>
     <div class="card">
       <h3>內力與絕招循環</h3>
-      <p>出招、自然恢復、命中敵人和承受傷害都能獲得內力，回內加成會提高這些收益。內力充滿後，棋子會自動消耗全部內力施放絕招。<b>封內期間無法獲得內力</b>，因此下一次絕招會延後。不同攻擊形態的絕招變化，見下方「點 / 線 / 十字 / 面」說明。</p>
+      <p>出招、自然恢復、命中敵人和承受傷害都能獲得內力，回內加成會提高這些收益。內力充滿後，棋子會自動消耗全部內力施放絕招。<b>封內期間無法獲得內力</b>，因此下一次絕招會延後。中堅提供開場內力，賭徒成功免死時會額外嘗試施放絕招；各門武功的特殊效果見<a href="#" data-nav="ultimates">特色絕招</a>。</p>
     </div>
   </div>
 
@@ -591,7 +679,7 @@ footer p{margin:6px 0}
         </tbody>
       </table>
     </div>
-    <p class="mut">部分羈絆與裝備還會帶來遠程化、滑步攻擊、閃擊、追加彈、連鎖彈、反彈這些本事，把上面的基礎行為改出各種花樣。</p>
+    <p class="mut">上表是攻擊形態的基礎行為；絕招本身的配置，以及羈絆與裝備，還會帶來遠程化、滑步攻擊、閃擊、追加彈、連鎖彈、反彈等變化。</p>
   </div>
 
   <div class="two-col" style="margin-top:16px">
@@ -621,7 +709,7 @@ footer p{margin:6px 0}
 </section>
 
 <section data-a="faq">
-  <div class="sec-head"><span class="sec-no">拾壹</span><h2>PC 版常見問題</h2><small>Windows 啟動與運行環境</small></div>
+  <div class="sec-head"><span class="sec-no">拾叄</span><h2>PC 版常見問題</h2><small>Windows 啟動與運行環境</small></div>
   <div class="cards">
     <div class="card">
       <h3>Windows 版怎麼啟動？</h3>
@@ -636,17 +724,17 @@ footer p{margin:6px 0}
 
 </main>
 
-<footer data-a="footer" id="footer">
+<footer data-a="footer">
   <div class="wrap">
     <p><b class="kai" style="color:var(--red2);font-size:17px">金群自走棋</b> —— 金庸群俠傳復刻版（kys-cpp）自走棋模式</p>
     <p>網頁版即點即玩：<a href="%%PLAY_URL%%" target="_blank" rel="noopener">%%PLAY_URL%%</a>（推薦 Edge / Firefox / Chrome / Opera）</p>
     <p>開源倉庫：<a href="https://github.com/scarsty/kys-cpp" target="_blank" rel="noopener">github.com/scarsty/kys-cpp</a> ｜ 玩家交流 QQ群：910723737</p>
-    <p>本頁為入門指引，僅梳理玩法梗概；棋子、羈絆、裝備、內功等完整名單與數值，請以遊戲內各項「一覽」界面為準。頁面截圖與角色頭像取自遊戲資源。</p>
+    <p>本頁的玩法數值、天賦說明、絕招目錄與裝備獎勵時程由目前配置生成；遊戲更新後請以新版頁面及遊戲內各項「一覽」為準。頁面截圖與角色頭像取自遊戲資源。</p>
     <p>開源免費項目，僅供學習交流。《金庸群俠傳》及金庸先生作品角色之權利歸原權利人所有。</p>
   </div>
 </footer>
 
-<button id="top-btn" title="回到頂部">↑</button>
+<button class="top-btn" title="回到頂部" aria-label="回到頂部">↑</button>
 <!--EBODY-->
 <script>
 (function(){
@@ -672,9 +760,27 @@ footer p{margin:6px 0}
       if(el){ el.scrollIntoView({behavior:'smooth'}); }
     }
   });
-  var topBtn=document.getElementById('top-btn');
-  window.addEventListener('scroll', function(){ topBtn.style.display = window.scrollY>600 ? 'block':'none'; });
-  topBtn.onclick=function(){ window.scrollTo({top:0,behavior:'smooth'}); };
+  document.addEventListener('input', function(ev){
+    if(!ev.target.matches('.ultimate-search')) return;
+    var catalog=ev.target.closest('.ultimate-catalog');
+    var query=ev.target.value.trim().toLocaleLowerCase();
+    var cards=catalog.querySelectorAll('.ultimate-list .ultimate-card');
+    var found=0;
+    for(var i=0;i<cards.length;i++){
+      cards[i].hidden=cards[i].textContent.toLocaleLowerCase().indexOf(query)===-1;
+      if(!cards[i].hidden) found++;
+    }
+    catalog.querySelector('.catalog-empty').hidden=found>0;
+  });
+  var topBtns=document.querySelectorAll('.top-btn');
+  function updateTopButtons(){
+    for(var i=0;i<topBtns.length;i++){ topBtns[i].style.display=window.scrollY>600 ? 'block':'none'; }
+  }
+  window.addEventListener('scroll', updateTopButtons);
+  updateTopButtons();
+  for(var i=0;i<topBtns.length;i++){
+    topBtns[i].onclick=function(){ window.scrollTo({top:0,behavior:'smooth'}); };
+  }
 })();
 </script>
 </body>

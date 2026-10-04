@@ -21,7 +21,8 @@ from pathlib import Path
 
 
 MANIFEST_HEADER = "KYS_ATLAS_V1"
-DEFAULT_SOURCE = Path("work/game-dev/resource/smap")
+DEFAULT_SOURCE = Path("tmp/asset-sources/smap")
+DEFAULT_OUTPUT = Path("output/assets/smap")
 ATLAS_EXTENSION = ".atlas"
 MANIFEST_EXTENSION = ".atlas.json"
 
@@ -84,18 +85,19 @@ def build_atlas(source_dir: Path, output_base: Path) -> tuple[int, int]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Pack work/game-dev/resource/smap into an atlas blob")
+    parser = argparse.ArgumentParser(description="Pack the full SMAP source into an atlas blob")
     parser.add_argument(
         "source",
         nargs="?",
         type=Path,
         default=DEFAULT_SOURCE,
-        help="smap directory to pack (default: work/game-dev/resource/smap)",
+        help="smap directory to pack (default: tmp/asset-sources/smap)",
     )
     parser.add_argument(
         "--output-base",
         type=Path,
-        help="output base path without extension (default: sibling path matching the source name)",
+        default=DEFAULT_OUTPUT,
+        help="output base path without extension (default: output/assets/smap)",
     )
     return parser.parse_args()
 
@@ -106,7 +108,7 @@ def main() -> int:
     if not source_dir.is_dir():
         raise SystemExit(f"Source directory not found: {source_dir}")
 
-    output_base = args.output_base.resolve() if args.output_base else source_dir.parent / source_dir.name
+    output_base = args.output_base.resolve()
     output_base.parent.mkdir(parents=True, exist_ok=True)
 
     file_count, total_bytes = build_atlas(source_dir, output_base)

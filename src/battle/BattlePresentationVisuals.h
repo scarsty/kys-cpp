@@ -12,24 +12,18 @@
 namespace KysChess::Battle
 {
 
-inline constexpr char BattleCueVisualPathPrefix[] = "chess-effects/cue-";
-inline constexpr char BattleCuePositiveVisualPath[] = "chess-effects/cue-positive";
-inline constexpr char BattleCueNegativeVisualPath[] = "chess-effects/cue-negative";
-inline constexpr char BattleCueBleedVisualPath[] = "chess-effects/cue-bleed";
-inline constexpr char BattleCueControlVisualPath[] = "chess-effects/cue-control";
-inline constexpr char BattleCueCleanseVisualPath[] = "chess-effects/cue-cleanse";
-inline constexpr char BattleAreaSandVisualPath[] = "chess-effects/area-sand";
-inline constexpr char BattleAreaWardVisualPath[] = "chess-effects/area-ward";
-inline constexpr char BattleAreaFireVisualPath[] = "chess-effects/area-fire";
-inline constexpr char BattleCueSwordVisualPath[] = "chess-effects/cue-sword";
-inline constexpr char BattleCueGuardianVisualPath[] = "chess-effects/cue-guardian";
-inline constexpr char BattleCueFireVisualPath[] = "chess-effects/cue-fire";
+inline constexpr char BattleCueVisualPathPrefix[] = "eft/cue-";
+inline constexpr char BattleCuePositiveVisualPath[] = "eft/cue-positive";
+inline constexpr char BattleCueCleanseVisualPath[] = "eft/cue-cleanse";
+inline constexpr char BattleAreaSandVisualPath[] = "eft/area-sand";
+inline constexpr char BattleAreaWardVisualPath[] = "eft/area-ward";
+inline constexpr char BattleAreaFireVisualPath[] = "eft/area-fire";
+inline constexpr char BattleCueSwordVisualPath[] = "eft/cue-sword";
+inline constexpr char BattleCueGuardianVisualPath[] = "eft/cue-guardian";
+inline constexpr char BattleCueFireVisualPath[] = "eft/cue-fire";
 
-inline constexpr std::array<std::string_view, 11> BattleEffectVisualPaths = {
+inline constexpr std::array<std::string_view, 8> BattleEffectVisualPaths = {
     BattleCuePositiveVisualPath,
-    BattleCueNegativeVisualPath,
-    BattleCueBleedVisualPath,
-    BattleCueControlVisualPath,
     BattleCueCleanseVisualPath,
     BattleAreaSandVisualPath,
     BattleAreaWardVisualPath,

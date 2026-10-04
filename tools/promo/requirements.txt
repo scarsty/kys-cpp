@@ -1,0 +1,3 @@
+PyYAML>=6.0
+Pillow>=10.0
+opencc-python-reimplemented>=0.1.7
