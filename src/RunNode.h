@@ -81,6 +81,7 @@ protected:
     int deal_event_ = 1;
 
     static void invalidatePointerOwnership();
+    virtual void onToggleFullscreen();
 
 public:
     RunNode() {}
@@ -323,7 +324,7 @@ private:
     bool bubblePointerEventPath(const std::shared_ptr<RunNode>& target, const PointerEvent& event);
     void clearPointerHoverSelfChilds();
     void dispatchPointerEvent(const PointerEvent& event);
-    void handleLegacyGlobalEvent(const EngineEvent& event);
+    bool handleLegacyGlobalEvent(const EngineEvent& event);
     static void resetPointerInputForSystemTransition();
     bool containsPointerTarget(const std::shared_ptr<RunNode>& target) const;
     static void cancelPointerCapture();

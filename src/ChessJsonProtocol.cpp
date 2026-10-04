@@ -793,6 +793,11 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
                 "invalid_params",
                 "detail 必須是 summary、compact 或 full");
         }
+        const auto& prepared = session_->state().preparedBattle;
+        if (prepared && prepared->chosenMapId < 0 && !prepared->mapCandidates.empty())
+        {
+            return response(request->id, false, {}, "map_selection_required", "請先使用 choose_map 選擇戰場，再檢視部署");
+        }
         auto inspection = inspectPreparedBattleDto(*session_, *detail);
         if (!inspection)
         {

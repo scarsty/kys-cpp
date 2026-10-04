@@ -510,24 +510,15 @@ void appendDamageModifierLog(
     logEvents.push_back(std::move(event));
 }
 
-const BattleStatusContribution* appliedStatusContribution(
-    const BattleStatusApplyResult& result,
-    const EffectCommandMetadata& metadata,
-    const ApplyStatusEffectCommand& command)
+const BattleStatusContribution& appliedStatusContribution(const BattleStatusApplyResult& result)
 {
-    const auto provenance = BattleEffectCommandSystem::statusProducerProvenance(metadata);
-    const auto found = std::ranges::find_if(
+    assert(result.appliedContributionSequence);
+    const auto found = std::ranges::find(
         result.target.effects.statuses,
-        [&](const auto& status)
-        {
-            return status.kind == command.status
-                && status.producer
-                && *status.producer == provenance.producer
-                && status.origin
-                && *status.origin == provenance.origin;
-        });
+        *result.appliedContributionSequence,
+        &BattleStatusContribution::appliedSequence);
     assert(found != result.target.effects.statuses.end());
-    return &*found;
+    return *found;
 }
 
 void appendPersistentBehaviorModifierLogs(
@@ -660,10 +651,10 @@ void appendEffectStatusLogEvents(
         return;
     }
 
-    const auto* contribution = appliedStatusContribution(result, metadata, command);
+    const auto& contribution = appliedStatusContribution(result);
     const int stackCount = statusCatalogEntry(command.status).quantity != StatusQuantityModel::None
         && statusCatalogEntry(command.status).quantity != StatusQuantityModel::Internal
-        ? contribution->stacks
+        ? contribution.stacks
         : 0;
     const int durationFrames = result.appliedDurationFrames;
 
@@ -681,7 +672,7 @@ void appendEffectStatusLogEvents(
         logEvents,
         metadata,
         command.status,
-        *contribution,
+        contribution,
         command,
         frame);
 }

@@ -1,6 +1,7 @@
 #include "SystemSettings.h"
 
 #include "Audio.h"
+#include "Engine.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "filefunc.h"
@@ -59,8 +60,18 @@ void SystemSettings::clamp(SystemSettingsData& data)
     data.battleSpeed = GameUtil::limit(data.battleSpeed, 0, 2);
 }
 
-void SystemSettings::applyRuntime() const
+void SystemSettings::applyRuntime()
 {
+    auto* engine = Engine::getInstance();
+    // 設定先於視窗載入；初始化完成後再套用桌面全螢幕模式。
+    if (Engine::supportsDesktopFullscreen() && engine->getWindow())
+    {
+        if (!engine->setFullscreen(data_.borderlessFullscreen))
+        {
+            data_.borderlessFullscreen = engine->isFullScreen();
+        }
+    }
+
     auto* audio = Audio::getInstance();
     audio->setVolume(data_.musicVolume);
     audio->setVolumeWav(data_.soundVolume);
@@ -124,4 +135,11 @@ void SystemSettings::setPositionSwapEnabled(bool value)
     auto updated = data_;
     updated.positionSwapEnabled = value;
     update(updated);
+}
+
+void SystemSettings::setBorderlessFullscreen(bool value, bool persist)
+{
+    auto updated = data_;
+    updated.borderlessFullscreen = value;
+    update(updated, persist);
 }

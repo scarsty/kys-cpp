@@ -625,8 +625,22 @@ void RunNode::dispatchPointerEvent(const PointerEvent& event)
     target->onPointerEvent(event);
 }
 
-void RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
+void RunNode::onToggleFullscreen()
 {
+    Engine::getInstance()->toggleFullscreen();
+}
+
+bool RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
+{
+    if (Engine::isFullscreenHotkey(event))
+    {
+        if (event.type == EVENT_KEY_DOWN && !event.key.repeat)
+        {
+            onToggleFullscreen();
+        }
+        return true;
+    }
+
     if (event.type == EVENT_WINDOW_RESIZED)
     {
         Engine::getInstance()->commitPresentPosition(
@@ -667,6 +681,7 @@ void RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
     {
         UISystem::askExit(1);
     }
+    return false;
 }
 
 void RunNode::resetPointerInputForSystemTransition()
@@ -791,14 +806,16 @@ void RunNode::dealEventSelfChilds(bool check_event)
         {
             const auto queuedEvent = input.popPending();
             const auto& event = queuedEvent.event();
-            handleLegacyGlobalEvent(event);
-            if (input.isApplicationContextMenuEvent(event))
+            if (!handleLegacyGlobalEvent(event))
             {
-                Engine::getInstance()->processImGuiApplicationContextMenu();
-            }
-            else
-            {
-                Engine::getInstance()->processImGuiEvent(event);
+                if (input.isApplicationContextMenuEvent(event))
+                {
+                    Engine::getInstance()->processImGuiApplicationContextMenu();
+                }
+                else
+                {
+                    Engine::getInstance()->processImGuiEvent(event);
+                }
             }
         }
         while (!input.empty() && input.frontIsPointer())
@@ -898,10 +915,10 @@ void RunNode::dealEventSelfChilds(bool check_event)
     {
         updateQueuedEvent.emplace(input.popPending());
         const auto& event = updateQueuedEvent->event();
-        handleLegacyGlobalEvent(event);
-        const bool consumedByImGui = input.isApplicationContextMenuEvent(event)
+        const bool consumedByGlobal = handleLegacyGlobalEvent(event);
+        const bool consumedByImGui = !consumedByGlobal && (input.isApplicationContextMenuEvent(event)
             ? Engine::getInstance()->processImGuiApplicationContextMenu()
-            : Engine::getInstance()->processImGuiEvent(event);
+            : Engine::getInstance()->processImGuiEvent(event));
         if (consumedByImGui && input.isApplicationContextMenuEvent(event))
         {
             Engine::getInstance()->cancelImGuiPrimaryTouch();
@@ -910,7 +927,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
             onPointerInputReset();
             ++ownership_epoch_;
         }
-        if (!consumedByImGui)
+        if (!consumedByGlobal && !consumedByImGui)
         {
             updateEvent = event;
         }

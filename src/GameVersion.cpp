@@ -53,4 +53,13 @@ std::string loadGameVersion(const std::filesystem::path& dataRoot)
     return "dev";
 }
 
+bool chessGameVersionsCompatible(std::string_view savedVersion, std::string_view currentVersion)
+{
+    // 正式版相容範圍須經舊重播驗證後明確擴充，不依版本號自動放行。
+    return savedVersion == currentVersion
+        || savedVersion == "dev"
+        || currentVersion == "dev"
+        || (savedVersion == "0.2.17" && currentVersion == "0.2.18");
+}
+
 }

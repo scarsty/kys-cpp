@@ -149,6 +149,32 @@ TEST_CASE("direct restore accepts dev versions and rejects incompatible release 
     CHECK(session.state() == originalState);
 }
 
+TEST_CASE("0.2.18 loads and continues 0.2.17 saves with the original replay header", "[chess][checkpoint][save][version]")
+{
+    const auto previousContent = managementContent(100, Difficulty::Normal, "0.2.17");
+    const auto currentContent = managementContent(100, Difficulty::Normal, "0.2.18");
+    ChessGameSession previous(previousContent, 77);
+    REQUIRE(previous.submitAndDrain(lockAction(true)).accepted);
+    const auto checkpoint = ChessSessionCheckpoint::capture(previous, 1);
+    ChessSaveStore saves;
+    REQUIRE(saves.importSave("previous", checkpoint.serializeJson(), currentContent->gameVersion())
+        == ChessCheckpointError::None);
+    ChessGameSession current(currentContent, 99);
+    ChessTimelineReplacement replacement;
+    REQUIRE(saves.load("previous", current, replacement) == ChessCheckpointError::None);
+    CHECK(current.state() == previous.state());
+    CHECK(current.random().state() == previous.random().state());
+    CHECK(current.journal().header().gameVersion == "0.2.17");
+    REQUIRE(current.submitAndDrain(lockAction(false)).accepted);
+    const auto continued = ChessSessionCheckpoint::capture(current, 2);
+    CHECK(continued.gameVersion() == "0.2.17");
+    CHECK(ChessReplayVerifier::verify(currentContent, continued.replay).valid);
+
+    auto incompatible = checkpoint;
+    incompatible.replay.header.contentFingerprint[0] ^= 1;
+    CHECK(incompatible.restore(current) == ChessCheckpointError::IncompatibleContent);
+}
+
 TEST_CASE("snapshot cheats load immediately and explicit replay audit finds first divergence", "[chess][checkpoint][save][replay]")
 {
     const auto content = managementContent();

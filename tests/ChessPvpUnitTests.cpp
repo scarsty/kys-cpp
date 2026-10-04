@@ -88,6 +88,24 @@ TEST_CASE("offline PvP verifier accepts direct checkpoints and full slot envelop
     CHECK(full.composition == direct.composition);
 }
 
+TEST_CASE("0.2.18 offline PvP verifies unchanged 0.2.17 saves", "[chess][pvp][save][version]")
+{
+    const auto previous = checkpointFixture(Difficulty::Hard, "0.2.17");
+    const auto currentContent = previous.content->withGameVersion("0.2.18");
+    for (const auto& payload : {previous.checkpoint.serializeJson(), fullSlotPayload(previous.checkpoint)})
+    {
+        const auto result = ChessPvpSaveVerifier::verify(currentContent, payload);
+        REQUIRE(result.valid);
+        CHECK(result.gameVersion == "0.2.17");
+        CHECK(result.sequence == previous.checkpoint.replay.decisions.size());
+    }
+    auto altered = previous.checkpoint;
+    altered.state.money += 1;
+    const auto result = ChessPvpSaveVerifier::verify(currentContent, altered.serializeJson());
+    CHECK_FALSE(result.valid);
+    CHECK(result.error == ChessPvpSaveError::SnapshotStateMismatch);
+}
+
 TEST_CASE("external save payload parser distinguishes checkpoints from full slots", "[chess][checkpoint][save]")
 {
     const auto fixture = checkpointFixture();

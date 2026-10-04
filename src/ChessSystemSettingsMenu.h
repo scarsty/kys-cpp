@@ -33,6 +33,12 @@ inline int settingsFooterActionY(int panelY, int panelH, int rowH, int bottomPad
     return panelY + panelH - bottomPadding - rowH;
 }
 
+inline int settingsRowHeight(int panelH, int settingRows, int rowGap, int bottomPadding, int dividerGap)
+{
+    constexpr int firstRowY = 82;
+    return std::min(44, (panelH - firstRowY - bottomPadding - dividerGap - (settingRows - 1) * rowGap) / (settingRows + 1));
+}
+
 class ChessSystemSettingsMenu : public RunNode
 {
 public:
@@ -47,6 +53,8 @@ public:
     void onPressedCancel() override;
 
 private:
+    void onToggleFullscreen() override;
+
     enum class Row
     {
         ManualCamera,
@@ -57,6 +65,9 @@ private:
         SoundVolume,
         BattleSpeed,
         Language,
+#if !defined(__ANDROID__) && !defined(__EMSCRIPTEN__)
+        BorderlessFullscreen,
+#endif
         Done,
         Cancel,
         Count

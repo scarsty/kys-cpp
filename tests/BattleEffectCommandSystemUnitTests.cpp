@@ -527,6 +527,7 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
         false);
     REQUIRE(first.target.effects.statuses.size() == 1);
     const auto firstSequence = first.target.effects.statuses.front().appliedSequence;
+    CHECK(first.appliedContributionSequence == firstSequence);
     CHECK(first.target.effects.statuses.front().familyLocalLimit == 1);
 
     auto aliasMetadata = firstMetadata;
@@ -541,6 +542,7 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
         {},
         false);
     CHECK(alias.outcome == BattleStatusApplyOutcome::Refreshed);
+    CHECK(alias.appliedContributionSequence == firstSequence);
     REQUIRE(alias.target.effects.statuses.size() == 1);
     const auto& refreshedOriginal = alias.target.effects.statuses.front();
     REQUIRE(refreshedOriginal.producer);
@@ -558,6 +560,7 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
         {},
         false);
     CHECK(refresh.outcome == BattleStatusApplyOutcome::Refreshed);
+    CHECK(refresh.appliedContributionSequence == firstSequence);
     REQUIRE(refresh.target.effects.statuses.size() == 1);
     CHECK(refresh.target.effects.statuses.front().appliedSequence
         == firstSequence);
@@ -568,6 +571,41 @@ TEST_CASE("BattleEffectCommandSystem bounds duration-only behavior aliases to on
         refresh.target.effects.statuses.front().behavior,
         firstBehavior));
     CHECK(refresh.target.effects.statuses.front().remainingFrames == 120);
+}
+
+TEST_CASE("BattleCore logs the retained contribution when another runtime refreshes its family",
+          "[battle][core][status][family][regression]")
+{
+    auto state = makeState();
+    std::array<std::byte, 4096> storage{};
+    auto frame = BattleFrameContext::begin(state, {}, storage.data(), storage.size());
+    ApplyStatusAction action;
+    action.status = BattleStatusKind::Shadowless;
+    action.durationFrames = 60;
+    action.quantity = NoStatusQuantity{};
+    action.reapplication = StatusReapplicationPolicy::RefreshDuration;
+    action.behavior = trueQiStatusBehavior(9);
+    auto source = metadata(106, 2);
+    source.binding.runtimeInstanceId = 11;
+    const auto apply = [&] {
+        const EffectCommand command{source, statusApplication(action), {.frame = 1}};
+        CoreDetail::reduceEffectCommand(state, frame, frame.currentFrameDamage(), command);
+    };
+    apply();
+    const auto firstSequence = state.units.require(2).status.effects.statuses.front().appliedSequence;
+    frame.logEvents.clear();
+    source.binding.runtimeInstanceId = 12;
+    action.durationFrames = 90;
+    apply();
+
+    const auto& statuses = state.units.require(2).status.effects.statuses;
+    REQUIRE(statuses.size() == 1);
+    CHECK(statuses.front().appliedSequence == firstSequence);
+    CHECK(statuses.front().remainingFrames == 90);
+    REQUIRE(statuses.front().producer);
+    CHECK(statuses.front().producer->binding.runtimeInstanceId == 11);
+    REQUIRE_FALSE(frame.logEvents.empty());
+    CHECK(frame.logEvents.front().amount == 90);
 }
 
 BattleRuntimeState makeState()

@@ -324,6 +324,20 @@ TEST_CASE("JSON protocol prepared battle inspection layers positioning and metad
     CHECK_FALSE(prepared.result->str.contains("\"stats_note\""));
     CHECK_FALSE(prepared.result->str.contains("\"abilities\""));
 
+    REQUIRE(session->state().preparedBattle);
+    REQUIRE(session->state().preparedBattle->chosenMapId < 0);
+    const auto beforeInspection = session->observe().stateHash;
+    for (const auto params : {R"({})", R"({"detail":"compact"})",
+                             R"({"detail":"full"})", R"({"include_board":true})"})
+    {
+        const auto pending = parseResponse(protocol.handleLine(std::format(
+            R"({{"id":7,"method":"inspect_prepared_battle","params":{}}})", params)));
+        CHECK_FALSE(pending.ok);
+        CHECK(pending.error_code == "map_selection_required");
+        REQUIRE(pending.error_message);
+        CHECK(pending.error_message->contains("choose_map"));
+        CHECK(session->observe().stateHash == beforeInspection);
+    }
     REQUIRE(parseResponse(protocol.handleLine(
         R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":7}}})")).ok);
     const auto summary = parseResponse(protocol.handleLine(

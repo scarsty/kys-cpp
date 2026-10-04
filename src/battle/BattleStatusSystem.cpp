@@ -934,6 +934,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             const bool replaced = active != effects.statuses.end();
             effects.clear(BattleStatusKind::Poison);
             auto& poison = appendStatus(effects, request, durationFrames);
+            result.appliedContributionSequence = poison.appliedSequence;
             result.applied = true;
             result.value = poisonDamagePercent(poison.behavior);
             result.outcome = replaced
@@ -965,6 +966,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             return status.kind == BattleStatusKind::Poison;
         });
         auto& poison = appendStatus(effects, request, durationFrames);
+        result.appliedContributionSequence = poison.appliedSequence;
         result.applied = true;
         result.value = incomingDamage;
         result.outcome = hasActive
@@ -980,6 +982,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         if (!bleed)
         {
             auto& applied = appendStatus(effects, request, 0);
+            result.appliedContributionSequence = applied.appliedSequence;
             result.applied = applied.stacks > 0;
             result.value = applied.stacks;
             result.outcome = BattleStatusApplyOutcome::Applied;
@@ -987,6 +990,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         }
 
         assert(bleed->targetTotalLimit);
+        result.appliedContributionSequence = bleed->appliedSequence;
         const int before = bleed->stacks;
         const int ceiling = std::max(
             *bleed->targetTotalLimit,
@@ -1048,6 +1052,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         }
         stun->remainingFrames = after;
         stun->maximumFrames = std::max(stun->maximumFrames, after);
+        result.appliedContributionSequence = stun->appliedSequence;
 
         result.applied = after > before;
         result.value = after - before;
@@ -1080,6 +1085,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         }
         mpBlock->remainingFrames = after;
         mpBlock->maximumFrames = std::max(mpBlock->maximumFrames, after);
+        result.appliedContributionSequence = mpBlock->appliedSequence;
         result.applied = after > before;
         result.value = after - before;
         result.outcome = before > 0
@@ -1096,6 +1102,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         const bool replaced = effects.has(request.kind);
         effects.clear(request.kind);
         auto& selected = appendStatus(effects, request, durationFrames);
+        result.appliedContributionSequence = selected.appliedSequence;
         result.applied = true;
         result.value = selected.stacks;
         if (!replaced)
@@ -1127,7 +1134,9 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     });
     auto append = [&](const BattleStatusApplyRequest& applied) -> BattleStatusContribution&
     {
-        return appendStatus(effects, applied, durationFrames);
+        auto& contribution = appendStatus(effects, applied, durationFrames);
+        result.appliedContributionSequence = contribution.appliedSequence;
+        return contribution;
     };
 
     switch (request.stack)
@@ -1180,6 +1189,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
                         && sameProducerFamily(status, request);
                 });
                 assert(existingFamily != effects.statuses.end());
+                result.appliedContributionSequence = existingFamily->appliedSequence;
                 existingFamily->remainingFrames = durationFrames;
                 existingFamily->maximumFrames = std::max(
                     existingFamily->maximumFrames,
@@ -1197,6 +1207,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         else
         {
             compatible->remainingFrames = durationFrames;
+            result.appliedContributionSequence = compatible->appliedSequence;
             compatible->maximumFrames = std::max(
                 compatible->maximumFrames,
                 durationFrames);
@@ -1231,6 +1242,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
                     allocated,
                     0,
                     *request.stackLimit);
+                result.appliedContributionSequence = compatible->appliedSequence;
                 if (durationFrames > 0)
                 {
                     compatible->remainingFrames = durationFrames;

@@ -148,6 +148,32 @@ TEST_CASE("replay prefix reconstruction preserves compatible cross-version evide
     {
         verifyPrefix("dev", "0.2.16");
     }
+    SECTION("0.2.17 replay under the compatible 0.2.18 release")
+    {
+        verifyPrefix("0.2.17", "0.2.18");
+    }
+}
+
+TEST_CASE("0.2.18 verifies original 0.2.17 evidence without weakening integrity checks", "[chess][replay][verify][version]")
+{
+    auto replay = shortReplay("0.2.17");
+    const auto content = managementContent(100, Difficulty::Normal, "0.2.18");
+    CHECK(ChessReplayVerifier::verify(content, replay).valid);
+    CHECK_FALSE(ChessReplayVerifier::verify(
+        managementContent(100, Difficulty::Normal, "0.2.16"), replay).valid);
+    CHECK_FALSE(ChessReplayVerifier::verify(
+        managementContent(100, Difficulty::Normal, "0.2.19"), replay).valid);
+
+    SECTION("changed content")
+    {
+        replay.header.contentFingerprint[0] ^= 1;
+        CHECK(ChessReplayVerifier::verify(content, replay).mismatch == ChessReplayMismatch::Header);
+    }
+    SECTION("changed evidence")
+    {
+        replay.decisions[0].evidenceHash[0] ^= 1;
+        CHECK(ChessReplayVerifier::verify(content, replay).mismatch == ChessReplayMismatch::Evidence);
+    }
 }
 
 TEST_CASE("fresh session verifier identifies altered actions and evidence", "[chess][replay][verify]")

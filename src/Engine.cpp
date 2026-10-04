@@ -192,6 +192,11 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         imgui_ = std::make_unique<ImGuiLayer>();
     }
     imgui_->init(window_, renderer_);
+    if (supportsDesktopFullscreen())
+    {
+        auto* settings = SystemSettings::getInstance();
+        settings->setBorderlessFullscreen(settings->data().borderlessFullscreen, false);
+    }
     return 0;
 }
 
@@ -796,18 +801,45 @@ void Engine::destroy()
 #endif
 }
 
-bool Engine::isFullScreen()
+bool Engine::isFullScreen() const
 {
-    uint32_t state = SDL_GetWindowFlags(window_);
-    full_screen_ = (state & SDL_WINDOW_FULLSCREEN);
-    return full_screen_;
+    return (SDL_GetWindowFlags(window_) & SDL_WINDOW_FULLSCREEN) != 0;
+}
+
+bool Engine::setFullscreen(bool enabled)
+{
+    if (isFullScreen() == enabled)
+    {
+        return true;
+    }
+
+    // SDL 預設使用桌面無邊框全螢幕，並保留原來的視窗位置、尺寸及最大化狀態。
+    if (!SDL_SetWindowFullscreen(window_, enabled) || !SDL_SyncWindow(window_))
+    {
+        LOG("Changing fullscreen mode failed: {}\n", SDL_GetError());
+        return false;
+    }
+    if (isFullScreen() != enabled)
+    {
+        LOG("Fullscreen mode request was declined\n");
+        return false;
+    }
+
+    setPresentPosition(tex_);
+    renderClear();
+    return true;
 }
 
 void Engine::toggleFullscreen()
 {
-    full_screen_ = !full_screen_;
-    SDL_SetWindowFullscreen(window_, full_screen_);
-    renderClear();
+    if (supportsDesktopFullscreen())
+    {
+        SystemSettings::getInstance()->setBorderlessFullscreen(!isFullScreen());
+    }
+    else
+    {
+        setFullscreen(!isFullScreen());
+    }
 }
 
 Texture* Engine::loadImage(const std::string& filename, int as_white)

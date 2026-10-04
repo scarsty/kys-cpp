@@ -287,7 +287,6 @@ private:
     Rect rect_;
     uint64_t present_geometry_revision_{};
     PresentGeometrySnapshot committed_present_geometry_{};
-    bool full_screen_ = false;
     bool keep_ratio_ = true;
 
     int ui_w_ = 1280, ui_h_ = 720;
@@ -450,7 +449,25 @@ public:
     void renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
         const std::vector<float>& brightness_v = {}, double angle = 0);
     void destroy();
-    bool isFullScreen();
+    static constexpr bool supportsDesktopFullscreen()
+    {
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+        return false;
+#else
+        return true;
+#endif
+    }
+
+    static bool isFullscreenHotkey(const EngineEvent& event)
+    {
+        return supportsDesktopFullscreen()
+            && (event.type == EVENT_KEY_DOWN || event.type == EVENT_KEY_UP)
+            && event.key.key == SDLK_F10
+            && !(event.key.mod & (SDL_KMOD_SHIFT | SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI));
+    }
+
+    bool isFullScreen() const;
+    bool setFullscreen(bool enabled);
     void toggleFullscreen();
     Texture* loadImage(const std::string& filename, int as_white = 0);
     Texture* loadImageFromMemory(const std::string& content, int as_white = 0) const;

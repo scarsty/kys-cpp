@@ -344,6 +344,7 @@ struct BattleStatusApplyRequest
 struct BattleStatusApplyResult
 {
     BattleStatusUnitState target;
+    std::optional<std::uint64_t> appliedContributionSequence{};
     BattleStatusApplyOutcome outcome{};
     bool applied = false;
     int value = 0;

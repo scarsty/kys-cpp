@@ -76,14 +76,14 @@ ChessSystemSettingsMenu::Layout ChessSystemSettingsMenu::layout() const
 
     Layout out;
     out.panelW = std::min(760, uiW - 80);
-    out.panelH = std::min(610, uiH - 60);
+    out.panelH = std::min(Engine::supportsDesktopFullscreen() ? 660 : 610, uiH - 60);
     out.panelX = (uiW - out.panelW) / 2;
     out.panelY = (uiH - out.panelH) / 2;
     out.rowX = out.panelX + 36;
     out.rowY = out.panelY + 82;
     out.rowW = out.panelW - 72;
-    out.rowH = 44;
     out.rowGap = 8;
+    out.rowH = settingsRowHeight(out.panelH, rowIndex(Row::Done), out.rowGap, kFooterBottomPadding, kFooterDividerGap);
     out.labelX = out.rowX + 18;
     out.valueX = out.rowX + out.rowW - 150;
     out.sliderX = out.rowX + 270;
@@ -221,6 +221,11 @@ void ChessSystemSettingsMenu::activateSelectedRow()
         settings_.simplifiedChinese = !settings_.simplifiedChinese;
         applyPreview();
         break;
+#if !defined(__ANDROID__) && !defined(__EMSCRIPTEN__)
+    case Row::BorderlessFullscreen:
+        onToggleFullscreen();
+        break;
+#endif
     case Row::Done:
         exitWithResult(0);
         break;
@@ -261,6 +266,13 @@ void ChessSystemSettingsMenu::stopSliderDrag()
 void ChessSystemSettingsMenu::applyPreview()
 {
     SystemSettings::getInstance()->update(settings_, false);
+    settings_ = SystemSettings::getInstance()->snapshot();
+}
+
+void ChessSystemSettingsMenu::onToggleFullscreen()
+{
+    settings_.borderlessFullscreen = !settings_.borderlessFullscreen;
+    applyPreview();
 }
 
 void ChessSystemSettingsMenu::restorePreview()
@@ -449,6 +461,9 @@ void ChessSystemSettingsMenu::draw()
         "音效",
         "戰鬥速度",
         "文字",
+#if !defined(__ANDROID__) && !defined(__EMSCRIPTEN__)
+        "無邊框全螢幕 (F10)",
+#endif
         "完成",
         "取消"};
 
@@ -515,6 +530,12 @@ void ChessSystemSettingsMenu::draw()
         case Row::Language:
             value = languageText(settings_.simplifiedChinese);
             break;
+#if !defined(__ANDROID__) && !defined(__EMSCRIPTEN__)
+        case Row::BorderlessFullscreen:
+            value = boolText(settings_.borderlessFullscreen);
+            valueColor = settingsToggleValueColor(settings_.borderlessFullscreen);
+            break;
+#endif
         case Row::Done:
         case Row::Cancel:
             value = "";

@@ -1,4 +1,5 @@
 #include "ChessReplayVerifier.h"
+#include "GameVersion.h"
 
 #include "ChessReplayJournal.h"
 #include "ChessRuntimeConstants.h"
@@ -157,9 +158,8 @@ ChessReplayAudit::ChessReplayAudit(
     ChessReplay replay)
     : replay_(std::move(replay))
 {
-    const bool versionCompatible = replay_.header.gameVersion == content->gameVersion()
-        || replay_.header.gameVersion == "dev"
-        || content->gameVersion() == "dev";
+    const bool versionCompatible = chessGameVersionsCompatible(
+        replay_.header.gameVersion, content->gameVersion());
     if (!versionCompatible
         || replay_.header.options.battleFrameLimit != kChessBattleFrameLimit)
     {

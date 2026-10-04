@@ -1,4 +1,5 @@
 #pragma once
+#include "GameVersion.h"
 
 #include "ChessReplayJson.h"
 #include "ChessReplayTypes.h"
@@ -67,9 +68,7 @@ inline bool chessCheckpointVersionCompatible(
     const ChessSessionCheckpoint& checkpoint,
     std::string_view currentVersion)
 {
-    return checkpoint.gameVersion() == currentVersion
-        || checkpoint.gameVersion() == "dev"
-        || currentVersion == "dev";
+    return chessGameVersionsCompatible(checkpoint.gameVersion(), currentVersion);
 }
 
 struct ChessSaveSceneState

@@ -13,6 +13,7 @@ struct SystemSettingsData
     bool showBattleLog = true;
     bool paperBattleView = false;
     bool debugLatencyLog = false;
+    bool borderlessFullscreen = false;
 };
 
 class SystemSettings
@@ -33,6 +34,7 @@ public:
 
     bool positionSwapEnabled() const { return data_.positionSwapEnabled; }
     void setPositionSwapEnabled(bool value);
+    void setBorderlessFullscreen(bool value, bool persist = true);
 
     static std::string filename();
 
@@ -40,7 +42,7 @@ private:
     SystemSettings() = default;
 
     static void clamp(SystemSettingsData& data);
-    void applyRuntime() const;
+    void applyRuntime();
 
     SystemSettingsData data_;
 };
