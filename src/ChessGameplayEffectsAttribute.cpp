@@ -913,7 +913,7 @@ struct MissingHealthFlatReduction final : GameplayEffectDefinition
     {
         const auto magnitude = 點數 < 0 ? -點數 : 點數;
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("隨失血比例，技能承傷最多{}{}點。", 點數 < 0 ? "減少" : "增加", magnitude);
+            return std::format("技能承傷{:+}點×失血比。", 點數);
         auto text = std::format("依已損生命比例，承受技能傷害最多{}{}點。", 點數 < 0 ? "減少" : "增加", magnitude);
         if (style == EffectDescriptionStyle::Full)
         {
@@ -946,7 +946,7 @@ struct MissingHealthPercentReduction final : GameplayEffectDefinition
     {
         const auto magnitude = 百分比 < 0 ? -百分比 : 百分比;
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("隨失血比例，技能承傷最多{}{}%。", 百分比 < 0 ? "減少" : "增加", magnitude);
+            return std::format("技能承傷{:+}%×失血比。", 百分比);
         auto text = std::format("依已損生命比例，承受技能傷害最多{}{}%。", 百分比 < 0 ? "減少" : "增加", magnitude);
         if (style == EffectDescriptionStyle::Full)
         {

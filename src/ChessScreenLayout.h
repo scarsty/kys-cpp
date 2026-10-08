@@ -43,6 +43,7 @@ inline constexpr int kMenuNameUnits = 16;
 inline constexpr int kMenuStarUnits = 8;
 inline constexpr int kMenuCostUnits = 6;
 inline constexpr int kDefaultMenuItemUnits = kMenuNameUnits + kMenuStarUnits + kMenuCostUnits;
+inline constexpr int kComboPanelMinimumFontSize = 10;
 
 inline PanelFrame fullContentRegion()
 {

@@ -904,7 +904,7 @@ struct MissingHealthAttackDamage final : GameplayEffectDefinition
         {
             return std::format("技能傷害增加攻擊×已損生命比例×{}%點。在計算防禦前生效。", 攻擊百分比);
         }
-        return std::format("技能加傷=攻×失血比例×{}%", 攻擊百分比);
+        return std::format("技能加傷=攻×失血比×{}%", 攻擊百分比);
     }
 };
 

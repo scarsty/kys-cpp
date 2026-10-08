@@ -1402,7 +1402,7 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
             ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
             auto* font = Font::getInstance();
             constexpr int preferredFontSize = 19;
-            constexpr int minimumFontSize = 12;
+            constexpr int minimumFontSize = ChessScreenLayout::kComboPanelMinimumFontSize;
             font->draw("羈絆", preferredFontSize + 5,
                 frame.x + 10, frame.y + 12, {255, 255, 100, 255});
 

@@ -119,6 +119,79 @@ TEST_CASE("card prose wrapping preserves punctuation and avoids orphaned introdu
     CHECK(layout.lines.front().text == wrapDisplayText(text, 24, true, DisplayTextWrapping::Prose).front());
 }
 
+TEST_CASE("dense synergy previews fit the modern panel by reducing the font",
+          "[chess][menu-formatting][panel-text][combo]")
+{
+    // 保留錯誤回報中的原始文案，確保字級修正不依賴配置或文案縮短。
+    const auto block = [](std::string header, std::initializer_list<std::string> effects) {
+        std::vector<PanelTextSourceRow> rows{
+            {.text = std::move(header), .fontSizeDelta = 1, .spacingAfter = 2},
+        };
+        for (const auto& effect : effects)
+        {
+            rows.push_back({
+                .text = effect,
+                .indentUnits = 2,
+                .spacingBefore = rows.size() > 1 ? 1 : 0,
+                .spacingAfter = 1,
+                .wrapping = DisplayTextWrapping::Prose,
+            });
+        }
+        return rows;
+    };
+    std::vector<std::vector<PanelTextSourceRow>> blocks{
+        block("武林外道 (4/4 ✓)", {
+            "+35%防", "技能傷害+25%", "擊殺：+150攻", "命中：25%機率封內55幀",
+        }),
+        block("踏雪無痕 (4/4 ✓)", {
+            "速度+30%", "近戰滑步：沿途攻擊，再追加1次武功", "滑步機率+15%",
+            "閃避+5%", "受擊：對該敵閃避+5%，上限7層",
+        }),
+        block("反叛者 (5/7 ✓)", {
+            "技能加傷=攻×失血比例×35%", "隨失血比例，技能承傷最多減少20點",
+            "隨失血比例，技能承傷最多減少14%",
+        }),
+        block("宗師 (1/4)", {}),
+    };
+    constexpr int availableWidth = 620;
+    constexpr int availableHeight = 158;
+    for (const bool expanded : {false, true})
+    {
+        INFO("expanded=" << expanded);
+        if (expanded)
+            blocks.back() = block("宗師 (1/4)", {
+                "出招：瞬移攻擊，隨機、脆弱敵人交替", "命中：回20內",
+            });
+        CHECK_FALSE(fitPanelTextBlocks(blocks, availableWidth, availableHeight, 19, 12, 8));
+        const auto fitted = fitPanelTextBlocks(blocks, availableWidth, availableHeight,
+            19, ChessScreenLayout::kComboPanelMinimumFontSize, 8);
+        REQUIRE(fitted);
+        CHECK(fitted->baseFontSize == 11);
+        REQUIRE(fitted->columns.size() == 2);
+        std::size_t nextBlock{};
+        for (const auto& column : fitted->columns)
+        {
+            CHECK(column.firstBlock == nextBlock);
+            CHECK(column.layout.height <= availableHeight);
+            std::vector<std::string> expected;
+            for (auto index = column.firstBlock; index < column.lastBlock; ++index)
+                for (const auto& row : blocks[index]) expected.push_back(row.text);
+            std::vector<std::string> actual(expected.size());
+            for (const auto& line : column.layout.lines)
+            {
+                REQUIRE(line.sourceRow < actual.size());
+                actual[line.sourceRow] += line.text;
+                CHECK(line.y + line.fontSize <= availableHeight);
+                CHECK(line.indentPixels + displayTextWidth(line.text) * line.fontSize / 2
+                    <= fitted->columnWidth);
+            }
+            CHECK(actual == expected);
+            nextBlock = column.lastBlock;
+        }
+        CHECK(nextBlock == blocks.size());
+    }
+}
+
 TEST_CASE("talent presentation exposes an equipment reward table and descriptive mechanics",
           "[chess][menu-formatting][talent]")
 {
