@@ -90,6 +90,7 @@ void BattleSceneCamera::reset(Pointf center)
 {
     manualDragging_ = false;
     target_ = center;
+    closeUp_ = 0;
     closeUpTotal_ = 0;
 }
 

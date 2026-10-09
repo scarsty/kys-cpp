@@ -72,10 +72,11 @@ public:
 
     static BattleRuntimeSessionCreationResult createInitialized(BattleRuntimeSessionCreationInput input);
 
-    // The only post-initialization gameplay advance path. Callers send setup/input
-    // before the frame and consume the returned result for presentation/reporting.
+    // Combat advances through runFrame; surrender terminates without advancing it.
+    // Callers consume both results for presentation/reporting.
     BattlePresentationFrame runFrame();
     BattlePresentationFrame runFrame(BattlePresentationFrame recycledPresentation);
+    BattlePresentationFrame surrender();
     void swapSetupUnitPositions(int firstUnitId, int secondUnitId);
 
     const BattleRuntimeState& runtime() const;
@@ -86,6 +87,7 @@ public:
     }
 
 private:
+    void endAsDefeat(BattleOutcome outcome, int frameNumber, BattlePresentationFrame& frame);
     BattleRuntimeState runtime_;
     BattleFrameRunner runner_;
     bool frameStarted_ = false;

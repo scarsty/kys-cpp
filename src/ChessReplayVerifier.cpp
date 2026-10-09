@@ -126,6 +126,10 @@ std::string actionDescription(
             action.chessInstanceId,
             action.targetChessInstanceId);
     case ChessActionType::StartBattle:
+        if (action.surrenderFrame)
+        {
+            return std::format("開始戰鬥並於第 {} 影格投降", *action.surrenderFrame);
+        }
         if (state.preparedBattle)
         {
             if (const auto map = content.battleMaps().find(

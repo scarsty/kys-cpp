@@ -2,9 +2,9 @@
 
 #include <cassert>
 
-bool battleSceneCanTogglePause(bool closeUpActive, int battleResult)
+bool battleSceneCanTogglePause(int battleResult)
 {
-    return !closeUpActive && battleResult < 0;
+    return battleResult < 0;
 }
 
 int nextBattleSpeedSetting(int currentBattleSpeed)
@@ -47,7 +47,7 @@ std::string_view battlePaperViewDisplayText(bool paperView)
     return paperView ? "3D" : "2D";
 }
 
-std::string_view battlePaperCameraModeDisplayText(bool autoCenter)
+std::string_view battleCameraModeDisplayText(bool autoCenter)
 {
     return autoCenter ? "跟隨" : "自由";
 }

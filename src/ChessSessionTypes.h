@@ -163,6 +163,8 @@ struct ChessAction
     std::string challengeName;
     std::string rewardId;
     std::vector<int> chessInstanceIds;
+    // 戰鬥開始操作在此模擬影格投降，供重播重現中途結束。
+    std::optional<int> surrenderFrame;
 
     auto operator<=>(const ChessAction&) const = default;
 };

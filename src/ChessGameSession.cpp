@@ -598,6 +598,11 @@ ChessRuleErrorCode ChessGameSession::validateAction(const ChessAction& action) c
         }
         if (action.type == ChessActionType::StartBattle)
         {
+            if (action.surrenderFrame
+                && (*action.surrenderFrame < 0 || *action.surrenderFrame >= kChessBattleFrameLimit))
+            {
+                return ChessRuleErrorCode::UnsupportedAction;
+            }
             return state_.preparedBattle->chosenMapId >= 0
                 || state_.preparedBattle->mapCandidates.empty()
                 ? ChessRuleErrorCode::None
@@ -775,9 +780,13 @@ ChessAutomaticAdvanceResult ChessGameSession::advanceAutomatic(int frameBudget)
     while (result.framesAdvanced < frameBudget
         && !pendingTransition_->runtime->runtime().result.ended)
     {
-        auto frame = executionMode_ == ChessSessionExecutionMode::Full
-            ? pendingTransition_->runtime->runFrame()
-            : pendingTransition_->runtime->runFrame(std::move(pendingTransition_->recycledFrame));
+        const bool surrender = pendingTransition_->action.surrenderFrame
+            == pendingTransition_->runtime->runtime().movement.frame;
+        auto frame = surrender
+            ? pendingTransition_->runtime->surrender()
+            : executionMode_ == ChessSessionExecutionMode::Full
+                ? pendingTransition_->runtime->runFrame()
+                : pendingTransition_->runtime->runFrame(std::move(pendingTransition_->recycledFrame));
         pendingTransition_->collector.consumeFrame(frame, *pendingTransition_->runtime);
         auto digest = Battle::battleDigestEvents(frame);
         pendingTransition_->digestEvents.insert(
@@ -792,7 +801,7 @@ ChessAutomaticAdvanceResult ChessGameSession::advanceAutomatic(int frameBudget)
         {
             pendingTransition_->recycledFrame = std::move(frame);
         }
-        ++result.framesAdvanced;
+        if (!surrender) ++result.framesAdvanced;
     }
     if (!pendingTransition_->runtime->runtime().result.ended)
     {
@@ -828,6 +837,14 @@ ChessAutomaticAdvanceResult ChessGameSession::advanceAutomatic(int frameBudget)
         preStateHash,
         std::move(events));
     return result;
+}
+
+ChessAutomaticAdvanceResult ChessGameSession::surrenderBattle()
+{
+    assert(pendingTransition_);
+    assert(!pendingTransition_->runtime->runtime().result.ended);
+    pendingTransition_->action.surrenderFrame = pendingTransition_->runtime->runtime().movement.frame;
+    return advanceAutomatic(1);
 }
 
 ChessActionResult ChessGameSession::submitAndDrain(const ChessAction& action)

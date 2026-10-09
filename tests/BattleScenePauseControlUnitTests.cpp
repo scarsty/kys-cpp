@@ -2,12 +2,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("BattleScenePauseControl_AllowsPauseOnlyDuringActiveNonCloseUpBattle", "[battle][pause_control]")
+TEST_CASE("BattleScenePauseControl_AllowsPauseDuringAnyActiveBattle", "[battle][pause_control]")
 {
-    CHECK(battleSceneCanTogglePause(false, -1));
-    CHECK_FALSE(battleSceneCanTogglePause(true, -1));
-    CHECK_FALSE(battleSceneCanTogglePause(false, 0));
-    CHECK_FALSE(battleSceneCanTogglePause(false, 1));
+    CHECK(battleSceneCanTogglePause(-1));
+    CHECK_FALSE(battleSceneCanTogglePause(0));
+    CHECK_FALSE(battleSceneCanTogglePause(1));
 }
 
 TEST_CASE("BattleScenePauseControl_CyclesSpeedHalfNormalDouble", "[battle][pause_control]")
@@ -37,8 +36,8 @@ TEST_CASE("BattleScenePauseControl_DisplaysPaperViewToggleState", "[battle][paus
 
 TEST_CASE("BattleScenePauseControl_DisplaysPaperCameraModeState", "[battle][pause_control]")
 {
-    CHECK(battlePaperCameraModeDisplayText(false) == "自由");
-    CHECK(battlePaperCameraModeDisplayText(true) == "跟隨");
+    CHECK(battleCameraModeDisplayText(false) == "自由");
+    CHECK(battleCameraModeDisplayText(true) == "跟隨");
 }
 
 TEST_CASE("BattleScenePauseControl_PaperCameraStartsFreeAfterInitialSnap", "[battle][pause_control]")

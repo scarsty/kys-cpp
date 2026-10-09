@@ -204,32 +204,35 @@ BattlePresentationFrame BattleRuntimeSession::runFrame()
 BattlePresentationFrame BattleRuntimeSession::runFrame(BattlePresentationFrame recycledPresentation)
 {
     frameStarted_ = true;
-    // BattleFrameRunner is the single writer for runtime state; BattlePresentationFrame is the presentation report.
+    // BattleFrameRunner advances combat; the session owns timeout and surrender.
     auto frame = runner_.runFrame(runtime_, std::move(recycledPresentation));
     if (!runtime_.result.ended && runtime_.movement.frame >= runtime_.maximumFrames)
     {
-        runtime_.result.ended = true;
-        runtime_.result.winningTeam = 1;
-        runtime_.result.endedFrame = runtime_.maximumFrames;
-        runtime_.result.eventEmitted = true;
-        runtime_.result.outcome = BattleOutcome::Timeout;
-        frame.gameplayEvents.push_back({
-            BattleGameplayEventType::BattleEnded,
-            runtime_.maximumFrames,
-            -1,
-            -1,
-            runtime_.result.winningTeam,
-        });
-        frame.logEvents.push_back({
-            BattleLogEventType::BattleEnded,
-            runtime_.maximumFrames,
-            -1,
-            -1,
-            runtime_.result.winningTeam,
-        });
-        cancelBattleRuntimeForBattleEnd(runtime_, runtime_.maximumFrames);
+        endAsDefeat(BattleOutcome::Timeout, runtime_.maximumFrames, frame);
     }
     return frame;
+}
+
+BattlePresentationFrame BattleRuntimeSession::surrender()
+{
+    assert(!runtime_.result.ended);
+    BattlePresentationFrame frame;
+    endAsDefeat(BattleOutcome::PlayerDefeat, runtime_.movement.frame, frame);
+    return frame;
+}
+
+void BattleRuntimeSession::endAsDefeat(
+    BattleOutcome outcome, int frameNumber, BattlePresentationFrame& frame)
+{
+    runtime_.result.ended = true;
+    runtime_.result.winningTeam = 1;
+    runtime_.result.endedFrame = frameNumber;
+    runtime_.result.eventEmitted = true;
+    runtime_.result.outcome = outcome;
+    frame.frame = frameNumber;
+    frame.gameplayEvents.push_back({BattleGameplayEventType::BattleEnded, frameNumber, -1, -1, 1});
+    frame.logEvents.push_back({BattleLogEventType::BattleEnded, frameNumber, -1, -1, 1});
+    cancelBattleRuntimeForBattleEnd(runtime_, frameNumber);
 }
 
 

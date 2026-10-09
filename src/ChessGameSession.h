@@ -38,6 +38,7 @@ public:
     std::vector<ChessLegalActionDescriptor> legalActions() const;
     ChessActionResult beginAction(const ChessAction& action);
     ChessAutomaticAdvanceResult advanceAutomatic(int frameBudget);
+    ChessAutomaticAdvanceResult surrenderBattle();
     ChessActionResult submitAndDrain(const ChessAction& action);
     // 明確的作弊入口：改寫目前狀態但不寫入日誌，讓顯式驗證偵測差異。
     void grantUnjournaledCheatMoney(int amount);

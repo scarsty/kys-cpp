@@ -171,6 +171,24 @@ TEST_CASE("BattleSceneFrameApplier_AppliesUnitDeathCameraFreezeSlowShakeAndBattl
     CHECK(fixture.camera.closeUpFrames() == 30);
 }
 
+TEST_CASE("switching to free camera clears an active death zoom and suppresses later death focus",
+          "[battle][scene_frame_applier][camera]")
+{
+    ApplierFixture fixture;
+    BattlePresentationFrame frame;
+    frame.gameplayEvents = {{BattleGameplayEventType::UnitDied, 100, 0, 1}};
+    fixture.applier.apply(frame, fixture.effects);
+    REQUIRE(fixture.camera.closeUpActive());
+
+    fixture.camera.reset(fixture.cameraPosition);
+    fixture.manualCameraEnabled = true;
+    CHECK_FALSE(fixture.camera.closeUpActive());
+    CHECK(fixture.camera.closeUpTotalFrames() == 0);
+    fixture.applier.apply(frame, fixture.effects);
+    CHECK_FALSE(fixture.camera.closeUpActive());
+    CHECK(fixture.slow > 0);
+}
+
 TEST_CASE("BattleSceneFrameApplier_AppliesProjectileVisualEventsToSceneAttackEffects", "[battle][scene_frame_applier]")
 {
     ApplierFixture fixture;

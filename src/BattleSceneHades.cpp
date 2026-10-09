@@ -59,6 +59,7 @@ constexpr int BATTLE_CONTROL_PLAY_TEXTURE_ID = 333;
 constexpr int BATTLE_CONTROL_PAUSE_TEXTURE_ID = 334;
 constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
 constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
+constexpr int BATTLE_CONTROL_SURRENDER_TEXTURE_ID = 337;
 constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
 constexpr float PAPER_CAMERA_FOV = 60.0f;
 constexpr float PAPER_CAMERA_CLASSIC_VIEW_ANGLE = -0.17453292520f;
@@ -551,7 +552,7 @@ void BattleSceneHades::setID(int id)
 bool BattleSceneHades::isManualCameraEnabled() const
 {
     return battle_paused_
-        || SystemSettings::getInstance()->data().manualCamera
+        || !camera_auto_center_
         || active_paper_battle_view_;
 }
 
@@ -776,7 +777,6 @@ void BattleSceneHades::switchBattleViewMode(bool paperView)
             paper_camera_angle_ = *angle;
         }
         // The classic view already initialized pos_; preserve it as the 3D entry center.
-        paper_camera_auto_center_ = false;
         paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
         paper_camera_height_ = std::clamp(paper_camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
     }
@@ -1373,7 +1373,7 @@ void BattleSceneHades::drawPaperView()
     const int sceneW = render_center_x_ * 2;
     const int sceneH = render_center_y_ * 2;
 
-    if (paper_camera_auto_center_)
+    if (camera_auto_center_ && !battle_paused_)
     {
         updatePaperCameraAutoCenter(false);
     }
@@ -2204,9 +2204,9 @@ void BattleSceneHades::drawPaperView()
 
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
-    if (e.type == EVENT_KEY_UP && e.key.key == K_O && active_paper_battle_view_)
+    if (e.type == EVENT_KEY_UP && e.key.key == K_O)
     {
-        togglePaperCameraMode();
+        toggleCameraMode();
         return;
     }
     if (active_paper_battle_view_)
@@ -2250,7 +2250,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             engine->checkKeyPress(K_D));
         if (cameraPan.norm() != 0)
         {
-            paper_camera_auto_center_ = false;
+            camera_auto_center_ = false;
             cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
             pos_ = clampPaperCameraCenter(pos_ + cameraPan);
         }
@@ -2278,7 +2278,7 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto controls = makeBattleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
+    const auto controls = makeBattleControlLayout(uiW, battle_paused_);
 
     if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT)
     {
@@ -2366,7 +2366,7 @@ void BattleSceneHades::onTouchSample(const TouchSample& sample)
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto controls = makeBattleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
+    const auto controls = makeBattleControlLayout(uiW, battle_paused_);
     for (const auto& action : paper_camera_touch_.process(sample, controls))
     {
         switch (action.type)
@@ -2375,7 +2375,7 @@ void BattleSceneHades::onTouchSample(const TouchSample& sample)
             activateBattleControl(action.control);
             break;
         case PaperCameraTouchActionType::PanActivated:
-            paper_camera_auto_center_ = false;
+            camera_auto_center_ = false;
             break;
         case PaperCameraTouchActionType::Pan:
             pos_ = clampPaperCameraCenter(pos_ + paperTouchPanDelta(
@@ -2429,7 +2429,7 @@ void BattleSceneHades::onPressedContextMenu()
 
 bool BattleSceneHades::canToggleBattlePause() const
 {
-    return battleSceneCanTogglePause(camera_.closeUpActive(), result_);
+    return battleSceneCanTogglePause(result_);
 }
 
 void BattleSceneHades::toggleBattlePause()
@@ -2466,6 +2466,42 @@ void BattleSceneHades::showInBattleLog()
     invalidatePointerOwnership();
 }
 
+void BattleSceneHades::confirmBattleSurrender()
+{
+    if (result_ >= 0) return;
+
+    const bool wasPaused = battle_paused_;
+    setBattlePaused(true);
+    onPointerInputReset();
+    invalidatePointerOwnership();
+    auto confirm = std::make_shared<MenuText>(
+        std::vector<std::string>{"繼續戰鬥", "確認投降（本場判負）"});
+    confirm->setFontSize(28);
+    confirm->setHaveBox(true);
+    confirm->arrange(0, 0, 0, 42);
+    int uiW = 0;
+    int uiH = 0;
+    Engine::getInstance()->getUISize(uiW, uiH);
+    confirm->runAtPosition(uiW / 2 - 160, uiH / 2 - 42);
+    onPointerInputReset();
+    invalidatePointerOwnership();
+    if (confirm->getResult() != 1 || RunNode::runOwnerExitRequested())
+    {
+        setBattlePaused(wasPaused);
+        return;
+    }
+
+    applyBattleAdvance(session_transition_source_->surrenderBattle());
+    frozen_ = 0;
+    slow_ = 0;
+    shake_ = 0;
+    x_ = 0;
+    y_ = 0;
+    camera_.reset(pos_);
+    setBattlePaused(false);
+    finishBattleIfReady();
+}
+
 void BattleSceneHades::cycleBattleSpeed()
 {
     auto* settings = SystemSettings::getInstance();
@@ -2488,13 +2524,19 @@ void BattleSceneHades::togglePaperBattleView()
     switchBattleViewMode(nextPaperView);
 }
 
-void BattleSceneHades::togglePaperCameraMode()
+void BattleSceneHades::toggleCameraMode()
 {
-    paper_camera_auto_center_ = !paper_camera_auto_center_;
-    if (paper_camera_auto_center_)
+    camera_auto_center_ = !camera_auto_center_;
+    camera_.reset(pos_);
+    if (camera_auto_center_ && active_paper_battle_view_)
     {
         updatePaperCameraAutoCenter(true);
     }
+    else if (camera_auto_center_)
+    {
+        pos_ = camera_.updateAuto(pos_, scene_units_, makeCameraBounds());
+    }
+    updateFrameApplierContext();
 }
 
 void BattleSceneHades::activateBattleControl(BattleControlId control)
@@ -2511,10 +2553,13 @@ void BattleSceneHades::activateBattleControl(BattleControlId control)
         togglePaperBattleView();
         break;
     case BattleControlId::CameraMode:
-        togglePaperCameraMode();
+        toggleCameraMode();
         break;
     case BattleControlId::Log:
         showInBattleLog();
+        break;
+    case BattleControlId::Surrender:
+        confirmBattleSurrender();
         break;
     case BattleControlId::None:
         break;
@@ -2526,12 +2571,12 @@ void BattleSceneHades::drawBattleControls()
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto layout = makeBattleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
+    const auto layout = makeBattleControlLayout(uiW, battle_paused_);
     const bool pauseEnabled = canToggleBattlePause();
     const auto* settings = SystemSettings::getInstance();
     const std::string speedText(battleSpeedDisplayText(settings->data().battleSpeed));
     const std::string paperViewText(battlePaperViewDisplayText(active_paper_battle_view_));
-    const std::string paperCameraModeText(battlePaperCameraModeDisplayText(paper_camera_auto_center_));
+    const std::string cameraModeText(battleCameraModeDisplayText(camera_auto_center_));
 
     auto* engine = Engine::getInstance();
     auto drawIconButton = [&](const Rect& rect, int textureId, bool enabled)
@@ -2576,10 +2621,7 @@ void BattleSceneHades::drawBattleControls()
 
     drawTextButton(*layout.rect(BattleControlId::Speed), BATTLE_CONTROL_SPEED_TEXTURE_ID, speedText);
     drawTextButton(*layout.rect(BattleControlId::PaperView), BATTLE_CONTROL_SPEED_TEXTURE_ID, paperViewText);
-    if (active_paper_battle_view_)
-    {
-        drawTextButton(*layout.rect(BattleControlId::CameraMode), BATTLE_CONTROL_SPEED_TEXTURE_ID, paperCameraModeText);
-    }
+    drawTextButton(*layout.rect(BattleControlId::CameraMode), BATTLE_CONTROL_SPEED_TEXTURE_ID, cameraModeText);
     if (battle_paused_)
     {
         drawIconButton(*layout.rect(BattleControlId::Log), BATTLE_CONTROL_LOG_TEXTURE_ID, true);
@@ -2588,6 +2630,7 @@ void BattleSceneHades::drawBattleControls()
         *layout.rect(BattleControlId::Pause),
         battle_paused_ ? BATTLE_CONTROL_PLAY_TEXTURE_ID : BATTLE_CONTROL_PAUSE_TEXTURE_ID,
         pauseEnabled || battle_paused_);
+    drawIconButton(*layout.rect(BattleControlId::Surrender), BATTLE_CONTROL_SURRENDER_TEXTURE_ID, result_ < 0);
 }
 
 int BattleSceneHades::getBattleStepsThisRender()
@@ -2650,7 +2693,7 @@ void BattleSceneHades::onEntrance()
     active_paper_battle_view_ = battleSceneInitialPaperView(
         SystemSettings::getInstance()->data().paperBattleView,
         session_transition_source_->state().options.positionSwapEnabled);
-    paper_camera_auto_center_ = true;
+    camera_auto_center_ = !SystemSettings::getInstance()->data().manualCamera;
     Engine::getInstance()->hideBattleLogOverlay();
     paper_sky_.reset();
     paper_sky_.generateClouds();
@@ -2710,7 +2753,7 @@ void BattleSceneHades::onEntrance()
     if (active_paper_battle_view_)
     {
         // Preserve the classic-view center selected during runtime initialization.
-        paper_camera_auto_center_ = false;
+        camera_auto_center_ = battlePaperCameraAutoCenterAfterEntry();
     }
     const auto& prepared = *session_transition_source_->lastBattlePrepared();
     if (prepared.kind == KysChess::PreparedChessBattleKind::Standalone)
@@ -2964,8 +3007,14 @@ void BattleSceneHades::backRun1()
 
     advanceBattlePresentationEffects(attack_effects_, true);
     advanceBattleRoleEchoEffects(role_echo_effects_, true);
+    applyBattleAdvance(session_transition_source_->advanceAutomatic(1));
+    advanceScenePresentationFrame();
+    finishBattleIfReady();
+}
+
+void BattleSceneHades::applyBattleAdvance(KysChess::ChessAutomaticAdvanceResult advance)
+{
     KysChess::Battle::BattlePresentationFrame frame;
-    auto advance = session_transition_source_->advanceAutomatic(1);
     assert(advance.frames.size() <= 1);
     initializeScenePresentationUnits(scene_units_.synchronizeRuntimeUnits());
     if (!advance.frames.empty())
@@ -2994,8 +3043,6 @@ void BattleSceneHades::backRun1()
         advance.completedAction,
         session_transition_source_->state().lastBattleOutcome,
         result_);
-    advanceScenePresentationFrame();
-    finishBattleIfReady();
 }
 
 bool BattleSceneHades::shouldAdvanceBattleSimulation()

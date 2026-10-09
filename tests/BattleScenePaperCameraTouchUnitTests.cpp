@@ -25,7 +25,7 @@ TouchSample sample(
 TEST_CASE("Paper camera touch establishes a baseline and crosses the pan threshold once", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
 
     CHECK(touch.process(sample(TouchPhase::Down, 1, 400, 300), layout).empty());
     CHECK(touch.process(sample(TouchPhase::Motion, 1, 406, 306), layout).empty());
@@ -46,7 +46,7 @@ TEST_CASE("Paper camera touch establishes a baseline and crosses the pan thresho
 TEST_CASE("Paper camera touch rebaselines one-to-two-to-one transitions", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
 
     touch.process(sample(TouchPhase::Down, 1, 300, 300), layout);
     CHECK(touch.process(sample(TouchPhase::Down, 2, 500, 300), layout).empty());
@@ -62,7 +62,7 @@ TEST_CASE("Paper camera touch rebaselines one-to-two-to-one transitions", "[pape
 TEST_CASE("Paper camera touch ignores outside starts and requires matching control release", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
 
     touch.process(sample(TouchPhase::Down, 1, 500, 300, false), layout);
     CHECK(touch.process(sample(TouchPhase::Motion, 1, 800, 600), layout).empty());
@@ -80,7 +80,7 @@ TEST_CASE("Paper camera touch ignores outside starts and requires matching contr
 TEST_CASE("Paper camera touch suspends for more than two fingers and stream cancel clears all state", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
     touch.process(sample(TouchPhase::Down, 1, 300, 300), layout);
     touch.process(sample(TouchPhase::Down, 2, 500, 300), layout);
     touch.process(sample(TouchPhase::Down, 3, 700, 300), layout);
@@ -96,7 +96,7 @@ TEST_CASE("Paper camera touch suspends for more than two fingers and stream canc
 TEST_CASE("Paper camera touch retires only the canceled browser contact", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
 
     touch.process(sample(TouchPhase::Down, 1, 300, 300), layout);
     touch.process(sample(TouchPhase::Down, 2, 500, 300), layout);
@@ -114,7 +114,7 @@ TEST_CASE("Paper camera touch retires only the canceled browser contact", "[pape
 TEST_CASE("Paper camera touch arms only the first control until all control contacts end", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
 
     touch.process(sample(TouchPhase::Down, 1, 1236, 20), layout);
     touch.process(sample(TouchPhase::Down, 2, 1092, 20), layout);
@@ -125,10 +125,22 @@ TEST_CASE("Paper camera touch arms only the first control until all control cont
     CHECK(touch.process(sample(TouchPhase::Up, 2, 1092, 20), layout).empty());
 }
 
+TEST_CASE("Paper camera touch activates surrender without starting a camera gesture", "[paper_camera_touch][surrender]")
+{
+    BattleScenePaperCameraTouch touch;
+    const auto layout = makeBattleControlLayout(1280, false);
+    CHECK(touch.process(sample(TouchPhase::Down, 1, 1236, 92), layout).empty());
+    CHECK(touch.process(sample(TouchPhase::Motion, 1, 1238, 96), layout).empty());
+    const auto actions = touch.process(sample(TouchPhase::Up, 1, 1238, 96), layout);
+    REQUIRE(actions.size() == 1);
+    CHECK(actions.front().type == PaperCameraTouchActionType::ControlActivated);
+    CHECK(actions.front().control == BattleControlId::Surrender);
+}
+
 TEST_CASE("Paper camera touch rebaselines camera contacts when the final control contact ends", "[paper_camera_touch]")
 {
     BattleScenePaperCameraTouch touch;
-    const auto layout = makeBattleControlLayout(1280, false, true);
+    const auto layout = makeBattleControlLayout(1280, false);
 
     touch.process(sample(TouchPhase::Down, 1, 400, 300), layout);
     touch.process(sample(TouchPhase::Down, 2, 1236, 20), layout);

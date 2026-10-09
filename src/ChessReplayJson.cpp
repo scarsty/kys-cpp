@@ -104,6 +104,7 @@ ChessActionData actionData(const ChessAction& action)
         break;
     case ChessActionType::ChooseReward: dto.reward_id = action.rewardId; break;
     case ChessActionType::StartChallenge: dto.challenge_name = action.challengeName; break;
+    case ChessActionType::StartBattle: dto.surrender_frame = action.surrenderFrame; break;
     default: break;
     }
     return dto;
@@ -190,6 +191,9 @@ std::optional<ChessAction> actionFromData(const ChessActionData& dto, std::strin
     case ChessActionType::StartChallenge:
         if (!require(dto.challenge_name.has_value(), "challenge_name", "字串")) return std::nullopt;
         action.challengeName = *dto.challenge_name;
+        break;
+    case ChessActionType::StartBattle:
+        action.surrenderFrame = dto.surrender_frame;
         break;
     default: break;
     }
@@ -325,6 +329,7 @@ std::string chessActionPayloadSchema(ChessActionType type)
     case ChessActionType::SwapPositions: return R"({"type":"swap_positions","first_unit_id":"整數","second_unit_id":"整數"})";
     case ChessActionType::ChooseReward: return R"({"type":"choose_reward","reward_id":"字串"})";
     case ChessActionType::StartChallenge: return R"({"type":"start_challenge","challenge_name":"字串"})";
+    case ChessActionType::StartBattle: return R"({"type":"start_battle","surrender_frame":"可選整數：在此模擬影格投降"})";
     default:
         return std::format(R"({{"type":"{}"}})", chessActionTypeId(type));
     }

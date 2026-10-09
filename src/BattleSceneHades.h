@@ -78,9 +78,11 @@ protected:
     void toggleBattlePause();
     void setBattlePaused(bool paused);
     void showInBattleLog();
+    void confirmBattleSurrender();
+    void applyBattleAdvance(KysChess::ChessAutomaticAdvanceResult advance);
     void cycleBattleSpeed();
     void togglePaperBattleView();
-    void togglePaperCameraMode();
+    void toggleCameraMode();
 
     void initializeSceneRuntime(const KysChess::Battle::BattleRuntimeSession& runtime);
     void initializeScenePresentationUnits(const std::vector<int>& unitIds);
@@ -141,7 +143,7 @@ protected:
     bool half_speed_step_on_next_render_ = true;
     bool battle_paused_ = false;
     bool active_paper_battle_view_ = false;
-    bool paper_camera_auto_center_ = true;
+    bool camera_auto_center_{};
     BattleSceneCamera camera_;
     BattleSceneCameraBounds frame_applier_camera_bounds_{};
     bool manual_camera_enabled_{};

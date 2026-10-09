@@ -255,6 +255,27 @@ TEST_CASE("ChessStandaloneBattle_SessionIsEphemeralAndHasNoCampaignProgression",
     CHECK(events.front().type == ChessSemanticEventType::BattleEnded);
 }
 
+TEST_CASE("standalone battle surrender completes immediately as defeat", "[chess][standalone][surrender]")
+{
+    std::string error;
+    auto built = ChessStandaloneBattle::prepare(standaloneContent(), basicRequest(), error);
+    REQUIRE(built);
+    auto session = std::move(*built).createSession();
+    const auto before = session->state();
+    ChessAction start;
+    start.type = ChessActionType::StartBattle;
+    REQUIRE(session->beginAction(start).transitionPending);
+    REQUIRE(session->advanceAutomatic(1).framesAdvanced == 1);
+    const auto surrendered = session->surrenderBattle();
+    REQUIRE(surrendered.completedAction);
+    CHECK(session->state().phase == ChessSessionPhase::Management);
+    CHECK(session->state().lastBattleOutcome == Battle::BattleOutcome::PlayerDefeat);
+    CHECK(session->state().lastBattleEndFrame == 1);
+    CHECK(session->state().money == before.money);
+    CHECK(session->state().fight == before.fight);
+    CHECK_FALSE(session->exportReplay());
+}
+
 TEST_CASE("standalone battle allows enemy counts supported by battle map", "[chess][standalone]")
 {
     auto request = basicRequest();

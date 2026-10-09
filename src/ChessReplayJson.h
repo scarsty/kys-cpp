@@ -40,6 +40,7 @@ struct ChessActionData
     std::optional<int> second_unit_id;
     std::optional<std::string> reward_id;
     std::optional<std::string> challenge_name;
+    std::optional<int> surrender_frame;
 };
 
 struct ChessReplayHeaderData

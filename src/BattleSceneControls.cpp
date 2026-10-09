@@ -30,22 +30,22 @@ BattleControlId BattleControlLayout::hitTest(SDL_FPoint point) const
     return BattleControlId::None;
 }
 
-BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible, bool cameraModeVisible)
+BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible)
 {
     assert(uiWidth > 0);
     BattleControlLayout layout;
-    int x = uiWidth - ButtonMargin - ButtonSize;
-    auto takeButton = [&]()
+    const int right = uiWidth - ButtonMargin - ButtonSize;
+    const int step = ButtonSize + ButtonGap;
+    auto button = [&](int column, int row)
     {
-        const SDL_Rect rect{x, ButtonMargin, ButtonSize, ButtonSize};
-        x -= ButtonSize + ButtonGap;
-        return rect;
+        return SDL_Rect{right - column * step, ButtonMargin + row * step, ButtonSize, ButtonSize};
     };
-    layout.set(BattleControlId::Pause, takeButton());
-    if (logVisible) layout.set(BattleControlId::Log, takeButton());
-    if (cameraModeVisible) layout.set(BattleControlId::CameraMode, takeButton());
-    layout.set(BattleControlId::PaperView, takeButton());
-    layout.set(BattleControlId::Speed, takeButton());
+    layout.set(BattleControlId::Pause, button(0, 0));
+    if (logVisible) layout.set(BattleControlId::Log, button(1, 0));
+    layout.set(BattleControlId::Speed, button(2, 0));
+    layout.set(BattleControlId::Surrender, button(0, 1));
+    layout.set(BattleControlId::CameraMode, button(1, 1));
+    layout.set(BattleControlId::PaperView, button(2, 1));
     return layout;
 }
 

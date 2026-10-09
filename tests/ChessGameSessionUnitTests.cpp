@@ -1,11 +1,14 @@
 #include "ChessGameSession.h"
 #include "ChessGameSessionTestHelpers.h"
+#include "ChessReplayJson.h"
+#include "ChessReplayVerifier.h"
 #include "ChessReplayVerifier.h"
 #include "ChessRewardRules.h"
 #include "ChessRuntimeConstants.h"
 #include "ChessSessionCheckpoint.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
 #include <format>
@@ -14,6 +17,98 @@
 
 using namespace KysChess;
 using namespace KysChess::Test;
+
+TEST_CASE("mid-battle surrender settles defeat and replays at the same simulation frame",
+          "[chess][session][battle][surrender][replay]")
+{
+    const int surrenderFrame = GENERATE(0, 7);
+    const auto preparation = GENERATE(ChessActionType::PrepareBattle, ChessActionType::StartChallenge);
+    const auto content = singlePieceChallengeContent();
+    ChessGameSession session(content, 31);
+    REQUIRE(session.submitAndDrain(buySlot(0)).accepted);
+    ChessAction deploy;
+    deploy.type = ChessActionType::SetDeployment;
+    deploy.chessInstanceIds = {session.state().roster.begin()->first};
+    REQUIRE(session.submitAndDrain(deploy).accepted);
+    const auto before = session.state();
+
+    ChessAction prepare;
+    prepare.type = preparation;
+    if (preparation == ChessActionType::StartChallenge) prepare.challengeName = "單騎遠征";
+    REQUIRE(session.submitAndDrain(prepare).accepted);
+    const auto prepared = session.state().preparedBattle;
+    ChessAction start;
+    start.type = ChessActionType::StartBattle;
+    REQUIRE(session.beginAction(start).transitionPending);
+    if (surrenderFrame > 0)
+    {
+        const auto advance = session.advanceAutomatic(surrenderFrame);
+        REQUIRE(advance.framesAdvanced == surrenderFrame);
+        REQUIRE_FALSE(advance.completedAction);
+    }
+
+    const auto surrendered = session.surrenderBattle();
+    REQUIRE(surrendered.completedAction);
+    CHECK(surrendered.completedAction->accepted);
+    CHECK(surrendered.framesAdvanced == 0);
+    REQUIRE(surrendered.frames.size() == 1);
+    CHECK(surrendered.frames.front().frame == surrenderFrame);
+    REQUIRE(surrendered.frames.front().gameplayEvents.size() == 1);
+    CHECK(surrendered.frames.front().gameplayEvents.front().type == Battle::BattleGameplayEventType::BattleEnded);
+    CHECK(surrendered.frames.front().gameplayEvents.front().amount == 1);
+    CHECK(session.isStableDecisionBoundary());
+    CHECK(session.state().phase == ChessSessionPhase::Management);
+    CHECK(session.state().lastBattleOutcome == Battle::BattleOutcome::PlayerDefeat);
+    CHECK(session.state().lastBattleEndFrame == surrenderFrame);
+    CHECK_FALSE(session.state().preparedBattle);
+    CHECK(session.state().money == before.money);
+    CHECK(session.state().fight == before.fight);
+    CHECK(session.state().roster == before.roster);
+    CHECK(session.state().pendingRewards.empty());
+    CHECK(session.state().completedChallengeNames.empty());
+    REQUIRE(session.lastBattleResult());
+    CHECK(session.lastBattleResult()->summary.outcome == Battle::BattleOutcome::PlayerDefeat);
+    CHECK(session.lastBattleResult()->summary.endFrame == surrenderFrame);
+    CHECK(session.lastBattleResult()->finalRuntime.result.ended);
+
+    const auto replay = session.exportReplay();
+    REQUIRE(replay);
+    CHECK(replay->decisions.back().action.surrenderFrame == surrenderFrame);
+    ChessReplayJsonError error;
+    const auto parsed = parseChessReplayJsonl(serializeChessReplayJsonl(*replay), error);
+    REQUIRE(parsed);
+    CHECK(*parsed == *replay);
+    const auto verification = ChessReplayVerifier::verify(content, *parsed);
+    INFO(verification.message);
+    CHECK(verification.valid);
+    auto tampered = *parsed;
+    tampered.decisions.back().action.surrenderFrame = surrenderFrame + 1;
+    CHECK_FALSE(ChessReplayVerifier::verify(content, tampered).valid);
+
+    REQUIRE(session.submitAndDrain(prepare).accepted);
+    CHECK(session.state().preparedBattle == prepared);
+}
+
+TEST_CASE("scheduled surrender rejects invalid simulation frames before starting the battle",
+          "[chess][session][battle][surrender]")
+{
+    ChessGameSession session(singlePieceChallengeContent(), 31);
+    REQUIRE(session.submitAndDrain(buySlot(0)).accepted);
+    ChessAction deploy;
+    deploy.type = ChessActionType::SetDeployment;
+    deploy.chessInstanceIds = {session.state().roster.begin()->first};
+    REQUIRE(session.submitAndDrain(deploy).accepted);
+    ChessAction prepare;
+    prepare.type = ChessActionType::PrepareBattle;
+    REQUIRE(session.submitAndDrain(prepare).accepted);
+    const auto stateHash = session.observe().stateHash;
+    ChessAction start;
+    start.type = ChessActionType::StartBattle;
+    start.surrenderFrame = GENERATE(-1, kChessBattleFrameLimit);
+    CHECK_FALSE(session.beginAction(start).accepted);
+    CHECK_FALSE(session.transitionPending());
+    CHECK(session.observe().stateHash == stateHash);
+}
 
 TEST_CASE("session timeout policy is frozen at 99999 frames", "[chess][session][determinism]")
 {

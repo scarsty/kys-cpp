@@ -5,7 +5,7 @@
 #include <map>
 #include <optional>
 
-enum class BattleControlId { None, Speed, PaperView, CameraMode, Log, Pause };
+enum class BattleControlId { None, Speed, PaperView, CameraMode, Log, Pause, Surrender };
 
 class BattleControlLayout
 {
@@ -18,7 +18,7 @@ private:
     std::map<BattleControlId, SDL_Rect> rects_;
 };
 
-BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible, bool cameraModeVisible);
+BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible);
 
 class BattleControlCapture
 {
