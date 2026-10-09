@@ -102,6 +102,14 @@ full 戰報的 `initial_combat_stats` 是全部開戰效果套用後的實際屬
 
 ## 重播
 
+離線對戰閃退可用兩份原始存檔與 GUI 顯示的戰鬥種子直接重現：
+
+```powershell
+.\x64\Debug\kys_chess_cli.exe pvp-battle local.json opponent.json --seed 1074794902 --json
+```
+
+第一份存檔是我方，第二份是對方；兩份都會先經過完整重播驗證。`--seed` 是直接使用的 32 位元無號戰鬥種子，與 GUI 離線對戰共用競技場、陣形及獨立戰鬥初始化流程。賽事的 `tournament-battle --seed` 則是賽事根種子，會另外衍生戰鬥種子。
+
 `export_replay` 回傳權威 JSONL。未呼叫 `finish_run` 時頁尾為 `in_progress`；主線通關後仍可整備及挑戰遠征，只有明確提交 `finish_run` 才產生 `campaign_complete`。
 
 可直接驗證 JSONL 或 `.kysreplay` 封裝：

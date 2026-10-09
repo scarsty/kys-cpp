@@ -434,6 +434,51 @@ TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesAttackDefenseCurve", "[battle][
     CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 1);
 }
 
+TEST_CASE("magic base damage handles large attack without overflowing fixed intermediates",
+          "[battle][damage][regression]")
+{
+    const BattleDamageSystem system;
+    CHECK(system.resolveMagicBaseDamage({12, 0, 6, 0}) == 2);
+    CHECK(system.resolveMagicBaseDamage({2820, 960, 245, 0}) == 728);
+    CHECK(system.resolveMagicBaseDamage({4000, 0, 0, 0}) == 1000);
+    CHECK(system.resolveMagicBaseDamage({
+        4000, 1, BattleFixed::fromRaw(100'123'456), -3}) == 972);
+    CHECK(system.resolveMagicBaseDamage({
+        50000, 2, BattleFixed::fromRaw(123'456'789), 3}) == 12472);
+    CHECK(system.resolveMagicBaseDamage({4'294'967, 0, 0, 0}) == 1'073'741);
+    CHECK(system.resolveMagicBaseDamage({
+        4'294'966, 2, BattleFixed::fromRaw(123'456'789), 3}) == 1'073'713);
+    CHECK(system.resolveMagicBaseDamage({0, 12'884'901, 245, 0}) == 1'073'680);
+    CHECK(system.resolveMagicBaseDamage({
+        4'294'967, 0, BattleFixed::fromRaw(-4'294'967LL * BattleFixed::Scale + 1), 10})
+        == std::numeric_limits<int>::max());
+}
+
+TEST_CASE("magic base damage preserves fixed-point rounding for existing inputs",
+          "[battle][damage][regression]")
+{
+    for (const int attackValue : {0, 1, 17, 90, 1000, 2800})
+    {
+        for (const int magicPower : {0, 1, 2, 60, 101})
+        {
+            for (const auto defenseRaw : {1LL, 30'123'456LL, 2'000'000'000LL})
+            {
+                for (const int variance : {-3, 0, 3})
+                {
+                    CAPTURE(attackValue, magicPower, defenseRaw, variance);
+                    const auto attack = BattleFixed::fromInteger(attackValue)
+                        + BattleFixed::fromRatio(magicPower, 3);
+                    const auto defense = BattleFixed::fromRaw(defenseRaw);
+                    const int previous = attack.multipliedBy(attack)
+                        .dividedBy(attack + defense).scaled(1, 4).toInt();
+                    CHECK(BattleDamageSystem().resolveMagicBaseDamage({
+                        attackValue, magicPower, defense, variance}) == std::max(1, previous + variance));
+                }
+            }
+        }
+    }
+}
+
 TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")
 {
     BattleHitShapeInput input;

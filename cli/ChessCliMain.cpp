@@ -1,5 +1,5 @@
+#include "BattleSetupFactory.h"
 #include "ChessCliCommands.h"
-#include "ConsoleErrorReporting.h"
 #include "ChessCliController.h"
 #include "ChessContentLoader.h"
 #include "ChessPvp.h"
@@ -7,7 +7,10 @@
 #include "ChessReplayJson.h"
 #include "ChessReplayVerifier.h"
 #include "ChessSaveFile.h"
+#include "ChessStandaloneBattle.h"
 #include "ChessTournament.h"
+#include "ConsoleErrorReporting.h"
+#include "HeadlessBattleRunner.h"
 #include "Utf8Path.h"
 
 #include <algorithm>
@@ -82,7 +85,7 @@ struct CommandDefinition
     std::size_t positionalCount{};
 };
 
-inline constexpr std::array<CommandDefinition, 8> kCommandDefinitions{{
+inline constexpr std::array<CommandDefinition, 9> kCommandDefinitions{{
     {"play", 0},
     {"new", 0},
     {"validate-content", 0},
@@ -91,6 +94,7 @@ inline constexpr std::array<CommandDefinition, 8> kCommandDefinitions{{
     {"verify-pvp", 1},
     {"tournament", 1},
     {"tournament-battle", 2},
+    {"pvp-battle", 2},
 }};
 
 std::optional<int> parseNonnegativeInt(std::string_view text)
@@ -124,6 +128,7 @@ void printUsage(std::ostream& output)
               "  kys_chess_cli verify <重播檔>\n"
               "  kys_chess_cli replay-prefix <存檔> --sequence N --output <新存檔>\n"
               "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
+              "  kys_chess_cli pvp-battle <我方存檔> <對方存檔> --seed <戰鬥種子> [--json]\n"
               "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
               "  kys_chess_cli tournament-battle <存檔甲> <存檔乙> --seed N --seed-index N --leg 0|1 [--json]\n"
               "\n共用選項：\n"
@@ -400,7 +405,7 @@ ArgumentParseResult parseArguments(int argc, char** argv)
     {
         result.arguments.replayPath = positionals.front();
     }
-    else if (command == "tournament" || command == "tournament-battle")
+    else if (command == "tournament" || command == "tournament-battle" || command == "pvp-battle")
     {
         result.arguments.tournamentPaths = std::move(positionals);
     }
@@ -447,7 +452,8 @@ ArgumentParseResult parseArguments(int argc, char** argv)
         && command != "play"
         && command != "new"
         && command != "tournament"
-        && command != "tournament-battle")
+        && command != "tournament-battle"
+        && command != "pvp-battle")
     {
         result.error = std::format("指令 {} 不支援 --seed", command);
     }
@@ -458,7 +464,8 @@ ArgumentParseResult parseArguments(int argc, char** argv)
     else if (result.arguments.jsonSpecified
         && command != "new"
         && command != "tournament"
-        && command != "tournament-battle")
+        && command != "tournament-battle"
+        && command != "pvp-battle")
     {
         result.error = command == "play"
             ? "互動模式不支援 --json；機器通訊請使用 --jsonl，單次建立請使用 new --json"
@@ -484,6 +491,12 @@ ArgumentParseResult parseArguments(int argc, char** argv)
     else if (command == "tournament" && !result.arguments.seedSpecified)
     {
         result.error = "tournament 必須指定 --seed";
+    }
+    else if (command == "pvp-battle"
+        && (!result.arguments.seedSpecified
+            || result.arguments.seed > std::numeric_limits<std::uint32_t>::max()))
+    {
+        result.error = "pvp-battle 必須指定 32 位元無號整數的 --seed";
     }
     else if (command == "tournament-battle"
         && (!result.arguments.seedSpecified
@@ -591,6 +604,40 @@ std::optional<KysChess::ChessTournamentSubmission> loadTournamentSubmission(
     result.payloadHash = KysChess::chessSha256(*payload);
     result.composition = verification.composition;
     return result;
+}
+
+std::optional<KysChess::ChessTournamentBattleRecord> runPvpBattle(
+    const std::shared_ptr<const KysChess::ChessGameContent>& content,
+    const KysChess::ChessTournamentSubmission& first,
+    const KysChess::ChessTournamentSubmission& second,
+    std::uint32_t seed,
+    std::string& error)
+{
+    using namespace KysChess;
+    ChessStandaloneBattleRequest request;
+    request.stableBattleId = "offline_pvp";
+    request.rootSeed = seed;
+    request.battleSeed = seed;
+    request.mapId = ChessPvpMapLayout::BattleId;
+    request.layout = PreparedChessBattleLayout::PvpArena;
+    request.teams[0] = chessStandaloneBattleTeam(first.composition);
+    request.teams[1] = chessStandaloneBattleTeam(second.composition);
+    auto build = ChessStandaloneBattle::prepare(content, request, error);
+    if (!build)
+    {
+        return std::nullopt;
+    }
+    auto input = BattleSetupFactory::build(
+        build->preparedBattle, *build->content, kChessBattleFrameLimit);
+    const auto result = HeadlessBattleRunner::run(std::move(input));
+    ChessTournamentBattleRecord record;
+    record.battleSeed = seed;
+    record.teamOneEntrantIndex = 1;
+    record.outcome = chessTournamentBattleOutcome(result.summary);
+    record.engineOutcome = result.summary.outcome;
+    record.endFrame = result.summary.endFrame;
+    record.digest = result.digest;
+    return record;
 }
 
 std::string tournamentBattleOutcomeText(
@@ -1020,20 +1067,17 @@ int main(int argc, char** argv)
     }
 
     if (arguments.command == "tournament"
-        || arguments.command == "tournament-battle")
+        || arguments.command == "tournament-battle"
+        || arguments.command == "pvp-battle")
     {
         const auto content = provider(Difficulty::Hard);
         if (!content)
         {
             return 2;
         }
-        if (arguments.command == "tournament-battle")
+        if (arguments.command == "tournament-battle" || arguments.command == "pvp-battle")
         {
-            if (arguments.tournamentPaths.size() != 2)
-            {
-                std::cerr << "用法：kys_chess_cli tournament-battle <存檔甲> <存檔乙> --seed N --seed-index N --leg 0|1\n";
-                return 2;
-            }
+            assert(arguments.tournamentPaths.size() == 2);
             std::string error;
             auto first = loadTournamentSubmission(
                 content,
@@ -1053,14 +1097,16 @@ int main(int argc, char** argv)
                 std::cerr << error << '\n';
                 return 2;
             }
-            const auto battle = ChessTournamentRunner::runBattle(
-                content,
-                *first,
-                *second,
-                arguments.seed,
-                arguments.seedSequenceIndex,
-                arguments.leg,
-                error);
+            const auto battle = arguments.command == "pvp-battle"
+                ? runPvpBattle(content, *first, *second, static_cast<std::uint32_t>(arguments.seed), error)
+                : ChessTournamentRunner::runBattle(
+                    content,
+                    *first,
+                    *second,
+                    arguments.seed,
+                    arguments.seedSequenceIndex,
+                    arguments.leg,
+                    error);
             if (!battle)
             {
                 std::cerr << error << '\n';
@@ -1082,7 +1128,8 @@ int main(int argc, char** argv)
                     break;
                 }
                 std::cout << std::format(
-                    "{{\"tournament_seed\":\"0x{:016x}\",\"seed_sequence_index\":{},\"battle_seed\":{},\"leg\":{},\"outcome\":\"{}\",\"end_frame\":{},\"digest_sha256\":\"{}\"}}\n",
+                    "{{\"{}\":\"0x{:016x}\",\"seed_sequence_index\":{},\"battle_seed\":{},\"leg\":{},\"outcome\":\"{}\",\"end_frame\":{},\"digest_sha256\":\"{}\"}}\n",
+                    arguments.command == "pvp-battle" ? "root_seed" : "tournament_seed",
                     arguments.seed,
                     battle->seedSequenceIndex,
                     battle->battleSeed,

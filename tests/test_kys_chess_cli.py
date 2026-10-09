@@ -74,6 +74,21 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertEqual(completed.stdout, "")
 
+    def test_pvp_battle_requires_a_direct_32_bit_seed(self):
+        for options in ([], ["--seed", "4294967296"], ["--seed", "-1"]):
+            with self.subTest(options=options):
+                completed = run_cli(["pvp-battle", "first.json", "second.json", *options])
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stdout, "")
+
+    def test_pvp_battle_rejects_tournament_seed_options(self):
+        for options in (["--seed-index", "0"], ["--leg", "1"], ["--battle-seeds", "3"]):
+            with self.subTest(options=options):
+                completed = run_cli([
+                    "pvp-battle", "first.json", "second.json", "--seed", "1074794902", *options])
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stdout, "")
+
     def test_one_shot_json_is_one_complete_line(self):
         completed = run_cli(
             [

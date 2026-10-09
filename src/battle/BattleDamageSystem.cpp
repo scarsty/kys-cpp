@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <limits>
 #include <utility>
 
@@ -803,9 +804,21 @@ int BattleDamageSystem::resolveMagicBaseDamage(const BattleMagicBaseDamageInput&
         return 1;
     }
 
-    int damage = attack.multipliedBy(attack).dividedBy(combined).scaled(1, 4).toInt();
-    damage += input.randomVariance;
-    return std::max(1, damage);
+    // For a=q*S+r, floor(a*a/S)=q*(a+r)+floor(r*r/S).
+    // Retaining the remainder preserves the integer damage without a raw square.
+    const auto magnitude = static_cast<std::uint64_t>(std::abs(attack.raw()));
+    // floor(a*a/S) fits uint64 through effective attack 4,294,967.295999.
+    static_assert(BattleFixed::Scale == 1'000'000);
+    assert(magnitude <= 4'294'967'295'999ULL);
+    const auto whole = magnitude / BattleFixed::Scale;
+    const auto remainder = magnitude % BattleFixed::Scale;
+    const auto square = whole * (magnitude + remainder)
+        + remainder * remainder / BattleFixed::Scale;
+    const auto curve = square / static_cast<std::uint64_t>(combined.raw());
+    const auto maximumDamage = std::numeric_limits<int>::max();
+    const auto baseDamage = static_cast<int>(std::min(curve / 4, static_cast<std::uint64_t>(maximumDamage)));
+    return static_cast<int>(std::clamp<std::int64_t>(
+        static_cast<std::int64_t>(baseDamage) + input.randomVariance, 1, maximumDamage));
 }
 
 BattleAttackPotencySnapshot BattleDamageSystem::snapshotAttackPotency(
