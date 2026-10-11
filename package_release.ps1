@@ -1,12 +1,17 @@
-param(
+﻿param(
     [string]$PkgDir = "release_package",
-    [string]$GameDir = (Join-Path $PSScriptRoot 'work\game-dev'),
+    [string]$GameDir,
     [string]$Version,
     [string]$ZipPath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($GameDir))
+{
+    $GameDir = Join-Path $PSScriptRoot 'work\game-dev'
+}
 
 . (Join-Path $PSScriptRoot 'tools\ReleasePackagingCommon.ps1')
 

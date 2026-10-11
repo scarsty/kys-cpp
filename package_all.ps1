@@ -6,13 +6,18 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
 
-    [string]$GameDir = (Join-Path $PSScriptRoot 'work\game-dev'),
+    [string]$GameDir,
 
     [string]$JavaHome = $env:JAVA_HOME
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($GameDir))
+{
+    $GameDir = Join-Path $PSScriptRoot 'work\game-dev'
+}
 
 . (Join-Path $PSScriptRoot 'tools\ReleasePackagingCommon.ps1')
 

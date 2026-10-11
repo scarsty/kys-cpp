@@ -1,6 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot '..\tools\GameConfigCommon.ps1')
+
 if ($PSVersionTable.PSVersion.Major -ge 7)
 {
     $PSNativeCommandUseErrorActionPreference = $true
@@ -247,31 +249,6 @@ function Ensure-GameJunction
     Write-Host '=== Creating game junction ==='
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LinkPath) | Out-Null
     Invoke-NativeCommand -FilePath 'cmd.exe' -ArgumentList @('/c', 'mklink', '/J', $LinkPath, $TargetPath)
-}
-
-function Sync-GameConfig
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ProjectDir,
-
-        [Parameter(Mandatory = $true)]
-        [string]$GameDir
-    )
-
-    $sourceConfigDir = Join-Path $ProjectDir 'config'
-    $destinationConfigDir = Join-Path $GameDir 'config'
-    Ensure-PathExists -Path $sourceConfigDir -Message "Canonical config directory not found at $sourceConfigDir"
-
-    Write-Host '=== Synchronizing game config ==='
-    New-Item -ItemType Directory -Force -Path $destinationConfigDir | Out-Null
-    Copy-Item -Path (Join-Path $sourceConfigDir '*') -Destination $destinationConfigDir -Recurse -Force
-
-    $changelog = Join-Path $ProjectDir 'docs\更新日志.md'
-    if (Test-Path $changelog)
-    {
-        Copy-Item -Force $changelog (Join-Path $destinationConfigDir 'changelog.md')
-    }
 }
 
 function Invoke-WasmConfigureBuild

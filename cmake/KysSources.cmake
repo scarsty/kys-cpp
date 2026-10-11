@@ -98,7 +98,10 @@ function(kys_collect_chess_core_sources out_var kys_root)
 endfunction()
 
 function(kys_collect_all_game_sources out_var kys_root)
+    kys_normalize_root(kys_root_abs "${kys_root}")
     kys_collect_top_level_sources(top_level_sources "${kys_root}")
+    # Tournament execution is only used by the CLI and its tests.
+    list(REMOVE_ITEM top_level_sources "${kys_root_abs}/src/ChessTournament.cpp")
     kys_collect_battle_sources(battle_sources "${kys_root}")
     kys_collect_support_sources(support_sources "${kys_root}")
     set(${out_var}

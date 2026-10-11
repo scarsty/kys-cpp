@@ -1,6 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'GameConfigCommon.ps1')
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $script:utf8NoBomEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -194,6 +196,7 @@ function Copy-ReleaseGameAssets
     Ensure-PathExists -Path (Join-Path $sourceSaveDir 'game.db') -Message "Required save data missing: $(Join-Path $sourceSaveDir 'game.db')"
 
     Invoke-RobocopyMirror -Source $SourceGameDir -Destination $DestinationGameDir -ExcludeDirectories @('save')
+    Sync-GameConfig -ProjectDir (Split-Path -Parent $PSScriptRoot) -GameDir $DestinationGameDir
 
     $destSaveDir = Join-Path $DestinationGameDir 'save'
     if (Test-Path $destSaveDir)
