@@ -392,10 +392,12 @@ ChessComboGoldBonus resolveChessComboGoldBonus(
                 continue;
             }
             const bool comboMemberSurvived = std::ranges::any_of(
-                 survivingChessInstanceIds,
-                 [&](int instanceId) {
-                     return active.memberRoleIds.contains(state.roster.at(instanceId).roleId);
-                 });
+                active.contributions,
+                [&](const auto& contribution) {
+                    return std::ranges::any_of(contribution.unitIds, [&](int instanceId) {
+                        return survivingChessInstanceIds.contains(instanceId);
+                    });
+                });
             if (comboMemberSurvived)
             {
                 return {maximumSurvivorStar * gold->perHighestSurvivorStar, combo.id};

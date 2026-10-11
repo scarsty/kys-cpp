@@ -71,6 +71,18 @@ BattleInitializationOutput initializeBattleStartForTest(
     return BattleStartInitializer(std::move(spawns), setup, context).initialize();
 }
 
+BattleSetupComboThreshold gameplayThreshold(
+    int count,
+    const std::string& yaml,
+    std::uint64_t& nextRuleId)
+{
+    BattleSetupComboThreshold threshold;
+    threshold.count = count;
+    std::vector<GameplayEffect> effects;
+    REQUIRE(parseGameplayEffects(YAML::Load(yaml), effects, threshold.rules, nextRuleId, "羈絆互動測試"));
+    return threshold;
+}
+
 void addRuntimeSetupSeed(
     BattleRuntimeSessionCreationInput& input,
     const BattleSetupUnitInput& unit)
@@ -1166,4 +1178,318 @@ TEST_CASE("Lore equipment initializes its configurable defense and conversion on
     CHECK(poison.config.healingWindowFrames == 11);
     CHECK(poison.config.healingMaxHpPct == 4);
     CHECK(poison.binding.ownerUnitId == 0);
+}
+
+TEST_CASE("Alliance synergy points activate suppression tiers without adding debuff owners",
+          "[battle][initialization][alliance][enemy-top-debuff][regression]")
+{
+    // 測試自有門檻與效果數值，不依賴頂層設定。
+    for (const auto [memberCount, selected] : {std::pair{1, true}, {3, true}, {4, true}, {5, false}})
+    {
+        CAPTURE(memberCount, selected);
+        std::uint64_t nextRuleId{};
+        BattleRuntimeSessionCreationInput input;
+        input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+        input.setup.comboModifiersByTeam[0] = {selected ? 7 : -1, 1, 6, 1};
+        input.setup.comboDefinitions.push_back({
+            .id = 7,
+            .name = "陰險",
+            .memberRoleIds = {1001, 1002, 1003, 1004, 1005},
+            .thresholds = {
+                gameplayThreshold(2, "[{類型: 壓制最強敵人, 敵人數: 1, 攻擊點數: -7, 防禦點數: -7}]", nextRuleId),
+                gameplayThreshold(4, "[{類型: 壓制最強敵人, 敵人數: 2, 攻擊點數: -11, 防禦點數: -11}]", nextRuleId),
+                gameplayThreshold(6, "[{類型: 壓制最強敵人, 敵人數: 3, 攻擊點數: -13, 防禦點數: -13}]", nextRuleId),
+            },
+        });
+        for (int id = 1; id <= memberCount; ++id)
+            addInitializedRuntimeTestUnit(input, id, 1000 + id, 0, 10 + id, 10, Towards_RightDown);
+        for (int id = 10; id < 14; ++id)
+            addInitializedRuntimeTestUnit(input, id, 2000 + id, 1, 30 + id, 30, Towards_LeftUp);
+
+        const int tier = memberCount == 1 ? 0 : memberCount == 3 ? 1 : 2;
+        const int targetCount = tier + 1;
+        const int amount = std::array{7, 11, 13}[tier];
+        const auto resolved = resolveBattleSetupCombos(input.setup.allyRoster, input.setup);
+        REQUIRE(resolved.size() == 1);
+        CHECK(resolved.front().physicalMemberCount == memberCount);
+        CHECK(resolved.front().effectiveMemberCount == memberCount + (selected ? 1 : 0));
+        CHECK(resolved.front().activeThresholdIndex == tier);
+        CHECK(resolved.front().requiredCounts == std::vector<int>{2, 4, 5});
+        auto created = BattleRuntimeSession::createInitialized(std::move(input));
+        auto runtime = created.session.runtime();
+        CHECK(runtime.units.size() == memberCount + 4);
+
+        BattleEffectEventBridge bridge;
+        const auto dispatch = [&](int frame, int livingOwners)
+        {
+            const auto event = bridge.makeEvent(runtime,
+                {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1},
+                EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
+            const auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
+            REQUIRE(dispatched.commands.size() == livingOwners * targetCount * 2);
+            for (const auto& command : dispatched.commands)
+            {
+                CHECK(command.metadata.binding.ownerUnitId >= 1);
+                CHECK(command.metadata.binding.ownerUnitId <= livingOwners);
+                CHECK(command.metadata.targetUnitId >= 10);
+                CHECK(command.metadata.targetUnitId < 10 + targetCount);
+            }
+            BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
+            for (int id = 10; id < 14; ++id)
+                for (const auto attribute : {BattleAttribute::Attack, BattleAttribute::Defence})
+                    CHECK(BattleEffectCommandSystem::queryAttribute(runtime,
+                        {.unitId = id, .attribute = attribute, .baseValue = 200, .frame = frame})
+                        == 200 - (id < 10 + targetCount ? livingOwners * amount : 0));
+        };
+        dispatch(1, memberCount);
+        if (memberCount > 1)
+        {
+            runtime.units.requireCore(memberCount).alive = false;
+            runtime.units.requireCore(memberCount).vitals.hp = 0;
+            dispatch(2, memberCount - 1);
+        }
+    }
+}
+
+TEST_CASE("Alliance Mingjiao counts real and equipment members for deaths and last survivor",
+          "[battle][initialization][alliance][berserk][death-heal][regression]")
+{
+    std::uint64_t nextRuleId{};
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.setup.comboModifiersByTeam[0] = {7, 1, 6, 1};
+    input.setup.comboDefinitions.push_back({
+        .id = 7,
+        .name = "明教",
+        .memberRoleIds = {1001, 1002},
+        .thresholds = {{.count = 2}, gameplayThreshold(4, R"([
+            {類型: 同羈絆陣亡屬性加成, 屬性: 攻擊, 點數: 17},
+            {類型: 同羈絆陣亡屬性加成, 屬性: 防禦, 點數: 17},
+            {類型: 陣亡治療羈絆成員, 生命百分比: 13},
+            {類型: 最後羈絆成員狂暴, 暴擊百分比: 50, 冷卻縮減百分比: 20, 吸血百分比: 40, 持續幀數: 9}
+        ])", nextRuleId)},
+    });
+    for (int id = 1; id <= 4; ++id)
+        addInitializedRuntimeTestUnit(input, id, 1000 + id, 0, 10 + id, 10, Towards_RightDown);
+    input.units[2].weaponId = 777;
+    input.setup.allyRoster[2].weaponId = 777;
+    input.setup.equipmentDefinitions.push_back({.itemId = 777, .countsAsComboNames = {"明教"}});
+    addInitializedRuntimeTestUnit(input, 10, 1001, 1, 40, 30, Towards_LeftUp);
+
+    const auto resolved = resolveBattleSetupCombos(input.setup.allyRoster, input.setup);
+    REQUIRE(resolved.size() == 1);
+    CHECK(resolved.front().physicalMemberCount == 3);
+    CHECK(resolved.front().effectiveMemberCount == 4);
+    CHECK(resolved.front().memberRoleIds == std::set<int>{1001, 1002, 1003});
+    CHECK(resolved.front().activeThresholdIndex == 1);
+    auto created = BattleRuntimeSession::createInitialized(std::move(input));
+    auto runtime = created.session.runtime();
+    REQUIRE(runtime.units.size() == 5);
+    for (int id : {2, 3, 4, 10}) runtime.units.requireCore(id).vitals.hp = 60;
+
+    BattleEffectEventBridge bridge;
+    const auto kill = [&](int id, int frame, std::vector<int> survivingMemberIds)
+    {
+        const auto before = makeEffectUnitSnapshot(runtime, runtime.units.require(id));
+        auto& dead = runtime.units.requireCore(id);
+        dead.alive = false;
+        dead.vitals.hp = 0;
+        const DeathEventData death{
+            .deadBefore = before,
+            .deadAfter = makeEffectUnitSnapshot(runtime, runtime.units.require(id)),
+            .cause = EffectEnvironmentDamageOrigin{},
+            .allyOfOwner = true,
+        };
+        const auto healed = bridge.dispatch(runtime,
+            {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame * 2), .ownerUnitId = id},
+            EffectEvent::UnitDied, death);
+        REQUIRE(healed.commands.size() == survivingMemberIds.size());
+        for (const auto& command : healed.commands)
+        {
+            CHECK(std::ranges::find(survivingMemberIds, command.metadata.targetUnitId) != survivingMemberIds.end());
+            CHECK(std::get<ChangeResourceEffectCommand>(command.value).resolvedAmount() == 15);
+        }
+        BattleEffectCommandSystem().reduce(runtime, healed.commands);
+        for (const int ownerId : survivingMemberIds)
+        {
+            const auto buffs = bridge.dispatch(runtime,
+                {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame * 10 + ownerId), .ownerUnitId = ownerId},
+                EffectEvent::AllyDied, death);
+            REQUIRE(buffs.commands.size() == 2 + (survivingMemberIds.size() == 1 ? 3 : 0));
+            for (const auto& command : buffs.commands) CHECK(command.metadata.targetUnitId == ownerId);
+            BattleEffectCommandSystem().reduce(runtime, buffs.commands);
+        }
+    };
+    kill(1, 1, {2, 3});
+    CHECK_FALSE(runtime.units.require(2).status.effects.has(BattleStatusKind::Berserk));
+    CHECK(runtime.units.requireCore(2).vitals.hp == 75);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 75);
+    kill(3, 2, {2});
+    CHECK(runtime.units.require(2).status.effects.remainingFrames(BattleStatusKind::Berserk) == 9);
+    CHECK(runtime.units.requireCore(2).vitals.hp == 90);
+    for (int id : {4, 10})
+    {
+        CHECK(runtime.units.requireCore(id).vitals.hp == 60);
+        CHECK_FALSE(runtime.units.require(id).status.effects.has(BattleStatusKind::Berserk));
+    }
+    for (const auto attribute : {BattleAttribute::Attack, BattleAttribute::Defence})
+        CHECK(BattleEffectCommandSystem::queryAttribute(runtime,
+            {.unitId = 2, .attribute = attribute, .baseValue = 100, .frame = 2}) == 134);
+}
+
+TEST_CASE("Alliance equipment membership excludes unequipped duplicates on either team",
+          "[battle][initialization][alliance][equipment][berserk][death-heal][regression]")
+{
+    for (const int dyingTeam : {0, 1})
+    {
+        std::uint64_t nextRuleId{};
+        BattleRuntimeSessionCreationInput input;
+        input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+        input.setup.starGrowth.hpPerWin = 3;
+        input.setup.starGrowth.attackPerWin = 2;
+        input.setup.starGrowth.defencePerWin = 1;
+        auto threshold = gameplayThreshold(4, R"([
+            {類型: 同羈絆陣亡屬性加成, 屬性: 攻擊, 點數: 17},
+            {類型: 陣亡治療羈絆成員, 生命百分比: 13},
+            {類型: 最後羈絆成員狂暴, 暴擊百分比: 50, 冷卻縮減百分比: 20, 吸血百分比: 40, 持續幀數: 9}
+        ])", nextRuleId);
+        threshold.fightWinGrowth = {2, 3, 4};
+        input.setup.comboDefinitions.push_back({
+            .id = 7, .name = "明教", .memberRoleIds = {1001, 1002},
+            .thresholds = {{.count = 2}, std::move(threshold)},
+        });
+        input.setup.equipmentDefinitions.push_back({.itemId = 777, .countsAsComboNames = {"明教"}});
+        for (const int team : {0, 1})
+        {
+            input.setup.comboModifiersByTeam[team] = {7, 1, 6, 1};
+            for (int offset = 1; offset <= 4; ++offset)
+            {
+                const int roleId = offset == 4 ? 1003 : 1000 + offset;
+                addInitializedRuntimeTestUnit(input, team * 10 + offset, roleId, team,
+                    10 + team * 20 + offset, 10 + team * 20,
+                    team == 0 ? Towards_RightDown : Towards_LeftUp);
+                auto& roster = team == 0 ? input.setup.allyRoster : input.setup.enemyRoster;
+                roster.back().fightsWon = 2;
+                if (offset == 3)
+                {
+                    input.units.back().weaponId = 777;
+                    roster.back().weaponId = 777;
+                }
+            }
+            const auto& roster = team == 0 ? input.setup.allyRoster : input.setup.enemyRoster;
+            const auto resolved = resolveBattleSetupCombos(roster, input.setup);
+            REQUIRE(resolved.size() == 1);
+            CHECK(resolved.front().physicalMemberCount == 3);
+            CHECK(resolved.front().effectiveMemberCount == 4);
+            CHECK(resolved.front().activeThresholdIndex == 1);
+            REQUIRE(resolved.front().contributions.size() == 3);
+            CHECK(resolved.front().contributions.back().unitIds == std::vector<int>{team * 10 + 3});
+        }
+        auto created = BattleRuntimeSession::createInitialized(std::move(input));
+        auto runtime = created.session.runtime();
+        REQUIRE(runtime.units.size() == 8);
+        for (const int team : {0, 1})
+        {
+            for (int offset = 1; offset <= 4; ++offset)
+            {
+                const int id = team * 10 + offset;
+                CHECK(runtime.units.require(id).comboFacts.hasApplied(7) == (offset != 4));
+                CHECK(runtime.units.requireCore(id).vitals.maxHp == (offset != 4 ? 130 : 126));
+                CHECK(runtime.units.requireCore(id).stats.attack == (offset != 4 ? 40 : 34));
+                CHECK(runtime.units.requireCore(id).stats.defence == (offset != 4 ? 30 : 22));
+                runtime.units.requireCore(id).vitals.hp = 60;
+            }
+        }
+
+        const int base = dyingTeam * 10;
+        BattleEffectEventBridge bridge;
+        for (const int offset : {1, 2})
+        {
+            const int deadId = base + offset;
+            const auto before = makeEffectUnitSnapshot(runtime, runtime.units.require(deadId));
+            auto& dead = runtime.units.requireCore(deadId);
+            dead.alive = false;
+            dead.vitals.hp = 0;
+            const DeathEventData death{
+                .deadBefore = before,
+                .deadAfter = makeEffectUnitSnapshot(runtime, runtime.units.require(deadId)),
+                .cause = EffectEnvironmentDamageOrigin{}, .allyOfOwner = true,
+            };
+            const auto heal = bridge.dispatch(runtime,
+                {.frame = offset, .eventOrdinal = static_cast<std::uint64_t>(offset), .ownerUnitId = deadId},
+                EffectEvent::UnitDied, death);
+            REQUIRE(heal.commands.size() == 3 - offset);
+            for (const auto& command : heal.commands)
+            {
+                CHECK(command.metadata.binding.sourceTeam == dyingTeam);
+                CHECK(command.metadata.targetUnitId > deadId);
+                CHECK(command.metadata.targetUnitId <= base + 3);
+                CHECK(std::get<ChangeResourceEffectCommand>(command.value).resolvedAmount() == 16);
+            }
+            BattleEffectCommandSystem().reduce(runtime, heal.commands);
+            const auto buffs = bridge.dispatch(runtime,
+                {.frame = offset, .eventOrdinal = static_cast<std::uint64_t>(10 + offset), .ownerUnitId = base + 3},
+                EffectEvent::AllyDied, death);
+            REQUIRE(buffs.commands.size() == (offset == 2 ? 4 : 1));
+            for (const auto& command : buffs.commands)
+                CHECK(command.metadata.targetUnitId == base + 3);
+            BattleEffectCommandSystem().reduce(runtime, buffs.commands);
+            const auto plainBuffs = bridge.dispatch(runtime,
+                {.frame = offset, .eventOrdinal = static_cast<std::uint64_t>(20 + offset), .ownerUnitId = base + 4},
+                EffectEvent::AllyDied, death);
+            CHECK(plainBuffs.commands.empty());
+            CHECK(runtime.units.require(base + 3).status.effects.has(BattleStatusKind::Berserk) == (offset == 2));
+            CHECK(runtime.units.requireCore(base + 3).vitals.hp == 60 + offset * 16);
+        }
+        CHECK(runtime.units.require(base + 3).status.effects.remainingFrames(BattleStatusKind::Berserk) == 9);
+        for (const int id : {base + 4, (1 - dyingTeam) * 10 + 1, (1 - dyingTeam) * 10 + 2,
+                            (1 - dyingTeam) * 10 + 3, (1 - dyingTeam) * 10 + 4})
+        {
+            CHECK(runtime.units.requireCore(id).vitals.hp == 60);
+            CHECK_FALSE(runtime.units.require(id).status.effects.has(BattleStatusKind::Berserk));
+        }
+    }
+}
+
+TEST_CASE("Alliance enables a solo Shendiao member low health buff without buffing the enemy partner",
+          "[battle][initialization][alliance][member-team-attack][regression]")
+{
+    std::uint64_t nextRuleId{};
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.setup.comboModifiersByTeam[0] = {7, 1, 6, 1};
+    input.setup.comboDefinitions.push_back({
+        .id = 7,
+        .name = "神雕俠侶",
+        .memberRoleIds = {1001, 1002},
+        .thresholds = {gameplayThreshold(2,
+            "[{類型: 成員低血全員增攻, 生命門檻百分比: 50, 攻擊百分比: 23, 持續幀數: 9}]", nextRuleId)},
+    });
+    addInitializedRuntimeTestUnit(input, 1, 1001, 0, 11, 10, Towards_RightDown);
+    addInitializedRuntimeTestUnit(input, 2, 2002, 0, 12, 10, Towards_RightDown);
+    addInitializedRuntimeTestUnit(input, 10, 1002, 1, 40, 30, Towards_LeftUp);
+    const auto resolved = resolveBattleSetupCombos(input.setup.allyRoster, input.setup);
+    REQUIRE(resolved.size() == 1);
+    CHECK(resolved.front().physicalMemberCount == 1);
+    CHECK(resolved.front().effectiveMemberCount == 2);
+    CHECK(resolved.front().activeThresholdIndex == 0);
+    auto created = BattleRuntimeSession::createInitialized(std::move(input));
+    auto runtime = created.session.runtime();
+    runtime.units.requireCore(1).vitals.hp = 1;
+
+    BattleEffectEventBridge bridge;
+    const auto event = bridge.makeEvent(runtime,
+        {.frame = 1, .eventOrdinal = 1, .ownerUnitId = 1},
+        EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
+    const auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
+    REQUIRE(dispatched.commands.size() == 1);
+    for (const auto& command : dispatched.commands)
+    {
+        CHECK(command.metadata.targetUnitId == 1);
+    }
+    BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
+    for (int id : {1, 2, 10})
+        CHECK(BattleEffectCommandSystem::queryAttribute(runtime,
+            {.unitId = id, .attribute = BattleAttribute::Attack, .baseValue = 100, .frame = 1})
+            == (id == 1 ? 123 : 100));
 }

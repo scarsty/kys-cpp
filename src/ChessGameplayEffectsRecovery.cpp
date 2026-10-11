@@ -689,7 +689,7 @@ struct DeathHealMembers final : GameplayEffectDefinition
     {
         return {EffectRule{
             .event = EffectEvent::UnitDied,
-            .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers},
+            .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers, .team = EffectTeamFilter::Ally},
             .actions = {EffectAction{
                 .value = ChangeResourceAction{
                     .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp, .percent = 生命百分比, .minimum = 1},

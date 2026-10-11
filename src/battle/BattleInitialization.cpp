@@ -42,11 +42,11 @@ struct TeamResolvedSetup
     {
         int comboId = -1;
         bool isAntiCombo = false;
-        std::set<int> memberRoleIds;
+        std::vector<int> memberUnitIds;
         std::vector<EffectRule> rules;
     };
 
-    std::map<int, FightWinGrowthRule> fightWinGrowthByRealRoleId;
+    std::map<int, FightWinGrowthRule> fightWinGrowthByUnitId;
     std::vector<ActiveComboRules> activeComboRules;
 };
 
@@ -157,17 +157,23 @@ TeamResolvedSetup resolveTeamSetup(
         const auto& comboDefinition = requireById(setup.comboDefinitions, active.id);
         const auto& threshold = comboDefinition.thresholds[active.activeThresholdIndex];
 
-        for (int roleId : active.memberRoleIds)
+        std::vector<int> memberUnitIds;
+        for (const auto& contribution : active.contributions)
         {
-            auto& growth = resolved.fightWinGrowthByRealRoleId[roleId];
-            growth.maxHp += threshold.fightWinGrowth.maxHp;
-            growth.attack += threshold.fightWinGrowth.attack;
-            growth.defence += threshold.fightWinGrowth.defence;
+            for (const int unitId : contribution.unitIds)
+            {
+                memberUnitIds.push_back(unitId);
+                auto& growth = resolved.fightWinGrowthByUnitId[unitId];
+                growth.maxHp += threshold.fightWinGrowth.maxHp;
+                growth.attack += threshold.fightWinGrowth.attack;
+                growth.defence += threshold.fightWinGrowth.defence;
+            }
         }
+        std::ranges::sort(memberUnitIds);
         resolved.activeComboRules.push_back({
             .comboId = active.id,
             .isAntiCombo = active.isAntiCombo,
-            .memberRoleIds = active.memberRoleIds,
+            .memberUnitIds = std::move(memberUnitIds),
             .rules = threshold.rules,
         });
     }
@@ -455,7 +461,9 @@ void BattleStartInitializationRun::initializeSeededUnits()
         };
         comboFacts.reserve(
             std::ranges::count_if(setup_.comboDefinitions, matchesMember),
-            std::ranges::count_if(resolved.activeComboRules, matchesMember));
+            std::ranges::count_if(resolved.activeComboRules, [&](const auto& combo) {
+                return std::ranges::contains(combo.memberUnitIds, seed.unitId);
+            }));
 
         for (const auto& combo : setup_.comboDefinitions)
         {
@@ -470,8 +478,8 @@ void BattleStartInitializationRun::initializeSeededUnits()
         int extraFightWinGrowthHP{};
         int extraFightWinGrowthATK{};
         int extraFightWinGrowthDEF{};
-        if (const auto growth = resolved.fightWinGrowthByRealRoleId.find(seed.realRoleId);
-            growth != resolved.fightWinGrowthByRealRoleId.end())
+        if (const auto growth = resolved.fightWinGrowthByUnitId.find(seed.unitId);
+            growth != resolved.fightWinGrowthByUnitId.end())
         {
             extraFightWinGrowthHP = growth->second.maxHp;
             extraFightWinGrowthATK = growth->second.attack;
@@ -547,17 +555,8 @@ void BattleStartInitializationRun::bindActiveComboRules()
             {
                 activeAntiComboIds_.insert(active.comboId);
             }
-            std::vector<int> ownerUnitIds;
-            for (const auto& seed : setup_.units)
-            {
-                if (seed.team == team
-                    && active.memberRoleIds.contains(seed.realRoleId))
-                {
-                    ownerUnitIds.push_back(seed.unitId);
-                }
-            }
+            const auto& ownerUnitIds = active.memberUnitIds;
             assert(!ownerUnitIds.empty());
-            std::ranges::sort(ownerUnitIds);
             for (int ownerUnitId : ownerUnitIds)
             {
                 spawn(ownerUnitId).comboFacts.addApplied(

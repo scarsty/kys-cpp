@@ -231,12 +231,12 @@ TEST_CASE("alliance configurable bonuses combine with equipment and stars withou
         {20, 1, 2, 50, -1, 3}};
     const std::vector<ChessComboResolverEquipmentRule> equipment{{50, {}, {"測試"}}};
     const std::vector<ChessComboResolverDefinition> definitions{{0, "測試", {10}, {3, 5, 7}, false, true}};
-    const auto resolved = resolveChessCombos(units, equipment, definitions, {0, 2, 5, 2});
+    const auto resolved = resolveChessCombos(units, equipment, definitions, {0, 1, 5, 2});
     REQUIRE(resolved.size() == 1);
     CHECK(resolved[0].physicalMemberCount == 2);
-    CHECK(resolved[0].effectiveMemberCount == 5);
+    CHECK(resolved[0].effectiveMemberCount == 4);
     CHECK(resolved[0].requiredCounts == std::vector<int>{3, 3, 5});
-    CHECK(resolved[0].activeThresholdIndex == 2);
+    CHECK(resolved[0].activeThresholdIndex == 1);
     CHECK(resolved[0].contributions.size() == 2);
 }
 

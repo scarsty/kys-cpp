@@ -3874,7 +3874,7 @@ void ChessGuiSessionAdapter::showEnemyReroll()
 
 namespace
 {
-std::shared_ptr<DrawableOnCall> makeComboDetailPanel(
+std::shared_ptr<DrawableOnCall> makeComboOverviewPanel(
     const ChessGameSession& session,
     std::vector<const ComboDef*> rows,
     const PanelFrame& frame)
@@ -3978,7 +3978,7 @@ std::shared_ptr<DrawableOnCall> makeComboDetailPanel(
             const auto rendered = describeGameplayEffectsAndManagementRules(
                 threshold.effects,
                 threshold.managementRules,
-                EffectDescriptionStyle::Full);
+                EffectDescriptionStyle::Compact);
             appendRenderedEffectDescriptionRows(
                 thresholdRows,
                 rendered,
@@ -3987,6 +3987,13 @@ std::shared_ptr<DrawableOnCall> makeComboDetailPanel(
                 0,
                 2);
         }
+        appendPanelTextRow(
+            thresholdRows,
+            "完整說明：棋局總覽 → 效果全覽",
+            {160, 160, 160, 255},
+            -4,
+            0,
+            12);
 
         constexpr int contentTop = 45;
         constexpr int contentBottomInset = 10;
@@ -4010,7 +4017,7 @@ std::shared_ptr<DrawableOnCall> makeComboDetailPanel(
                 break;
             }
         }
-        assert(fitted && "formal Full combo descriptions must fit the detail panel");
+        assert(fitted && "compact combo descriptions must fit the overview panel");
         drawPanelText(font, memberRows, fitted->first,
             panelFrame.x + 10, panelFrame.y + contentTop);
         drawPanelText(font, thresholdRows, fitted->second,
@@ -4046,7 +4053,7 @@ void ChessGuiSessionAdapter::viewCombos()
         anchor,
         data.labels,
         kChessBrowseMenuPresentation.fontSize);
-    auto detail = makeComboDetailPanel(session_, std::move(rows), frame);
+    auto detail = makeComboOverviewPanel(session_, std::move(rows), frame);
     runIndexedMenu(
         "羈絆一覽",
         data,
@@ -4579,7 +4586,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 assert(combo != session_.content().combos().end());
                 combos.push_back(&*combo);
             }
-            detailPanels.push_back(makeComboDetailPanel(session_, std::move(combos),
+            detailPanels.push_back(makeComboOverviewPanel(session_, std::move(combos),
                 ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, menuPresentation.fontSize)));
         }
         else if (pending.kind == ChessRewardKind::Piece || pending.kind == ChessRewardKind::StarUpgrade)

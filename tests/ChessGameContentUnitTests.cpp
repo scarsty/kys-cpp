@@ -139,7 +139,7 @@ constexpr std::string_view talentsFixtureText = R"(棋手天賦:
       每次數量: 2
   合縱:
     說明: 測試合縱說明
-    開局羈絆加點: 2
+    開局羈絆加點: 1
     高階門檻:
       最低門檻: 7
       降低人數: 2
@@ -420,7 +420,7 @@ TEST_CASE("talent configuration reads the shared strengthening parameters", "[ch
     CHECK(talent.strengtheningDamagePercent == 37);
     CHECK(talent.extraStarCap == 6);
     const auto& alliance = result.talent(ChessTalentId::Alliance);
-    CHECK(alliance.selectedComboBonus == 2);
+    CHECK(alliance.selectedComboBonus == 1);
     CHECK(alliance.reducedThresholdMinimum == 7);
     CHECK(alliance.thresholdReduction == 2);
 }
@@ -548,6 +548,7 @@ TEST_CASE("talent configuration rejects malformed identities ranges and legacy k
     SECTION("unknown catalog root") { talents["未知"] = 1; }
     SECTION("growth percentage") { talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = kChessMaximumGrowthAmplificationPercent + 1; }
     SECTION("negative synergy bonus") { talents["棋手天賦"]["合縱"]["開局羈絆加點"] = -1; }
+    SECTION("synergy bonus cannot activate an empty pair") { talents["棋手天賦"]["合縱"]["開局羈絆加點"] = 2; }
     SECTION("invalid reduced threshold") { talents["棋手天賦"]["合縱"]["高階門檻"]["最低門檻"] = 1; }
     SECTION("reduction must leave a positive threshold") { talents["棋手天賦"]["合縱"]["高階門檻"]["降低人數"] = 7; }
     SECTION("stack cap") { talents["棋手天賦"]["賭徒"]["賭運"]["層數上限"] = 0; }

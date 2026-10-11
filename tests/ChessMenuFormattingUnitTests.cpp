@@ -310,11 +310,11 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
     CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(backbonePresentation));
     CHECK(chessTalentDescription(balance, ChessTalentId::Backbone).contains("每多1星 +12"));
     balance.talents.emplace(ChessTalentId::Alliance, ChessTalentDefinition{
-        .description = "合縱設定說明", .selectedComboBonus = 2,
+        .description = "合縱設定說明", .selectedComboBonus = 1,
         .reducedThresholdMinimum = 7, .thresholdReduction = 2});
     const auto alliance = buildChessTalentPresentation(balance, ChessTalentId::Alliance);
     CHECK(alliance.description == "合縱設定說明");
-    CHECK(fact(alliance, "開局結盟", "選擇羈絆").value.contains("+2人"));
+    CHECK(fact(alliance, "開局結盟", "選擇羈絆").value.contains("+1人"));
     CHECK(fact(alliance, "高階羈絆", "降低門檻").value.contains("達7人"));
     CHECK(fact(alliance, "高階羈絆", "降低門檻").value.contains("降低2人"));
     CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(alliance));

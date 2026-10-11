@@ -358,7 +358,7 @@ struct LowHealthMemberTeamAttack final : GameplayEffectDefinition
     std::vector<EffectRule> buildRules() const override
     {
         return {EffectRule{.event = EffectEvent::FrameAdvanced,
-                           .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers},
+                           .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers, .team = EffectTeamFilter::Ally},
                            .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
                            .maxActivations = 1,
                            .sharedCooldownFrames = 200,

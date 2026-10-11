@@ -313,6 +313,79 @@ TEST_CASE("equipment combo substitution does not double-count an existing member
     CHECK(progress.contributions.front().equipmentItemIds == std::vector<int>{500});
 }
 
+TEST_CASE("equipment membership and star points only use qualifying duplicate instances",
+          "[chess][combo][parity][battle][equipment][regression]")
+{
+    std::vector<EquipmentDef> equipment{{500, 1, 0}};
+    std::vector<EquipmentSynergyDef> synergies;
+    SECTION("equipment grants membership directly")
+    {
+        equipment.front().managementRules = {CountsAsComboRule{"測試羈絆"}};
+    }
+    SECTION("role restricted equipment grants membership")
+    {
+        synergies.push_back({{20}, 500, {}, {CountsAsComboRule{"測試羈絆"}}});
+    }
+    for (const int plainStar : {1, 3})
+    {
+        const std::vector<TestPiece> pieces{
+            {1, 10, 1, 1},
+            {2, 10, 1, 1},
+            {3, 20, 2, 1, 500},
+            {4, 20, plainStar, 1},
+        };
+        const auto combo = testCombo(7, "測試羈絆", {10}, 3,
+            attributeRule(BattleAttribute::Defence, 11), false, true);
+        const auto content = testContent(pieces, combo, equipment, synergies);
+        const auto state = sessionState(pieces);
+        const auto progress = evaluateChessComboProgress(state, *content, content->combos().front());
+        CHECK(progress.physicalCount == 2);
+        CHECK(progress.effectiveCount == 3);
+        CHECK(progress.activeThresholdIndex == 0);
+        REQUIRE(progress.contributions.size() == 2);
+        CHECK(progress.contributions[0].unitIds == std::vector<int>{1, 2});
+        CHECK(progress.contributions[0].naturalMember);
+        CHECK(progress.contributions[1].unitIds == std::vector<int>{3});
+        CHECK_FALSE(progress.contributions[1].naturalMember);
+        CHECK(progress.contributions[1].countedStar == 2);
+        CHECK(progress.contributions[1].starBonusPoints == 1);
+        CHECK(progress.contributions[1].equipmentItemIds == std::vector<int>{500});
+
+        const auto spawns = initializedBattleSpawns(pieces, combo, equipment, synergies);
+        for (const int id : {1, 2, 3})
+            CHECK(requireSpawn(spawns, id).comboFacts.hasApplied(7));
+        CHECK(requireSpawn(spawns, 1).unit.stats.defence == 11);
+        CHECK(requireSpawn(spawns, 2).unit.stats.defence == 11);
+        CHECK(requireSpawn(spawns, 3).unit.stats.defence == 21);
+        CHECK_FALSE(requireSpawn(spawns, 4).comboFacts.hasApplied(7));
+        CHECK(requireSpawn(spawns, 4).unit.stats.defence == 10 * (plainStar - 1));
+    }
+}
+
+TEST_CASE("victory gold requires a surviving qualifying equipment instance",
+          "[chess][combo][gold][equipment][regression]")
+{
+    const std::vector<TestPiece> pieces{
+        {1, 10, 1, 1},
+        {2, 20, 1, 1, 500},
+        {3, 20, 3, 1},
+    };
+    ComboDef combo;
+    combo.id = 7;
+    combo.name = "獎勵羈絆";
+    combo.memberRoleIds = {10};
+    combo.thresholds.push_back({2, "測試門檻", {}, {VictoryGoldRule{2}}});
+    EquipmentDef equipment{500, 1, 0};
+    equipment.managementRules = {CountsAsComboRule{"獎勵羈絆"}};
+    const auto content = testContent(pieces, combo, {equipment});
+    const auto state = sessionState(pieces);
+
+    CHECK(calculateChessComboGoldBonus(state, *content, {3}) == 0);
+    CHECK(calculateChessComboGoldBonus(state, *content, {2}) == 2);
+    CHECK(calculateChessComboGoldBonus(state, *content, {2, 3}) == 6);
+    CHECK(calculateChessComboGoldBonus(state, *content, {1, 3}) == 6);
+}
+
 TEST_CASE("anti-combo resolution selects the same highest-cost deterministic member in both paths",
           "[chess][combo][parity][battle][anti]")
 {

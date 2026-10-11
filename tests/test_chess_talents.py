@@ -1,10 +1,28 @@
 import json
 import unittest
+from pathlib import Path
+
+import jsonschema
 
 from test_kys_chess_cli import run_cli, run_jsonl, run_mcp
 
 
 TALENTS = ("divine_arms", "late_bloomer", "gambler", "backbone", "alliance")
+
+
+class ChessTalentSchemaTests(unittest.TestCase):
+    def test_alliance_opening_bonus_only_accepts_zero_or_one(self):
+        path = Path(__file__).resolve().parents[1] / "schemas" / "chess_talents.schema.json"
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        alliance_schema = schema["properties"]["棋手天賦"]["properties"]["合縱"]
+        validator = jsonschema.Draft202012Validator(alliance_schema)
+        fixture = {"說明": "測試合縱", "高階門檻": {"最低門檻": 6, "降低人數": 1}}
+        for bonus in (0, 1):
+            with self.subTest(bonus=bonus):
+                validator.validate({**fixture, "開局羈絆加點": bonus})
+        for bonus in (-1, 2, 100):
+            with self.subTest(bonus=bonus):
+                self.assertTrue(list(validator.iter_errors({**fixture, "開局羈絆加點": bonus})))
 
 
 class ChessTalentTests(unittest.TestCase):

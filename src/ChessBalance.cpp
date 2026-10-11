@@ -189,7 +189,7 @@ bool loadBalanceConfig(
             def.guaranteeCount = number(n["刷新保證"], "每次數量", 1, 100);
             break;
         case ChessTalentId::Alliance:
-            def.selectedComboBonus = number(n, "開局羈絆加點", 0, 100);
+            def.selectedComboBonus = number(n, "開局羈絆加點", 0, 1);
             def.reducedThresholdMinimum = number(n["高階門檻"], "最低門檻", 2, 100);
             def.thresholdReduction = number(n["高階門檻"], "降低人數", 0, def.reducedThresholdMinimum - 1);
             break;

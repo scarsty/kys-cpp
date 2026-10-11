@@ -219,7 +219,7 @@
             "開局羈絆加點": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 100
+              "maximum": 1
             },
             "高階門檻": {
               "type": "object",

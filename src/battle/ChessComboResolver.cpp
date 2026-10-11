@@ -34,24 +34,17 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
     std::span<const ChessComboResolverDefinition> definitions,
     const ChessComboModifiers& modifiers)
 {
-    assert(modifiers.selectedComboBonus >= 0);
+    assert(modifiers.selectedComboBonus >= 0 && modifiers.selectedComboBonus <= 1);
     assert(modifiers.thresholdReduction >= 0);
     assert(modifiers.thresholdReduction == 0 || modifiers.thresholdReduction < modifiers.reducedThresholdMinimum);
-    std::map<int, int> starByRole;
     std::map<int, int> costByRole;
-    std::map<int, std::vector<int>> unitIdsByRole;
     for (const auto& unit : units)
     {
         assert(unit.roleId >= 0);
         assert(unit.star >= 1);
-        starByRole[unit.roleId] = unit.star;
         if (unit.cost)
         {
             costByRole[unit.roleId] = *unit.cost;
-        }
-        if (unit.unitId >= 0)
-        {
-            unitIdsByRole[unit.roleId].push_back(unit.unitId);
         }
     }
 
@@ -59,30 +52,33 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
     result.reserve(definitions.size());
     for (const auto& definition : definitions)
     {
-        std::map<int, std::vector<int>> equipmentItemsByRole;
-        std::set<int> qualifyingRoleIds;
+        std::map<int, ResolvedChessComboContribution> contributionsByRole;
         for (const auto& unit : units)
         {
-            bool qualifiesByEquipment = false;
+            std::vector<int> equipmentItems;
             for (const auto& rule : equipmentRules)
             {
                 if (!equipmentRuleApplies(rule, unit, definition.name))
                 {
                     continue;
                 }
-                equipmentItemsByRole[unit.roleId].push_back(rule.equipmentItemId);
-                qualifiesByEquipment = true;
+                equipmentItems.push_back(rule.equipmentItemId);
             }
-            if (std::ranges::contains(definition.memberRoleIds, unit.roleId)
-                || qualifiesByEquipment)
+            const bool naturalMember = std::ranges::contains(definition.memberRoleIds, unit.roleId);
+            if (!naturalMember && equipmentItems.empty())
             {
-                qualifyingRoleIds.insert(unit.roleId);
+                continue;
             }
-        }
-        for (auto& [roleId, equipmentItems] : equipmentItemsByRole)
-        {
-            std::ranges::sort(equipmentItems);
-            equipmentItems.erase(std::unique(equipmentItems.begin(), equipmentItems.end()), equipmentItems.end());
+            auto& contribution = contributionsByRole[unit.roleId];
+            contribution.roleId = unit.roleId;
+            contribution.countedStar = unit.star;
+            contribution.naturalMember = naturalMember;
+            contribution.equipmentItemIds.insert(
+                contribution.equipmentItemIds.end(), equipmentItems.begin(), equipmentItems.end());
+            if (unit.unitId >= 0)
+            {
+                contribution.unitIds.push_back(unit.unitId);
+            }
         }
 
         ResolvedChessCombo resolved;
@@ -93,26 +89,15 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
             resolved.requiredCounts.push_back(!definition.isAntiCombo && count >= modifiers.reducedThresholdMinimum
                 ? count - modifiers.thresholdReduction : count);
         }
-        for (const int roleId : qualifyingRoleIds)
+        for (auto& [roleId, contribution] : contributionsByRole)
         {
             resolved.memberRoleIds.insert(roleId);
-            ResolvedChessComboContribution contribution;
-            contribution.roleId = roleId;
-            const auto unitIds = unitIdsByRole.find(roleId);
-            if (unitIds != unitIdsByRole.end())
-            {
-                contribution.unitIds = unitIds->second;
-            }
-            contribution.countedStar = starByRole.at(roleId);
             contribution.starBonusPoints = definition.starSynergyBonus
                 ? contribution.countedStar - 1
                 : 0;
-            contribution.naturalMember = std::ranges::contains(definition.memberRoleIds, roleId);
-            const auto equipmentItems = equipmentItemsByRole.find(roleId);
-            if (equipmentItems != equipmentItemsByRole.end())
-            {
-                contribution.equipmentItemIds = equipmentItems->second;
-            }
+            auto& equipmentItems = contribution.equipmentItemIds;
+            std::ranges::sort(equipmentItems);
+            equipmentItems.erase(std::unique(equipmentItems.begin(), equipmentItems.end()), equipmentItems.end());
             resolved.physicalMemberCount += contribution.physicalPoints;
             resolved.effectiveMemberCount += contribution.physicalPoints + contribution.starBonusPoints;
             resolved.contributions.push_back(std::move(contribution));
