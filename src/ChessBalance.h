@@ -345,11 +345,27 @@ inline ChessTalentPresentation buildChessTalentPresentation(
             "賭運",
             "取得方式",
             std::format(
-                "第1～{}關付費刷新；隨機選{}～{}費未滿層棋子 +{}層，優先上場棋子",
-                talent.luckLastFight,
+                "第1～{}關付費刷新商店時累積；免費刷新及之後的刷新不增加",
+                talent.luckLastFight));
+        appendMechanic(
+            "賭運",
+            "目標棋子",
+            std::format(
+                "隨機選1枚已持有的{}～{}費、未滿{}層棋子，增加{}層；不是全隊增加",
                 talent.luckMinTier,
                 talent.luckMaxTier,
+                talent.luckStackCap,
                 talent.luckPerRefresh));
+        appendMechanic(
+            "賭運",
+            "上場優先",
+            "優先從符合條件的上場棋子隨機選；沒有時才選候補，全隊皆不符合時不增加");
+        appendMechanic(
+            "賭運",
+            "購買與升星",
+            std::format(
+                "新買棋子不自帶賭運；升星合併已有層數，上限{}層",
+                talent.luckStackCap));
         appendMechanic(
             "賭運",
             "觸發機率",

@@ -285,10 +285,10 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
     CHECK_FALSE(latePresentation.description.contains("神兵商店"));
 
     const auto gamblerPresentation = buildChessTalentPresentation(balance, ChessTalentId::Gambler);
-    REQUIRE(gamblerPresentation.facts.size() == 4);
+    REQUIRE(gamblerPresentation.facts.size() == 7);
     CHECK(fact(gamblerPresentation, "開局", "額外禁棋").value == "8枚（1～4費）");
     CHECK(fact(gamblerPresentation, "賭運", "取得方式").value
-        == "第1～19關付費刷新；隨機選2～5費未滿層棋子 +3層，優先上場棋子");
+        == "第1～19關付費刷新商店時累積；免費刷新及之後的刷新不增加");
     CHECK(fact(gamblerPresentation, "賭運", "觸發機率").value == "每層 +11%，最多7層（77%）");
     CHECK(fact(gamblerPresentation, "致命傷害", "成功效果").value == "保留2生命，無敵121幀");
     CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(gamblerPresentation));
