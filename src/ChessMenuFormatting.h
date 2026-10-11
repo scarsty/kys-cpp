@@ -70,7 +70,8 @@ inline ChessMenuPresentation chessRewardMenuPresentation(
 {
     assert(displayedRows > 0);
     if (pending.kind == ChessRewardKind::Piece
-        || pending.kind == ChessRewardKind::StarUpgrade)
+        || pending.kind == ChessRewardKind::StarUpgrade
+        || pending.kind == ChessRewardKind::Synergy)
     {
         return kChessCompactMenuPresentation;
     }

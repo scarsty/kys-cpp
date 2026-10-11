@@ -87,7 +87,8 @@ ComboDto comboDto(
     int effectiveCount,
     int activeThresholdIndex,
     bool full = true,
-    const std::vector<ResolvedChessComboContribution>* contributions = nullptr);
+    const std::vector<ResolvedChessComboContribution>* contributions = nullptr,
+    std::span<const int> requiredCounts = {});
 std::optional<ComboDto> inspectComboDto(
     const ChessGameSession& session,
     std::string_view comboName,

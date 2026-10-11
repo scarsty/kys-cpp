@@ -32,7 +32,7 @@
             "勝場成長受加成比例": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 100
+              "maximum": 1000
             }
           },
           "required": [
@@ -162,11 +162,23 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 100
+                },
+                "每顆強化次數": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "強化傷害百分比": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
                 }
               },
               "required": [
                 "每顆開場內力",
-                "計算上限"
+                "計算上限",
+                "每顆強化次數",
+                "強化傷害百分比"
               ],
               "additionalProperties": false
             },
@@ -196,13 +208,54 @@
             "刷新保證"
           ],
           "additionalProperties": false
+        },
+        "合縱": {
+          "type": "object",
+          "properties": {
+            "說明": {
+              "type": "string",
+              "minLength": 1
+            },
+            "開局羈絆加點": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "高階門檻": {
+              "type": "object",
+              "properties": {
+                "最低門檻": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 100
+                },
+                "降低人數": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 99
+                }
+              },
+              "required": [
+                "最低門檻",
+                "降低人數"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "說明",
+            "開局羈絆加點",
+            "高階門檻"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
         "神兵",
         "晚成",
         "賭徒",
-        "中堅"
+        "中堅",
+        "合縱"
       ],
       "additionalProperties": false
     }

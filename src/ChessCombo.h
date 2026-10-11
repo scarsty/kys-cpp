@@ -47,7 +47,12 @@ struct ChessComboProgress
     bool isAntiCombo = false;
     bool starSynergyBonus = false;
     std::vector<ResolvedChessComboContribution> contributions;
+    std::vector<int> requiredCounts;
 };
+
+ChessComboModifiers chessComboModifiers(
+    const ChessSessionState& state,
+    const ChessGameContent& content);
 
 std::vector<ComboDef> loadChessCombos(
     const std::string& path,

@@ -9,6 +9,16 @@
 namespace KysChess
 {
 
+struct ChessComboModifiers
+{
+    int selectedComboId = -1;
+    int selectedComboBonus{};
+    int reducedThresholdMinimum{};
+    int thresholdReduction{};
+
+    auto operator<=>(const ChessComboModifiers&) const = default;
+};
+
 struct ChessComboResolverUnit
 {
     int roleId = -1;
@@ -59,11 +69,13 @@ struct ResolvedChessCombo
     int nextThresholdIndex = -1;
     bool isAntiCombo = false;
     std::vector<ResolvedChessComboContribution> contributions;
+    std::vector<int> requiredCounts;
 };
 
 std::vector<ResolvedChessCombo> resolveChessCombos(
     std::span<const ChessComboResolverUnit> units,
     std::span<const ChessComboResolverEquipmentRule> equipmentRules,
-    std::span<const ChessComboResolverDefinition> definitions);
+    std::span<const ChessComboResolverDefinition> definitions,
+    const ChessComboModifiers& modifiers = {});
 
 }

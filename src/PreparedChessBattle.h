@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessRunRandom.h"
+#include "battle/ChessComboResolver.h"
 #include "battle/BattleLethalRecovery.h"
 #include "battle/BattleStrengthening.h"
 #include <optional>
@@ -62,6 +63,7 @@ struct PreparedChessBattle
     std::uint32_t talentBattleSeed{};
     ChessRunRandomCheckpoint preparationCheckpoint;
     std::array<std::set<int>, 2> obtainedNeigongIdsByTeam;
+    std::array<ChessComboModifiers, 2> comboModifiersByTeam;
 
     auto operator<=>(const PreparedChessBattle&) const = default;
 };

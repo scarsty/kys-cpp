@@ -309,6 +309,15 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
         == "升至3星後取消尚未使用的保證棋子");
     CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(backbonePresentation));
     CHECK(chessTalentDescription(balance, ChessTalentId::Backbone).contains("每多1星 +12"));
+    balance.talents.emplace(ChessTalentId::Alliance, ChessTalentDefinition{
+        .description = "合縱設定說明", .selectedComboBonus = 2,
+        .reducedThresholdMinimum = 7, .thresholdReduction = 2});
+    const auto alliance = buildChessTalentPresentation(balance, ChessTalentId::Alliance);
+    CHECK(alliance.description == "合縱設定說明");
+    CHECK(fact(alliance, "開局結盟", "選擇羈絆").value.contains("+2人"));
+    CHECK(fact(alliance, "高階羈絆", "降低門檻").value.contains("達7人"));
+    CHECK(fact(alliance, "高階羈絆", "降低門檻").value.contains("降低2人"));
+    CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(alliance));
 }
 TEST_CASE("chess menu labels align stars and prices by measured display width", "[chess][menu-formatting]")
 {

@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -222,7 +223,8 @@ ChessComboMetadata chessComboMetadata(
     int activeThresholdIndex,
     int nextThresholdIndex,
     const std::vector<ResolvedChessComboContribution>& contributions,
-    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full);
+    EffectDescriptionStyle descriptionStyle = EffectDescriptionStyle::Full,
+    std::span<const int> requiredCounts = {});
 ChessChallengeMetadata chessChallengeMetadata(
     const ChessGameContent& content,
     const BalanceConfig::ChallengeDef& challenge);

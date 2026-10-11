@@ -42,6 +42,7 @@ struct ChessStandaloneBattleTeam
     std::vector<ChessStandaloneBattlePiece> pieces;
     std::vector<int> formationSlots;
     std::set<int> obtainedNeigongIds;
+    ChessComboModifiers comboModifiers;
 };
 
 ChessStandaloneBattleTeam chessStandaloneBattleTeam(

@@ -409,6 +409,13 @@ inline ChessTalentPresentation buildChessTalentPresentation(
             "升至3星",
             "升至3星後取消尚未使用的保證棋子");
         break;
+    case ChessTalentId::Alliance:
+        appendMechanic("開局結盟", "選擇羈絆",
+            std::format("任選一個一般羈絆，永久 +{}人；不需要額外上場棋子", talent.selectedComboBonus));
+        appendMechanic("高階羈絆", "降低門檻",
+            std::format("所有原始門檻達{}人以上的羈絆，降低{}人", talent.reducedThresholdMinimum, talent.thresholdReduction));
+        appendMechanic("結盟加點", "計算方式", "與成員、星級及裝備計點共同計算，可與高階門檻降低疊加；獨行羈絆不適用");
+        break;
     }
     return result;
 }

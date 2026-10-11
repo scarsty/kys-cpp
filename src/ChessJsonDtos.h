@@ -671,6 +671,7 @@ struct ObservationDto
 {
     std::string talent;
     std::string talent_name;
+    std::optional<NamedIdDto> talent_synergy;
     std::optional<std::string> talent_description;
     std::string content_fingerprint;
     bool talent_has_legendary_shop{};

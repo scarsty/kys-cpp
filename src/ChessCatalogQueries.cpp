@@ -385,7 +385,8 @@ ChessComboMetadata chessComboMetadata(
     int activeThresholdIndex,
     int nextThresholdIndex,
     const std::vector<ResolvedChessComboContribution>& contributions,
-    EffectDescriptionStyle descriptionStyle)
+    EffectDescriptionStyle descriptionStyle,
+    std::span<const int> requiredCounts)
 {
     ChessComboMetadata result;
     result.comboId = definition.id;
@@ -403,16 +404,19 @@ ChessComboMetadata chessComboMetadata(
     progress.active = result.active;
     progress.isAntiCombo = definition.isAntiCombo;
     progress.starSynergyBonus = definition.starSynergyBonus;
+    const auto requiredCount = [&](int index) {
+        return requiredCounts.empty() ? definition.thresholds[index].count : requiredCounts[index];
+    };
     if (!definition.thresholds.empty())
     {
         progress.displayTargetCount = definition.isAntiCombo
-            ? definition.thresholds.front().count
+            ? requiredCount(0)
             : nextThresholdIndex >= 0
-                ? definition.thresholds[nextThresholdIndex].count
-                : definition.thresholds.back().count;
+                ? requiredCount(nextThresholdIndex)
+                : requiredCount(static_cast<int>(definition.thresholds.size()) - 1);
     }
     result.progressCount = formatChessComboProgressCount(progress);
-    result.countExplanation = "physical_count 是不重複角色數；effective_count 再加上此羈絆允許的星級加點；裝備只讓非成員取得成員資格，不會讓同一角色重複計點";
+    result.countExplanation = "physical_count 是不重複角色數；effective_count 再加上此羈絆允許的星級及天賦加點；裝備只讓非成員取得成員資格，不會讓同一角色重複計點";
     for (const int roleId : definition.memberRoleIds)
     {
         const auto* role = content.role(roleId);
@@ -423,7 +427,7 @@ ChessComboMetadata chessComboMetadata(
     {
         const auto& threshold = definition.thresholds[index];
         ChessComboThresholdMetadata metadata;
-        metadata.requiredCount = threshold.count;
+        metadata.requiredCount = requiredCount(index);
         metadata.name = threshold.name;
         metadata.active = index <= activeThresholdIndex;
         metadata.effects = describeGameplayEffectsAndManagementRules(

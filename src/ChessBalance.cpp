@@ -92,7 +92,7 @@ bool loadBalanceConfig(
     BalanceConfig c;
     try
     {
-    const std::set<std::string> balanceKeys{"Boss戰鬥經驗", "Boss獎勵加成", "Boss間隔", "價格", "初始金幣", "利息上限", "利息百分比", "刷新費用", "各費價格", "名稱", "商店數量", "商店權重", "固定攻擊", "固定生命", "固定防禦", "基本", "基礎禁棋數", "天賦額外", "戰鬥獎勵基礎", "戰鬥獎勵增長", "戰鬥經驗", "描述", "攻擊倍率", "敵人", "敵人表", "敵人裝備", "數值", "星級", "星級倍率", "星級加成", "最低出戰人數", "最低層級", "最高層級", "最高等級", "最高費用", "棋子成長", "棋子費用", "武功倍率", "武器", "每勝兵器", "每勝攻擊", "每勝生命", "每勝輕功", "每勝防禦", "每級增加禁棋數", "無羈絆關卡", "獎勵", "玩家裝備獎勵", "生命倍率", "神兵商店", "禁棋數", "禁棋解鎖", "經濟", "經驗表", "總關卡數", "背包上限", "裝備ID", "裝備數量", "角色", "角色ID", "購買經驗數量", "購買經驗費用", "追加選項費用", "逆天改命費用", "通關後", "速度倍率", "進度", "遠征挑戰", "選項數量", "關卡", "防具", "防禦倍率", "雙裝備", "類型", "棋手天賦", "預設", "可選", "神兵", "晚成", "賭徒", "中堅"};
+    const std::set<std::string> balanceKeys{"Boss戰鬥經驗", "Boss獎勵加成", "Boss間隔", "價格", "初始金幣", "利息上限", "利息百分比", "刷新費用", "各費價格", "名稱", "商店數量", "商店權重", "固定攻擊", "固定生命", "固定防禦", "基本", "基礎禁棋數", "天賦額外", "戰鬥獎勵基礎", "戰鬥獎勵增長", "戰鬥經驗", "描述", "攻擊倍率", "敵人", "敵人表", "敵人裝備", "數值", "星級", "星級倍率", "星級加成", "最低出戰人數", "最低層級", "最高層級", "最高等級", "最高費用", "棋子成長", "棋子費用", "武功倍率", "武器", "每勝兵器", "每勝攻擊", "每勝生命", "每勝輕功", "每勝防禦", "每級增加禁棋數", "無羈絆關卡", "獎勵", "玩家裝備獎勵", "生命倍率", "神兵商店", "禁棋數", "禁棋解鎖", "經濟", "經驗表", "總關卡數", "背包上限", "裝備ID", "裝備數量", "角色", "角色ID", "購買經驗數量", "購買經驗費用", "追加選項費用", "逆天改命費用", "通關後", "速度倍率", "進度", "遠征挑戰", "選項數量", "關卡", "防具", "防禦倍率", "雙裝備", "類型", "棋手天賦", "預設", "可選", "神兵", "晚成", "賭徒", "中堅", "合縱"};
     const auto validateKeys = [&](const auto& self, const YAML::Node& node) -> void {
         if (node.IsMap()) for (const auto& entry : node)
         {
@@ -109,7 +109,7 @@ bool loadBalanceConfig(
         throw std::runtime_error("天賦配置根節點只允許棋手天賦");
     const auto catalog = catalogRoot["棋手天賦"];
     if (!catalog.IsMap() || catalog.size() != kChessTalentIds.size())
-        throw std::runtime_error("棋手天賦目錄必須完整包含四種天賦");
+        throw std::runtime_error("棋手天賦目錄必須完整包含所有天賦");
     c.talents.clear();
     for (const auto& entry : catalog)
     {
@@ -140,6 +140,10 @@ bool loadBalanceConfig(
             keys(n["額外星級加成"], {"每顆開場內力", "每顆強化次數", "強化傷害百分比", "計算上限"});
             keys(n["刷新保證"], {"觸發星級", "每次數量"});
             break;
+        case ChessTalentId::Alliance:
+            keys(n, {"說明", "開局羈絆加點", "高階門檻"});
+            keys(n["高階門檻"], {"最低門檻", "降低人數"});
+            break;
         }
         ChessTalentDefinition def;
         def.description = n["說明"].as<std::string>();
@@ -156,7 +160,7 @@ bool loadBalanceConfig(
             def.legendaryShop = n["可使用神兵商店"].as<bool>();
             break;
         case ChessTalentId::LateBloomer:
-            def.amplifiedGrowthPercent = number(n, "勝場成長受加成比例", 0, 100);
+            def.amplifiedGrowthPercent = number(n, "勝場成長受加成比例", 0, kChessMaximumGrowthAmplificationPercent);
             break;
         case ChessTalentId::Gambler:
         {
@@ -183,6 +187,11 @@ bool loadBalanceConfig(
             def.extraStarCap = number(n["額外星級加成"], "計算上限", 0, 100);
             def.guaranteeStar = number(n["刷新保證"], "觸發星級", 2, 2);
             def.guaranteeCount = number(n["刷新保證"], "每次數量", 1, 100);
+            break;
+        case ChessTalentId::Alliance:
+            def.selectedComboBonus = number(n, "開局羈絆加點", 0, 100);
+            def.reducedThresholdMinimum = number(n["高階門檻"], "最低門檻", 2, 100);
+            def.thresholdReduction = number(n["高階門檻"], "降低人數", 0, def.reducedThresholdMinimum - 1);
             break;
         }
         c.talents.emplace(*id, std::move(def));

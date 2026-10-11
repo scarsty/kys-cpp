@@ -16,6 +16,10 @@ std::string chessChallengeRewardDescription(
 class ChessRewardRules
 {
 public:
+    static void enqueueTalentComboChoice(
+        ChessSessionState& state,
+        const ChessGameContent& content,
+        std::vector<ChessSemanticEvent>& events);
     static void enqueueCampaignRewards(
         ChessSessionState& state,
         const ChessGameContent& content,

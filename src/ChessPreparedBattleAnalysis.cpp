@@ -42,7 +42,8 @@ std::vector<ChessComboMetadata> activeTeamSynergies(
                 resolved.activeThresholdIndex,
                 resolved.nextThresholdIndex,
                 resolved.contributions,
-                *descriptionStyle));
+                *descriptionStyle,
+                resolved.requiredCounts));
             continue;
         }
 
@@ -58,7 +59,7 @@ std::vector<ChessComboMetadata> activeTeamSynergies(
         {
             const auto& threshold = definition->thresholds[index];
             metadata.thresholds.push_back({
-                .requiredCount = threshold.count,
+                .requiredCount = resolved.requiredCounts[index],
                 .name = threshold.name,
                 .active = index <= resolved.activeThresholdIndex,
             });

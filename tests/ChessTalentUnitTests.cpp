@@ -5,6 +5,8 @@
 #include "ChessSessionCheckpoint.h"
 #include "ChessPvp.h"
 #include "ChessStandaloneBattle.h"
+#include "ChessPreparedBattleAnalysis.h"
+#include "ChessJsonCodec.h"
 #include "BattleSetupFactory.h"
 #include "BattleStarStats.h"
 #include "battle/BattleDamageSystem.h"
@@ -65,6 +67,9 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
         });
     data.balance.playerEquipmentRewards = {{35, 2, 2, 4, 1}, {40, 3, 2, 4, 1}};
     data.balance.talentEquipmentRewards[ChessTalentId::DivineArms] = {{30, 4, 2, 4, 3}};
+    data.balance.talents.emplace(ChessTalentId::Alliance, ChessTalentDefinition{
+        .description = "測試合縱", .selectedComboBonus = 1,
+        .reducedThresholdMinimum = 6, .thresholdReduction = 1});
     for (int tier = 1; tier <= 5; ++tier)
         for (int number = 0; number < 8; ++number)
         {
@@ -82,6 +87,43 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
     for (int tier = 1; tier <= 4; ++tier)
         for (int number = 0; number < 8; ++number)
             data.equipment.push_back({tier * 100 + number, tier, 0});
+    for (int id = 0; id < 3; ++id)
+    {
+        ComboDef combo;
+        combo.id = id;
+        combo.name = std::format("結盟測試{}", id);
+        combo.memberRoleIds = {100, 101, 102, 103, 104, 105, 106, 107};
+        combo.isAntiCombo = id == 2;
+        for (int count : {2, 4, 6, 8}) combo.thresholds.push_back({count, std::to_string(count)});
+        if (id == 0)
+        {
+            EffectRule rule;
+            rule.event = EffectEvent::BattleInitialized;
+            ModifyAttributeAction effect;
+            effect.attribute = BattleAttribute::Attack;
+            effect.amount.flat = 17;
+            effect.operation = AttributeOperation::FlatAdd;
+            rule.actions.push_back({EffectActionValue{effect}});
+            combo.thresholds.back().rules.push_back(std::move(rule));
+        }
+        data.combos.push_back(std::move(combo));
+    }
+    ChessBattleMapDefinition map;
+    map.id = 7;
+    map.battlefieldId = 7;
+    map.teammateRoleIds = std::vector<int>(10, -1);
+    map.enemyRoleIds = std::vector<int>(20, -1);
+    for (int index = 0; index < 10; ++index)
+    {
+        map.teammateX.push_back(20 + index);
+        map.teammateY.push_back(20);
+    }
+    for (int index = 0; index < 20; ++index)
+    {
+        map.enemyX.push_back(40 - index);
+        map.enemyY.push_back(40);
+    }
+    data.battleMaps.emplace(map.id, std::move(map));
     return std::make_shared<const ChessGameContent>(std::move(data));
 }
 
@@ -91,6 +133,166 @@ int eventCount(const std::vector<ChessSemanticEvent>& events, ChessSemanticEvent
     return static_cast<int>(std::ranges::count(events, type, &ChessSemanticEvent::type));
 }
 }
+
+TEST_CASE("alliance opening choice is mandatory free and survives checkpoint replay", "[chess][talent][alliance][replay]")
+{
+    const auto content = talentContent();
+    ChessGameSession session(content, 51, {.talent = ChessTalentId::Alliance});
+    ChessGameSession ordinary(content, 51);
+    REQUIRE(session.state().phase == ChessSessionPhase::RewardChoice);
+    REQUIRE(session.state().pendingRewards.front().kind == ChessRewardKind::Synergy);
+    REQUIRE(session.state().pendingRewards.front().options.size() == 2);
+    CHECK(session.state().shop == ordinary.state().shop);
+    CHECK(session.random().state() == ordinary.random().state());
+    const auto money = session.state().money;
+    const auto legal = session.legalActions();
+    REQUIRE(legal.size() == 1);
+    CHECK(legal.front().type == ChessActionType::ChooseReward);
+    CHECK_FALSE(session.submitAndDrain(Test::buySlot(0)).accepted);
+    CHECK_FALSE(session.submitAndDrain({.type = ChessActionType::ChooseReward, .rewardId = "synergy:2"}).accepted);
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    ChessCheckpointError error;
+    auto parsed = ChessSessionCheckpoint::parseJson(checkpoint.serializeJson(), error);
+    REQUIRE(parsed);
+    ChessGameSession restored(content, 52);
+    REQUIRE(parsed->restore(restored) == ChessCheckpointError::None);
+    const ChessAction choose{.type = ChessActionType::ChooseReward, .rewardId = "synergy:0"};
+    const auto chosen = session.submitAndDrain(choose);
+    REQUIRE(chosen.accepted);
+    CHECK(eventCount(chosen.events, ChessSemanticEventType::TalentComboChosen) == 1);
+    REQUIRE(restored.submitAndDrain(choose).accepted);
+    CHECK(restored.state() == session.state());
+    CHECK(session.state().phase == ChessSessionPhase::Management);
+    CHECK(session.state().selectedTalentComboId == 0);
+    CHECK(session.state().money == money);
+    CHECK_FALSE(session.submitAndDrain(choose).accepted);
+    const auto progress = evaluateChessComboProgress(session.state(), *content, content->combos()[0]);
+    CHECK(progress.physicalCount == 0);
+    CHECK(progress.effectiveCount == 1);
+    CHECK(formatChessComboProgressCount(progress) == "0+1/2");
+    CHECK(session.observe().combos[0].requiredCounts == std::vector<int>{2, 4, 5, 7});
+    const auto dto = ProtocolDetail::observationDto(session.observe(), *content,
+        ProtocolDetail::ObservationDetail::Full);
+    REQUIRE(dto.talent_synergy);
+    CHECK(dto.talent_synergy->id == 0);
+    REQUIRE(dto.combos.size() == 1);
+    CHECK(dto.combos.front().physical_count == 0);
+    CHECK(dto.combos.front().effective_count == 1);
+    const auto inspected = ProtocolDetail::inspectComboDto(session, "結盟測試0", ProtocolDetail::ComboInspectionDetail::Full);
+    REQUIRE(inspected);
+    CHECK(inspected->thresholds->back().required_count == 7);
+    checkpoint = ChessSessionCheckpoint::capture(session, 2);
+    parsed = ChessSessionCheckpoint::parseJson(checkpoint.serializeJson(), error);
+    REQUIRE(parsed);
+    REQUIRE(parsed->restore(restored) == ChessCheckpointError::None);
+    CHECK(restored.state() == session.state());
+    CHECK(ChessReplayVerifier::verify(content, *session.exportReplay()).valid);
+    auto changed = session.state();
+    changed.selectedTalentComboId = 1;
+    CHECK(chessStateHash(changed, session.random()) != chessStateHash(session.state(), session.random()));
+    checkpoint.state.selectedTalentComboId = 2;
+    CHECK(checkpoint.restore(restored) == ChessCheckpointError::UnrepresentableSnapshot);
+}
+
+TEST_CASE("alliance lowers high thresholds for all synergies and stacks only the chosen bonus", "[chess][talent][alliance]")
+{
+    const auto content = talentContent();
+    ChessSessionState state;
+    state.talent = ChessTalentId::Alliance;
+    state.selectedTalentComboId = 0;
+    for (int count = 0; count <= 8; ++count)
+    {
+        if (count > 0) state.roster.emplace(count, ChessSessionPiece{count, 99 + count, 1, true});
+        const auto all = evaluateChessComboProgresses(state, *content);
+        for (int id : {0, 1})
+        {
+            const auto& progress = all[id];
+            CHECK(progress.requiredCounts == std::vector<int>{2, 4, 5, 7});
+            CHECK(progress.physicalCount == count);
+            CHECK(progress.effectiveCount == count + (id == 0 ? 1 : 0));
+            int expected = -1;
+            for (int index = 0; index < 4; ++index)
+                if (progress.effectiveCount >= progress.requiredCounts[index]) expected = index;
+            CHECK(progress.activeThresholdIndex == expected);
+            CHECK(evaluateChessComboProgress(state, *content, content->combos()[id]).activeThresholdIndex == expected);
+        }
+        CHECK(all[2].effectiveCount == (count > 0 ? 1 : 0));
+        CHECK(all[2].requiredCounts == std::vector<int>{2, 4, 6, 8});
+    }
+    state.talent = ChessTalentId::DivineArms;
+    const auto ordinary = evaluateChessComboProgresses(state, *content);
+    CHECK(ordinary[0].effectiveCount == 8);
+    CHECK(ordinary[0].requiredCounts == std::vector<int>{2, 4, 6, 8});
+}
+
+TEST_CASE("alliance configurable bonuses combine with equipment and stars without extra bodies", "[chess][talent][alliance]")
+{
+    const std::vector<ChessComboResolverUnit> units{{10, 2, 1, -1, -1, 1}, {20, 1, 2, 50, -1, 2},
+        {20, 1, 2, 50, -1, 3}};
+    const std::vector<ChessComboResolverEquipmentRule> equipment{{50, {}, {"測試"}}};
+    const std::vector<ChessComboResolverDefinition> definitions{{0, "測試", {10}, {3, 5, 7}, false, true}};
+    const auto resolved = resolveChessCombos(units, equipment, definitions, {0, 2, 5, 2});
+    REQUIRE(resolved.size() == 1);
+    CHECK(resolved[0].physicalMemberCount == 2);
+    CHECK(resolved[0].effectiveMemberCount == 5);
+    CHECK(resolved[0].requiredCounts == std::vector<int>{3, 3, 5});
+    CHECK(resolved[0].activeThresholdIndex == 2);
+    CHECK(resolved[0].contributions.size() == 2);
+}
+
+TEST_CASE("alliance campaign challenge and PvP battles preserve team scoped synergy rules", "[chess][talent][alliance][battle][pvp]")
+{
+    const auto content = talentContent();
+    ChessGameSession session(content, 88, {.talent = ChessTalentId::Alliance});
+    REQUIRE(session.submitAndDrain({.type = ChessActionType::ChooseReward, .rewardId = "synergy:0"}).accepted);
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    for (int id = 1; id <= 6; ++id)
+        checkpoint.state.roster.emplace(id, ChessSessionPiece{id, 99 + id, 1, true});
+    checkpoint.state.nextChessInstanceId = 7;
+    ChessManagementRules::maintainFormation(checkpoint.state);
+    REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+    const auto& state = session.state();
+    ChessRunRandom random(8);
+    BalanceConfig::ChallengeDef challenge;
+    challenge.name = "合縱測試";
+    challenge.enemies = {{100, 1}, {101, 1}, {102, 1}, {103, 1}, {104, 1}, {105, 1}};
+    for (const auto& battle : {ChessBattlePlanner::prepareCampaign(state, *content, random),
+        ChessBattlePlanner::prepareChallenge(state, *content, random, challenge)})
+    {
+        CHECK(battle.comboModifiersByTeam[0] == (ChessComboModifiers{0, 1, 6, 1}));
+        CHECK(battle.comboModifiersByTeam[1] == ChessComboModifiers{});
+        const auto setup = BattleSetupFactory::build(battle, *content, kChessBattleFrameLimit).setup;
+        const auto allies = Battle::resolveBattleSetupCombos(setup.allyRoster, setup);
+        CHECK(allies[0].effectiveMemberCount == 7);
+        CHECK(allies[0].activeThresholdIndex == 3);
+        CHECK(allies[1].activeThresholdIndex == 2);
+        const auto enemies = Battle::resolveBattleSetupCombos(setup.enemyRoster, setup);
+        CHECK(enemies[0].requiredCounts == std::vector<int>{2, 4, 6, 8});
+        const auto analysis = analyzePreparedChessBattle(battle, *content, kChessBattleFrameLimit);
+        REQUIRE_FALSE(analysis.allySynergies.empty());
+        CHECK(analysis.allySynergies[0].thresholds.back().requiredCount == 7);
+        for (const auto& unit : analysis.units)
+        {
+            REQUIRE(unit.initializedStatDelta);
+            CHECK(unit.initializedStatDelta->attack == (unit.team == 0 ? 17 : 0));
+        }
+    }
+    const auto composition = extractChessPvpComposition(session);
+    CHECK(composition.comboModifiers == (ChessComboModifiers{0, 1, 6, 1}));
+    const auto team = chessStandaloneBattleTeam(composition);
+    CHECK(team.comboModifiers == composition.comboModifiers);
+    ChessStandaloneBattleRequest request;
+    request.teams = {team, team};
+    request.teams[1].comboModifiers.selectedComboId = 1;
+    std::string error;
+    const auto built = ChessStandaloneBattle::prepare(content, request, error);
+    REQUIRE(built);
+    const auto setup = BattleSetupFactory::build(built->preparedBattle, *content, kChessBattleFrameLimit).setup;
+    CHECK(Battle::resolveBattleSetupCombos(setup.allyRoster, setup)[0].activeThresholdIndex == 3);
+    CHECK(Battle::resolveBattleSetupCombos(setup.enemyRoster, setup)[0].activeThresholdIndex == 2);
+    CHECK(Battle::resolveBattleSetupCombos(setup.enemyRoster, setup)[1].activeThresholdIndex == 3);
+}
+
 TEST_CASE("talent identity round trips checkpoints replay headers and hashes", "[chess][talent][replay]")
 {
     const auto content = talentContent();
@@ -325,7 +527,7 @@ TEST_CASE("growth amplification uses integer G S U for every stat", "[chess][tal
     config.weaponSkillPerWin = 0.5;
     for (int star = 1; star <= 3; ++star)
         for (int wins : {0, 1, 3, 17})
-            for (int ratio : {0, 33, 50, 100})
+            for (int ratio : {0, 33, 50, 100, 120})
             {
                 const auto result = computeStarBoostedStats(base, config, star, wins, 2, 3, 4, ratio);
                 const auto expected = [&](int b, double growth, double mult, int flat) {

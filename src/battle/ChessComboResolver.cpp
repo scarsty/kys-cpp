@@ -31,8 +31,12 @@ bool equipmentRuleApplies(
 std::vector<ResolvedChessCombo> resolveChessCombos(
     std::span<const ChessComboResolverUnit> units,
     std::span<const ChessComboResolverEquipmentRule> equipmentRules,
-    std::span<const ChessComboResolverDefinition> definitions)
+    std::span<const ChessComboResolverDefinition> definitions,
+    const ChessComboModifiers& modifiers)
 {
+    assert(modifiers.selectedComboBonus >= 0);
+    assert(modifiers.thresholdReduction >= 0);
+    assert(modifiers.thresholdReduction == 0 || modifiers.thresholdReduction < modifiers.reducedThresholdMinimum);
     std::map<int, int> starByRole;
     std::map<int, int> costByRole;
     std::map<int, std::vector<int>> unitIdsByRole;
@@ -84,6 +88,11 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
         ResolvedChessCombo resolved;
         resolved.id = definition.id;
         resolved.isAntiCombo = definition.isAntiCombo;
+        for (const int count : definition.thresholdCounts)
+        {
+            resolved.requiredCounts.push_back(!definition.isAntiCombo && count >= modifiers.reducedThresholdMinimum
+                ? count - modifiers.thresholdReduction : count);
+        }
         for (const int roleId : qualifyingRoleIds)
         {
             resolved.memberRoleIds.insert(roleId);
@@ -154,9 +163,13 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
             continue;
         }
 
-        for (int index = 0; index < static_cast<int>(definition.thresholdCounts.size()); ++index)
+        if (definition.id == modifiers.selectedComboId)
         {
-            if (resolved.effectiveMemberCount >= definition.thresholdCounts[index])
+            resolved.effectiveMemberCount += modifiers.selectedComboBonus;
+        }
+        for (int index = 0; index < static_cast<int>(resolved.requiredCounts.size()); ++index)
+        {
+            if (resolved.effectiveMemberCount >= resolved.requiredCounts[index])
             {
                 resolved.activeThresholdIndex = index;
                 continue;

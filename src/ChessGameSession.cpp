@@ -115,6 +115,11 @@ ChessGameSession::ChessGameSession(
         ChessRewardRules::enqueueForcedBan(state_, *content_, talent.openingBans,
             talent.banMaxTier, initialEvents, talent.banMinTier);
     }
+    if (state_.talent == ChessTalentId::Alliance)
+    {
+        std::vector<ChessSemanticEvent> initialEvents;
+        ChessRewardRules::enqueueTalentComboChoice(state_, *content_, initialEvents);
+    }
 }
 
 std::unique_ptr<ChessGameSession> ChessGameSession::createStandaloneBattle(
@@ -185,6 +190,7 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.difficulty = content_->difficulty();
     observation.options = state_.options;
     observation.talent = state_.talent;
+    observation.selectedTalentComboId = state_.selectedTalentComboId;
     observation.shopGuarantees = state_.shopGuarantees;
     observation.talentName = chessTalentName(state_.talent);
     const auto& talent = content_->balance().talent(state_.talent);
@@ -248,6 +254,7 @@ ChessGameplayObservation ChessGameSession::observe() const
             progress.activeThresholdIndex,
             progress.nextThresholdIndex,
             progress.contributions,
+            progress.requiredCounts,
         });
     }
     observation.preparedBattle = state_.preparedBattle;

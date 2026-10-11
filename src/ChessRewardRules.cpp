@@ -508,6 +508,31 @@ void ChessRewardRules::completePendingReward(
     popReward(state, events);
 }
 
+void ChessRewardRules::enqueueTalentComboChoice(
+    ChessSessionState& state,
+    const ChessGameContent& content,
+    std::vector<ChessSemanticEvent>& events)
+{
+    ChessPendingReward pending;
+    pending.id = "opening_talent_synergy";
+    pending.kind = ChessRewardKind::Synergy;
+    for (const auto& combo : content.combos())
+    {
+        if (!combo.isAntiCombo && !combo.thresholds.empty()
+            && std::ranges::any_of(combo.memberRoleIds, [&](int roleId) {
+                return std::ranges::contains(content.poolRoleIds(), roleId);
+            }))
+        {
+            pending.options.push_back({std::format("synergy:{}", combo.id), ChessRewardKind::Synergy, combo.id});
+        }
+    }
+    if (!pending.options.empty())
+    {
+        state.pendingRewards.push_back(std::move(pending));
+        exposeRewardBoundary(state, events);
+    }
+}
+
 ChessRuleErrorCode ChessRewardRules::validate(
     const ChessSessionState& state,
     const ChessGameContent&,
@@ -577,6 +602,12 @@ void ChessRewardRules::apply(
             selected.value,
             selected.value2,
             events);
+    }
+    else if (pendingKind == ChessRewardKind::Synergy)
+    {
+        state.selectedTalentComboId = selected.value;
+        events.push_back({ChessSemanticEventType::TalentComboChosen, selected.value, {},
+            content.balance().talent(state.talent).selectedComboBonus, selected.id});
     }
     else if (pendingKind == ChessRewardKind::ChallengeReward)
     {

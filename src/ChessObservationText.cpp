@@ -149,7 +149,8 @@ std::string ChessObservationText::format(
                     "  {} {}/{}\n",
                     found->name,
                     observed.effectiveCount,
-                    found->thresholds[observed.activeThresholdIndex].count);
+                    observed.requiredCounts.empty() ? found->thresholds[observed.activeThresholdIndex].count
+                        : observed.requiredCounts[observed.activeThresholdIndex]);
             }
         }
     }

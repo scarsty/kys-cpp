@@ -290,7 +290,7 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             const auto talent = KysChess::parseChessTalent(*talentText);
             if (!talent)
             {
-                result.error = "--talent 必須是 divine_arms、late_bloomer、gambler 或 backbone";
+                result.error = "--talent 必須是 divine_arms、late_bloomer、gambler、backbone 或 alliance";
                 return result;
             }
             result.arguments.talent = talent;

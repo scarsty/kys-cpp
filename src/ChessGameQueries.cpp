@@ -191,7 +191,9 @@ ChessInstanceAnalysis queryChessInstance(
                 progress.effectiveCount,
                 progress.activeThresholdIndex,
                 progress.nextThresholdIndex,
-                progress.contributions));
+                progress.contributions,
+                EffectDescriptionStyle::Full,
+                progress.requiredCounts));
         }
     }
     return result;

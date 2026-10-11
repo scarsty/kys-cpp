@@ -103,9 +103,18 @@ std::vector<ResolvedChessCombo> resolveRosterCombos(
     {
         definitions.push_back(resolverDefinition(combo));
     }
-    return resolveChessCombos(units, equipmentRules, definitions);
+    return resolveChessCombos(units, equipmentRules, definitions, chessComboModifiers(state, content));
 }
 
+}
+
+ChessComboModifiers chessComboModifiers(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    const auto& talent = content.balance().talent(state.talent);
+    return {state.selectedTalentComboId, talent.selectedComboBonus,
+        talent.reducedThresholdMinimum, talent.thresholdReduction};
 }
 
 ChessComboProgress chessComboProgress(
@@ -122,13 +131,14 @@ ChessComboProgress chessComboProgress(
     progress.isAntiCombo = combo.isAntiCombo;
     progress.starSynergyBonus = combo.starSynergyBonus;
     progress.contributions = resolved.contributions;
+    progress.requiredCounts = resolved.requiredCounts;
     if (!combo.thresholds.empty())
     {
         progress.displayTargetCount = combo.isAntiCombo
-            ? combo.thresholds.front().count
+            ? progress.requiredCounts.front()
             : progress.nextThresholdIndex >= 0
-                ? combo.thresholds[progress.nextThresholdIndex].count
-                : combo.thresholds.back().count;
+                ? progress.requiredCounts[progress.nextThresholdIndex]
+                : progress.requiredCounts.back();
     }
     return progress;
 }
@@ -142,9 +152,9 @@ std::string formatChessComboProgressCount(const ChessComboProgress& progress)
             : std::format("獨/{}", progress.displayTargetCount);
     }
 
-    const int extraStars = progress.effectiveCount - progress.physicalCount;
-    std::string result = progress.starSynergyBonus && extraStars > 0
-        ? std::format("{}+{}/{}", progress.physicalCount, extraStars, progress.displayTargetCount)
+    const int extraPoints = progress.effectiveCount - progress.physicalCount;
+    std::string result = extraPoints > 0
+        ? std::format("{}+{}/{}", progress.physicalCount, extraPoints, progress.displayTargetCount)
         : std::format("{}/{}", progress.physicalCount, progress.displayTargetCount);
     if (progress.active)
     {
@@ -299,7 +309,7 @@ ChessComboProgress evaluateChessComboProgress(
     const auto units = resolverUnits(state, content);
     const auto equipmentRules = resolverEquipmentRules(content);
     const std::array definitions{resolverDefinition(combo)};
-    const auto resolved = resolveChessCombos(units, equipmentRules, definitions);
+    const auto resolved = resolveChessCombos(units, equipmentRules, definitions, chessComboModifiers(state, content));
     assert(resolved.size() == 1);
     return chessComboProgress(combo, resolved.front());
 }

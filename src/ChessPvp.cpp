@@ -79,6 +79,7 @@ ChessPvpComposition extractChessPvpComposition(const ChessGameSession& session)
         battle.units.push_back({.chessInstanceId = piece.chessInstanceId, .roleId = piece.roleId,
             .team = 0, .star = piece.star});
     ChessBattlePlanner::applyPlayerTalents(battle, state, session.content());
+    result.comboModifiers = battle.comboModifiersByTeam[0];
     for (std::size_t i = 0; i < result.pieces.size(); ++i)
     {
         result.pieces[i].amplifiedGrowthPercent = battle.units[i].amplifiedGrowthPercent;

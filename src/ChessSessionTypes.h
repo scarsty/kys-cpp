@@ -128,6 +128,7 @@ enum class ChessSemanticEventType : std::uint16_t
     ShopGuaranteeQueued,
     ShopGuaranteeInjected,
     ShopGuaranteeCancelled,
+    TalentComboChosen,
 };
 
 enum class ChessRewardKind : std::uint16_t
@@ -138,6 +139,7 @@ enum class ChessRewardKind : std::uint16_t
     Piece,
     StarUpgrade,
     ForcedBan,
+    Synergy,
 };
 
 struct ChessSessionOptions
@@ -262,6 +264,7 @@ struct ChessSessionState
 {
     Difficulty difficulty = Difficulty::Easy;
     ChessTalentId talent = ChessTalentId::DivineArms;
+    int selectedTalentComboId = -1;
     std::vector<int> shopGuarantees;
     int money{};
     int experience{};
@@ -311,6 +314,7 @@ struct ChessObservedCombo
     int activeThresholdIndex = -1;
     int nextThresholdIndex = -1;
     std::vector<ResolvedChessComboContribution> contributions;
+    std::vector<int> requiredCounts;
 
     auto operator<=>(const ChessObservedCombo&) const = default;
 };
@@ -320,6 +324,7 @@ struct ChessGameplayObservation
     ChessSessionPhase phase{};
     Difficulty difficulty = Difficulty::Easy;
     ChessTalentId talent = ChessTalentId::DivineArms;
+    int selectedTalentComboId = -1;
     std::vector<int> shopGuarantees;
     ChessSessionOptions options;
     std::string talentName;

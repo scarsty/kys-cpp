@@ -36,6 +36,7 @@ struct ChessPvpComposition
     std::vector<ChessPvpPiece> pieces;
     std::vector<int> formationSlots;
     std::set<int> obtainedNeigongIds;
+    ChessComboModifiers comboModifiers;
 
     auto operator<=>(const ChessPvpComposition&) const = default;
 };

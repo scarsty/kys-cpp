@@ -273,6 +273,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
         0);
     const auto& balance = content.balance();
     input.setup.talentBattleSeed = prepared.talentBattleSeed;
+    input.setup.comboModifiersByTeam = prepared.comboModifiersByTeam;
     input.setup.starGrowth = {
         balance.starHPMult,
         balance.starAtkMult,

@@ -3872,42 +3872,25 @@ void ChessGuiSessionAdapter::showEnemyReroll()
     }
 }
 
-void ChessGuiSessionAdapter::viewCombos()
+namespace
 {
-    SessionMenuData data;
-    std::vector<std::pair<std::string, std::string>> labelRows;
-    std::vector<const ComboDef*> rows;
+std::shared_ptr<DrawableOnCall> makeComboDetailPanel(
+    const ChessGameSession& session,
+    std::vector<const ComboDef*> rows,
+    const PanelFrame& frame)
+{
     const std::unordered_set<int> poolRoles(
-        session_.content().poolRoleIds().begin(),
-        session_.content().poolRoleIds().end());
+        session.content().poolRoleIds().begin(),
+        session.content().poolRoleIds().end());
     std::map<int, int> deployedStarByRole;
-    for (const auto& [instanceId, piece] : session_.state().roster)
+    for (const auto& [instanceId, piece] : session.state().roster)
     {
         if (piece.deployed)
         {
             deployedStarByRole[piece.roleId] = std::max(deployedStarByRole[piece.roleId], piece.star);
         }
     }
-    for (const auto& combo : session_.content().combos())
-    {
-        if (std::ranges::none_of(combo.memberRoleIds, [&](int roleId) { return poolRoles.contains(roleId); }))
-        {
-            continue;
-        }
-        const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), combo);
-        labelRows.push_back({combo.name, formatChessComboProgressCount(progress)});
-        data.colors.push_back(progress.physicalCount > 0
-            ? Color{0, 255, 0, 255}
-            : Color{180, 180, 180, 255});
-        rows.push_back(&combo);
-    }
-    data.labels = buildAlignedComboCatalogLabels(labelRows, menuDisplayWidth);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
-        anchor,
-        data.labels,
-        kChessBrowseMenuPresentation.fontSize);
-    auto detail = makePanel(frame, [this, rows, poolRoles, deployedStarByRole](int row, const PanelFrame& panelFrame) {
+    return makePanel(frame, [&session, rows = std::move(rows), poolRoles, deployedStarByRole](int row, const PanelFrame& panelFrame) {
         if (row < 0 || row >= static_cast<int>(rows.size()))
         {
             return;
@@ -3919,7 +3902,7 @@ void ChessGuiSessionAdapter::viewCombos()
         font->draw(combo.name, preferredFontSize + 4,
             panelFrame.x + 10, panelFrame.y + 10, {255, 255, 100, 255});
 
-        const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), combo);
+        const auto progress = evaluateChessComboProgress(session.state(), session.content(), combo);
         std::vector<PanelVisualTextRow> memberRows;
         appendPanelTextRow(memberRows, "成員:", {200, 200, 200, 255}, 0, 0, 0, 2);
         int totalBonus = 0;
@@ -3929,7 +3912,7 @@ void ChessGuiSessionAdapter::viewCombos()
             {
                 continue;
             }
-            const auto* role = session_.content().role(roleId);
+            const auto* role = session.content().role(roleId);
             assert(role);
             const auto foundStar = deployedStarByRole.find(roleId);
             const bool deployed = foundStar != deployedStarByRole.end();
@@ -3954,6 +3937,12 @@ void ChessGuiSessionAdapter::viewCombos()
             thresholdRows,
             combo.isAntiCombo ? "條件:" : "閾值:",
             {200, 200, 200, 255});
+        if (session.state().selectedTalentComboId == combo.id)
+        {
+            appendPanelTextRow(thresholdRows,
+                std::format("合縱：永久 +{}人", session.content().balance().talent(session.state().talent).selectedComboBonus),
+                {115, 220, 190, 255});
+        }
         if (combo.starSynergyBonus)
         {
             appendPanelTextRow(
@@ -3973,12 +3962,14 @@ void ChessGuiSessionAdapter::viewCombos()
                 -6,
                 2);
         }
-        for (const auto& threshold : combo.thresholds)
+        for (int index = 0; index < static_cast<int>(combo.thresholds.size()); ++index)
         {
-            const bool active = progress.effectiveCount >= threshold.count;
+            const auto& threshold = combo.thresholds[index];
+            const int requiredCount = progress.requiredCounts[index];
+            const bool active = index <= progress.activeThresholdIndex;
             appendPanelTextRow(
                 thresholdRows,
-                std::format("{}人: {}{}", threshold.count, threshold.name, active ? " ✓" : ""),
+                std::format("{}人: {}{}", requiredCount, threshold.name, active ? " ✓" : ""),
                 active ? Color{0, 255, 0, 255} : Color{255, 200, 100, 255},
                 0,
                 0,
@@ -4025,6 +4016,37 @@ void ChessGuiSessionAdapter::viewCombos()
         drawPanelText(font, thresholdRows, fitted->second,
             panelFrame.x + 290, panelFrame.y + contentTop);
     });
+}
+}
+
+void ChessGuiSessionAdapter::viewCombos()
+{
+    SessionMenuData data;
+    std::vector<std::pair<std::string, std::string>> labelRows;
+    std::vector<const ComboDef*> rows;
+    const std::unordered_set<int> poolRoles(
+        session_.content().poolRoleIds().begin(),
+        session_.content().poolRoleIds().end());
+    for (const auto& combo : session_.content().combos())
+    {
+        if (std::ranges::none_of(combo.memberRoleIds, [&](int roleId) { return poolRoles.contains(roleId); }))
+        {
+            continue;
+        }
+        const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), combo);
+        labelRows.push_back({combo.name, formatChessComboProgressCount(progress)});
+        data.colors.push_back(progress.effectiveCount > 0
+            ? Color{0, 255, 0, 255}
+            : Color{180, 180, 180, 255});
+        rows.push_back(&combo);
+    }
+    data.labels = buildAlignedComboCatalogLabels(labelRows, menuDisplayWidth);
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
+    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
+        anchor,
+        data.labels,
+        kChessBrowseMenuPresentation.fontSize);
+    auto detail = makeComboDetailPanel(session_, std::move(rows), frame);
     runIndexedMenu(
         "羈絆一覽",
         data,
@@ -4454,6 +4476,14 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 labelRows.push_back({{}, role->Name, chessStars(1), chessRewardOptionCostColumn(option)});
                 data.colors.push_back(chessPieceTierColor(role->Cost));
             }
+            else if (option.kind == ChessRewardKind::Synergy)
+            {
+                const auto combo = std::ranges::find(session_.content().combos(), option.value, &ComboDef::id);
+                assert(combo != session_.content().combos().end());
+                const auto& talent = session_.content().balance().talent(session_.state().talent);
+                labelRows.push_back({{}, combo->name, std::format("+{}人", talent.selectedComboBonus), {}});
+                data.colors.push_back({115, 220, 190, 255});
+            }
             else if (option.kind == ChessRewardKind::StarUpgrade)
             {
                 const auto& piece = session_.state().roster.at(option.value);
@@ -4540,6 +4570,18 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 detailFrame,
                 false));
         }
+        else if (pending.kind == ChessRewardKind::Synergy)
+        {
+            std::vector<const ComboDef*> combos;
+            for (const auto& option : availableOptions)
+            {
+                const auto combo = std::ranges::find(session_.content().combos(), option.value, &ComboDef::id);
+                assert(combo != session_.content().combos().end());
+                combos.push_back(&*combo);
+            }
+            detailPanels.push_back(makeComboDetailPanel(session_, std::move(combos),
+                ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, menuPresentation.fontSize)));
+        }
         else if (pending.kind == ChessRewardKind::Piece || pending.kind == ChessRewardKind::StarUpgrade)
         {
             std::vector<int> roleIds;
@@ -4569,6 +4611,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
         if (pending.kind == ChessRewardKind::Equipment) title = "選擇裝備獎勵";
         else if (pending.kind == ChessRewardKind::InternalSkill) title = "內功對所有成員自動生效";
         else if (pending.kind == ChessRewardKind::Piece) title = "選擇棋子";
+        else if (pending.kind == ChessRewardKind::Synergy) title = "合縱：選擇永久加點羈絆";
         else if (pending.kind == ChessRewardKind::StarUpgrade)
             title = chessStarUpgradeRewardTitle(session_.state(), pending);
         const int choice = runIndexedMenu(

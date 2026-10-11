@@ -23,7 +23,7 @@ python tools/pack_chess_smap_zip.py
 
 ## 天賦圖片
 
-`resource/chess-talents.zip` 只包含 `ChessTalentId` 使用的 `0.webp` 至 `3.webp`。畫面顯示為 240 px，正式圖片最大為 512 px，使用 WebP quality 90。原始圖片與 atlas 位於 `tmp/asset-sources/chess-talents/`，重複的具名副本不保留。
+`resource/chess-talents.zip` 只包含 `ChessTalentId` 使用的 `0.webp` 至 `4.webp`（神兵、晚成、賭徒、中堅、合縱）。畫面顯示為 240 px，正式圖片最大為 512 px，使用 WebP quality 90。原始圖片與 atlas 位於 `tmp/asset-sources/chess-talents/`，重複的具名副本不保留。
 
 ## 棋局戰鬥特效
 

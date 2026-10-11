@@ -10,10 +10,12 @@
 
 namespace KysChess
 {
-enum class ChessTalentId : std::uint8_t { DivineArms, LateBloomer, Gambler, Backbone };
+inline constexpr int kChessMaximumGrowthAmplificationPercent = 1000;
+
+enum class ChessTalentId : std::uint8_t { DivineArms, LateBloomer, Gambler, Backbone, Alliance };
 inline constexpr std::array kChessTalentIds{
     ChessTalentId::DivineArms, ChessTalentId::LateBloomer,
-    ChessTalentId::Gambler, ChessTalentId::Backbone};
+    ChessTalentId::Gambler, ChessTalentId::Backbone, ChessTalentId::Alliance};
 
 inline const char* chessTalentName(ChessTalentId id)
 {
@@ -23,6 +25,7 @@ inline const char* chessTalentName(ChessTalentId id)
     case ChessTalentId::LateBloomer: return "晚成";
     case ChessTalentId::Gambler: return "賭徒";
     case ChessTalentId::Backbone: return "中堅";
+    case ChessTalentId::Alliance: return "合縱";
     }
     std::unreachable();
 }
@@ -34,6 +37,7 @@ inline const char* chessTalentId(ChessTalentId id)
     case ChessTalentId::LateBloomer: return "late_bloomer";
     case ChessTalentId::Gambler: return "gambler";
     case ChessTalentId::Backbone: return "backbone";
+    case ChessTalentId::Alliance: return "alliance";
     }
     std::unreachable();
 }
@@ -67,6 +71,9 @@ struct ChessTalentDefinition
     int extraStarCap{};
     int guaranteeStar{};
     int guaranteeCount{};
+    int selectedComboBonus{};
+    int reducedThresholdMinimum{};
+    int thresholdReduction{};
 
     int luckChance(int stacks) const
     {

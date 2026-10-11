@@ -511,7 +511,8 @@ ComboDto comboDto(
     int effectiveCount,
     int activeThresholdIndex,
     bool full,
-    const std::vector<ResolvedChessComboContribution>* contributions)
+    const std::vector<ResolvedChessComboContribution>* contributions,
+    std::span<const int> requiredCounts)
 {
     return comboDto(chessComboMetadata(
         content,
@@ -521,7 +522,8 @@ ComboDto comboDto(
         activeThresholdIndex,
         -1,
         contributions ? *contributions : std::vector<ResolvedChessComboContribution>{},
-        full ? EffectDescriptionStyle::Full : EffectDescriptionStyle::Compact),
+        full ? EffectDescriptionStyle::Full : EffectDescriptionStyle::Compact,
+        requiredCounts),
         full);
 }
 
@@ -550,11 +552,12 @@ std::optional<ComboDto> inspectComboDto(
         progress->physicalCount,
         progress->effectiveCount,
         progress->activeThresholdIndex,
-        -1,
+        progress->nextThresholdIndex,
         progress->contributions,
         detail == ComboInspectionDetail::Full
             ? EffectDescriptionStyle::Full
-            : EffectDescriptionStyle::Compact);
+            : EffectDescriptionStyle::Compact,
+        progress->requiredCounts);
     return detail == ComboInspectionDetail::Full
         ? comboDto(metadata, true)
         : comboSummaryDto(metadata);
@@ -680,6 +683,7 @@ std::string rewardKindId(ChessRewardKind kind)
     case ChessRewardKind::Piece: return "棋子";
     case ChessRewardKind::StarUpgrade: return "升星";
     case ChessRewardKind::ForcedBan: return "禁棋";
+    case ChessRewardKind::Synergy: return "羈絆";
     }
     std::unreachable();
 }
@@ -768,6 +772,13 @@ RewardOptionDto rewardOptionDto(
         dto.label = role->Name;
         dto.description = std::format("升至 {}★", option.value2);
     }
+    else if (option.kind == ChessRewardKind::Synergy)
+    {
+        const auto combo = std::ranges::find(content.combos(), option.value, &ComboDef::id);
+        assert(combo != content.combos().end());
+        dto.label = combo->name;
+        dto.description = std::format("永久增加{}羈絆人數", content.balance().talent(ChessTalentId::Alliance).selectedComboBonus);
+    }
     else
     {
         assert(pending.kind == ChessRewardKind::ChallengeReward);
@@ -831,6 +842,12 @@ ObservationDto observationDto(
     ObservationDto dto{};
     dto.talent = chessTalentId(observation.talent);
     dto.talent_name = observation.talentName;
+    if (observation.selectedTalentComboId >= 0)
+    {
+        const auto combo = std::ranges::find(content.combos(), observation.selectedTalentComboId, &ComboDef::id);
+        assert(combo != content.combos().end());
+        dto.talent_synergy = NamedIdDto{combo->id, combo->name};
+    }
     dto.content_fingerprint = chessSha256Hex(content.contentFingerprint());
     dto.talent_has_legendary_shop = observation.talentHasLegendaryShop;
     dto.legendary_shop_unlocked = observation.talentHasLegendaryShop
@@ -925,7 +942,7 @@ ObservationDto observationDto(
     dto.completed_challenges = observation.completedChallengeNames;
     for (const auto& combo : observation.combos)
     {
-        if (combo.physicalCount == 0)
+        if (combo.effectiveCount == 0)
         {
             continue;
         }
@@ -938,7 +955,8 @@ ObservationDto observationDto(
             combo.effectiveCount,
             combo.activeThresholdIndex,
             full,
-            &combo.contributions));
+            &combo.contributions,
+            combo.requiredCounts));
     }
     if (observation.preparedBattle)
     {
@@ -1875,6 +1893,7 @@ std::string semanticEventTypeId(ChessSemanticEventType type)
     case ChessSemanticEventType::FormationChanged: return "formation_changed";
     case ChessSemanticEventType::OpeningTalentBansQueued: return "opening_talent_bans_queued";
     case ChessSemanticEventType::OpeningTalentShopRefreshed: return "opening_talent_shop_refreshed";
+    case ChessSemanticEventType::TalentComboChosen: return "talent_combo_chosen";
     case ChessSemanticEventType::LuckGranted: return "luck_granted";
     case ChessSemanticEventType::LuckMerged: return "luck_merged";
     case ChessSemanticEventType::ShopGuaranteeQueued: return "shop_guarantee_queued";
@@ -2032,6 +2051,7 @@ SummaryActionResultDto summaryActionResultDto(
             break;
         case ChessSemanticEventType::RewardOffered:
         case ChessSemanticEventType::RewardChosen:
+        case ChessSemanticEventType::TalentComboChosen:
         case ChessSemanticEventType::ForcedBansSkipped:
             dto.changes.reward_changed = true;
             break;
@@ -2092,7 +2112,8 @@ SummaryActionResultDto summaryActionResultDto(
     }
     if (dto.changes.reward_changed) dto.changes.pending_reward = compact.pending_reward;
     if (dto.changes.prepared_battle_changed) dto.changes.prepared_battle = compact.prepared_battle;
-    if (dto.changes.roster_changed || dto.changes.equipment_changed || dto.changes.deployment_changed)
+    if (dto.changes.roster_changed || dto.changes.equipment_changed || dto.changes.deployment_changed
+        || before.selectedTalentComboId != after.selectedTalentComboId)
     {
         dto.changes.combos = compact.combos;
     }

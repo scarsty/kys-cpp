@@ -120,6 +120,7 @@ struct BattleRuntimeSetupSeed
     std::vector<BattleSetupNeigongDefinition> neigongDefinitions;
     std::vector<ChessMagicEffectDefinition> magicEffectDefinitions;
     std::array<std::vector<int>, 2> obtainedNeigongMagicIdsByTeam;
+    std::array<ChessComboModifiers, 2> comboModifiersByTeam;
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;
 };

@@ -137,6 +137,12 @@ constexpr std::string_view talentsFixtureText = R"(棋手天賦:
     刷新保證:
       觸發星級: 2
       每次數量: 2
+  合縱:
+    說明: 測試合縱說明
+    開局羈絆加點: 2
+    高階門檻:
+      最低門檻: 7
+      降低人數: 2
 )";
 
 class TemporaryConfigDirectory
@@ -413,6 +419,10 @@ TEST_CASE("talent configuration reads the shared strengthening parameters", "[ch
     CHECK(talent.strengtheningChargesPerExtraStar == 2);
     CHECK(talent.strengtheningDamagePercent == 37);
     CHECK(talent.extraStarCap == 6);
+    const auto& alliance = result.talent(ChessTalentId::Alliance);
+    CHECK(alliance.selectedComboBonus == 2);
+    CHECK(alliance.reducedThresholdMinimum == 7);
+    CHECK(alliance.thresholdReduction == 2);
 }
 
 TEST_CASE("pool configuration rejects duplicate role identifiers", "[chess][content][config]")
@@ -424,6 +434,21 @@ TEST_CASE("pool configuration rejects duplicate role identifiers", "[chess][cont
 
     CHECK_FALSE(loadChessPoolRoleIds(pool, roleIds, diagnostics.sink()));
     CHECK(diagnostics.hasErrors());
+}
+
+TEST_CASE("late bloomer configuration permits growth amplification above one hundred percent", "[chess][content][talent]")
+{
+    TemporaryConfigDirectory files;
+    auto talents = YAML::Load(std::string(talentsFixtureText));
+    talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = 120;
+    files.write("chess_talents.yaml", YAML::Dump(talents));
+    const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 晚成, 可選: [晚成]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
+    const auto challenge = files.write("challenge.yaml", "遠征挑戰: []\n");
+    ChessDiagnosticCollector diagnostics;
+    BalanceConfig result;
+    REQUIRE(loadBalanceConfig(balance.generic_string(), challenge.generic_string(),
+        [](std::string_view text) { return std::string(text); }, diagnostics.sink(), result));
+    CHECK(result.talent(ChessTalentId::LateBloomer).amplifiedGrowthPercent == 120);
 }
 
 TEST_CASE("content lookups use stable numeric identifiers", "[chess][content]")
@@ -521,7 +546,10 @@ TEST_CASE("talent configuration rejects malformed identities ranges and legacy k
     SECTION("missing catalog entry") { talents["棋手天賦"].remove("賭徒"); }
     SECTION("unknown catalog field") { talents["棋手天賦"]["神兵"]["未知"] = 1; }
     SECTION("unknown catalog root") { talents["未知"] = 1; }
-    SECTION("growth percentage") { talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = 101; }
+    SECTION("growth percentage") { talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = kChessMaximumGrowthAmplificationPercent + 1; }
+    SECTION("negative synergy bonus") { talents["棋手天賦"]["合縱"]["開局羈絆加點"] = -1; }
+    SECTION("invalid reduced threshold") { talents["棋手天賦"]["合縱"]["高階門檻"]["最低門檻"] = 1; }
+    SECTION("reduction must leave a positive threshold") { talents["棋手天賦"]["合縱"]["高階門檻"]["降低人數"] = 7; }
     SECTION("stack cap") { talents["棋手天賦"]["賭徒"]["賭運"]["層數上限"] = 0; }
     SECTION("ban range") { talents["棋手天賦"]["賭徒"]["開局額外禁棋"]["最低費用"] = 3; }
     SECTION("zero guarantee count") { talents["棋手天賦"]["中堅"]["刷新保證"]["每次數量"] = 0; }

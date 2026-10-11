@@ -4,7 +4,7 @@ import unittest
 from test_kys_chess_cli import run_cli, run_jsonl, run_mcp
 
 
-TALENTS = ("divine_arms", "late_bloomer", "gambler", "backbone")
+TALENTS = ("divine_arms", "late_bloomer", "gambler", "backbone", "alliance")
 
 
 class ChessTalentTests(unittest.TestCase):

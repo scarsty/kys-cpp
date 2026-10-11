@@ -138,7 +138,8 @@ std::vector<ResolvedChessCombo> resolveBattleSetupCombosImpl(
     return resolveChessCombos(
         comboResolverUnits(roster),
         comboResolverEquipmentRules(setup),
-        comboResolverDefinitions(setup));
+        comboResolverDefinitions(setup),
+        roster.empty() ? ChessComboModifiers{} : setup.comboModifiersByTeam[roster.front().team]);
 }
 
 TeamResolvedSetup resolveTeamSetup(

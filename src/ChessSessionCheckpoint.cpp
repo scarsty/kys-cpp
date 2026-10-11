@@ -75,6 +75,13 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
             || (state.talent != ChessTalentId::Gambler && piece.luckStacks != 0))
             return ChessCheckpointError::UnrepresentableSnapshot;
     }
+    if (state.selectedTalentComboId != -1)
+    {
+        const auto combo = std::ranges::find(session.content_->combos(), state.selectedTalentComboId, &ComboDef::id);
+        if (state.talent != ChessTalentId::Alliance || combo == session.content_->combos().end()
+            || combo->isAntiCombo || combo->thresholds.empty())
+            return ChessCheckpointError::UnrepresentableSnapshot;
+    }
     for (int roleId : state.shopGuarantees)
     {
         const auto* role = session.content_->role(roleId);

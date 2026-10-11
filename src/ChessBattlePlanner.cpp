@@ -647,6 +647,7 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
     const ChessSessionState& state, const ChessGameContent& content)
 {
     const auto& talent = content.balance().talent(state.talent);
+    battle.comboModifiersByTeam[0] = chessComboModifiers(state, content);
     int extraStars = 0;
     for (const auto& unit : battle.units)
         if (unit.team == 0 && content.role(unit.roleId)->Cost != talent.targetTier)

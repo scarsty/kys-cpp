@@ -127,7 +127,7 @@ bool validatePiece(
         error = std::format("{}第{}名角色星級 {} 無效", team, index + 1, piece.star);
         return false;
     }
-    if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > 100 || piece.openingMp < 0
+    if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > kChessMaximumGrowthAmplificationPercent || piece.openingMp < 0
         || piece.openingStrengthening.charges < 0
         || piece.openingStrengthening.damagePercent < 0 || piece.openingStrengthening.damagePercent > 100
         || (piece.openingStrengthening.charges > 0 && piece.openingStrengthening.damagePercent == 0)
@@ -242,6 +242,7 @@ ChessStandaloneBattleTeam chessStandaloneBattleTeam(
     ChessStandaloneBattleTeam result;
     result.formationSlots = composition.formationSlots;
     result.obtainedNeigongIds = composition.obtainedNeigongIds;
+    result.comboModifiers = composition.comboModifiers;
     for (const auto& piece : composition.pieces)
     {
         result.pieces.push_back({
@@ -321,6 +322,7 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
         for (int team = 0; team < 2; ++team)
         {
             prepared.obtainedNeigongIdsByTeam[team] = request.teams[team].obtainedNeigongIds;
+            prepared.comboModifiersByTeam[team] = request.teams[team].comboModifiers;
         }
     }
 

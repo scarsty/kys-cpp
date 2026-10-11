@@ -291,6 +291,14 @@ def render_talents(talents, balances, convert_text):
             content += f'<div class="talent-rule"><span>{text("計算範圍")}</span><b>{text(counting)}</b></div>'
             content += render_flow([f'{tier}費升至{guarantee["觸發星級"]}★', f'下次刷新保證{guarantee["每次數量"]}枚同名'], text)
             content += f'<p class="talent-note">{text("升至3★取消未使用保證")}</p>'
+        elif name == "合縱":
+            route = "羈絆結盟"
+            thresholds = definition["高階門檻"]
+            content = render_metrics([(f'+{definition["開局羈絆加點"]}人', "開局任選羈絆"),
+                                      (f'{thresholds["最低門檻"]}人以上', "適用原始門檻"),
+                                      (f'-{thresholds["降低人數"]}人', "所有高階門檻")], text)
+            content += render_flow(["開局選擇羈絆", "永久增加羈絆人數", "高階效果提前啟用"], text)
+            content += f'<p class="talent-note">{text("兩項效果可以疊加；獨行羈絆不適用")}</p>'
         else:
             raise ValueError(f"未知天賦：{name}")
         cards.append(f'<article class="card talent-card"><h3>{text(name)}<span class="tag">{text(route)}</span></h3>'
