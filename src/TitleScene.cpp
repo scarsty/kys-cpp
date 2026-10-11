@@ -556,7 +556,7 @@ void TitleScene::dealEvent(EngineEvent& e)
             if (balance.availableTalents.size() == 1) break;
             std::vector<std::string> names;
             for (const auto id : balance.availableTalents) names.emplace_back(KysChess::chessTalentName(id));
-            auto talentMenu = std::make_shared<SuperMenuText>("", 36, names, 4, diffMenuOpts);
+            auto talentMenu = std::make_shared<SuperMenuText>("", 36, names, static_cast<int>(names.size()), diffMenuOpts);
             talentMenu->setInputPosition(115, 250);
             talentMenu->setShowNavigationButtons(false);
             talentMenu->setDoubleTapMode(GameUtil::isMobileDevice());
