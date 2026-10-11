@@ -29,6 +29,7 @@
 #include <ranges>
 #include <set>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -52,6 +53,7 @@ struct Arguments
     std::uint64_t seed = 1;
     std::optional<KysChess::ChessTalentId> talent;
     int battleSeedCount = KysChess::kDefaultChessTournamentBattleSeedCount;
+    std::optional<int> workerCount;
     int seedSequenceIndex{};
     int leg{};
     std::size_t replaySequence{};
@@ -129,7 +131,7 @@ void printUsage(std::ostream& output)
               "  kys_chess_cli replay-prefix <存檔> --sequence N --output <新存檔>\n"
               "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
               "  kys_chess_cli pvp-battle <我方存檔> <對方存檔> --seed <戰鬥種子> [--json]\n"
-              "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
+              "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--jobs N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
               "  kys_chess_cli tournament-battle <存檔甲> <存檔乙> --seed N --seed-index N --leg 0|1 [--json]\n"
               "\n共用選項：\n"
               "  --data-root <路徑>       遊戲資料根目錄\n"
@@ -327,6 +329,21 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             result.arguments.battleSeedCount = *count;
             result.arguments.battleSeedCountSpecified = true;
         }
+        else if (value == "--jobs")
+        {
+            const auto countText = optionValue(value);
+            if (!countText)
+            {
+                return result;
+            }
+            const auto count = parseNonnegativeInt(*countText);
+            if (!count || *count == 0)
+            {
+                result.error = "--jobs 必須是大於零的整數";
+                return result;
+            }
+            result.arguments.workerCount = *count;
+        }
         else if (value == "--seed-index")
         {
             const auto seedIndexText = optionValue(value);
@@ -388,6 +405,11 @@ ArgumentParseResult parseArguments(int argc, char** argv)
     }
 
     const auto& command = result.arguments.command;
+    if (result.arguments.workerCount && command != "tournament")
+    {
+        result.error = "--jobs 只適用於 tournament";
+        return result;
+    }
     const auto* definition = commandDefinition(command);
     assert(definition);
     if (positionals.size() != definition->positionalCount)
@@ -1157,7 +1179,7 @@ int main(int argc, char** argv)
 
         if (arguments.tournamentPaths.size() != 1)
         {
-            std::cerr << "用法：kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n";
+            std::cerr << "用法：kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--jobs N] [--output 報告.md] [--json-output 結果.json] [--json]\n";
             return 2;
         }
         auto savePaths = tournamentSavePaths(arguments.tournamentPaths.front());
@@ -1212,6 +1234,12 @@ int main(int argc, char** argv)
         ChessTournamentOptions options;
         options.seed = arguments.seed;
         options.battleSeedCount = arguments.battleSeedCount;
+#ifdef __EMSCRIPTEN__
+        options.workerCount = arguments.workerCount.value_or(1);
+#else
+        options.workerCount = arguments.workerCount.value_or(
+            static_cast<int>(std::max(1u, std::thread::hardware_concurrency() / 2)));
+#endif
         std::string error;
         const auto result = ChessTournamentRunner::run(
             content,

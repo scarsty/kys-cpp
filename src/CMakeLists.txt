@@ -67,6 +67,12 @@ target_link_libraries(kys_chess_core PUBLIC
 )
 kys_enable_deterministic_floating_point(kys_chess_core)
 
+if(NOT EMSCRIPTEN)
+    find_package(asio CONFIG REQUIRED)
+    find_package(Threads REQUIRED)
+    target_link_libraries(kys_chess_core PUBLIC asio::asio Threads::Threads)
+endif()
+
 set(KYS_EFFECT_SCHEMA_OUTPUTS)
 if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
     find_package(glaze CONFIG REQUIRED)

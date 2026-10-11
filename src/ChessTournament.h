@@ -30,6 +30,7 @@ struct ChessTournamentOptions
 {
     std::uint64_t seed = 1;
     int battleSeedCount = kDefaultChessTournamentBattleSeedCount;
+    int workerCount = 1;
 
     auto operator<=>(const ChessTournamentOptions&) const = default;
 };
@@ -99,6 +100,7 @@ struct ChessTournamentResult
     auto operator<=>(const ChessTournamentResult&) const = default;
 };
 
+// 回呼依完成順序序列化執行；多執行緒賽事會在工作執行緒呼叫。
 using ChessTournamentProgressCallback = std::function<void(
     std::size_t completedBattleCount,
     const ChessTournamentBattleRecord& battle)>;

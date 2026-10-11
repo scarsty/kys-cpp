@@ -8,10 +8,17 @@
 
 #include <glaze/json.hpp>
 
+#ifndef __EMSCRIPTEN__
+#include <asio/post.hpp>
+#include <asio/thread_pool.hpp>
+#endif
+
 #include <algorithm>
 #include <cassert>
 #include <climits>
 #include <format>
+#include <future>
+#include <mutex>
 #include <ranges>
 #include <utility>
 
@@ -211,7 +218,6 @@ std::optional<ChessTournamentRoundRobinResult> runRoundRobin(
     std::shared_ptr<const ChessGameContent> content,
     const std::vector<ChessTournamentSubmission>& submissions,
     const ChessTournamentOptions& options,
-    std::size_t& completedBattleCount,
     const ChessTournamentProgressCallback& progress,
     std::string& error)
 {
@@ -220,7 +226,6 @@ std::optional<ChessTournamentRoundRobinResult> runRoundRobin(
         options.seed,
         options.battleSeedCount);
 
-    int pairingIndex = 0;
     for (int first = 0; first < static_cast<int>(submissions.size()); ++first)
     {
         for (int second = first + 1; second < static_cast<int>(submissions.size()); ++second)
@@ -228,37 +233,72 @@ std::optional<ChessTournamentRoundRobinResult> runRoundRobin(
             ChessTournamentPairingResult pairing;
             pairing.firstEntrantIndex = first;
             pairing.secondEntrantIndex = second;
-            for (int seedIndex = 0; seedIndex < static_cast<int>(result.battleSeeds.size()); ++seedIndex)
-            {
-                for (int leg = 0; leg < 2; ++leg)
-                {
-                    auto battle = executeBattle(
-                        content,
-                        submissions,
-                        pairing.firstEntrantIndex,
-                        pairing.secondEntrantIndex,
-                        options.seed,
-                        pairingIndex,
-                        seedIndex,
-                        result.battleSeeds[seedIndex],
-                        leg,
-                        error);
-                    if (!battle)
-                    {
-                        return std::nullopt;
-                    }
-                    addBattleScore(pairing, *battle);
-                    result.battles.push_back(std::move(*battle));
-                    ++completedBattleCount;
-                    if (progress)
-                    {
-                        progress(completedBattleCount, result.battles.back());
-                    }
-                }
-            }
             result.pairings.push_back(std::move(pairing));
-            ++pairingIndex;
         }
+    }
+    const auto battlesPerPairing = result.battleSeeds.size() * 2;
+    const auto battleCount = result.pairings.size() * battlesPerPairing;
+    result.battles.resize(battleCount);
+    std::mutex resultMutex;
+    std::size_t completed{};
+#ifndef __EMSCRIPTEN__
+    asio::thread_pool pool(std::min(
+        static_cast<std::size_t>(options.workerCount), battleCount));
+#endif
+    std::vector<std::future<std::string>> battles;
+    battles.reserve(battleCount);
+    for (std::size_t index = 0; index < battleCount; ++index)
+    {
+        const auto pairingIndex = static_cast<int>(index / battlesPerPairing);
+        const auto seedIndex = static_cast<int>(index % battlesPerPairing / 2);
+        const auto leg = static_cast<int>(index % 2);
+        const auto& pairing = result.pairings[pairingIndex];
+        auto execute = [content, &submissions, &result, &resultMutex, &completed,
+            &progress, index, rootSeed = options.seed,
+            first = pairing.firstEntrantIndex, second = pairing.secondEntrantIndex,
+            pairingIndex, seedIndex, seed = result.battleSeeds[seedIndex], leg]
+        {
+            std::string taskError;
+            auto battle = executeBattle(
+                content, submissions, first, second, rootSeed,
+                pairingIndex, seedIndex, seed, leg, taskError);
+            if (!battle)
+            {
+                return taskError;
+            }
+            // 戰鬥在鎖外執行，完成後寫入固定位置並序列化進度回呼。
+            const std::lock_guard lock(resultMutex);
+            result.battles[index] = std::move(*battle);
+            ++completed;
+            if (progress)
+            {
+                progress(completed, result.battles[index]);
+            }
+            return std::string{};
+        };
+#ifndef __EMSCRIPTEN__
+        std::packaged_task<std::string()> task(std::move(execute));
+        battles.push_back(task.get_future());
+        asio::post(pool, std::move(task));
+#else
+        battles.push_back(std::async(std::launch::deferred, std::move(execute)));
+#endif
+    }
+    for (auto& future : battles)
+    {
+        auto taskError = future.get();
+        if (!taskError.empty())
+        {
+            error = std::move(taskError);
+            return std::nullopt;
+        }
+    }
+#ifndef __EMSCRIPTEN__
+    pool.join();
+#endif
+    for (const auto& battle : result.battles)
+    {
+        addBattleScore(result.pairings[battle.pairingIndex], battle);
     }
     return result;
 }
@@ -464,6 +504,18 @@ std::optional<ChessTournamentResult> ChessTournamentRunner::run(
         error = "每組配對的戰鬥種子數量必須大於零";
         return std::nullopt;
     }
+    if (options.workerCount <= 0)
+    {
+        error = "賽事工作執行緒數量必須大於零";
+        return std::nullopt;
+    }
+#ifdef __EMSCRIPTEN__
+    if (options.workerCount != 1)
+    {
+        error = "WebAssembly 賽事只支援單一工作執行緒";
+        return std::nullopt;
+    }
+#endif
     for (const auto& submission : submissions)
     {
         if (submission.composition.pieces.empty())
@@ -476,12 +528,10 @@ std::optional<ChessTournamentResult> ChessTournamentRunner::run(
     ChessTournamentResult result;
     result.options = options;
     result.submissions = std::move(submissions);
-    std::size_t completedBattleCount{};
     auto roundRobin = runRoundRobin(
         content,
         result.submissions,
         options,
-        completedBattleCount,
         progress,
         error);
     if (!roundRobin)

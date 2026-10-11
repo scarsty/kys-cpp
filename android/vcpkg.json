@@ -2,6 +2,7 @@
   "name": "kys-cpp-android",
   "version-string": "0.1.0",
   "dependencies": [
+    "asio",
     "glaze",
     "picosha2",
     {

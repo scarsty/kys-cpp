@@ -68,6 +68,18 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(difficulty.returncode, 2)
         self.assertEqual(seed.returncode, 2)
 
+    def test_tournament_jobs_requires_a_positive_integer(self):
+        for jobs in ("0", "-1", "no", "2147483648"):
+            with self.subTest(jobs=jobs):
+                completed = run_cli(["tournament", "saves", "--jobs", jobs])
+                self.assertEqual(completed.returncode, 2)
+                self.assertIn("--jobs", completed.stderr)
+
+    def test_jobs_is_rejected_on_other_commands(self):
+        completed = run_cli(["new", "--jobs", "2"])
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("--jobs 只適用於 tournament", completed.stderr)
+
     def test_interactive_json_is_rejected_in_favor_of_jsonl(self):
         completed = run_cli(["--json"], "quit\n")
 
