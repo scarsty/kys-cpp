@@ -8,10 +8,8 @@
 
 #include <glaze/json.hpp>
 
-#ifndef __EMSCRIPTEN__
 #include <asio/post.hpp>
 #include <asio/thread_pool.hpp>
-#endif
 
 #include <algorithm>
 #include <cassert>
@@ -241,10 +239,8 @@ std::optional<ChessTournamentRoundRobinResult> runRoundRobin(
     result.battles.resize(battleCount);
     std::mutex resultMutex;
     std::size_t completed{};
-#ifndef __EMSCRIPTEN__
     asio::thread_pool pool(std::min(
         static_cast<std::size_t>(options.workerCount), battleCount));
-#endif
     std::vector<std::future<std::string>> battles;
     battles.reserve(battleCount);
     for (std::size_t index = 0; index < battleCount; ++index)
@@ -276,13 +272,9 @@ std::optional<ChessTournamentRoundRobinResult> runRoundRobin(
             }
             return std::string{};
         };
-#ifndef __EMSCRIPTEN__
         std::packaged_task<std::string()> task(std::move(execute));
         battles.push_back(task.get_future());
         asio::post(pool, std::move(task));
-#else
-        battles.push_back(std::async(std::launch::deferred, std::move(execute)));
-#endif
     }
     for (auto& future : battles)
     {
@@ -293,9 +285,7 @@ std::optional<ChessTournamentRoundRobinResult> runRoundRobin(
             return std::nullopt;
         }
     }
-#ifndef __EMSCRIPTEN__
     pool.join();
-#endif
     for (const auto& battle : result.battles)
     {
         addBattleScore(result.pairings[battle.pairingIndex], battle);
@@ -509,13 +499,6 @@ std::optional<ChessTournamentResult> ChessTournamentRunner::run(
         error = "賽事工作執行緒數量必須大於零";
         return std::nullopt;
     }
-#ifdef __EMSCRIPTEN__
-    if (options.workerCount != 1)
-    {
-        error = "WebAssembly 賽事只支援單一工作執行緒";
-        return std::nullopt;
-    }
-#endif
     for (const auto& submission : submissions)
     {
         if (submission.composition.pieces.empty())
