@@ -1,3 +1,8 @@
+#ifndef __EMSCRIPTEN__
+#include <asio/post.hpp>
+#include <asio/thread_pool.hpp>
+#endif
+
 #include "BattleSetupFactory.h"
 #include "ChessCliCommands.h"
 #include "ChessCliController.h"
@@ -21,10 +26,12 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <iterator>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <ranges>
 #include <set>
@@ -1216,21 +1223,6 @@ int main(int argc, char** argv)
             std::cerr << "參賽目錄至少需要兩個 .json 存檔\n";
             return 2;
         }
-        std::vector<ChessTournamentSubmission> submissions;
-        submissions.reserve(savePaths.size());
-        for (const auto& path : savePaths)
-        {
-            std::string error;
-            auto submission = loadTournamentSubmission(content, path, error);
-            if (!submission)
-            {
-                std::cerr << error << '\n';
-                return 2;
-            }
-            std::cerr << "已驗證：" << submission->name << '\n';
-            submissions.push_back(std::move(*submission));
-        }
-
         ChessTournamentOptions options;
         options.seed = arguments.seed;
         options.battleSeedCount = arguments.battleSeedCount;
@@ -1240,6 +1232,56 @@ int main(int argc, char** argv)
         options.workerCount = arguments.workerCount.value_or(
             static_cast<int>(std::max(1u, std::thread::hardware_concurrency() / 2)));
 #endif
+        std::vector<ChessTournamentSubmission> submissions(savePaths.size());
+        std::cerr << "正在驗證 " << savePaths.size() << " 份存檔，使用 "
+                  << options.workerCount << " 個工作執行緒\n";
+        {
+            std::mutex progressMutex;
+            std::size_t verified{};
+#ifndef __EMSCRIPTEN__
+            asio::thread_pool pool(std::min(
+                static_cast<std::size_t>(options.workerCount), savePaths.size()));
+#endif
+            std::vector<std::future<std::string>> verifications;
+            verifications.reserve(savePaths.size());
+            for (std::size_t index = 0; index < savePaths.size(); ++index)
+            {
+                auto verify = [&, index]
+                {
+                    std::string error;
+                    auto submission = loadTournamentSubmission(content, savePaths[index], error);
+                    if (!submission)
+                    {
+                        return error;
+                    }
+                    submissions[index] = std::move(*submission);
+                    const std::lock_guard lock(progressMutex);
+                    std::cerr << "已驗證 " << ++verified << '/' << savePaths.size()
+                              << "：" << submissions[index].name << '\n';
+                    return std::string{};
+                };
+#ifndef __EMSCRIPTEN__
+                std::packaged_task<std::string()> task(std::move(verify));
+                verifications.push_back(task.get_future());
+                asio::post(pool, std::move(task));
+#else
+                verifications.push_back(std::async(std::launch::deferred, std::move(verify)));
+#endif
+            }
+            for (auto& future : verifications)
+            {
+                const auto error = future.get();
+                if (!error.empty())
+                {
+                    std::cerr << error << '\n';
+                    return 2;
+                }
+            }
+#ifndef __EMSCRIPTEN__
+            pool.join();
+#endif
+        }
+        std::cerr << "開始賽事戰鬥，使用 " << options.workerCount << " 個工作執行緒\n";
         std::string error;
         const auto result = ChessTournamentRunner::run(
             content,
