@@ -26,6 +26,6 @@ node .\tools\tournament\generate-tournament-report.mjs `
 
 支援原生 `full_round_robin_mirrored` 結果。程式從原始存檔的 `replay.header.talent` 讀取天賦，並核對存檔 SHA256 與賽事紀錄，避免把不同存檔的天賦附到結果上。0.2.18 顯示名稱為 **神兵、中堅、晚成、賭徒**；新版本的 `alliance` 顯示為 **合縱**。未知天賦會回報錯誤。
 
-HTML 包含完整排名、名稱搜尋、天賦篩選、任意兩份陣容的全部對戰、超時標記、戰鬥 SHA256，以及 PowerShell 重現指令。種子數量從 JSON 讀取；支援手機版面與系統深色主題。若需要顯示引擎版本，可在 JSON 加入 `run_metadata.game_version`，不會把存檔版本猜作引擎版本。
+HTML 包含完整排名、名稱搜尋與天賦篩選。選擇陣容後，可查看它與全部對手的積分、勝和敗與勝率；點選對手可查看該配對的全部戰鬥、超時標記、戰鬥 SHA256，以及 PowerShell 重現指令。種子數量從 JSON 讀取；支援手機版面與系統深色主題。若需要顯示引擎版本，可在 JSON 加入 `run_metadata.game_version`，不會把存檔版本猜作引擎版本。
 
 重現時須使用相同引擎、遊戲資料與配置。產生報告不會修改結果 JSON 或原始存檔。
