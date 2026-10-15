@@ -14,12 +14,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_chess_cli", "src\kys_ch
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_effect_schema_codegen", "tools\kys_effect_schema_codegen\kys_effect_schema_codegen.vcxproj", "{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_launcher", "tools\windows_launcher\kys_launcher.vcxproj", "{B7EEBD15-7E02-4B53-A70B-130B90DBB77D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B7EEBD15-7E02-4B53-A70B-130B90DBB77D}.Debug|x64.ActiveCfg = Debug|x64
+		{B7EEBD15-7E02-4B53-A70B-130B90DBB77D}.Debug|x64.Build.0 = Debug|x64
+		{B7EEBD15-7E02-4B53-A70B-130B90DBB77D}.Release|x64.ActiveCfg = Release|x64
+		{B7EEBD15-7E02-4B53-A70B-130B90DBB77D}.Release|x64.Build.0 = Release|x64
 		{0B2302D7-3C55-442F-8F3E-764B54328B45}.Debug|x64.ActiveCfg = Debug|x64
 		{0B2302D7-3C55-442F-8F3E-764B54328B45}.Debug|x64.Build.0 = Debug|x64
 		{0B2302D7-3C55-442F-8F3E-764B54328B45}.Release|x64.ActiveCfg = Release|x64

@@ -127,7 +127,7 @@ foreach ($dll in $localDlls) {
 Write-Host "[4/5] Copying resources..."
 Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir "$PkgDir\game" -Version $Version
 
-# Step 5: Copy changelog and create shortcut
+# Step 5: Copy changelog and create portable launcher
 Write-Host "[5/5] Finalizing package..."
 $promoPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 $promoBuilder = Join-Path $PSScriptRoot 'tools\promo\build_page.py'
@@ -148,10 +148,9 @@ if ($changelog) {
     Copy-Item $changelog.FullName "$PkgDir\" -Force
 }
 
-New-WindowsShortcut `
-    -ShortcutPath (Join-Path $PkgDir 'play金群自走棋.lnk') `
-    -TargetPath (Join-Path $PkgDir 'bin\kys.exe') `
-    -Description '啟動金群自走棋'
+$launcherPath = Join-Path $PSScriptRoot 'x64\Release\kys_launcher.exe'
+Ensure-PathExists -Path $launcherPath -Message "Release launcher not found: $launcherPath"
+Copy-Item -LiteralPath $launcherPath -Destination (Join-Path $PkgDir '金群自走棋.exe') -Force
 
 Write-Host "========================================"
 Write-Host "Package created in: $PkgDir"

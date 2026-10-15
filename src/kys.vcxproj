@@ -377,6 +377,10 @@
     <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\tools\windows_launcher\kys_launcher.vcxproj">
+      <Project>{B7EEBD15-7E02-4B53-A70B-130B90DBB77D}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
     <ProjectReference Include="kys_battle_core.vcxproj">
       <Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project>
     </ProjectReference>

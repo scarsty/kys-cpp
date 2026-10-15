@@ -165,10 +165,31 @@ if(KYS_BUILD_GAME)
             add_custom_target(kys_app_icon DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico")
         endif()
         list(APPEND KYS_PLATFORM_SOURCES kys.rc kys_utf8.manifest)
+
+        add_executable(kys_launcher WIN32 "${KYS_ROOT}/tools/windows_launcher/main.cpp" ${KYS_PLATFORM_SOURCES})
+        target_include_directories(kys_launcher PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_definitions(kys_launcher PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_link_libraries(kys_launcher PRIVATE user32)
+        if(MSVC)
+            set_property(TARGET kys_launcher PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+            target_compile_options(kys_launcher PRIVATE /utf-8 /W4)
+        endif()
+        if(TARGET kys_app_icon)
+            add_dependencies(kys_launcher kys_app_icon)
+        endif()
+        if(BUILD_TESTING)
+            add_test(NAME windows_game_launcher
+                COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "${KYS_ROOT}/tests/Test-WindowsGameLauncher.ps1"
+                    -LauncherPath "$<TARGET_FILE:kys_launcher>" -GameExecutablePath "$<TARGET_FILE:kys>")
+        endif()
     endif()
 
     add_executable(kys kys.cpp ${KYS_PLATFORM_SOURCES})
     target_link_libraries(kys PRIVATE kys_game_lib)
+
+    if(TARGET kys_launcher)
+        add_dependencies(kys kys_launcher)
+    endif()
 
     if(TARGET kys_app_icon)
         add_dependencies(kys kys_app_icon)
