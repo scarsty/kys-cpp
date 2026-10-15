@@ -601,6 +601,7 @@ auto comboContentViews(const std::vector<ComboDef>& definitions)
         std::vector<int>,
         std::vector<ThresholdView>,
         bool,
+        bool,
         bool>;
     std::vector<DefinitionView> result;
     result.reserve(definitions.size());
@@ -622,7 +623,8 @@ auto comboContentViews(const std::vector<ComboDef>& definitions)
             definition.memberRoleIds,
             std::move(thresholds),
             definition.isAntiCombo,
-            definition.starSynergyBonus);
+            definition.starSynergyBonus,
+            definition.isNpcOnly);
     }
     return result;
 }

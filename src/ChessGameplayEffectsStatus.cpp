@@ -795,25 +795,27 @@ struct ReceivedHitStunAttacker final : GameplayEffectDefinition
     }
 };
 
-struct InitialStatusShield final : GameplayEffectDefinition
+template <BattleResource Resource>
+struct InitialShield final : GameplayEffectDefinition
 {
     int 護盾點數{};
-    static constexpr std::string_view Name = "開場狀態護盾";
-    static constexpr auto Parameters = std::array<Parameter<InitialStatusShield>, 1>{
-        {Parameter<InitialStatusShield>{{"護盾點數", 0, 1000000}, &InitialStatusShield::護盾點數}}};
+    static constexpr std::string_view Name = Resource == BattleResource::StatusShield ? "開場狀態護盾" : "開場僵直護盾";
+    static constexpr auto Parameters = std::array<Parameter<InitialShield>, 1>{
+        {Parameter<InitialShield>{{"護盾點數", 0, 1000000}, &InitialShield::護盾點數}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
         return {EffectRule{
-            .actions = {EffectAction{.value = ChangeResourceAction{.resource = BattleResource::StatusShield,
+            .actions = {EffectAction{.value = ChangeResourceAction{.resource = Resource,
                                                                    .amount = EffectNumber{.flat = 護盾點數},
                                                                    .kind = ResourceChangeKind::RefreshToAtLeast}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        const auto label = Resource == BattleResource::StatusShield ? "狀態" : "僵直";
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("開場：狀態盾≥{}", 護盾點數);
-        return std::format("開場時狀態護盾至少為{}。", 護盾點數);
+            return std::format("開場：{}盾≥{}", label, 護盾點數);
+        return std::format("開場時{}護盾至少為{}。", label, 護盾點數);
     }
 };
 
@@ -1157,7 +1159,8 @@ void appendStatusEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<HitVulnerableHealingPenalty>());
     entries.push_back(registration<HitCancelNextCast>());
     entries.push_back(registration<ReceivedHitStunAttacker>());
-    entries.push_back(registration<InitialStatusShield>());
+    entries.push_back(registration<InitialShield<BattleResource::StatusShield>>());
+    entries.push_back(registration<InitialShield<BattleResource::StaggerShield>>());
     entries.push_back(registration<CastInvincibility>());
     entries.push_back(registration<HitPoison>());
     entries.push_back(registration<KillInvincibility>());

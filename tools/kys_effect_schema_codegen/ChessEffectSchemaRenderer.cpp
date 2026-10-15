@@ -248,6 +248,7 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
             { "成員", integerList },
             { "反向羈絆", object({{ "type", "boolean" }}) },
             { "星級羈絆加成", object({{ "type", "boolean" }}) },
+            { "NPC專用", object({{ "type", "boolean" }}) },
             { "閾值", object({
                 { "type", "array" },
                 { "items", threshold },

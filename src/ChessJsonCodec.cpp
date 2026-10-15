@@ -536,7 +536,7 @@ std::optional<ComboDto> inspectComboDto(
         session.content().combos(),
         comboName,
         &ComboDef::name);
-    if (definition == session.content().combos().end())
+    if (definition == session.content().combos().end() || definition->isNpcOnly)
     {
         return std::nullopt;
     }
@@ -1756,7 +1756,7 @@ std::optional<CatalogDto> inspectCatalogDto(
     for (const auto& name : params.combo_names)
     {
         const auto found = std::ranges::find(content.combos(), name, &ComboDef::name);
-        if (found == content.combos().end()) return std::nullopt;
+        if (found == content.combos().end() || found->isNpcOnly) return std::nullopt;
         const auto metadata = chessComboMetadata(content, *found, 0, 0, -1, 0, {},
             detail == CatalogDetail::Full ? EffectDescriptionStyle::Full : EffectDescriptionStyle::Compact);
         CatalogComboDto combo{};

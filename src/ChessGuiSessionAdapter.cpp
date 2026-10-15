@@ -4036,7 +4036,7 @@ void ChessGuiSessionAdapter::viewCombos()
         session_.content().poolRoleIds().end());
     for (const auto& combo : session_.content().combos())
     {
-        if (std::ranges::none_of(combo.memberRoleIds, [&](int roleId) { return poolRoles.contains(roleId); }))
+        if (combo.isNpcOnly || std::ranges::none_of(combo.memberRoleIds, [&](int roleId) { return poolRoles.contains(roleId); }))
         {
             continue;
         }

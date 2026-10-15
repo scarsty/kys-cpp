@@ -198,6 +198,7 @@ std::vector<ComboDef> loadChessCombos(
         def.id = idx;
         def.isAntiCombo = node["反向羈絆"] && node["反向羈絆"].as<bool>();
         def.starSynergyBonus = node["星級羈絆加成"] && node["星級羈絆加成"].as<bool>();
+        def.isNpcOnly = node["NPC專用"] && node["NPC專用"].as<bool>();
 
         if (!node["成員"])
         {

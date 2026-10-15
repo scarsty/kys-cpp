@@ -87,13 +87,14 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
     for (int tier = 1; tier <= 4; ++tier)
         for (int number = 0; number < 8; ++number)
             data.equipment.push_back({tier * 100 + number, tier, 0});
-    for (int id = 0; id < 3; ++id)
+    for (int id = 0; id < 4; ++id)
     {
         ComboDef combo;
         combo.id = id;
         combo.name = std::format("結盟測試{}", id);
         combo.memberRoleIds = {100, 101, 102, 103, 104, 105, 106, 107};
         combo.isAntiCombo = id == 2;
+        combo.isNpcOnly = id == 3;
         for (int count : {2, 4, 6, 8}) combo.thresholds.push_back({count, std::to_string(count)});
         if (id == 0)
         {
@@ -150,6 +151,11 @@ TEST_CASE("alliance opening choice is mandatory free and survives checkpoint rep
     CHECK(legal.front().type == ChessActionType::ChooseReward);
     CHECK_FALSE(session.submitAndDrain(Test::buySlot(0)).accepted);
     CHECK_FALSE(session.submitAndDrain({.type = ChessActionType::ChooseReward, .rewardId = "synergy:2"}).accepted);
+    CHECK_FALSE(session.submitAndDrain({.type = ChessActionType::ChooseReward, .rewardId = "synergy:3"}).accepted);
+    CHECK_FALSE(ProtocolDetail::inspectComboDto(session, "結盟測試3", ProtocolDetail::ComboInspectionDetail::Full));
+    CHECK_FALSE(ProtocolDetail::inspectCatalogDto(session,
+        {.combo_names = {"結盟測試3"}}, ProtocolDetail::CatalogDetail::Full));
+    CHECK(std::ranges::none_of(session.observe().combos, [](const auto& combo) { return combo.comboId == 3; }));
     auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
     ChessCheckpointError error;
     auto parsed = ChessSessionCheckpoint::parseJson(checkpoint.serializeJson(), error);

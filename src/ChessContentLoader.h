@@ -35,6 +35,12 @@ bool loadChessPoolRoleIds(
     std::vector<int>& roleIds,
     const ChessDiagnosticSink& diagnostics = {});
 
+bool loadChessNpcRoles(
+    const std::filesystem::path& path,
+    ChessGameContentData& data,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics = {});
+
 ChessContentRoots chessContentRootsForDataRoot(const std::filesystem::path& dataRoot);
 ChessContentRoots discoverChessContentRoots(const std::filesystem::path& executablePath);
 

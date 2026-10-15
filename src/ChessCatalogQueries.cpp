@@ -651,6 +651,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
 
     for (const auto& combo : content.combos())
     {
+        if (combo.isNpcOnly) continue;
         for (const auto& threshold : combo.thresholds)
         {
             appendRules(

@@ -246,6 +246,7 @@ ChessGameplayObservation ChessGameSession::observe() const
     for (std::size_t index = 0; index < comboProgresses.size(); ++index)
     {
         const auto& combo = content_->combos()[index];
+        if (combo.isNpcOnly) continue;
         const auto& progress = comboProgresses[index];
         observation.combos.push_back({
             combo.id,

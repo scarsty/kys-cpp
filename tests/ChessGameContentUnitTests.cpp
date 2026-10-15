@@ -3,6 +3,9 @@
 #include "ChessBattleMapCatalog.h"
 #include "ChessGameContent.h"
 #include "ChessNeigong.h"
+#include "ChessPreparedBattleAnalysis.h"
+#include "BattleSetupFactory.h"
+#include "battle/BattleRuntimeRandom.h"
 #include "GameVersion.h"
 #include "yaml-cpp/yaml.h"
 
@@ -281,6 +284,140 @@ TEST_CASE("game version loader reads release configuration", "[chess][content][v
         "version = 1.2.3 \n");
 
     CHECK(loadGameVersion(files.path()) == "1.2.3");
+}
+
+TEST_CASE("challenge NPC roles use configured stats and a single skill at every star", "[chess][content][npc]")
+{
+    TemporaryConfigDirectory files;
+    auto data = syntheticContentData(Difficulty::Normal);
+    data.roles.at(10).HeadID = 73;
+    const auto path = files.write("challenge.yaml", R"(NPC角色:
+  - 角色ID: 60
+    名稱: 測試劍魔
+    稱號: 測試稱號
+    外觀角色ID: 10
+    費用: 5
+    生命: 777
+    內力: 100
+    內力性質: 1
+    攻擊: 150
+    防禦: 120
+    輕功: 95
+    御劍: 80
+    武功: 5
+    威力: 900
+遠征挑戰: []
+)");
+    ChessDiagnosticCollector diagnostics;
+    REQUIRE(loadChessNpcRoles(path, data,
+        [](std::string_view text) { return std::string(text); }, diagnostics.sink()));
+    CHECK_FALSE(diagnostics.hasErrors());
+    const ChessGameContent content(std::move(data));
+    const auto* role = content.role(60);
+    REQUIRE(role);
+    CHECK(role->HeadID == 73);
+    CHECK(role->MaxHP == 777);
+    CHECK(role->Cost == 5);
+    CHECK(role->Attack == 150);
+    CHECK(role->Defence == 120);
+    CHECK(role->Speed == 95);
+    CHECK_FALSE(std::ranges::contains(content.poolRoleIds(), role->ID));
+    for (int star = 1; star <= 3; ++star)
+    {
+        const auto magics = chessRoleMagicsForStar(content, *role, star);
+        REQUIRE(magics.size() == 1);
+        CHECK(magics.front().first->ID == 5);
+        CHECK(magics.front().second == 900);
+    }
+
+    auto invalid = YAML::LoadFile(path.string());
+    auto invalidData = syntheticContentData(Difficulty::Normal);
+    SECTION("cannot join a recruitable pool") { invalidData.poolRoleIds.push_back(60); }
+    SECTION("unknown appearance") { invalid["NPC角色"][0]["外觀角色ID"] = 999; }
+    SECTION("unknown martial art") { invalid["NPC角色"][0]["武功"] = 999; }
+    SECTION("duplicate role") { invalid["NPC角色"].push_back(YAML::Clone(invalid["NPC角色"][0])); }
+    SECTION("invalid tier") { invalid["NPC角色"][0]["費用"] = 6; }
+    const auto invalidPath = files.write("invalid.yaml", YAML::Dump(invalid));
+    CHECK_FALSE(loadChessNpcRoles(invalidPath, invalidData,
+        [](std::string_view text) { return std::string(text); }, diagnostics.sink()));
+    CHECK(diagnostics.hasErrors());
+}
+
+TEST_CASE("hidden combo keeps both shield resources and activates effects on normal attacks and ultimates", "[chess][content][combo][npc]")
+{
+    TemporaryConfigDirectory files;
+    const auto path = files.write("combos.yaml", R"(羈絆:
+  - 名稱: 隱藏測試
+    NPC專用: true
+    成員: [20]
+    閾值:
+      - 人數: 1
+        名稱: 測試門檻
+        效果:
+          - 類型: 開場狀態護盾
+            護盾點數: 78
+          - 類型: 開場僵直護盾
+            護盾點數: 102
+          - 類型: 貫穿清除敵彈
+            清除半徑百分比: 250
+          - 類型: 出招疊加增傷減傷
+            每次層數: 1
+            層數上限: 4
+            每層增傷百分比: 7
+            每層承傷百分比: -3
+)");
+    ChessDiagnosticCollector diagnostics;
+    auto combos = loadChessCombos(path.string(),
+        [](std::string_view text) { return std::string(text); }, diagnostics.sink());
+    REQUIRE(combos.size() == 1);
+    CHECK(combos.front().isNpcOnly);
+    const auto& threshold = combos.front().thresholds.front();
+    CHECK(threshold.effects.size() == 4);
+    REQUIRE(threshold.rules.size() == 4);
+    const auto dispatch = [&](bool ultimate)
+    {
+        const EffectSourceBinding binding{
+            .kind = EffectSourceKind::Combo, .sourceId = 0, .ownerUnitId = 1, .sourceTeam = 1};
+        Battle::BattleEffectRuleStore store;
+        for (const auto& rule : threshold.rules) store.append(binding, rule);
+        const std::vector<Battle::EffectUnitSnapshot> units{
+            {.id = 1, .team = 1, .hp = 500, .maxHp = 500},
+            {.id = 2, .team = 0, .hp = 500, .maxHp = 500}};
+        const Battle::EffectEventData event{
+            .event = EffectEvent::AttackCommitted,
+            .header = {.binding = binding, .owner = &units.front(), .battle = Battle::BattleEffectReadView(units)},
+            .payload = Battle::CastCommitEventData{
+                .provenance = {.sourceUnitId = 1, .magicId = 5, .ultimate = ultimate},
+                .targetUnitId = 2}};
+        Battle::BattleRuntimeRandom random(1);
+        return Battle::BattleEffectSystem{}.dispatch(store, event, random);
+    };
+    CHECK(dispatch(false).commands.size() == 2);
+    CHECK(dispatch(true).commands.size() == 2);
+    auto data = syntheticContentData(Difficulty::Normal);
+    data.roles.at(20).MagicID[0] = 5;
+    data.roles.at(20).MagicPower[0] = 100;
+    data.combos = std::move(combos);
+    const ChessGameContent content(std::move(data));
+    PreparedChessBattle prepared;
+    prepared.units = {{.unitId = 1, .roleId = 20, .team = 1}};
+    auto input = BattleSetupFactory::build(prepared, content, 100);
+    auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
+    const auto& runtime = creation.session.runtime().units.require(1);
+    CHECK(runtime.status.effects.statusShield == 78);
+    CHECK(runtime.status.effects.staggerShield == 102);
+    const auto analysis = analyzePreparedChessBattle(prepared, content, 100);
+    REQUIRE(analysis.enemySynergies.size() == 1);
+    CHECK(analysis.enemySynergies.front().name == "隱藏測試");
+    CHECK(analysis.enemySynergies.front().active);
+}
+
+TEST_CASE("NPC visibility participates in the immutable content fingerprint", "[chess][content][npc][fingerprint]")
+{
+    auto comboData = syntheticContentData(Difficulty::Normal);
+    comboData.combos.front().isNpcOnly = true;
+    const ChessGameContent ordinary(syntheticContentData(Difficulty::Normal));
+    CHECK(ordinary.contentFingerprint() != ChessGameContent(std::move(comboData)).contentFingerprint());
 }
 
 TEST_CASE("game version loader uses development version when release configuration is absent", "[chess][content][version]")

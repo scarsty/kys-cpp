@@ -518,7 +518,7 @@ void ChessRewardRules::enqueueTalentComboChoice(
     pending.kind = ChessRewardKind::Synergy;
     for (const auto& combo : content.combos())
     {
-        if (!combo.isAntiCombo && !combo.thresholds.empty()
+        if (!combo.isNpcOnly && !combo.isAntiCombo && !combo.thresholds.empty()
             && std::ranges::any_of(combo.memberRoleIds, [&](int roleId) {
                 return std::ranges::contains(content.poolRoleIds(), roleId);
             }))

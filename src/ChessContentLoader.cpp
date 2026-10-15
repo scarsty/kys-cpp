@@ -19,6 +19,7 @@
 #include <cstring>
 #include <format>
 #include <map>
+#include <set>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -313,6 +314,71 @@ bool loadChessPoolRoleIds(
     return loadPoolRoleIds(path, roleIds, diagnostics);
 }
 
+bool loadChessNpcRoles(
+    const std::filesystem::path& path,
+    ChessGameContentData& data,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics)
+{
+    const auto fail = [&](std::string message) {
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "挑戰角色配置", std::move(message));
+        return false;
+    };
+    try
+    {
+        const auto root = YAML::LoadFile(pathToUtf8(path));
+        const auto entries = root["NPC角色"];
+        if (!entries) return true;
+        if (!entries.IsSequence()) return fail("「NPC角色」必須是列表");
+        std::set<int> roleIds;
+        for (const auto& entry : entries)
+        {
+            ChessRoleDefinition role;
+            role.ID = entry["角色ID"].as<int>();
+            role.Name = toTraditional(entry["名稱"].as<std::string>());
+            role.Nick = toTraditional(entry["稱號"].as<std::string>());
+            if (role.ID < 0 || !roleIds.insert(role.ID).second)
+                return fail("NPC角色 ID 必須為非負整數且不得重複");
+            if (std::ranges::contains(data.poolRoleIds, role.ID))
+                return fail(std::format("NPC角色「{}」不可加入棋池", role.Name));
+            const int appearanceRoleId = entry["外觀角色ID"].as<int>();
+            const auto appearance = data.roles.find(appearanceRoleId);
+            if (appearance == data.roles.end())
+                return fail(std::format("NPC角色「{}」引用未知外觀角色 ID {}", role.Name, appearanceRoleId));
+            role.HeadID = appearance->second.HeadID;
+            role.Cost = entry["費用"].as<int>();
+            role.MaxHP = entry["生命"].as<int>();
+            role.MaxMP = entry["內力"].as<int>();
+            role.MPType = entry["內力性質"].as<int>();
+            role.Attack = entry["攻擊"].as<int>();
+            role.Defence = entry["防禦"].as<int>();
+            role.Speed = entry["輕功"].as<int>();
+            role.Sword = entry["御劍"].as<int>();
+            const int magicId = entry["武功"].as<int>();
+            const int magicPower = entry["威力"].as<int>();
+            if (role.Name.empty() || role.Cost < 1 || role.Cost > 5
+                || role.MaxHP <= 0 || role.MaxMP <= 0 || role.Attack <= 0
+                || role.Defence < 0 || role.Speed <= 0 || role.Sword < 0
+                || role.MPType < 0 || role.MPType > 2 || magicPower <= 0)
+                return fail(std::format("NPC角色「{}」的名稱或屬性數值無效", role.Name));
+            if (magicId <= 0 || !data.magics.contains(magicId))
+                return fail(std::format("NPC角色「{}」引用未知武功 ID {}", role.Name, magicId));
+            for (int star = 1; star <= ROLE_MAGIC_COUNT / SLOTS_PER_STAR; ++star)
+            {
+                const int slot = RoleSave::getMagicSlotStart(star);
+                role.MagicID[slot] = magicId;
+                role.MagicPower[slot] = magicPower;
+            }
+            data.roles.insert_or_assign(role.ID, std::move(role));
+        }
+    }
+    catch (const YAML::Exception& ex)
+    {
+        return fail(std::format("無法讀取 NPC角色配置 {}: {}", pathToUtf8(path), ex.what()));
+    }
+    return true;
+}
+
 std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadOptions& options)
 {
     const auto root = std::filesystem::weakly_canonical(options.dataRoot);
@@ -341,6 +407,10 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
     const auto poolPath = configRoot /
         (options.difficulty == Difficulty::Easy ? "chess_pool_easy.yaml" : "chess_pool.yaml");
     if (!loadChessPoolRoleIds(poolPath, data.poolRoleIds, options.diagnostics))
+    {
+        return std::nullopt;
+    }
+    if (!loadChessNpcRoles(configRoot / "chess_challenge.yaml", data, toTraditional, options.diagnostics))
     {
         return std::nullopt;
     }

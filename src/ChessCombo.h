@@ -33,6 +33,7 @@ struct ComboDef
     std::vector<ComboThreshold> thresholds;
     bool isAntiCombo = false;
     bool starSynergyBonus = false;
+    bool isNpcOnly = false;
 };
 
 struct ChessComboProgress

@@ -121,6 +121,14 @@ ChessGameContent catalogContent()
     });
     data.combos.push_back(std::move(combo));
 
+    ComboDef hiddenCombo;
+    hiddenCombo.id = 4;
+    hiddenCombo.name = "隱藏羈絆";
+    hiddenCombo.isNpcOnly = true;
+    hiddenCombo.memberRoleIds = {role.ID};
+    hiddenCombo.thresholds.push_back({1, "隱藏門檻", {}, {}, {attributeDefinition(BattleAttribute::Attack, 99)}});
+    data.combos.push_back(std::move(hiddenCombo));
+
     NeigongDef neigong;
     neigong.magicId = 700;
     neigong.itemId = 701;
@@ -175,7 +183,7 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
     CHECK(role.abilities.front().effectNote.empty());
     CHECK(joinEffectDescriptionRows(role.abilities.front().effects).contains("攻擊+4"));
     CHECK(joinEffectDescriptionRows(role.abilities.front().effects).contains("速度+5"));
-    CHECK(role.combos == std::vector<std::string>{"共用羈絆"});
+    CHECK(role.combos == std::vector<std::string>{"共用羈絆", "隱藏羈絆"});
 
     const auto equipment = chessEquipmentMetadata(content, 500);
     CHECK(effectDescriptionTextRows(equipment.specialEffects)
@@ -247,7 +255,7 @@ TEST_CASE("equipment panel excludes SQLite bonuses and retains compact configure
     CHECK(text.contains("速度+5"));
 }
 
-TEST_CASE("effect catalog covers every configured rule by source",
+TEST_CASE("public effect catalog covers player rules by source and excludes NPC combos",
           "[chess][catalog][effects]")
 {
     const auto content = catalogContent();
