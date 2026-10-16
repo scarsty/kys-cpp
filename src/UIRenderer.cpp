@@ -31,6 +31,11 @@ void UIRenderer::fillColor(Color color, int x, int y, int w, int h, BlendMode bl
     commands_.emplace_back(FillCommand{ color, x, y, w, h, blend });
 }
 
+void UIRenderer::drawLine(Color color, FPoint start, FPoint end, BlendMode blend)
+{
+    commands_.emplace_back(LineCommand{color, start, end, blend});
+}
+
 void UIRenderer::fillRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend)
 {
     commands_.emplace_back(RoundedRectCommand{ color, x, y, w, h, radius, blend, true });
@@ -104,6 +109,12 @@ void UIRenderer::execute()
                 engine->fillColor(draw.color,
                     scalePosition(presentX, draw.x, sx), scalePosition(presentY, draw.y, sy),
                     w, h, draw.blend);
+            }
+            else if constexpr (std::is_same_v<T, LineCommand>)
+            {
+                engine->drawLine(draw.color,
+                    {presentX + draw.start.x * sx, presentY + draw.start.y * sy},
+                    {presentX + draw.end.x * sx, presentY + draw.end.y * sy}, draw.blend);
             }
             else if constexpr (std::is_same_v<T, RoundedRectCommand>)
             {

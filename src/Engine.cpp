@@ -1015,6 +1015,11 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
 
 void Engine::drawLine(Color color, FPoint start, FPoint end, BlendMode blend) const
 {
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->drawLine(color, start, end, blend);
+        return;
+    }
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
     SDL_SetRenderDrawBlendMode(renderer_, blend);
     SDL_RenderLine(renderer_, start.x, start.y, end.x, end.y);

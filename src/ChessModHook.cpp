@@ -72,7 +72,7 @@ std::uint64_t nextGuiSaveRevision()
 }
 
 ChessMod::ChessMod(ChessGameSession& session)
-    : session_(session)
+    : session_(session), gui_(std::make_unique<ChessGuiSessionAdapter>(session))
 {
 }
 
@@ -175,12 +175,12 @@ bool ChessMod::blockExit(int submap_id) const
 
 void ChessMod::showContextMenu()
 {
-    ChessGuiSessionAdapter(session_).showContextMenu();
+    gui_->showContextMenu();
 }
 
 void ChessMod::showSystemMenu()
 {
-    ChessGuiSessionAdapter(session_).showSystemMenu();
+    gui_->showSystemMenu();
 }
 
 bool ChessModHook::canSaveCheckpoint()

@@ -720,6 +720,15 @@ TEST_CASE("ban management rows retain banned roles and legacy status", "[chess][
     const auto fullRows = buildChessBanManagementRows(observation, content);
     REQUIRE(fullRows.size() == observation.seenRoles.size());
     CHECK(std::ranges::all_of(fullRows, &ChessBanManagementRow::banned));
+
+    observation.seenRoles = {20};
+    observation.bans = {11}; // 開局強制封棋未必曾在商店出現。
+    const auto openingBans = buildChessBanManagementRows(observation, content);
+    REQUIRE(openingBans.size() == 2);
+    CHECK(openingBans[0].roleId == 20);
+    CHECK_FALSE(openingBans[0].banned);
+    CHECK(openingBans[1].roleId == 11);
+    CHECK(openingBans[1].banned);
 }
 
 TEST_CASE("challenge rewards retain configured limits and specific equipment names", "[chess][menu-formatting][challenge]")

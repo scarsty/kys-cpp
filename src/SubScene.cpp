@@ -212,7 +212,7 @@ void SubScene::draw()
     Engine::getInstance()->renderTextureToMain("scene");
 
     // Chess mod header bar
-    if (submap_id_ == 53)
+    if (submap_id_ == 53 && isCurrentRunOwner())
     {
         using namespace KysChess;
         const auto& session = applicationChessSession();
@@ -551,7 +551,7 @@ void SubScene::draw()
 
 void SubScene::drawTopmostOverlay()
 {
-    if (visible_ && submap_id_ == 53)
+    if (visible_ && submap_id_ == 53 && isCurrentRunOwner())
     {
         drawChessHeaderTooltip();
     }
@@ -735,13 +735,13 @@ void SubScene::dealEvent(EngineEvent& e)
         if (chessTriggered)
         {
             openQuickChessMenu();
+            return;
         }
     }
-    if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
-        //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
-        || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
+    if (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
     {
         onPressedCancel();
+        return;
     }
 
     //键盘走路部分，检测4个方向键
@@ -901,27 +901,9 @@ RunNode::PointerResult SubScene::onPointerEvent(const PointerEvent& event)
 
 void SubScene::openQuickChessMenu()
 {
-    for (int i = 0; i < SUBMAP_EVENT_COUNT; ++i)
-    {
-        auto event = submap_info_->Event(i);
-        if (!event || event->Event1 <= 0) continue;
-        const int eventX = event->X();
-        const int eventY = event->Y();
-        static const int dx[] = {0, 1, -1, 0};
-        static const int dy[] = {1, 0, 0, -1};
-        for (int direction = 0; direction < 4; ++direction)
-        {
-            const int x = eventX + dx[direction];
-            const int y = eventY + dy[direction];
-            if (canWalk(x, y))
-            {
-                setManViewPosition(x, y);
-                towards_ = calTowards(x, y, eventX, eventY);
-                break;
-            }
-        }
-        break;
-    }
+    // 整備是操作層，重新開啟時保留人物、相機與場景動畫。
+    way_que_.clear();
+    setMouseEventPoint(-1, -1);
     chess_mod_->showContextMenu();
 }
 
@@ -996,6 +978,7 @@ void SubScene::onEntrance()
     // addChild(scene_name);
 
     chess_mod_->onSubSceneEntrance(submap_id_);
+    if (submap_id_ == 53) openQuickChessMenu();
 }
 
 void SubScene::onExit()
@@ -1005,12 +988,14 @@ void SubScene::onExit()
 
 void SubScene::onPressedCancel()
 {
-    chess_mod_->showContextMenu();
+    openQuickChessMenu();
 }
 
 void SubScene::onPressedContextMenu()
 {
-    chess_mod_->showSystemMenu();
+    // 觸控裝置只有一個返回鍵；收起後可直接重開整備，系統選單仍在整備標題列。
+    if (submap_id_ == 53) openQuickChessMenu();
+    else chess_mod_->showSystemMenu();
 }
 
 //冗余过多待清理

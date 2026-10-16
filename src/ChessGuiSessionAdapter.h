@@ -1,10 +1,13 @@
 #pragma once
 
 #include "ChessGameSession.h"
+#include "ChessContextMenu.h"
 #include "ChessGuiBattleFlow.h"
 
 namespace KysChess
 {
+
+class ChessPreparationScreen;
 
 class ChessGuiSessionAdapter
 {
@@ -17,6 +20,7 @@ public:
     void showSystemMenu();
 
 private:
+    bool openPreparationCommand(ChessContextMenuAction command);
     ChessActionResult submitGuiAction(const ChessAction& action);
     ChessGuiFlowResult chooseAndSubmit(const ChessLegalActionDescriptor& descriptor);
     void showShop();
@@ -48,6 +52,7 @@ private:
     void showBattlePreview() const;
 
     ChessGameSession& session_;
+    std::shared_ptr<ChessPreparationScreen> preparation_;
 };
 
 }

@@ -363,6 +363,7 @@ ChessEquipmentMetadata chessEquipmentMetadata(
             continue;
         }
         ChessEquipmentCharacterBonusMetadata bonus;
+        bonus.roleIds = synergy.roleIds;
         for (const int roleId : synergy.roleIds)
         {
             const auto* role = content.role(roleId);

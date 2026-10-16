@@ -76,6 +76,7 @@ struct ChessRoleMetadata
 
 struct ChessEquipmentCharacterBonusMetadata
 {
+    std::vector<int> roleIds;
     std::vector<std::string> roles;
     RenderedEffectDescription effects;
     std::vector<std::string> countsAsCombos;

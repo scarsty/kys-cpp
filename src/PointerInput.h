@@ -59,6 +59,7 @@ struct PointerIdentity
 
 struct PointerEvent
 {
+    uint8_t clicks{};
     PointerPhase phase{};
     PointerSource source{};
     std::uint64_t pointerId{};

@@ -263,12 +263,15 @@ inline std::vector<ChessBanManagementRow> buildChessBanManagementRows(
     const ChessGameContent& content)
 {
     std::vector<int> roleIds = observation.seenRoles;
+    roleIds.insert(roleIds.end(), observation.bans.begin(), observation.bans.end());
     std::ranges::sort(roleIds, [&](int leftId, int rightId) {
         const auto* left = content.role(leftId);
         const auto* right = content.role(rightId);
         assert(left && right);
         return left->Cost != right->Cost ? left->Cost < right->Cost : leftId < rightId;
     });
+
+    roleIds.erase(std::unique(roleIds.begin(), roleIds.end()), roleIds.end());
 
     std::vector<ChessBanManagementRow> rows;
     rows.reserve(roleIds.size());

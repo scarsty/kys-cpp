@@ -25,6 +25,12 @@ python tools/pack_chess_smap_zip.py
 
 `resource/chess-talents.zip` 只包含 `ChessTalentId` 使用的 `0.webp` 至 `4.webp`（神兵、晚成、賭徒、中堅、合縱）。畫面顯示為 240 px，正式圖片最大為 512 px，使用 WebP quality 90。原始圖片與 atlas 位於 `tmp/asset-sources/chess-talents/`，重複的具名副本不保留。
 
+## 整備圖示
+
+`resource/chess-preparation.zip` 使用與其他貼圖相同的載入流程，包含 `0.webp` 至 `21.webp`，順序對應 `ChessPreparationScreen::Icon`。每張圖為 96×96 透明 WebP，採用無損壓縮；白色遮罩在執行時套用暖象牙、青銅或狀態色。圖示由 `TextureManager` 共用及管理，不嵌入 C++，也不加入版本控制。
+
+目前使用經過小尺寸檢查的生成圖示。原稿、生成提示、編號對照及舊圖示備份保存在 `tmp/asset-sources/preparation-icons/`；比較圖放在 `output/preparation-icons/`。這些來源及備份不隨遊戲發佈，正式套件沿用既有資源複製與 WebAssembly 清單流程。
+
 ## 棋局戰鬥特效
 
 特效與原有法術共用 `resource/eft/`，每組是一個 ZIP，使用既有貼圖載入流程：

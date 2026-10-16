@@ -20,6 +20,7 @@
 #include "ChessMagicEffectDisplay.h"
 #include "ChessMenuFormatting.h"
 #include "ChessPresentationHelpers.h"
+#include "ChessPreparationScreen.h"
 #include "ChessPreparedBattleAnalysis.h"
 #include "ChessPvp.h"
 #include "ChessScreenLayout.h"
@@ -360,24 +361,6 @@ int deployedCount(const ChessSessionState& state)
 int benchCount(const ChessSessionState& state)
 {
     return static_cast<int>(state.roster.size()) - deployedCount(state);
-}
-
-const EquipmentDef* equipmentDefinition(const ChessGameContent& content, int itemId)
-{
-    const auto found = std::ranges::find(content.equipment(), itemId, &EquipmentDef::itemId);
-    return found == content.equipment().end() ? nullptr : &*found;
-}
-
-const ChessEquipmentInstance* equipmentInstance(const ChessSessionState& state, int instanceId)
-{
-    const auto found = state.equipmentInventory.find(instanceId);
-    return found == state.equipmentInventory.end() ? nullptr : &found->second;
-}
-
-const ChessSessionPiece* rosterPiece(const ChessSessionState& state, int instanceId)
-{
-    const auto found = state.roster.find(instanceId);
-    return found == state.roster.end() ? nullptr : &found->second;
 }
 
 std::optional<ChessLegalActionDescriptor> legalAction(
@@ -4995,158 +4978,54 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseAndSubmit(const ChessLegalActio
     return currentChessGuiFlowResult();
 }
 
+bool ChessGuiSessionAdapter::openPreparationCommand(ChessContextMenuAction command)
+{
+    switch (command)
+    {
+    case ChessContextMenuAction::EnterBattle:
+        if (const auto descriptor = legalAction(session_, ChessActionType::PrepareBattle))
+        {
+            if (chooseAndSubmit(*descriptor) == ChessGuiFlowResult::Aborted) return true;
+        }
+        else showChessMessage("出戰棋子不足，請先選擇出戰陣容");
+        break;
+    case ChessContextMenuAction::ManageBans: showBanManagement(); break;
+    case ChessContextMenuAction::OpenEquipmentMenu: showEquipmentMenu(); break;
+    case ChessContextMenuAction::OpenOverviewMenu: showOverviewMenu(); break;
+    case ChessContextMenuAction::OpenOfflineBattle: showOfflineBattle(); break;
+    case ChessContextMenuAction::ViewCombos: viewCombos(); break;
+    case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
+    case ChessContextMenuAction::ShowExpeditionChallenge:
+    {
+        ChessLegalActionDescriptor descriptor{ChessActionType::StartChallenge};
+        descriptor.candidateStableIds = chessChallengeBrowseNames(session_.content());
+        if (!descriptor.candidateStableIds.empty()
+            && chooseChallenge(descriptor) == ChessGuiFlowResult::Aborted) return true;
+        break;
+    }
+    case ChessContextMenuAction::OpenSystemMenu:
+        if (runSystemMenu()) return true;
+        break;
+    default: std::unreachable();
+    }
+    return currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted;
+}
+
 void ChessGuiSessionAdapter::showContextMenu()
 {
+    if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted
+        || drainRewards() == ChessGuiFlowResult::Aborted) return;
+    if (!preparation_)
+    {
+        preparation_ = std::make_shared<ChessPreparationScreen>(session_, ChessPreparationCallbacks{
+            [this](const ChessAction& action) { return submitGuiAction(action); },
+        });
+    }
     for (;;)
     {
-        if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
-        {
-            return;
-        }
-        if (drainRewards() == ChessGuiFlowResult::Aborted)
-        {
-            return;
-        }
-        const bool banEnabled = ChessManagementRules::maximumBanCount(session_.state(), session_.content()) > 0;
-        const auto action = runContextActionMenu(buildChessContextMenu(banEnabled));
-        if (!action)
-        {
-            return;
-        }
-        switch (*action)
-        {
-        case ChessContextMenuAction::BuyChess:
-            showShop();
-            break;
-        case ChessContextMenuAction::SellChess:
-            chooseChess(ChessActionType::SellChess);
-            break;
-        case ChessContextMenuAction::SelectForBattle:
-            chooseDeployment();
-            break;
-        case ChessContextMenuAction::EnterBattle:
-            if (session_.state().campaignComplete)
-            {
-                showChessMessage("恭喜通關！");
-            }
-            else if (const auto descriptor = legalAction(session_, ChessActionType::PrepareBattle))
-            {
-                if (chooseAndSubmit(*descriptor) == ChessGuiFlowResult::Aborted)
-                {
-                    return;
-                }
-            }
-            else
-            {
-                showChessMessage("出戰棋子不足，請先選擇出戰陣容");
-            }
-            break;
-        case ChessContextMenuAction::OpenOfflineBattle:
-            showOfflineBattle();
-            break;
-        case ChessContextMenuAction::BuyExp:
-        {
-            if (session_.state().level >= session_.content().balance().maxLevel)
-            {
-                showChessMessage("已達最高等級");
-                break;
-            }
-            const auto frame = ChessScreenLayout::largeModalPreviewPanel();
-            auto panel = makePanel(frame, [this](int, const PanelFrame& panelFrame) {
-                constexpr int fontSize = 20;
-                const auto text = buildChessBuyExpPreviewText(session_.state(), session_.content());
-                PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 10, panelFrame.y + 10};
-                cursor.line(text.header, fontSize, {255, 215, 0, 255}, 6);
-                cursor.line(text.costLine, fontSize, {255, 255, 255, 255}, 12);
-                const int deploymentY = cursor.y;
-                cursor.line(text.deploymentLine, fontSize, {130, 220, 255, 255}, 12);
-                if (!text.deploymentNext.empty())
-                {
-                    cursor.font->draw(
-                        text.deploymentNext,
-                        fontSize,
-                        cursor.x + fontSize * 8,
-                        deploymentY,
-                        {100, 255, 100, 255});
-                }
-                cursor.line("當前商店權重:", fontSize, {160, 160, 160, 255}, 6);
-                cursor.line(text.currentWeights, fontSize, {255, 255, 255, 255}, 10);
-                cursor.line("下一級商店權重:", fontSize, {160, 160, 160, 255}, 6);
-                cursor.line(text.nextWeights, fontSize, {100, 255, 100, 255}, 6);
-            });
-            auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認購買", "取消"});
-            menu->setFontSize(36);
-            menu->arrange(0, 0, 0, 45);
-            menu->addChild(panel);
-            const auto anchor = ChessScreenLayout::modalMenuAnchor();
-            menu->runAtPosition(anchor.x, anchor.y);
-            if (menu->getResult() == 0)
-            {
-                ChessAction buyExperience;
-                buyExperience.type = ChessActionType::BuyExp;
-                const auto result = submitGuiAction(buyExperience);
-                if (!result.accepted)
-                {
-                    showChessMessage(result.description);
-                }
-                else if (std::ranges::contains(
-                    result.events,
-                    ChessSemanticEventType::LevelChanged,
-                    &ChessSemanticEvent::type))
-                {
-                    showChessMessage(std::format(
-                        "升級！等級{} 經驗{}/{}",
-                        session_.state().level + 1,
-                        session_.state().experience,
-                        ChessManagementRules::experienceForNextLevel(session_.state(), session_.content())));
-                }
-                else
-                {
-                    showChessMessage(std::format(
-                        "經驗{}/{}",
-                        session_.state().experience,
-                        ChessManagementRules::experienceForNextLevel(session_.state(), session_.content())));
-                }
-            }
-            break;
-        }
-        case ChessContextMenuAction::ManageBans:
-            showBanManagement();
-            break;
-        case ChessContextMenuAction::OpenEquipmentMenu:
-            showEquipmentMenu();
-            break;
-        case ChessContextMenuAction::OpenOverviewMenu:
-            showOverviewMenu();
-            break;
-        case ChessContextMenuAction::ShowExpeditionChallenge:
-        {
-            ChessLegalActionDescriptor descriptor{ChessActionType::StartChallenge};
-            descriptor.candidateStableIds = chessChallengeBrowseNames(session_.content());
-            if (descriptor.candidateStableIds.empty())
-            {
-                break;
-            }
-            if (chooseChallenge(descriptor) == ChessGuiFlowResult::Aborted)
-            {
-                return;
-            }
-            break;
-        }
-        case ChessContextMenuAction::OpenSystemMenu:
-            if (runSystemMenu())
-            {
-                return;
-            }
-            break;
-        default:
-            assert(false);
-            break;
-        }
-        if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
-        {
-            return;
-        }
+        preparation_->run();
+        const auto command = preparation_->takeCommand();
+        if (!command || openPreparationCommand(*command)) return;
     }
 }
 

@@ -72,6 +72,9 @@ set(EM_LINK_FLAGS
     "-O3"
     "-sASYNCIFY"
     "-sASYNCIFY_STACK_SIZE=262144"
+    # Battle evaluation and image decoding need more than the default 64 KiB C++ stack.
+    "-sSTACK_SIZE=1048576"
+    "-sSTACK_OVERFLOW_CHECK=2"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"

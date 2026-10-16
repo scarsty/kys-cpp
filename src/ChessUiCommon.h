@@ -17,6 +17,24 @@
 namespace KysChess
 {
 
+inline const EquipmentDef* equipmentDefinition(const ChessGameContent& content, int itemId)
+{
+    const auto found = std::ranges::find(content.equipment(), itemId, &EquipmentDef::itemId);
+    return found == content.equipment().end() ? nullptr : &*found;
+}
+
+inline const ChessEquipmentInstance* equipmentInstance(const ChessSessionState& state, int instanceId)
+{
+    const auto found = state.equipmentInventory.find(instanceId);
+    return found == state.equipmentInventory.end() ? nullptr : &found->second;
+}
+
+inline const ChessSessionPiece* rosterPiece(const ChessSessionState& state, int instanceId)
+{
+    const auto found = state.roster.find(instanceId);
+    return found == state.roster.end() ? nullptr : &found->second;
+}
+
 struct PanelTextCursor
 {
     Font* font;
@@ -35,6 +53,8 @@ struct PanelTextCursor
     }
 };
 
+enum class PanelTextTone { Body, Heading, Effect, Exclusive, Inactive, Combo, Context };
+
 struct PanelTextSourceRow
 {
     std::string text;
@@ -43,6 +63,7 @@ struct PanelTextSourceRow
     int spacingBefore{};
     int spacingAfter{};
     DisplayTextWrapping wrapping{};
+    PanelTextTone tone{};
 };
 
 struct PanelTextPhysicalLine
@@ -52,6 +73,7 @@ struct PanelTextPhysicalLine
     int fontSize{};
     int indentPixels{};
     int y{};
+    PanelTextTone tone{};
 };
 
 struct PanelTextLayout
@@ -119,33 +141,35 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEffectDescription(
 }
 
 inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
-    const ChessEquipmentMetadata& equipment)
+    const ChessEquipmentMetadata& equipment, std::optional<int> recipientRoleId = std::nullopt)
 {
     std::vector<PanelTextSourceRow> rows;
-    const auto appendText = [&](std::string text, bool heading = false) {
+    const auto appendText = [&](std::string text, PanelTextTone tone, bool heading = false) {
         rows.push_back({
             .text = std::move(text),
             .fontSizeDelta = heading ? 2 : 0,
             .spacingBefore = heading && !rows.empty() ? 6 : 0,
             .spacingAfter = 2,
+            .tone = tone,
         });
     };
-    const auto appendEffects = [&](const RenderedEffectDescription& effects) {
+    const auto appendEffects = [&](const RenderedEffectDescription& effects, PanelTextTone tone) {
         auto effectRows = panelTextRowsForEffectDescription(effects, 0, 2);
+        for (auto& row : effectRows) row.tone = tone;
         rows.insert(rows.end(),
             std::make_move_iterator(effectRows.begin()),
             std::make_move_iterator(effectRows.end()));
     };
-    const auto appendCombos = [&](const std::vector<std::string>& names) {
+    const auto appendCombos = [&](const std::vector<std::string>& names, PanelTextTone tone) {
         for (const auto& name : names)
-            appendText(chessNonBattleRuleDescription(CountsAsComboRule{ name }, true));
+            appendText(chessNonBattleRuleDescription(CountsAsComboRule{ name }, true), tone);
     };
     if (!equipment.specialEffects.sections.empty())
     {
-        appendText("特殊效果：", true);
-        appendEffects(equipment.specialEffects);
+        appendText("特殊效果：", PanelTextTone::Heading, true);
+        appendEffects(equipment.specialEffects, PanelTextTone::Effect);
     }
-    appendCombos(equipment.countsAsCombos);
+    appendCombos(equipment.countsAsCombos, PanelTextTone::Combo);
     for (const auto& bonus : equipment.characterBonuses)
     {
         std::string heading;
@@ -154,9 +178,13 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
             if (!heading.empty()) heading += "、";
             heading += role;
         }
-        appendText(heading + "專屬：", true);
-        appendCombos(bonus.countsAsCombos);
-        appendEffects(bonus.effects);
+        heading += "專屬";
+        const bool applicable = !recipientRoleId || std::ranges::contains(bonus.roleIds, *recipientRoleId);
+        if (recipientRoleId) heading += applicable ? "（適用）" : "（不適用）";
+        const auto tone = applicable ? PanelTextTone::Exclusive : PanelTextTone::Inactive;
+        appendText(heading + "：", tone, true);
+        appendCombos(bonus.countsAsCombos, applicable ? PanelTextTone::Combo : tone);
+        appendEffects(bonus.effects, tone);
     }
     return rows;
 }
@@ -240,6 +268,7 @@ inline PanelTextLayout layoutPanelText(
                 .fontSize = fontSize,
                 .indentPixels = indentPixels,
                 .y = result.height,
+                .tone = row.tone,
             });
             result.height += fontSize;
             if (rowIndex + 1 < rows.size() || lineIndex + 1 < wrapped.size())

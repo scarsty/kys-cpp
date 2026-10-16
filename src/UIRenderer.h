@@ -17,6 +17,7 @@ public:
 
     void drawText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha);
     void fillColor(Color color, int x, int y, int w, int h, BlendMode blend = BLENDMODE_BLEND);
+    void drawLine(Color color, FPoint start, FPoint end, BlendMode blend = BLENDMODE_BLEND);
     void fillRoundedRect(Color color, int x, int y, int w, int h, int radius,
         BlendMode blend = BLENDMODE_BLEND);
     void drawRoundedRect(Color color, int x, int y, int w, int h, int radius,
@@ -47,6 +48,14 @@ private:
         int y;
         int w;
         int h;
+        BlendMode blend;
+    };
+
+    struct LineCommand
+    {
+        Color color;
+        FPoint start;
+        FPoint end;
         BlendMode blend;
     };
 
@@ -93,7 +102,7 @@ private:
         Color color;
     };
 
-    using Command = std::variant<TextCommand, FillCommand, RoundedRectCommand,
+    using Command = std::variant<TextCommand, FillCommand, LineCommand, RoundedRectCommand,
         AnimatedRoundedRectCommand, TextureCommand, RawTextureCommand>;
     std::vector<Command> commands_;
     bool executing_ = false;

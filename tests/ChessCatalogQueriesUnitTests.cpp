@@ -198,6 +198,7 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
     CHECK(specialEffectRow.breakBefore == EffectDescriptionSemanticBreak::None);
     CHECK(equipment.countsAsCombos == std::vector<std::string>{"共用羈絆"});
     REQUIRE(equipment.characterBonuses.size() == 1);
+    CHECK(equipment.characterBonuses.front().roleIds == std::vector<int>{10});
     CHECK(equipment.characterBonuses.front().roles == std::vector<std::string>{"共用查詢棋子"});
     CHECK(effectDescriptionTextRows(equipment.characterBonuses.front().effects)
         == std::vector<std::string>{"速度+5。"});
@@ -253,6 +254,38 @@ TEST_CASE("equipment panel excludes SQLite bonuses and retains compact configure
     CHECK(text.contains("共用查詢棋子專屬"));
     CHECK(text.contains("計作角色羈絆"));
     CHECK(text.contains("速度+5"));
+}
+
+TEST_CASE("equipment hover uses configured effects and marks recipient-only bonuses after wrapping",
+          "[chess][catalog][effects][panel-text]")
+{
+    const auto content = catalogContent();
+    const auto metadata = chessEquipmentMetadata(content, 500);
+    for (const auto recipient : {std::optional<int>{}, std::optional{10}, std::optional{20}})
+    {
+        const auto rows = panelTextRowsForEquipment(metadata, recipient);
+        REQUIRE(rows.size() == 6);
+        CHECK(rows[0].tone == PanelTextTone::Heading);
+        CHECK(rows[1].text == "防禦+7。");
+        CHECK(rows[1].tone == PanelTextTone::Effect);
+        CHECK(rows[2].tone == PanelTextTone::Combo);
+        const bool applicable = recipient != 20;
+        CHECK(rows[3].tone == (applicable ? PanelTextTone::Exclusive : PanelTextTone::Inactive));
+        CHECK(rows[4].tone == (applicable ? PanelTextTone::Combo : PanelTextTone::Inactive));
+        CHECK(rows[5].tone == (applicable ? PanelTextTone::Exclusive : PanelTextTone::Inactive));
+        CHECK(rows[3].text.contains("（適用）") == (recipient == 10));
+        CHECK(rows[3].text.contains("（不適用）") == (recipient == 20));
+
+        std::string text;
+        for (const auto& row : rows) text += row.text;
+        CHECK_FALSE(text.contains("攻擊+8"));
+        CHECK_FALSE(text.contains("生命+25"));
+        CHECK(text.contains("速度+5"));
+        // 長專屬標題及羈絆規則換行後，仍須保留適用性與語意色彩。
+        const auto layout = layoutPanelText(rows, 112, 17);
+        CHECK(layout.lines.size() > rows.size());
+        for (const auto& line : layout.lines) CHECK(line.tone == rows[line.sourceRow].tone);
+    }
 }
 
 TEST_CASE("public effect catalog covers player rules by source and excludes NPC combos",

@@ -3,6 +3,7 @@
 #include "ChessBalance.h"
 
 #include <string>
+#include <memory>
 
 class SQLite3Wrapper;
 class Save;
@@ -11,6 +12,7 @@ namespace KysChess
 {
 
 class ChessGameSession;
+class ChessGuiSessionAdapter;
 struct ChessSaveSceneState;
 struct ChessSessionCheckpoint;
 
@@ -28,6 +30,7 @@ public:
 
 private:
     ChessGameSession& session_;
+    std::unique_ptr<ChessGuiSessionAdapter> gui_;
 };
 
 class ChessModHook

@@ -17,11 +17,11 @@ const Item* chessEquipmentDisplayItem(int itemId)
 Color chessPieceTierColor(int tier)
 {
     static const std::array<Color, 5> colors{{
-        {175, 238, 238, 255},
-        {0, 255, 0, 255},
-        {30, 144, 255, 255},
-        {186, 96, 255, 255},
-        {255, 0, 0, 255},
+        {185, 198, 194, 255},
+        {151, 181, 132, 255},
+        {129, 165, 195, 255},
+        {176, 144, 188, 255},
+        {207, 139, 119, 255},
     }};
     return colors[std::clamp(tier - 1, 0, static_cast<int>(colors.size()) - 1)];
 }

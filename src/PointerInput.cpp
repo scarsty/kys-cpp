@@ -357,6 +357,7 @@ PointerEvent PointerInput::makeMousePointerEvent(const SDL_Event& event)
         pointer.pointerId = event.button.which;
         pointer.button = event.button.button;
         pointer.buttonDown = event.button.down;
+        pointer.clicks = event.button.clicks;
         pointer.windowPosition = {event.button.x, event.button.y};
         pointer.timestamp = event.button.timestamp;
         pointer.windowId = event.button.windowID;

@@ -265,11 +265,13 @@ TEST_CASE("PointerInput converts native mouse events without querying device sta
     down.button.y = 450.0f;
     down.button.windowID = 8;
     down.button.timestamp = 10;
+    down.button.clicks = 2;
 
     const auto pointer = input.makeMousePointerEvent(down);
     CHECK(pointer.phase == PointerPhase::ButtonDown);
     CHECK(pointer.source == PointerSource::Mouse);
     CHECK(pointer.pointerId == 4);
+    CHECK(pointer.clicks == 2);
     CHECK(pointer.uiPosition.x == Approx(640.0f));
     CHECK(pointer.uiPosition.y == Approx(360.0f));
     CHECK(pointer.insidePresent);
