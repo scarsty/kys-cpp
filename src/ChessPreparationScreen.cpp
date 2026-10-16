@@ -253,7 +253,10 @@ void ChessPreparationScreen::rebuild()
     constexpr int gutter = 8;
     constexpr int mainTop = 80;
     const int leftWidth = w_ - rightWidth - 32 - gutter;
-    const int mainHeight = h_ - 66 - gutter - mainTop;
+    // 手機角落保留給 44 px/dp 的平台按鈕；沿用原有操作列，不另加工具列。
+    const int footerHeight = GameUtil::isMobileDevice() ? 82 : 52;
+    footer_ = {16, h_ - footerHeight - 14, w_ - 32, footerHeight};
+    const int mainHeight = footer_.y - gutter - mainTop;
     const int benchHeight = 120;
     const int shopHeight = 182;
     team_ = {16, mainTop, leftWidth, mainHeight - benchHeight - shopHeight - 2 * gutter};
@@ -1057,8 +1060,8 @@ void ChessPreparationScreen::replacementInspector()
 
 void ChessPreparationScreen::footer()
 {
-    const int y = h_ - 66;
-    panel({16, y, w_ - 32, 52});
+    const int y = footer_.y + (footer_.h - 52) / 2;
+    panel(footer_);
     iconButton("equipment", {128, y + 4, 116, 44}, Icon::Bag, "裝備", [this] { navigate(View::Equipment); });
     button("overview", {256, y + 4, 116, 44}, "棋局與系統", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
     button("expedition", {384, y + 4, 72, 44}, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });

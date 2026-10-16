@@ -70,6 +70,7 @@ private:
     PanelFrame bench_{};
     PanelFrame shop_{};
     PanelFrame inspector_{};
+    PanelFrame footer_{};
     std::string focusKey_;
     std::string pressedKey_;
     std::string hoverKey_;

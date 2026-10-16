@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -262,17 +263,22 @@ public class KysActivity extends SDLActivity {
             TextView btn = new TextView(this);
             btn.setText("✕");
             btn.setContentDescription("返回或系統選單");
-            btn.setTextSize(32);
-            btn.setTextColor(0xCCFFFFFF);
-            btn.setBackgroundColor(0x44000000);
-            btn.setPadding(32, 16, 32, 16);
+            btn.setTextSize(20);
+            btn.setTextColor(0xFFECE8D6);
+            btn.setGravity(Gravity.CENTER);
+            btn.setIncludeFontPadding(false);
+            GradientDrawable background = new GradientDrawable();
+            background.setShape(GradientDrawable.OVAL);
+            background.setColor(0xA6191716);
+            background.setStroke(dp(1), 0x40B19E78);
+            btn.setBackground(background);
 
             FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(44),
+                    dp(44),
                     Gravity.BOTTOM | Gravity.END
             );
-            params.setMargins(0, 0, dp(16), dp(16));
+            params.setMargins(0, 0, dp(6), dp(6));
 
             btn.setOnTouchListener((v, event) -> {
                 if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
