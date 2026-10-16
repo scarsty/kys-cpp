@@ -874,11 +874,7 @@ void ChessPreparationScreen::comboInspector()
     button("threshold", {x, y + 116, width, 44}, std::format("{} 人 · {}  >", threshold.requiredCount, threshold.name),
         [this, count = metadata.thresholds.size()] { thresholdIndex_ = (thresholdIndex_ + 1) % static_cast<int>(count); textPage_ = 0; rebuild(); },
         "依序查看各門檻；金色代表目前已啟動", true, threshold.active);
-    auto rows = panelTextRowsForEffectDescription(threshold.effects);
-    rows.insert(rows.begin(), {.text = std::format(
-        "出戰角色 {} 種 · 羈絆計數 {} 點。\n同名角色不重複計數；依此羈絆規則加入星級與天賦加點。裝備可賦予成員資格。",
-        progress.physicalCount, progress.effectiveCount), .spacingAfter = 6});
-    if (found->isAntiCombo) rows.insert(rows.begin(), {.text = "反向羈絆：以目前遊戲門檻與效果為準", .spacingAfter = 6});
+    const auto rows = panelTextRowsForEffectDescription(threshold.effects);
     const int memberY = inspector_.y + inspector_.h - 146;
     prose(rows, {x, y + 174, width, memberY - y - 182});
     int memberX = x;
