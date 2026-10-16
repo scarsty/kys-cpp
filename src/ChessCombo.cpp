@@ -196,6 +196,23 @@ std::vector<ComboDef> loadChessCombos(
         }
         def.name = toTraditional(node["名稱"].as<std::string>());
         def.id = idx;
+        const auto icon = node["圖示"];
+        if (!icon || !icon.IsScalar())
+        {
+            emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」必須指定非負整數「圖示」編號", def.name));
+            return {};
+        }
+        try { def.iconId = icon.as<int>(); }
+        catch (const YAML::Exception&)
+        {
+            emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」的「圖示」必須是非負整數", def.name));
+            return {};
+        }
+        if (def.iconId < 0)
+        {
+            emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」的「圖示」不可小於零", def.name));
+            return {};
+        }
         def.isAntiCombo = node["反向羈絆"] && node["反向羈絆"].as<bool>();
         def.starSynergyBonus = node["星級羈絆加成"] && node["星級羈絆加成"].as<bool>();
         def.isNpcOnly = node["NPC專用"] && node["NPC專用"].as<bool>();

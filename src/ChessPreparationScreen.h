@@ -139,6 +139,7 @@ private:
     void image(std::string group, int id, PanelFrame frame);
     void icon(Icon icon, PanelFrame frame, Color color = {221, 200, 141, 255});
     void drawIcon(Icon icon, PanelFrame frame, Color color);
+    void synergyIcon(int iconId, PanelFrame frame, Color color);
     void disclosure(std::string key, PanelFrame frame, std::string label, std::function<void()> action);
     int iconButton(std::string key, PanelFrame frame, Icon icon, std::string label,
         std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false);

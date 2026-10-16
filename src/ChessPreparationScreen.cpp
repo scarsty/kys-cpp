@@ -24,6 +24,7 @@ constexpr Color line{177, 158, 120, 40};
 constexpr Color panelFill{25, 23, 22, 180};
 constexpr Color activeFill{115, 98, 67, 90};
 constexpr Color equipmentContext{158, 201, 213, 255};
+constexpr Color synergyActive{184, 204, 164, 255};
 
 Color equipmentTextColor(PanelTextTone tone)
 {
@@ -170,6 +171,14 @@ void ChessPreparationScreen::icon(Icon symbol, PanelFrame frame, Color color)
     drawings_.push_back([=, this] { drawIcon(symbol, frame, color); });
 }
 
+void ChessPreparationScreen::synergyIcon(int iconId, PanelFrame frame, Color color)
+{
+    drawings_.push_back([=] {
+        TextureManager::getInstance()->renderTexture(
+            "chess-synergies", iconId, frame.x, frame.y, {color, color.a}, frame.w, frame.h);
+    });
+}
+
 void ChessPreparationScreen::disclosure(std::string key, PanelFrame frame, std::string label, std::function<void()> action)
 {
     button(std::move(key), frame, std::move(label), std::move(action), {}, true, false, Treatment::Row);
@@ -269,9 +278,14 @@ void ChessPreparationScreen::header()
     iconButton("economy", {242, 20, 100, 44}, Icon::Coin, std::to_string(observation_.money),
         [this] { navigate(View::Information, -1, "economy"); }, "查看金幣、利息與勝利收入");
     icon(Icon::Right, {332, 36, 12, 12}, muted);
-    iconButton("level", {354, 20, 124, 44}, Icon::Cultivation, std::format("等級 {}", observation_.level + 1),
+    button("level", {354, 20, 288, 44}, {},
         [this] { navigate(View::Information, -1, "level"); }, "查看經驗、修練與商店機率");
-    icon(Icon::Right, {468, 36, 12, 12}, muted);
+    icon(Icon::Cultivation, {362, 29, 26, 26});
+    text(std::format("等級 {}", observation_.level + 1), 398, 31, 20, ink);
+    text(observation_.level < session_.content().balance().maxLevel
+        ? std::format("經驗 {} / {}", observation_.experience, observation_.experienceForNextLevel)
+        : "已滿級", 492, 34, 16, gold);
+    icon(Icon::Right, {628, 36, 12, 12}, muted);
     const int x = w_ - 620;
     iconButton("difficulty", {x, 20, 112, 44}, Icon::Mountain, chessDifficultyDisplayName(observation_.difficulty),
         [this] { navigate(View::Information, -1, "difficulty"); }, "查看本局難度");
@@ -293,8 +307,8 @@ void ChessPreparationScreen::pieceCard(const ChessSessionPiece& piece, PanelFram
     const bool selected = selection_.instanceId == piece.instanceId || replacementId_ == piece.instanceId;
     button(std::format("piece:{}", piece.instanceId), frame, {},
         [this, id = piece.instanceId] { selectPiece(id); },
-        std::format("{} {} · {}階 · {}", role->Name, chessStars(piece.star), role->Cost,
-            piece.deployed ? "出戰；雙擊下陣" : "候補；雙擊上陣"), true, selected, Treatment::Card);
+        compact ? "" : std::format("{} {} · {}階 · 出戰；雙擊下陣", role->Name, chessStars(piece.star), role->Cost),
+        true, selected, Treatment::Card);
     controls_.back().shortcut = [this, id = piece.instanceId] {
         if (view_ == View::Replacement) return;
         selection_.selectPiece(id); deploy();
@@ -353,22 +367,32 @@ void ChessPreparationScreen::roster()
     text(std::format("出戰  {}/{}", deployed, observation_.maximumDeployment), team_.x + 12, team_.y + 14, 20, gold);
     auto combos = chessPreparationCombos(session_.state(), session_.content());
     std::erase_if(combos, [](const auto& combo) { return !combo.progress.active; });
-    const int chipWidth = (team_.w - 174 - 12 - 3 * 6) / 4;
-    for (int i = 0; i < std::min(8, static_cast<int>(combos.size())); ++i)
+    constexpr int columns = 8;
+    constexpr int capacity = columns * 2;
+    const int chipWidth = (team_.w - 174 - 12 - (columns - 1) * 4) / columns;
+    const int visible = std::min(capacity, static_cast<int>(combos.size()));
+    for (int i = 0; i < visible; ++i)
     {
+        const PanelFrame chip{team_.x + 174 + (i % columns) * (chipWidth + 4), team_.y + 4 + (i / columns) * 40, chipWidth, 40};
+        if (i == capacity - 1 && static_cast<int>(combos.size()) > capacity)
+        {
+            iconButton("combo-overflow", chip, Icon::More, std::format("+{}", combos.size() - i),
+                [this] { navigate(View::Combos); }, "查看其餘已啟動羈絆");
+            break;
+        }
         const auto& [definition, progress] = combos[i];
         const auto& combo = *definition;
-        const PanelFrame chip{team_.x + 174 + (i % 4) * (chipWidth + 6), team_.y + 4 + (i / 4) * 40, chipWidth, 40};
         button(std::format("combo-chip:{}", combo.id), chip, {},
-            [this, id = combo.id] { navigate(View::Combo, id); }, "查看羈絆效果與門檻",
+            [this, id = combo.id] { navigate(View::Combo, id); }, combo.name + " · 已啟動",
             true, false, Treatment::Quiet);
-        constexpr Color color{184, 204, 164, 255};
-        drawings_.push_back([chip] { fill({chip.x, chip.y + 5, chip.w, chip.h - 10}, {111, 132, 88, 38}, 3); });
-        text("✓", chip.x + 4, chip.y + 12, 16, color);
-        text(combo.name, chip.x + 24, chip.y + 12, 16, ink, chip.w - 70);
+        drawings_.push_back([chip] {
+            fill({chip.x, chip.y + 3, chip.w, chip.h - 6}, {111, 132, 88, 38}, 3);
+            fill({chip.x + 29, chip.y + 29, 5, 5}, synergyActive, 2);
+        });
+        synergyIcon(combo.iconId, {chip.x, chip.y + 2, 36, 36}, synergyActive);
         const auto count = progress.isAntiCombo ? std::format("獨/{}", progress.displayTargetCount)
             : std::format("{}/{}", progress.effectiveCount, progress.displayTargetCount);
-        text(count, chip.x + chip.w - Font::getTextDrawSize(count) * 7 - 4, chip.y + 13, 14, color);
+        text(count, chip.x + 38, chip.y + 13, 14, synergyActive);
     }
     iconButton("all-combos", {team_.x + 8, team_.y + 44, 150, 40}, Icon::Link,
         std::format("啟動 {} ›", combos.size()),
@@ -825,10 +849,13 @@ void ChessPreparationScreen::comboInspector()
             if (index >= static_cast<int>(definitions.size())) break;
             const auto& combo = *definitions[index].definition;
             const auto& progress = definitions[index].progress;
-            button(std::format("combo:{}", combo.id), {x, y + 56 + row * 52, width, 46},
-                combo.name + "  " + formatChessComboProgressCount(progress), [this, id = combo.id] {
+            const PanelFrame frame{x, y + 56 + row * 52, width, 46};
+            button(std::format("combo:{}", combo.id), frame, {}, [this, id = combo.id] {
                     navigate(View::Combo, id);
                 }, {}, true, progress.active, Treatment::Quiet, progress.active ? gold : ink);
+            synergyIcon(combo.iconId, {x + 2, frame.y + 5, 36, 36}, progress.active ? synergyActive : muted);
+            text(combo.name + "  " + formatChessComboProgressCount(progress), x + 46, frame.y + 14, 16,
+                progress.active ? synergyActive : ink, width - 50);
         }
         button("combo-page", {x, inspector_.y + inspector_.h - 58, width, 46}, std::format("第 {}/{} 頁 · 下一頁 >", listPage_ + 1, pages),
             [this, pages] { listPage_ = (listPage_ + 1) % pages; rebuild(); }, {}, pages > 1);
@@ -839,7 +866,8 @@ void ChessPreparationScreen::comboInspector()
     const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), *found);
     const auto metadata = chessComboMetadata(session_.content(), *found, progress.physicalCount, progress.effectiveCount,
         progress.activeThresholdIndex, progress.nextThresholdIndex, progress.contributions, EffectDescriptionStyle::Full, progress.requiredCounts);
-    text(metadata.name + " " + metadata.progressCount, x, y + 62, 22, gold, width, 2);
+    synergyIcon(found->iconId, {x, y + 58, 40, 40}, progress.active ? synergyActive : muted);
+    text(metadata.name + " " + metadata.progressCount, x + 48, y + 62, 20, gold, width - 48, 2);
     if (thresholdIndex_ < 0) thresholdIndex_ = std::max(0, progress.activeThresholdIndex);
     thresholdIndex_ = std::min(thresholdIndex_, static_cast<int>(metadata.thresholds.size()) - 1);
     const auto& threshold = metadata.thresholds[thresholdIndex_];
@@ -1550,7 +1578,7 @@ void ChessPreparationScreen::drawTopmostOverlay()
     }
     if (control.tooltip.empty() || peekId >= 0) return;
     if (Engine::getTicks() - hoverSince_ < 650) return;
-    const int width = std::min(480, w_ - 40);
+    const int width = std::clamp(Font::getTextDrawSize(control.tooltip) * 8 + 24, 80, std::min(480, w_ - 40));
     const auto lines = wrapDisplayText(control.tooltip, (width - 24) * 2 / 16, true);
     const int height = static_cast<int>(lines.size()) * 20 + 20;
     int x = std::clamp(control.frame.x, 20, w_ - width - 20);

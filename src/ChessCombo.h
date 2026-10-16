@@ -34,6 +34,7 @@ struct ComboDef
     bool isAntiCombo = false;
     bool starSynergyBonus = false;
     bool isNpcOnly = false;
+    int iconId{};
 };
 
 struct ChessComboProgress

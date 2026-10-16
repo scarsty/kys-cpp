@@ -348,6 +348,7 @@ TEST_CASE("hidden combo keeps both shield resources and activates effects on nor
     TemporaryConfigDirectory files;
     const auto path = files.write("combos.yaml", R"(羈絆:
   - 名稱: 隱藏測試
+    圖示: 9
     NPC專用: true
     成員: [20]
     閾值:
@@ -370,6 +371,7 @@ TEST_CASE("hidden combo keeps both shield resources and activates effects on nor
     auto combos = loadChessCombos(path.string(),
         [](std::string_view text) { return std::string(text); }, diagnostics.sink());
     REQUIRE(combos.size() == 1);
+    CHECK(combos.front().iconId == 9);
     CHECK(combos.front().isNpcOnly);
     const auto& threshold = combos.front().thresholds.front();
     CHECK(threshold.effects.size() == 4);
@@ -410,6 +412,51 @@ TEST_CASE("hidden combo keeps both shield resources and activates effects on nor
     REQUIRE(analysis.enemySynergies.size() == 1);
     CHECK(analysis.enemySynergies.front().name == "隱藏測試");
     CHECK(analysis.enemySynergies.front().active);
+}
+
+TEST_CASE("combo configuration requires explicit nonnegative icon IDs", "[chess][content][combo][config]")
+{
+    TemporaryConfigDirectory files;
+    auto document = YAML::Load(R"(羈絆:
+  - 名稱: 圖示測試
+    圖示: 17
+    成員: [20]
+    閾值:
+      - 人數: 1
+        名稱: 測試門檻
+        效果: []
+)");
+    bool valid{};
+    int expected{};
+    auto combo = document["羈絆"][0];
+    SECTION("configured ID is independent of combo position") { valid = true; expected = 17; }
+    SECTION("zero is a valid asset ID") { combo["圖示"] = 0; valid = true; }
+    SECTION("missing icon") { combo.remove("圖示"); }
+    SECTION("negative icon") { combo["圖示"] = -1; }
+    SECTION("text icon") { combo["圖示"] = "蓮花"; }
+    SECTION("fractional icon") { combo["圖示"] = 1.5; }
+    SECTION("null icon") { combo["圖示"] = YAML::Null; }
+    SECTION("list icon") { combo["圖示"] = YAML::Load("[1, 2]"); }
+    const auto path = files.write("icons.yaml", YAML::Dump(document));
+    ChessDiagnosticCollector diagnostics;
+    const auto combos = loadChessCombos(path.string(),
+        [](std::string_view text) { return std::string(text); }, diagnostics.sink());
+    CHECK(diagnostics.hasErrors() == !valid);
+    if (valid)
+    {
+        REQUIRE(combos.size() == 1);
+        CHECK(combos.front().id == 0);
+        CHECK(combos.front().iconId == expected);
+    }
+    else CHECK(combos.empty());
+}
+
+TEST_CASE("cosmetic combo icons do not change the gameplay content fingerprint", "[chess][content][combo][fingerprint]")
+{
+    auto data = syntheticContentData(Difficulty::Normal);
+    data.combos.front().iconId = 37;
+    const ChessGameContent ordinary(syntheticContentData(Difficulty::Normal));
+    CHECK(ordinary.contentFingerprint() == ChessGameContent(std::move(data)).contentFingerprint());
 }
 
 TEST_CASE("NPC visibility participates in the immutable content fingerprint", "[chess][content][npc][fingerprint]")

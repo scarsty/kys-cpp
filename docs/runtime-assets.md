@@ -29,7 +29,13 @@ python tools/pack_chess_smap_zip.py
 
 `resource/chess-preparation.zip` 使用與其他貼圖相同的載入流程，包含 `0.webp` 至 `21.webp`，順序對應 `ChessPreparationScreen::Icon`。每張圖為 96×96 透明 WebP，採用無損壓縮；白色遮罩在執行時套用暖象牙、青銅或狀態色。圖示由 `TextureManager` 共用及管理，不嵌入 C++，也不加入版本控制。
 
-目前使用經過小尺寸檢查的生成圖示。原稿、生成提示、編號對照及舊圖示備份保存在 `tmp/asset-sources/preparation-icons/`；比較圖放在 `output/preparation-icons/`。這些來源及備份不隨遊戲發佈，正式套件沿用既有資源複製與 WebAssembly 清單流程。
+目前使用經過小尺寸檢查的生成圖示。原稿、生成提示及編號對照保存在 `tmp/asset-sources/preparation-icons/`；預覽圖放在 `output/preparation-icons/`。先前下載的外部圖示與相關工具已移除。這些來源不隨遊戲發佈，正式套件沿用既有資源複製與 WebAssembly 清單流程。
+
+## 羈絆圖示
+
+`resource/chess-synergies.zip` 包含 `0.webp` 至 `42.webp`，使用與整備圖示一致的生成剪影、96×96 透明無損 WebP 與執行時著色。每個 `config/chess_combos.yaml` 羈絆必須以 `圖示` 指定非負整數圖片編號，對應 ZIP 內的數字檔名；編號不隨羈絆排序改變，也不影響遊戲規則指紋。新增羈絆時，需同時指定圖示並將對應 WebP 放入套件。
+
+生成原稿、提示、符號對照與打包腳本保存在 `tmp/asset-sources/synergy-icons/`；小尺寸預覽與驗證畫面放在 `output/synergy-icons/`。來源與正式圖片套件均不加入版本控制。整備的啟動羈絆列、羈絆清單與詳情共用此套件。
 
 ## 棋局戰鬥特效
 

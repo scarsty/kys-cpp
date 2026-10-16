@@ -245,6 +245,7 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
         }, { "人數", "名稱" });
         const auto combo = objectSchema({
             { "名稱", object({{ "type", "string" }}) },
+            { "圖示", object({{ "type", "integer" }, { "minimum", 0 }}) },
             { "成員", integerList },
             { "反向羈絆", object({{ "type", "boolean" }}) },
             { "星級羈絆加成", object({{ "type", "boolean" }}) },
@@ -253,7 +254,7 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
                 { "type", "array" },
                 { "items", threshold },
             }) },
-        }, { "名稱", "成員", "閾值" });
+        }, { "名稱", "圖示", "成員", "閾值" });
         return objectSchema({{
             "羈絆", object({
                 { "type", "array" },

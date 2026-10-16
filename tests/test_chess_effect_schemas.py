@@ -14,6 +14,16 @@ class NamedEffectSchemaTests(unittest.TestCase):
     def schema(self, name):
         return json.loads((SCHEMA_DIR / f"chess_{name}.schema.json").read_text(encoding="utf-8"))
 
+    def test_combo_icon_is_required_and_must_be_a_nonnegative_integer(self):
+        validator = jsonschema.Draft202012Validator(self.schema("combos"))
+        combo = {"名稱": "圖示測試", "成員": [20], "閾值": []}
+        self.assertTrue(list(validator.iter_errors({"羈絆": [combo]})))
+        for icon in (0, 17):
+            validator.validate({"羈絆": [{**combo, "圖示": icon}]})
+        for icon in (-1, 1.5, "蓮花", None, [], True):
+            with self.subTest(icon=icon):
+                self.assertTrue(list(validator.iter_errors({"羈絆": [{**combo, "圖示": icon}]})))
+
     def test_public_effects_reject_wiring_unknown_parameters_and_missing_values(self):
         schema = self.schema("magic_effects")
         validator = jsonschema.Draft202012Validator(schema)
