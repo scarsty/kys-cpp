@@ -265,7 +265,7 @@
                             if (!node._loaded) {
                                 var url = node._lazyUrl;
                                 Asyncify.handleAsync(function() {
-                                    return fetch(url).then(function(r) {
+                                    return fetch(url, { cache: 'no-cache' }).then(function(r) {
                                         if (!r.ok) throw new Error('HTTP ' + r.status + ' for ' + url);
                                         return r.arrayBuffer();
                                     }).then(function(ab) {

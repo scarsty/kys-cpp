@@ -247,6 +247,7 @@ public:
     bool isApplicationContextMenuEvent(const SDL_Event& event) const;
     void commitPresentGeometry(PresentGeometrySnapshot geometry) { geometry_ = geometry; }
     void pumpSdlEvents();
+    void discardPendingUserInput();
     void enqueueForTest(const SDL_Event& event) { pending_.emplace_back(event); }
     std::size_t pendingCount() const { return pending_.size(); }
     bool empty() const { return pending_.empty(); }

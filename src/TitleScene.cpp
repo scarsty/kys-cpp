@@ -17,8 +17,10 @@
 #include "DrawableOnCall.h"
 #include "ExternalJsonFileTransfer.h"
 #include "ChessUiCommon.h"
+#include "ChessUiStyle.h"
 #include "ChessTalentUi.h"
-#include "SuperMenuText.h"
+#include "ChessSelectionScreen.h"
+#include "ChessScreenLayout.h"
 #include "Video.h"
 #include "Weather.h"
 #include "ChessBalance.h"
@@ -62,153 +64,6 @@ std::shared_ptr<DrawableOnCall> makeModalBackdrop()
         Engine::getInstance()->fillColor({0, 0, 0, 255}, 0, 0, -1, -1);
     });
 }
-
-std::shared_ptr<TextBox> makeModalLabel(const std::string& text, int x, int y)
-{
-    auto label = std::make_shared<TextBox>();
-    label->setText(text);
-    label->setFontSize(32);
-    label->setHaveBox(false);
-    label->setTextColor({255, 220, 80});
-    label->setPosition(x, y);
-    return label;
-}
-
-class DifficultyDescriptionOverlay : public DrawableOnCall
-{
-public:
-    DifficultyDescriptionOverlay()
-        : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
-    {
-    }
-
-private:
-    void drawPanel()
-    {
-    static const std::array<std::string, 3> kDifficultyNames = { "簡單", "標準", "困難" };
-    static const std::array<std::string, 3> kDifficultyDescriptions = {
-        "入門模式，棋池固定，適合剛上手的新手。",
-        "標準模式，需要進行棋子禁用來控制棋池。",
-        "挑戰模式，總戰數更長，但金幣收益會略少。",
-    };
-
-        constexpr int panelX = 690;
-        constexpr int panelY = 292;
-        constexpr int panelW = 500;
-        constexpr int panelH = 210;
-        constexpr int titleFontSize = 22;
-        constexpr int bodyFontSize = 24;
-
-        auto engine = Engine::getInstance();
-        Color panelBg = { 0, 0, 0, 185 };
-        Color panelOutline = { 210, 180, 90, 220 };
-        Color titleColor = { 255, 230, 150, 255 };
-        Color bodyColor = { 230, 230, 230, 255 };
-        Color hintColor = { 150, 150, 150, 255 };
-        if (Engine::uiStyle() == 1)
-        {
-            panelBg = { 20, 20, 20, 215 };
-            panelOutline = { 180, 170, 140, 220 };
-            bodyColor = { 240, 230, 210, 255 };
-        }
-
-        engine->fillRoundedRect(panelBg, panelX, panelY, panelW, panelH, 8);
-        engine->drawRoundedRect(panelOutline, panelX, panelY, panelW, panelH, 8);
-
-        int activeIndex = getItemIndex();
-        if (activeIndex < 0 || activeIndex >= static_cast<int>(kDifficultyNames.size()))
-        {
-            activeIndex = 0;
-        }
-
-        auto* font = Font::getInstance();
-        font->draw("選項說明", titleFontSize, panelX + 18, panelY + 16, titleColor, 255);
-        font->draw(std::format("{}：", kDifficultyNames[activeIndex]), bodyFontSize, panelX + 18, panelY + 48, bodyColor, 255);
-
-        int availableUnits = std::max(4, (panelW - 36) * 2 / bodyFontSize);
-        auto wrappedLines = KysChess::wrapDisplayText(kDifficultyDescriptions[activeIndex], availableUnits);
-        int textY = panelY + 82;
-        for (const auto& line : wrappedLines)
-        {
-            font->draw(line, bodyFontSize, panelX + 18, textY, bodyColor, 255);
-            textY += bodyFontSize + 6;
-        }
-
-        font->draw("上下切換可查看說明", 18, panelX + 18, panelY + panelH - 28, hintColor, 255);
-    }
-};
-
-class TalentDescriptionOverlay : public DrawableOnCall
-{
-public:
-    explicit TalentDescriptionOverlay(const KysChess::BalanceConfig& balance)
-        : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); }), balance_(balance)
-    {
-    }
-    ~TalentDescriptionOverlay() override = default;
-private:
-    const KysChess::BalanceConfig& balance_;
-
-    void drawPanel()
-    {
-        using namespace KysChess;
-        auto* engine = Engine::getInstance();
-        auto* font = Font::getInstance();
-        assert(!balance_.availableTalents.empty());
-        const int index = std::clamp(
-            getItemIndex(),
-            0,
-            static_cast<int>(balance_.availableTalents.size()) - 1);
-        const auto id = balance_.availableTalents[index];
-        const auto presentation = buildChessTalentPresentation(balance_, id);
-
-        constexpr int panelX = 385;
-        constexpr int panelY = 62;
-        constexpr int panelW = 825;
-        constexpr int panelH = 620;
-        constexpr int imageX = panelX + 25;
-        constexpr int imageY = panelY + 30;
-        constexpr int imageSize = 240;
-        constexpr int infoX = panelX + 295;
-        constexpr int infoW = panelW - 320;
-        constexpr int tableX = panelX + 25;
-        constexpr int tableY = panelY + 290;
-        const int navigationY = panelY + panelH - 30;
-
-        engine->fillRoundedRect({12, 19, 25, 245}, panelX, panelY, panelW, panelH, 12);
-        engine->drawRoundedRect({205, 170, 95, 255}, panelX, panelY, panelW, panelH, 12);
-        auto* texture = TextureManager::getInstance()->getTexture("chess-talents", static_cast<int>(id));
-        TextureManager::getInstance()->renderTexture(texture, imageX, imageY, {}, imageSize, imageSize);
-        font->draw(chessTalentName(id), 34, infoX, panelY + 35, {255, 225, 145, 255});
-
-        constexpr int descriptionFontSize = 21;
-        const int descriptionUnits = displayTextUnitsForPixelWidth(descriptionFontSize, infoW);
-        int descriptionY = panelY + 85;
-        for (const auto& line : wrapChessTalentDescription(presentation.description, descriptionUnits))
-        {
-            font->draw(line, descriptionFontSize, infoX, descriptionY, {235, 226, 208, 255});
-            descriptionY += descriptionFontSize + 6;
-        }
-
-        if (!presentation.facts.empty())
-        {
-            drawChessTalentFactTable(
-                presentation,
-                tableX,
-                tableY,
-                panelW - 50,
-                navigationY - tableY - 16,
-                16,
-                12);
-        }
-        font->draw(
-            "上下切換查看天賦 · 確認開始棋局 · 取消返回難度",
-            18,
-            tableX,
-            navigationY,
-            {175, 180, 185, 255});
-    }
-};
 
 class ChangelogWindowWaitNode : public RunNode
 {
@@ -351,32 +206,8 @@ struct ScopedTitleArtHide
 
 void showMessageBox(const std::string& title, const std::string& message, SDL_MessageBoxFlags flags = SDL_MESSAGEBOX_INFORMATION)
 {
-#ifdef __EMSCRIPTEN__
-    auto prompt = std::make_shared<MenuText>(std::vector<std::string>{"確 定"});
-    prompt->setFontSize(32);
-    prompt->setPosition(560, 420);
-    prompt->arrange(0, 0, 0, 0);
-
-    auto titleLabel = makeModalLabel(title, 430, 220);
-    auto messageLabel = std::make_shared<TextBox>();
-    messageLabel->setText(message);
-    messageLabel->setFontSize(28);
-    messageLabel->setHaveBox(false);
-    messageLabel->setTextColor({220, 220, 220});
-    messageLabel->setPosition(290, 300);
-
-    auto bg = makeModalBackdrop();
-    RunNode::addIntoDrawTop(bg);
-    RunNode::addIntoDrawTop(titleLabel);
-    RunNode::addIntoDrawTop(messageLabel);
-    prompt->run();
-    RunNode::removeFromDraw(messageLabel);
-    RunNode::removeFromDraw(titleLabel);
-    RunNode::removeFromDraw(bg);
-#else
     (void)flags;
-    SDL_ShowSimpleMessageBox(flags, title.c_str(), message.c_str(), Engine::getInstance()->getWindow());
-#endif
+    KysChess::showChessMessage(title + "\n\n" + message);
 }
 
 std::string getSlotTitle(int slot)
@@ -407,20 +238,31 @@ TitleScene::TitleScene()
     battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
     // Text-only menu: 5 items, each 4 CJK chars at size 36 ~= 144px wide.
     auto mt = std::make_shared<MenuText>();
-    mt->setFontSize(36);
+    mt->setFontSize(24);
     mt->setHaveBox(true);
     mt->setStrings({"重新開始", "載入進度", "外部存檔", "更新日誌", "離開遊戲"});
-    mt->setPosition(216, 500);
-    mt->arrange(0, 0, 176, 0);
+    mt->setPosition(120, 520);
+    mt->arrange(0, 0, 212, 0);
+    const std::array actionIcons{
+        KysChess::ChessUiStyle::Icon::Formation,
+        KysChess::ChessUiStyle::Icon::Load,
+        KysChess::ChessUiStyle::Icon::Transfer,
+        KysChess::ChessUiStyle::Icon::Book,
+        KysChess::ChessUiStyle::Icon::Close,
+    };
+    int actionIndex{};
     for (auto& c : mt->getChilds())
     {
         auto* btn = dynamic_cast<Button*>(c.get());
         if (btn)
         {
-            btn->setTextOnly(true);
+            btn->setFlatStyle(192, 56);
             btn->setHaveBox(false);
-            btn->setTextColor({ 200, 50, 50, 255 });
+            btn->setTextColor(KysChess::ChessUiStyle::ink);
+            btn->setFlatIcon(actionIcons[actionIndex]);
+            btn->setFlatPrimary(actionIndex == 0);
         }
+        ++actionIndex;
     }
     menu_ = mt;
     menu_load_ = std::make_shared<UISave>();
@@ -467,7 +309,7 @@ void TitleScene::draw()
     auto engine = Engine::getInstance();
     int w = engine->getUIWidth();
     int h = engine->getUIHeight();
-    engine->fillColor({ 0, 0, 0, 255 }, 0, 0, w, h);
+    engine->fillColor({18, 17, 16, 255}, 0, 0, w, h);
     if (hide_title_art_for_external_save_)
     {
         return;
@@ -496,18 +338,19 @@ void TitleScene::draw()
     int chessW = 9 * (chessSize / 2);    // 9 chars wide, ASCII = half size
     int chessX = (w - chessW) / 2;
     int chessY = 120;
-    Color gold = { 200, 180, 100, 255 };
+    const auto gold = KysChess::ChessUiStyle::gold;
     for (int i = 0; i < 15; i++)
     {
         Font::getInstance()->draw(chess[i], chessSize, chessX, chessY + i * chessSize, gold, 255);
     }
 
-    // Title: "金群自走棋" in red, centered
     int titleSize = 48;
     int titleW = 5 * titleSize;    // 5 CJK chars, each = titleSize width
     int titleX = (w - titleW) / 2;
-    int titleY = chessY + 15 * chessSize + 30;
-    Font::getInstance()->draw("金群自走棋", titleSize, titleX, titleY, { 220, 40, 40, 255 }, 255);
+    int titleY = 386;
+    Font::getInstance()->draw("金群自走棋", titleSize, titleX, titleY, KysChess::ChessUiStyle::gold, 255);
+    Font::getInstance()->draw("招募群俠 · 運籌羈絆 · 問鼎武林", 20, 480, 460, KysChess::ChessUiStyle::muted);
+    engine->fillColor(KysChess::ChessUiStyle::line, 120, 504, w - 240, 1);
 
     const std::string qqGroupText = "QQ群910723737";
     const int qqGroupSize = fitTextSizeToWidth(qqGroupText, w - 20, 18);
@@ -518,7 +361,7 @@ void TitleScene::draw()
     Font::getInstance()->draw(GameUtil::VERSION(), 20, 10, h - 30, { 150, 150, 150, 255 }, 255);
 
 #ifdef __EMSCRIPTEN__
-    Font::getInstance()->draw("推荐使用 Edge / Firefox / Chrome / Opera 浏览器", 16, 10, 10, { 180, 180, 180, 180 }, 255);
+    Font::getInstance()->draw("建議使用 Edge / Firefox / Chrome / Opera 瀏覽器", 16, 10, 10, { 180, 180, 180, 180 }, 255);
     if (!overlay_dismissed_)
     {
         overlay_dismissed_ = true;
@@ -534,57 +377,68 @@ void TitleScene::dealEvent(EngineEvent& e)
     {
         // Difficulty selection before entering the game
         ScopedTitleArtHide hideTitleArt(hide_title_art_for_external_save_);
-        SuperMenuTextExtraOptions diffMenuOpts;
-        diffMenuOpts.needInputBox_ = false;
-        diffMenuOpts.exitable_ = true;
-        auto diffMenu = std::make_shared<SuperMenuText>("", 40, std::vector<std::string>{"簡單", "標準", "困難"}, 3, diffMenuOpts);
-        diffMenu->setInputPosition(320, 330);
-        diffMenu->setShowNavigationButtons(false);
-        diffMenu->setDoubleTapMode(GameUtil::isMobileDevice());
-        diffMenu->addDrawableOnCall(std::make_shared<DifficultyDescriptionOverlay>());
-        auto diffLabel = makeModalLabel("選擇難度", 540, 240);
+        auto diffMenu = std::make_shared<KysChess::ChessSelectionScreen>("選擇難度", std::vector<KysChess::ChessSelectionItem>{
+            {.title = "簡單", .subtitle = "初入江湖", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Book), .accent = KysChess::ChessUiStyle::positive, .summary = "固定棋池，熟悉招募與羈絆。"},
+            {.title = "標準", .subtitle = "行走江湖", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Formation), .summary = "透過禁棋調整棋池，打造自己的陣容。"},
+            {.title = "困難", .subtitle = "問鼎武林", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Mountain), .accent = KysChess::ChessUiStyle::negative, .summary = "更長的征途，更緊湊的金幣預算。"},
+        });
+        diffMenu->setActionLabel("下一步");
+        diffMenu->setShortChoiceMode();
         KysChess::Difficulty difficulty{};
         KysChess::ChessTalentId talent{};
         for (;;)
         {
-            const int diff = runModalNode(diffMenu, diffLabel);
+            const int diff = runModalNode(diffMenu);
             if (diff < 0) return;
             difficulty = static_cast<KysChess::Difficulty>(diff);
-            const auto content = KysChess::ChessApplicationSessionHost::instance().contentFor(difficulty);
+            std::shared_ptr<const KysChess::ChessGameContent> content;
+            ScenePreloader::showPromptAndPreload("正在載入棋手天賦…", [&] {
+                content = KysChess::ChessApplicationSessionHost::instance().contentFor(difficulty);
+                for (const auto id : content->balance().availableTalents)
+                    TextureManager::getInstance()->getTexture("chess-talents", static_cast<int>(id))->load();
+            });
             const auto& balance = content->balance();
             talent = balance.defaultTalent;
             if (balance.availableTalents.size() == 1) break;
-            std::vector<std::string> names;
-            for (const auto id : balance.availableTalents) names.emplace_back(KysChess::chessTalentName(id));
-            auto talentMenu = std::make_shared<SuperMenuText>("", 36, names, static_cast<int>(names.size()), diffMenuOpts);
-            talentMenu->setInputPosition(115, 250);
-            talentMenu->setShowNavigationButtons(false);
-            talentMenu->setDoubleTapMode(GameUtil::isMobileDevice());
+            std::vector<KysChess::ChessSelectionItem> talents;
+            for (const auto id : balance.availableTalents)
+            {
+                const auto presentation = KysChess::buildChessTalentPresentation(balance, id);
+                KysChess::ChessSelectionItem card{
+                    .title = KysChess::chessTalentName(id),
+                    .image = {"chess-talents", static_cast<int>(id)},
+                    .talent = presentation,
+                };
+                talents.push_back(std::move(card));
+            }
+            auto talentMenu = std::make_shared<KysChess::ChessSelectionScreen>("選擇棋手天賦", std::move(talents));
+            talentMenu->setActionLabel("開始棋局");
+            talentMenu->setTalentMode();
             talentMenu->setSelectedItem(static_cast<int>(std::ranges::find(balance.availableTalents, talent) - balance.availableTalents.begin()));
-            talentMenu->addDrawableOnCall(std::make_shared<TalentDescriptionOverlay>(balance));
-            const int selected = runModalNode(talentMenu, makeModalLabel("選擇棋手天賦", 120, 160));
+            const int selected = runModalNode(talentMenu);
             if (selected < 0) continue;
             talent = balance.availableTalents[selected];
             break;
         }
 
         Engine::getInstance()->gameControllerRumble(50, 50, 500);
-        if (!Save::getInstance()->prepareChessMode())
+        bool prepared{};
+        ScenePreloader::showPromptAndPreload("正在建立棋局與載入場景…", [&] {
+            prepared = Save::getInstance()->prepareChessMode();
+            if (!prepared) return;
+            MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+            MainScene::getInstance()->setTowards(1);
+            int s{}, x{}, y{}, ev = -1;
+            KysChess::ChessModHook::overrideNewGame(s, x, y, ev, difficulty, talent);
+            MainScene::getInstance()->forceEnterSubScene(s, x, y, ev);
+            ScenePreloader::preloadSubSceneAssets(53);
+        });
+        if (!prepared)
         {
             showMessageBox("錯誤", "初始化棋局資料失敗");
             return;
         }
-        {
-            MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-            MainScene::getInstance()->setTowards(1);
-            int s = 0, x = 0, y = 0, ev = -1;
-            KysChess::ChessModHook::overrideNewGame(s, x, y, ev, difficulty, talent);
-            MainScene::getInstance()->forceEnterSubScene(s, x, y, ev);
-            ScenePreloader::showPromptAndPreload("加載中...", []() {
-                ScenePreloader::preloadSubSceneAssets(53);
-            });
-            MainScene::getInstance()->run();
-        }
+        MainScene::getInstance()->run();
     }
     if (r == 1)
     {
@@ -636,19 +490,12 @@ void TitleScene::runExternalSaveFlow()
 
 int TitleScene::promptExternalSaveSlot()
 {
-    auto menu = std::make_shared<MenuText>();
-    menu->setFontSize(32);
-    menu->setStrings({
+    const int result = KysChess::runChessChoiceMenu("選擇要處理的存檔", {
         getSlotSummary(1),
         getSlotSummary(2),
         getSlotSummary(3),
         getSlotSummary(static_cast<int>(UISave::Slot::Auto))
     });
-    menu->setPosition(400, 240);
-    menu->arrange(0, 0, 0, 42);
-
-    auto label = makeModalLabel("選擇要處理的存檔", 420, 180);
-    const int result = runModalNode(menu, label);
     switch (result)
     {
     case 0:
@@ -666,14 +513,8 @@ int TitleScene::promptExternalSaveSlot()
 
 int TitleScene::promptExternalSaveAction(int slot)
 {
-    auto menu = std::make_shared<MenuText>();
-    menu->setFontSize(32);
-    menu->setStrings({"匯出完整存檔 JSON", "匯入存檔／對戰 JSON", "取消"});
-    menu->setPosition(470, 290);
-    menu->arrange(0, 0, 0, 52);
-
-    auto label = makeModalLabel(std::format("{} 外部存檔", getSlotTitle(slot)), 430, 220);
-    const int result = runModalNode(menu, label);
+    const int result = KysChess::runChessChoiceMenu(std::format("{} 外部存檔", getSlotTitle(slot)),
+        {"匯出完整存檔 JSON", "匯入存檔／對戰 JSON", "取消"});
     if (result == 2)
     {
         return -1;
@@ -743,22 +584,8 @@ void TitleScene::onEntrance()
     bool hasAutoSave = Save::getInstance()->checkSaveFileExist(static_cast<int>(UISave::Slot::Auto));
     if (hasAutoSave)
     {
-        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{"  是  ", "  否  "});
-        prompt->setFontSize(32);
-        prompt->arrange(0, 0, 200, 0);
-        prompt->setPosition(440, 400);
-        auto label = std::make_shared<TextBox>();
-        label->setText("檢測到自動存檔，是否繼續？");
-        label->setFontSize(32);
-        label->setHaveBox(false);
-        label->setTextColor({255, 220, 80});
-        prompt->addChild(label, -200, -60);
-        auto bg = std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
-            Engine::getInstance()->fillColor({0, 0, 0, 180}, 200, 300, 880, 180);
-        });
-        RunNode::addIntoDrawTop(bg);
-        int r = prompt->run();
-        RunNode::removeFromDraw(bg);
+        const int r = KysChess::runChessChoiceMenu("檢測到自動存檔，是否繼續？",
+            {"繼續棋局", "返回開頭"}, KysChess::ChessChoiceStyle::Confirmation);
         if (r == 0)
         {
             if (UISave::loadAuto())

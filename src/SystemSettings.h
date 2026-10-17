@@ -4,7 +4,7 @@
 
 struct SystemSettingsData
 {
-    bool positionSwapEnabled = false;
+    bool positionSwapEnabled = true;
     int musicVolume = 25;
     int soundVolume = 15;
     bool manualCamera = false;

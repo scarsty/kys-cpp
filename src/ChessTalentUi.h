@@ -2,11 +2,13 @@
 
 #include "ChessBalance.h"
 #include "ChessUiCommon.h"
+#include "ChessUiStyle.h"
 #include "DisplayText.h"
 #include "Engine.h"
 #include "Font.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <string>
 #include <utility>
@@ -14,6 +16,19 @@
 
 namespace KysChess
 {
+
+inline const char* chessTalentShortDescription(ChessTalentId id)
+{
+    switch (id)
+    {
+    case ChessTalentId::DivineArms: return "獲得更多高階裝備，終局可用神兵商店。";
+    case ChessTalentId::LateBloomer: return "勝場成長受星級及百分比效果加成，培養長期主力。";
+    case ChessTalentId::Gambler: return "開局額外禁棋；付費刷新為一枚棋子累積賭運，提高致命傷害免死機率。";
+    case ChessTalentId::Backbone: return "非三費友軍的額外星級強化三費棋子的內力與攻防；三費升二星後，下次商店保證三費。";
+    case ChessTalentId::Alliance: return "開局為一個羈絆永久加點，高階羈絆提前啟用。";
+    }
+    std::unreachable();
+}
 
 struct ChessTalentFactTableMetrics
 {
@@ -30,13 +45,13 @@ inline Color chessTalentFactAccent(ChessTalentFactKind kind)
     switch (kind)
     {
     case ChessTalentFactKind::Equipment:
-        return {255, 200, 105, 255};
+        return ChessUiStyle::gold;
     case ChessTalentFactKind::TalentEquipment:
-        return {205, 165, 255, 255};
+        return {210, 182, 229, 255};
     case ChessTalentFactKind::Shop:
-        return {170, 210, 255, 255};
+        return ChessUiStyle::context;
     case ChessTalentFactKind::Mechanic:
-        return {115, 220, 190, 255};
+        return ChessUiStyle::positive;
     }
     std::unreachable();
 }
@@ -85,11 +100,11 @@ inline int chessTalentFactColumnWidth(int pixelWidth, int column)
     assert(pixelWidth >= 320);
     if (column == 0)
     {
-        return std::clamp(pixelWidth / 5, 108, 132);
+        return pixelWidth * (pixelWidth >= 800 ? 18 : 27) / 100;
     }
     if (column == 1)
     {
-        return std::clamp(pixelWidth / 4, 128, 168);
+        return pixelWidth * (pixelWidth >= 800 ? 22 : 27) / 100;
     }
     return pixelWidth
         - chessTalentFactColumnWidth(pixelWidth, 0)
@@ -185,6 +200,51 @@ inline ChessTalentFactTableMetrics measureChessTalentFactTable(
     };
 }
 
+// 固定可讀字級，按完整資料列分頁；過長的單列按文字行延續。
+inline std::vector<ChessTalentPresentation> paginateChessTalentFacts(
+    const ChessTalentPresentation& presentation, int width, int height, int fontSize)
+{
+    const int header = fontSize + 16;
+    const int available = height - header;
+    const int maxLines = std::max(1, (available - 9) / (fontSize + 4));
+    std::vector<ChessTalentPresentation> pages(1, presentation);
+    pages.back().facts.clear();
+    int used{};
+    for (const auto& fact : presentation.facts)
+    {
+        const std::array cells{fact.category, fact.label, fact.value};
+        std::array<std::vector<std::string>, 3> lines;
+        int count = 1;
+        for (int c = 0; c < 3; ++c)
+        {
+            lines[c] = wrapDisplayText(cells[c], displayTextUnitsForPixelWidth(fontSize, chessTalentFactColumnWidth(width, c) - 16));
+            count = std::max(count, static_cast<int>(lines[c].size()));
+        }
+        for (int start = 0; start < count; start += maxLines)
+        {
+            auto part = fact;
+            std::array<std::string*, 3> values{&part.category, &part.label, &part.value};
+            for (int c = 0; c < 3; ++c)
+            {
+                values[c]->clear();
+                for (int i = start; i < std::min(start + maxLines, static_cast<int>(lines[c].size())); ++i)
+                    *values[c] += lines[c][i];
+            }
+            const int rowHeight = chessTalentFactRowHeight(part, fontSize,
+                chessTalentFactColumnWidth(width, 0), chessTalentFactColumnWidth(width, 1), chessTalentFactColumnWidth(width, 2)) + 1;
+            if (used + rowHeight > available && !pages.back().facts.empty())
+            {
+                pages.push_back(presentation);
+                pages.back().facts.clear();
+                used = 0;
+            }
+            pages.back().facts.push_back(std::move(part));
+            used += rowHeight;
+        }
+    }
+    return pages;
+}
+
 inline void drawChessTalentFactTable(
     const ChessTalentPresentation& presentation,
     int x,
@@ -204,9 +264,8 @@ inline void drawChessTalentFactTable(
     auto* font = Font::getInstance();
     const bool equipmentTable = chessTalentPresentationUsesEquipmentTable(presentation);
 
-    engine->fillRoundedRect({9, 16, 24, 235}, x, y, pixelWidth, metrics.height, 8);
-    engine->drawRoundedRect({90, 105, 125, 230}, x, y, pixelWidth, metrics.height, 8);
-    engine->fillColor({35, 48, 63, 245}, x + 1, y + 1, pixelWidth - 2, metrics.headerHeight);
+    engine->fillRoundedRect(ChessUiStyle::quietFill, x, y, pixelWidth, metrics.height, 8);
+    engine->fillColor(ChessUiStyle::activeFill, x + 1, y + 1, pixelWidth - 2, metrics.headerHeight);
 
     constexpr int padding = 8;
     if (equipmentTable)
@@ -254,8 +313,8 @@ inline void drawChessTalentFactTable(
             metrics.valueWidth);
         const auto accent = chessTalentFactAccent(fact.kind);
         const Color rowFill = index % 2 == 0
-            ? Color{24, 28, 36, 235}
-            : Color{30, 35, 45, 235};
+            ? Color{115, 98, 67, 24}
+            : Color{115, 98, 67, 8};
         engine->fillColor(rowFill, x + 1, rowY, pixelWidth - 2, rowHeight);
         engine->fillColor(accent, x + 1, rowY, 5, rowHeight);
 
@@ -290,7 +349,7 @@ inline void drawChessTalentFactTable(
             accent);
 
         engine->fillColor(
-            {75, 82, 94, 180},
+            ChessUiStyle::line,
             x + 1,
             rowY + rowHeight - 1,
             pixelWidth - 2,

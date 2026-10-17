@@ -25,15 +25,13 @@ TEST_CASE("ChessSystemSettingsMenu_AdjustSliderValueClampsToVolumeRange", "[ches
 TEST_CASE("ChessSystemSettingsMenu_ToggleValueColorUsesSemanticOnOffColors", "[chess][settings]")
 {
     const Color on = settingsToggleValueColor(true);
-    CHECK(on.r == 0);
-    CHECK(on.g == 255);
-    CHECK(on.b == 100);
+    CHECK(on.g > on.r);
+    CHECK(on.g > on.b);
     CHECK(on.a == 255);
 
     const Color off = settingsToggleValueColor(false);
-    CHECK(off.r == 255);
-    CHECK(off.g == 80);
-    CHECK(off.b == 80);
+    CHECK(off.r > off.g);
+    CHECK(off.r > off.b);
     CHECK(off.a == 255);
 }
 
@@ -105,4 +103,12 @@ TEST_CASE("FullscreenHotkey_ConsumesBothEdgesAndIgnoresModifiedKeys", "[ui][full
     event.key.key = SDLK_F10;
     event.type = EVENT_FIRST;
     CHECK_FALSE(Engine::isFullscreenHotkey(event));
+}
+
+TEST_CASE("Formation defaults on and an explicit saved preference is retained", "[chess][settings]")
+{
+    SystemSettingsData settings;
+    CHECK(settings.positionSwapEnabled);
+    CHECK_FALSE(glz::read_json(settings, R"({"positionSwapEnabled":false})"));
+    CHECK_FALSE(settings.positionSwapEnabled);
 }

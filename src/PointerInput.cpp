@@ -276,6 +276,23 @@ void PointerInput::pumpSdlEvents()
     }
 }
 
+void PointerInput::discardPendingUserInput()
+{
+    std::erase_if(pending_, [this](const QueuedSdlEvent& queued) {
+        const auto& event = queued.event();
+        if (event.type == SDL_EVENT_FINGER_DOWN || event.type == SDL_EVENT_FINGER_MOTION
+            || event.type == SDL_EVENT_FINGER_UP || event.type == SDL_EVENT_FINGER_CANCELED)
+            processFingerEvent(event);
+        return isPointerEventType(event.type) || isApplicationContextMenuEvent(event)
+            || event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP
+            || event.type == SDL_EVENT_TEXT_INPUT || event.type == SDL_EVENT_TEXT_EDITING
+            || event.type == SDL_EVENT_GAMEPAD_AXIS_MOTION
+            || event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || event.type == SDL_EVENT_GAMEPAD_BUTTON_UP;
+    });
+    // 載入期間按住的觸控，必須先放開才能在下一個畫面操作。
+    rejectActiveTouchContacts();
+}
+
 bool PointerInput::isPointerEventType(std::uint32_t type)
 {
     switch (type)

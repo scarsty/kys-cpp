@@ -1,6 +1,7 @@
 #include "ScenePreloader.h"
 
 #include "BattleMap.h"
+#include "ChessUiStyle.h"
 #include "Engine.h"
 #include "Font.h"
 #include "RunNode.h"
@@ -36,32 +37,42 @@ public:
 
     void draw() override
     {
+        using namespace KysChess::ChessUiStyle;
         auto* engine = Engine::getInstance();
-        engine->fillColor({0, 0, 0, 220}, 0, 0, engine->getUIWidth(), engine->getUIHeight());
-        Font::getInstance()->drawWithBoxCentered(message_, 32, engine->getUIHeight() / 2 - 16);
+        engine->fillColor(canvasScrim, 0, 0, engine->getUIWidth(), engine->getUIHeight());
+        panel(360, 288, 560, 144);
+        asset("chess-preparation", iconId(Icon::Load), {388, 318, 32, 32}, false, gold);
+        label(message_, 26, 440, 318, ink, 448);
+        label("請稍候，完成後將自動繼續", 18, 440, 374, muted, 448);
         promptRendered_ = true;
     }
 
+    PointerResult onPointerEvent(const PointerEvent&) override { return PointerResult::Handled; }
+
     void dealEvent(EngineEvent&) override
     {
-        if (!promptRendered_ || preloadDone_)
-        {
-            return;
-        }
+        if (!promptRendered_) return;
 
-        if (preload_)
-        {
-            preload_();
-        }
-        preloadDone_ = true;
+#ifdef __EMSCRIPTEN__
+        // 即使上一幀繪製超時，也先讓瀏覽器呈現提示再開始同步載入。
+        emscripten_sleep(0);
+#endif
+        preload_();
+#ifdef __EMSCRIPTEN__
+        // 先接收同步載入期間累積的瀏覽器輸入，再一併丟棄。
+        emscripten_sleep(0);
+#endif
+        auto& input = PointerInput::instance();
+        input.pumpSdlEvents();
+        input.discardPendingUserInput();
+        invalidatePointerOwnership();
         setExit(true);
     }
 
 private:
     std::string message_;
     std::function<void()> preload_;
-    bool promptRendered_ = false;
-    bool preloadDone_ = false;
+    bool promptRendered_{};
 };
 
 void collectBattleLayerTextures(MapSquareInt& layer, std::unordered_set<int>& smapIds)

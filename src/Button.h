@@ -1,5 +1,6 @@
 #pragma once
 #include "TextBox.h"
+#include "ChessUiStyle.h"
 #include <cassert>
 #include <optional>
 
@@ -39,6 +40,10 @@ class Button : public TextBox
     ButtonVisualLayers visual_layers_;
     bool animate_outline_ = false;
     int outline_thickness_ = 1;
+    bool flat_style_ = false;
+    bool flat_primary_{};
+    bool flat_focused_{};
+    std::optional<KysChess::ChessUiStyle::Icon> flat_icon_;
 
 public:
     Button() { resize_with_text_ = true; }
@@ -58,6 +63,21 @@ public:
 
     void setAlpha(uint8_t alpha) { alpha_ = alpha; }
     void setTextOnly(bool t) { text_only_ = t; }
+    void setFlatStyle(int width, int height)
+    {
+        flat_style_ = true;
+        text_only_ = false;
+        resize_with_text_ = false;
+        setSize(width, height);
+        setTextPosition(14, (height - font_size_) / 2);
+    }
+    void setFlatPrimary(bool value) { flat_primary_ = value; }
+    void setFlatFocused(bool value) { flat_focused_ = value; }
+    void setFlatIcon(KysChess::ChessUiStyle::Icon icon)
+    {
+        flat_icon_ = icon;
+        setTextPosition(48, text_y_);
+    }
     void setCustomOutline(Color c) { visual_layers_.setCustomOutline(c); }
     void clearCustomOutline() { visual_layers_.clearCustomOutline(); }
     bool hasCustomOutline() const { return visual_layers_.hasCustomOutline(); }

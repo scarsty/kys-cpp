@@ -27,7 +27,7 @@ python tools/pack_chess_smap_zip.py
 
 ## 整備圖示
 
-`resource/chess-preparation.zip` 使用與其他貼圖相同的載入流程，包含 `0.webp` 至 `21.webp`，順序對應 `ChessPreparationScreen::Icon`。每張圖為 96×96 透明 WebP，採用無損壓縮；白色遮罩在執行時套用暖象牙、青銅或狀態色。圖示由 `TextureManager` 共用及管理，不嵌入 C++，也不加入版本控制。
+`resource/chess-preparation.zip` 使用與其他貼圖相同的載入流程，包含 `0.webp` 至 `27.webp`，順序對應 `ChessUiStyle::Icon`。每張圖為 96×96 透明 WebP，採用無損壓縮；白色遮罩在執行時套用暖象牙、青銅或狀態色。圖示由 `TextureManager` 共用及管理，不嵌入 C++，也不加入版本控制。新增的角色、陣形、讀取、儲存、搜尋與匯出圖示由 `tools/pack_chess_utility_icons.py` 自原稿圖集打包。
 
 目前使用經過小尺寸檢查的生成圖示。原稿、生成提示及編號對照保存在 `tmp/asset-sources/preparation-icons/`；預覽圖放在 `output/preparation-icons/`。先前下載的外部圖示與相關工具已移除。這些來源不隨遊戲發佈，正式套件沿用既有資源複製與 WebAssembly 清單流程。
 

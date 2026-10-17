@@ -130,6 +130,7 @@
     <ClCompile Include="ChessContextMenu.cpp" />
     <ClCompile Include="ChessGuiSessionAdapter.cpp" />
     <ClCompile Include="ChessPreparationScreen.cpp" />
+    <ClCompile Include="ChessSelectionScreen.cpp" />
     <ClCompile Include="ChessMagicEffectDisplay.cpp" />
     <ClCompile Include="ChessPresentationHelpers.cpp" />
     <ClCompile Include="ChessSystemSettingsMenu.cpp" />
@@ -242,6 +243,10 @@
     <ClInclude Include="ChessPreparationModel.h" />
     <ClInclude Include="ChessPreparationScreen.h" />
     <ClInclude Include="ChessUiCommon.h" />
+    <ClInclude Include="ChessUiStyle.h" />
+    <ClInclude Include="ChessSelectionScreen.h" />
+    <ClInclude Include="ChessCharacterPresentation.h" />
+    <ClInclude Include="ChessCharacterUi.h" />
     <ClInclude Include="DisplayText.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="PointerInput.h" />

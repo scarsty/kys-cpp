@@ -1,4 +1,6 @@
 #include "ChessCatalogQueries.h"
+#include "ChessCharacterPresentation.h"
+#include "ChessTalentUi.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessUiCommon.h"
 
@@ -30,7 +32,7 @@ EffectRule attributeRule(BattleAttribute attribute, int amount)
     return attributeDefinition(attribute, amount)->buildRules().front();
 }
 
-ChessGameContent catalogContent()
+ChessGameContent catalogContent(int attackAreaType = 3, bool twoAbilities = false)
 {
     ChessGameContentData data;
     data.balance.starHPMult = 2.0;
@@ -54,7 +56,7 @@ ChessGameContent catalogContent()
     role.Defence = 12;
     role.Speed = 9;
     role.Fist = 7;
-    role.MagicID[0] = 100;
+    role.MagicID[0] = twoAbilities ? 101 : 100;
     role.MagicPower[0] = 30;
     role.MagicID[1] = 100;
     role.MagicPower[1] = 45;
@@ -66,10 +68,16 @@ ChessGameContent catalogContent()
     magic.ID = 100;
     magic.Name = "共用掌法";
     magic.NeedMP = 12;
-    magic.AttackAreaType = 3;
+    magic.AttackAreaType = attackAreaType;
     magic.SelectDistance = 4;
     magic.AttackDistance = 2;
     data.magics.emplace(magic.ID, magic);
+    if (twoAbilities)
+    {
+        auto normal = magic;
+        normal.ID = 101;
+        data.magics.emplace(normal.ID, normal);
+    }
 
     ChessMagicEffectDefinition magicEffects;
     magicEffects.magicId = magic.ID;
@@ -82,6 +90,12 @@ ChessGameContent catalogContent()
         attributeDefinition(BattleAttribute::Attack, 4),
         attributeDefinition(BattleAttribute::Speed, 5),
     };
+    if (twoAbilities)
+    {
+        auto normal = magicEffects;
+        normal.magicId = 101;
+        data.magicEffects.push_back(std::move(normal));
+    }
     data.magicEffects.push_back(std::move(magicEffects));
 
     ChessItemDefinition item;
@@ -341,4 +355,103 @@ TEST_CASE("public effect catalog covers player rules by source and excludes NPC 
     CHECK(std::ranges::any_of(catalog, [](const auto& entry) {
         return joinEffectDescriptionRows(entry.effects).contains("計作「角色羈絆」");
     }));
+}
+
+TEST_CASE("character presentation preserves owned equipment growth and preview context", "[chess][ui][catalog]")
+{
+    const auto content = catalogContent();
+    ChessSessionState state;
+    ChessSessionPiece piece;
+    piece.instanceId = 1;
+    piece.roleId = 10;
+    piece.star = 2;
+    piece.fightsWon = 3;
+    piece.weaponInstanceId = 2;
+    piece.deployed = true;
+    state.roster.emplace(piece.instanceId, piece);
+    ChessEquipmentInstance equipment;
+    equipment.instanceId = 2;
+    equipment.itemId = 500;
+    state.equipmentInventory.emplace(equipment.instanceId, equipment);
+
+    const auto owned = buildChessCharacterPresentation(content, state, 10, 2, 1);
+    CHECK(owned.stats == chessPieceStats(content, piece));
+    CHECK(owned.stats.maxHp == 530);
+    CHECK(owned.stats.attack == 71);
+    CHECK(owned.context == "出戰中");
+    CHECK(owned.growth.contains("勝場 3"));
+    CHECK(owned.equipment[0].title == "共用寶劍");
+    CHECK(owned.equipment[0].imageId == 500);
+    CHECK(owned.equipment[1].value == "防具");
+    CHECK(owned.equipment[1].title == "未裝備");
+    REQUIRE(owned.abilities.size() == 1);
+    CHECK(owned.abilities.front().ultimate);
+    CHECK(owned.abilities.front().value == "威力 60");
+    REQUIRE(owned.synergies.size() == 1);
+    CHECK(owned.synergies.front().title == "共用羈絆");
+
+    const auto shop = buildChessCharacterPresentation(content, state, 10, 1, -1, ChessCharacterContext::Shop);
+    const auto catalogue = buildChessCharacterPresentation(content, state, 10);
+    CHECK(shop.stats == catalogue.stats);
+    CHECK(shop.context == "商店預覽");
+    CHECK(catalogue.context == "圖鑑預覽");
+    CHECK(shop.stats == chessRoleStats(*content.role(10), content.balance(), 1, 0));
+    CHECK(shop.equipment[0].id == -1);
+    CHECK(shop.star == 1);
+    CHECK(owned.star == 2);
+
+    auto upgradedPiece = piece;
+    upgradedPiece.star = 3;
+    const auto upgrade = buildChessCharacterPresentation(content, state, 10, 3, 1);
+    CHECK(upgrade.context == "升星預覽");
+    CHECK(upgrade.stats == chessPieceStats(content, upgradedPiece));
+    CHECK(state.roster.at(1).star == 2);
+}
+
+TEST_CASE("character inspector uses chess attacks and limits effects to the ultimate", "[chess][ui][catalog]")
+{
+    for (const auto& [area, style] : std::array<std::pair<int, std::string>, 4>{{
+        {0, "輕擊"}, {1, "遠程"}, {2, "遠程"}, {3, "重擊"}}})
+    {
+        const auto content = catalogContent(area, true);
+        const auto character = buildChessCharacterPresentation(content, {}, 10);
+        REQUIRE(character.abilities.size() == 2);
+        CHECK(character.abilities[0].combatStyle == style);
+        CHECK_FALSE(character.abilities[0].ultimate);
+        CHECK(character.abilities[0].details.size() == 1);
+        CHECK(character.abilities[1].ultimate);
+        CHECK(character.abilities[1].details.size() > 1);
+        for (const auto& ability : character.abilities)
+            for (const auto& row : ability.details)
+            {
+                CHECK_FALSE(row.text.contains("內力消耗"));
+                CHECK_FALSE(row.text.contains("格內"));
+                CHECK_FALSE(row.text.contains("沒有額外配置"));
+            }
+        REQUIRE(character.synergies.size() == 1);
+        CHECK_FALSE(character.synergies[0].tooltip.empty());
+        CHECK(character.synergies[0].id == content.combos().front().id);
+    }
+}
+
+TEST_CASE("talent tables paginate long cells without shrinking or dropping text", "[chess][ui][catalog]")
+{
+    ChessTalentPresentation presentation;
+    std::string effect;
+    for (int i = 0; i < 80; ++i) effect += "長篇效果";
+    presentation.facts.push_back({.category = "賭運", .label = "觸發條件", .value = effect, .kind = ChessTalentFactKind::Mechanic});
+    for (const auto& [width, height, size] : std::array<std::array<int, 3>, 2>{{{334, 280, 18}, {672, 236, 26}}})
+    {
+        const auto pages = paginateChessTalentFacts(presentation, width, height, size);
+        REQUIRE(pages.size() > 1);
+        std::string recovered;
+        for (const auto& page : pages)
+        {
+            const auto metrics = measureChessTalentFactTable(page, width, height, size, size);
+            CHECK(metrics.fontSize == size);
+            CHECK(metrics.height <= height);
+            for (const auto& row : page.facts) recovered += row.value;
+        }
+        CHECK(recovered == effect);
+    }
 }

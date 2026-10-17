@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 #include "Menu.h"
+#include <array>
 
 class UISave : public MenuText
 {
@@ -14,11 +15,18 @@ public:
 
 private:
     int mode_ = 0;  //0为读档，1为存档
+    struct SlotDisplay
+    {
+        std::string timestamp;
+        std::string status;
+    };
+    std::array<SlotDisplay, 5> slotDisplay_{};
 public:
     void setMode(int m) { mode_ = m; }
     void refreshEntries();
 
     void onEntrance() override;
+    void draw() override;
     virtual void onPressedOK() override;
 
     static bool load(int r);

@@ -1,3 +1,4 @@
+#include "ChessTalentUi.h"
 #include "ChessPreparationScreen.h"
 
 #include "ChessGameQueries.h"
@@ -6,6 +7,8 @@
 #include "ChessTalentUi.h"
 #include "GameUtil.h"
 #include "TextureManager.h"
+#include "ChessUiStyle.h"
+#include "ChessCharacterUi.h"
 
 #include <cmath>
 #include <array>
@@ -17,14 +20,9 @@ namespace KysChess
 {
 namespace
 {
-constexpr Color ink{236, 232, 214, 255};
-constexpr Color muted{183, 179, 166, 255};
-constexpr Color gold{221, 200, 141, 255};
-constexpr Color line{177, 158, 120, 40};
-constexpr Color panelFill{25, 23, 22, 180};
-constexpr Color activeFill{115, 98, 67, 90};
-constexpr Color equipmentContext{158, 201, 213, 255};
-constexpr Color synergyActive{184, 204, 164, 255};
+using namespace ChessUiStyle;
+constexpr Color equipmentContext = context;
+constexpr Color synergyActive = positive;
 
 Color equipmentTextColor(PanelTextTone tone)
 {
@@ -114,9 +112,9 @@ void ChessPreparationScreen::onEntrance()
     rebuild();
 }
 
-void ChessPreparationScreen::panel(PanelFrame frame, bool reading)
+void ChessPreparationScreen::panel(PanelFrame frame)
 {
-    drawings_.push_back([frame, reading] { fill(frame, reading ? Color{25, 23, 22, 218} : panelFill, 6); });
+    drawings_.push_back([frame] { fill(frame, panelFill, Spacing::panelCorner); });
 }
 
 void ChessPreparationScreen::text(std::string value, int x, int y, int size, Color color, int width, int lines)
@@ -127,43 +125,20 @@ void ChessPreparationScreen::text(std::string value, int x, int y, int size, Col
             drawText(value, size, x, y, color);
             return;
         }
-        auto wrapped = wrapDisplayText(value, std::max(2, width * 2 / size), true);
-        for (int i = 0; i < std::min(lines, static_cast<int>(wrapped.size())); ++i)
-        {
-            auto row = wrapped[i];
-            if (i == lines - 1 && static_cast<int>(wrapped.size()) > lines)
-            {
-                auto shortened = wrapDisplayText(row, std::max(2, width * 2 / size - 2), true);
-                row = shortened.front() + "…";
-            }
-            drawText(row, size, x, y + i * (size + 2), color);
-        }
+        ChessUiStyle::label(value, size, x, y, color, width, lines);
     });
 }
 
 void ChessPreparationScreen::image(std::string group, int id, PanelFrame frame)
 {
-    if (id < 0) return;
-    // 沿用真實頭像／物品圖，補償資源偏移，使圖像與命中框共用座標。
-    auto* texture = TextureManager::getInstance()->getTexture(group, id);
-    if (!texture) return;
-    texture->load();
-    if (texture->w <= 0 || texture->h <= 0) return;
-    const double scale = std::min(double(frame.w) / texture->w, double(frame.h) / texture->h);
-    const int width = static_cast<int>(texture->w * scale);
-    const int height = static_cast<int>(texture->h * scale);
-    drawings_.push_back([=] {
-        const PanelFrame actual{frame.x + (frame.w - width) / 2, frame.y + frame.h - height, width, height};
-        TextureManager::getInstance()->renderTexture(texture,
-            actual.x + texture->dx, actual.y + texture->dy, {}, actual.w, actual.h);
-    });
+    drawings_.push_back([=] { ChessUiStyle::asset(group, id, {frame.x, frame.y, frame.w, frame.h}, true); });
 }
 
 // 圖示沿用正式資源的 WebP 貼圖群組，由 TextureManager 管理生命週期。
 void ChessPreparationScreen::drawIcon(Icon symbol, PanelFrame frame, Color color)
 {
-    TextureManager::getInstance()->renderTexture("chess-preparation", static_cast<int>(symbol),
-        frame.x, frame.y, {color, color.a}, frame.w, frame.h);
+    ChessUiStyle::asset("chess-preparation", static_cast<int>(symbol),
+        {frame.x, frame.y, frame.w, frame.h}, false, color);
 }
 
 void ChessPreparationScreen::icon(Icon symbol, PanelFrame frame, Color color)
@@ -186,14 +161,13 @@ void ChessPreparationScreen::disclosure(std::string key, PanelFrame frame, std::
 }
 
 int ChessPreparationScreen::iconButton(std::string key, PanelFrame frame, Icon symbol, std::string label,
-    std::function<void()> action, std::string tooltip, bool enabled, bool selected)
+    std::function<void()> action, std::string tooltip, bool enabled, bool selected, Color color)
 {
     const int index = button(std::move(key), frame, {}, std::move(action), std::move(tooltip), enabled, selected);
-    const int labelWidth = Font::getTextDrawSize(label) * 18 / 2;
-    const int contentWidth = label.empty() ? 24 : 32 + labelWidth;
-    const int x = frame.x + std::max(8, (frame.w - contentWidth) / 2);
-    icon(symbol, {x, frame.y + (frame.h - 24) / 2, 24, 24}, enabled ? gold : muted);
-    if (!label.empty()) text(label, x + 32, frame.y + (frame.h - 18) / 2, 18, enabled ? ink : muted, frame.w - (x - frame.x) - 38);
+    drawings_.push_back([frame, symbol, label = std::move(label), enabled, color] {
+        controlLabel({frame.x, frame.y, frame.w, frame.h}, label, 18,
+            enabled ? color : muted, symbol, enabled ? color : muted);
+    });
     return index;
 }
 
@@ -209,22 +183,15 @@ int ChessPreparationScreen::button(std::string key, PanelFrame frame, std::strin
         const bool hovered = !touchInput_ && contains(frame, pointer);
         const bool focused = keyboardFocus_ && focusKey_ == control.key;
         const bool armed = touchConfirmation_.armedKey == control.key;
-        const bool highlighted = enabled && (hovered || focused || armed || pressedKey_ == control.key);
-        if (treatment == Treatment::Primary)
-            fill(frame, enabled ? gold : Color{69, 62, 49, 190}, 4);
-        else if (treatment == Treatment::Action)
-            fill(frame, highlighted ? Color{132, 111, 69, 235} : Color{88, 75, 53, 220}, 4);
-        else if (highlighted || (selected && (treatment == Treatment::Card || treatment == Treatment::Slot)))
-            fill(frame, activeFill, 4);
-        else if (treatment == Treatment::Card || treatment == Treatment::Slot)
-            fill(frame, {12, 11, 10, 48}, 4);
-        if (selected)
-            fill({frame.x + 8, frame.y + frame.h - 2, frame.w - 16, 2}, {199, 174, 119, 180});
-        if ((focused || armed) && enabled)
-            outline(frame, {221, 200, 141, 180}, 4);
-        int size = 18;
+        const bool highlighted = enabled && (hovered || armed || pressedKey_ == control.key);
+        if (treatment != Treatment::Quiet || highlighted || selected || focused)
+            controlSurface({frame.x, frame.y, frame.w, frame.h}, {
+                .hovered = highlighted, .selected = selected, .focused = (focused || armed) && enabled,
+                .disabled = !enabled, .primary = treatment == Treatment::Primary,
+                .action = treatment == Treatment::Action});
+        int size = Type::body;
         while (size > 12 && Font::getTextDrawSize(label) * size / 2 > frame.w - 12) --size;
-        const auto labelColor = !enabled ? muted : treatment == Treatment::Primary ? Color{32, 27, 20, 255} : color;
+        const auto labelColor = !enabled ? muted : treatment == Treatment::Primary ? darkLabel : color;
         drawText(label, size,
             frame.x + (treatment == Treatment::Row ? 8 : std::max(6, (frame.w - Font::getTextDrawSize(label) * size / 2) / 2)),
             frame.y + (frame.h - size) / 2, labelColor);
@@ -279,27 +246,27 @@ void ChessPreparationScreen::header()
         [this] { navigate(View::Information, -1, "progress"); }, "關卡進度");
     icon(Icon::Right, {218, 36, 12, 12}, muted);
     iconButton("economy", {242, 20, 100, 44}, Icon::Coin, std::to_string(observation_.money),
-        [this] { navigate(View::Information, -1, "economy"); }, "查看金幣、利息與勝利收入");
+        [this] { navigate(View::Information, -1, "economy"); }, "查看金幣、利息與勝利收入", true, false, gold);
     icon(Icon::Right, {332, 36, 12, 12}, muted);
     button("level", {354, 20, 288, 44}, {},
         [this] { navigate(View::Information, -1, "level"); }, "查看經驗、修練與商店機率");
     icon(Icon::Cultivation, {362, 29, 26, 26});
-    text(std::format("等級 {}", observation_.level + 1), 398, 31, 20, ink);
+    text(std::format("等級 {}", observation_.level + 1), 398, 31, 20, context);
     text(observation_.level < session_.content().balance().maxLevel
         ? std::format("經驗 {} / {}", observation_.experience, observation_.experienceForNextLevel)
-        : "已滿級", 492, 34, 16, gold);
+        : "已滿級", 492, 34, 16, positive);
     icon(Icon::Right, {628, 36, 12, 12}, muted);
     const int x = w_ - 620;
     iconButton("difficulty", {x, 20, 112, 44}, Icon::Mountain, chessDifficultyDisplayName(observation_.difficulty),
-        [this] { navigate(View::Information, -1, "difficulty"); }, "查看本局難度");
+        [this] { navigate(View::Information, -1, "difficulty"); }, "查看本局難度", true, false, observation_.difficulty == Difficulty::Hard ? negative : observation_.difficulty == Difficulty::Easy ? positive : gold);
     iconButton("talent", {x + 124, 20, 156, 44}, Icon::Spark, observation_.talentName,
         [this] { navigate(View::Information, -1, "talent"); }, "查看天賦說明與效果");
     iconButton("neigongs", {x + 292, 20, 84, 44}, Icon::Book, std::to_string(observation_.obtainedNeigongIds.size()),
         [this] { navigate(View::Neigongs); }, "已獲得內功與效果");
     iconButton("collapse", {x + 388, 20, 104, 44}, Icon::Collapse, "收起",
         [this] { setExit(true); }, "收起整備，欣賞擂鼓山；Q 再次開啟");
-    iconButton("system", {x + 504, 20, 84, 44}, Icon::More, "",
-        [this] { navigate(View::Information, -1, "more"); }, "更多與系統");
+    iconButton("system", {x + 504, 20, 84, 44}, Icon::Sliders, "系統",
+        [this] { open(ChessContextMenuAction::OpenSystemMenu); }, "系統選單");
 }
 
 void ChessPreparationScreen::pieceCard(const ChessSessionPiece& piece, PanelFrame frame, bool compact)
@@ -314,7 +281,8 @@ void ChessPreparationScreen::pieceCard(const ChessSessionPiece& piece, PanelFram
         true, selected, Treatment::Card);
     controls_.back().shortcut = [this, id = piece.instanceId] {
         if (view_ == View::Replacement) return;
-        selection_.selectPiece(id); deploy();
+        selection_.selectPiece(id);
+    characterInspector_ = {}; deploy();
     };
     drawings_.push_back([=, this] {
         fill({frame.x + 1, frame.y + 3, 3, frame.h - 6}, tier);
@@ -380,13 +348,13 @@ void ChessPreparationScreen::roster()
         if (i == capacity - 1 && static_cast<int>(combos.size()) > capacity)
         {
             iconButton("combo-overflow", chip, Icon::More, std::format("+{}", combos.size() - i),
-                [this] { navigate(View::Combos); }, "查看其餘已啟動羈絆");
+                [this] { showChessComboOverview(session_.content(), session_.state()); rebuild(); }, "查看其餘已啟動羈絆");
             break;
         }
         const auto& [definition, progress] = combos[i];
         const auto& combo = *definition;
         button(std::format("combo-chip:{}", combo.id), chip, {},
-            [this, id = combo.id] { navigate(View::Combo, id); }, combo.name + " · 已啟動",
+            [this, id = combo.id] { showChessComboOverview(session_.content(), session_.state(), id); rebuild(); }, combo.name + " · 已啟動",
             true, false, Treatment::Quiet);
         drawings_.push_back([chip] {
             fill({chip.x, chip.y + 3, chip.w, chip.h - 6}, {111, 132, 88, 38}, 3);
@@ -399,7 +367,7 @@ void ChessPreparationScreen::roster()
     }
     iconButton("all-combos", {team_.x + 8, team_.y + 44, 150, 40}, Icon::Link,
         std::format("啟動 {} ›", combos.size()),
-        [this] { navigate(View::Combos); }, "查看全部羈絆與門檻，包含尚未啟動的羈絆");
+        [this] { showChessComboOverview(session_.content(), session_.state()); rebuild(); }, "查看全部羈絆與門檻，包含尚未啟動的羈絆");
     if (combos.empty()) text("尚無羈絆啟動", team_.x + 186, team_.y + 18, 16, muted);
     const int gap = 8;
     const int width = (team_.w - 24 - gap * 4) / 5;
@@ -491,9 +459,11 @@ void ChessPreparationScreen::shop()
         const auto emphasisStyle = chessShopRowOutlineStyle(emphasis);
         const Color tier = chessPieceTierColor(role->Cost);
         button(std::format("offer:{}", slot), {frame.x, frame.y, frame.w, frame.h - 40}, {},
-            [this, slot] { selectShop(slot); }, std::format("{} · {}階；雙擊購買", role->Name, offer.tier),
+            [this, slot] { selectShop(slot); },
+            std::format("{} · {}階；雙擊購買", role->Name, offer.tier),
             true, selection_.shopSlot == slot, Treatment::Card);
         controls_.back().key = std::format("offer:{}:{}", slot, offer.roleId);
+        controls_.back().preview = [this, slot] { if (selection_.shopSlot != slot) selectShop(slot); };
         controls_.back().shortcut = [this, slot] { buy(slot); };
         image("head", role->HeadID, {frame.x + 12, frame.y + 2, frame.w - 24, frame.h - 66});
         const int nameWidth = std::min(frame.w - 16, Font::getTextDrawSize(role->Name) * 8);
@@ -563,25 +533,9 @@ void ChessPreparationScreen::bans()
     }
 }
 
-void ChessPreparationScreen::itemSlot(int instanceId, PanelFrame frame, int type)
-{
-    const auto* equipment = equipmentInstance(session_.state(), instanceId);
-    const auto* item = equipment ? session_.content().item(equipment->itemId) : nullptr;
-    const auto* definition = equipment ? equipmentDefinition(session_.content(), equipment->itemId) : nullptr;
-    button(std::format("gear-slot:{}", type), frame, {}, [this, type, instanceId] {
-        navigate(View::Equipment); equipmentType_ = type; equipmentId_ = instanceId; rebuild();
-        if (instanceId >= 0) equipmentPopover_.pin(instanceId);
-    }, std::string("管理") + chessEquipmentTypeName(type), true, false, Treatment::Slot);
-    controls_.back().equipmentId = instanceId;
-    if (item) image("item", item->id, {frame.x + 4, frame.y + 5, 40, frame.h - 10});
-    else icon(type == 0 ? Icon::Sword : Icon::Armor, {frame.x + 12, frame.y + 15, 24, 24}, muted);
-    text(item ? item->name : type == 0 ? "選擇武器" : "選擇防具", frame.x + 48, frame.y + 9,
-        16, definition ? chessRewardTierColor(definition->tier) : ink, frame.w - 54, 2);
-}
-
 void ChessPreparationScreen::inspector()
 {
-    panel(inspector_, true);
+    panel(inspector_);
     if (view_ != View::Piece)
     {
         iconButton("back", {inspector_.x + inspector_.w - 98, inspector_.y + 8, 86, 44}, Icon::Left, "返回", [this] { back(); });
@@ -590,8 +544,6 @@ void ChessPreparationScreen::inspector()
     {
     case View::Piece: pieceInspector(); break;
     case View::Equipment: equipmentInspector(); break;
-    case View::Combos:
-    case View::Combo: comboInspector(); break;
     case View::Information: informationInspector(); break;
     case View::Attributes:
     case View::Ability:
@@ -627,72 +579,33 @@ void ChessPreparationScreen::pieceInspector()
         text("檢視器", x, y + 4, 22, gold);
         prose(paragraph("選擇出戰、候補或商店的棋子，查看屬性、武學與羈絆。"), {x, y + 64, width, 160});
         iconButton("empty-equipment", {x, y + 250, width, 52}, Icon::Bag, "裝備行囊", [this] { navigate(View::Equipment); });
-        iconButton("empty-combos", {x, y + 314, width, 52}, Icon::Link, "羈絆一覽", [this] { navigate(View::Combos); });
+        iconButton("empty-combos", {x, y + 314, width, 52}, Icon::Link, "羈絆一覽", [this] { showChessComboOverview(session_.content(), session_.state()); rebuild(); });
         return;
     }
-    const int star = piece ? piece->star : 1;
-    image("head", role->HeadID, {x, y, 78, 82});
-    text(role->Name, x + 90, y + 4, 22, ink, width - 142, 2);
-    text(std::format("{}階", role->Cost), x + 90, y + 56, 17, chessPieceTierColor(role->Cost));
-    text(chessStars(star), x + 144, y + 56, 17, gold);
-    iconButton("attributes", {x + width - 44, y, 44, 44}, Icon::Sliders, "",
-        [this] { navigate(View::Attributes); }, "展開完整屬性與熟練");
-    const auto stats = piece ? chessPieceStats(session_.content(), *piece,
-        session_.content().balance().talent(observation_.talent).amplifiedGrowthPercent)
-        : chessRoleStats(*role, session_.content().balance(), star, 0);
-    const std::array<std::pair<const char*, int>, 3> values{{{"生命", stats.maxHp}, {"攻擊", stats.attack}, {"防禦", stats.defence}}};
-    for (int i = 0; i < 3; ++i)
+    const auto character = std::make_shared<ChessCharacterPresentation>(buildChessCharacterPresentation(
+        session_.content(), session_.state(), roleId, piece ? piece->star : 1,
+        piece ? piece->instanceId : -1, piece ? ChessCharacterContext::Owned : ChessCharacterContext::Shop));
+    auto content = composeChessCharacterInspector(*character,
+        {inspector_.x, inspector_.y, inspector_.w, inspector_.h - 64}, characterInspector_, false);
+    for (int i = 0; i < static_cast<int>(content.controls.size()); ++i)
     {
-        text(values[i].first, x + i * (width / 3), y + 104, 14, muted);
-        text(std::to_string(values[i].second), x + i * (width / 3), y + 128, 22);
+        const auto control = content.controls[i];
+        const PanelFrame area{control.frame.x, control.frame.y, control.frame.w, control.frame.h};
+        const auto activate = [this, control] {
+            if (control.comboId)
+            {
+                showChessComboOverview(session_.content(), session_.state(), *control.comboId);
+                rebuild();
+                return;
+            }
+            applyChessInspectorControl(characterInspector_, control);
+            rebuild();
+        };
+        if (control.icon) iconButton(std::format("character-control:{}", i), area, *control.icon,
+            control.label, activate, control.tooltip, true, control.selected);
+        else button(std::format("character-control:{}", i), area, control.label, activate, control.tooltip, true, control.selected);
     }
-    text("裝備", x, y + 164, 14, muted);
-    if (piece)
-    {
-        itemSlot(piece->weaponInstanceId, {x, y + 184, (width - 12) / 2, 56}, 0);
-        itemSlot(piece->armorInstanceId, {x + (width + 12) / 2, y + 184, (width - 12) / 2, 56}, 1);
-    }
-    else text("招募後可裝備武器與防具", x, y + 202, 16, muted, width);
-    const auto abilities = chessAbilitiesForRoleStar(session_.content(), *role, star);
-    text("武學", x, y + 254, 14, muted);
-    text("威力", x + width - 84, y + 254, 14, muted);
-    int nextY = y + 274;
-    const int visibleAbilities = abilities.size() > 3 ? 2 : static_cast<int>(abilities.size());
-    for (int i = 0; i < visibleAbilities; ++i)
-    {
-        const auto& ability = abilities[i];
-        // 與戰鬥及舊檢視器相同：依當前星級威力排序後，最後一招是絕招。
-        const bool ultimate = i + 1 == static_cast<int>(abilities.size());
-        disclosure(std::format("ability:{}", ability.magicId), {x, nextY, width, 40}, {},
-            [this, id = ability.magicId] { navigate(View::Ability, id); });
-        controls_.back().tooltip = ultimate ? "絕招；查看效果與範圍" : "查看武學效果與範圍";
-        const int nameX = x + (ultimate ? 30 : 8);
-        if (ultimate) icon(Icon::Ultimate, {x + 6, nextY + 10, 20, 20}, gold);
-        text(ability.name, nameX, nextY + 11, 18, ink, x + width - 94 - nameX);
-        const auto power = std::to_string(ability.powerByStar.front().power);
-        text(power, x + width - 42 - Font::getTextDrawSize(power) * 9, nextY + 11, 18, ultimate ? gold : ink);
-        nextY += 42;
-    }
-    if (abilities.size() > 3)
-    {
-        disclosure("all-abilities", {x, nextY, width, 40}, "全部武學",
-            [this] { navigate(View::Ability); });
-        nextY += 42;
-    }
-    text("羈絆", x, nextY + 10, 14, muted);
-    nextY += 26;
-    int count = 0;
-    for (const auto& combo : session_.content().combos())
-    {
-        if (combo.isNpcOnly || !std::ranges::contains(combo.memberRoleIds, roleId)) continue;
-        if (count == 2) break;
-        const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), combo);
-        button(std::format("role-combo:{}", combo.id), {x + count * (width + 8) / 2, nextY + 8, (width - 8) / 2, 40},
-            combo.name + " " + formatChessComboProgressCount(progress),
-            [this, id = combo.id] { navigate(View::Combo, id); }, "查看完整羈絆", true, progress.active);
-        ++count;
-    }
-    if (count == 0) text("無固有羈絆", x, nextY + 18, 16, muted);
+    for (auto& draw : content.drawings) drawings_.push_back(std::move(draw));
     const int bottom = inspector_.y + inspector_.h - 64;
     if (piece)
     {
@@ -836,105 +749,91 @@ void ChessPreparationScreen::equipmentInspector()
     }
 }
 
-void ChessPreparationScreen::comboInspector()
-{
-    const int x = inspector_.x + 12, y = inspector_.y + 12, width = inspector_.w - 24;
-    text("羈絆", x, y + 8, 22, gold);
-    if (view_ == View::Combos)
-    {
-        const auto definitions = chessPreparationCombos(session_.state(), session_.content());
-        const int count = std::max(1, (inspector_.h - 130) / 52);
-        const int pages = std::max(1, (static_cast<int>(definitions.size()) + count - 1) / count);
-        listPage_ = std::clamp(listPage_, 0, pages - 1);
-        for (int row = 0; row < count; ++row)
-        {
-            const int index = listPage_ * count + row;
-            if (index >= static_cast<int>(definitions.size())) break;
-            const auto& combo = *definitions[index].definition;
-            const auto& progress = definitions[index].progress;
-            const PanelFrame frame{x, y + 56 + row * 52, width, 46};
-            button(std::format("combo:{}", combo.id), frame, {}, [this, id = combo.id] {
-                    navigate(View::Combo, id);
-                }, {}, true, progress.active, Treatment::Quiet, progress.active ? gold : ink);
-            synergyIcon(combo.iconId, {x + 2, frame.y + 5, 36, 36}, progress.active ? synergyActive : muted);
-            text(combo.name + "  " + formatChessComboProgressCount(progress), x + 46, frame.y + 14, 16,
-                progress.active ? synergyActive : ink, width - 50);
-        }
-        button("combo-page", {x, inspector_.y + inspector_.h - 58, width, 46}, std::format("第 {}/{} 頁 · 下一頁 >", listPage_ + 1, pages),
-            [this, pages] { listPage_ = (listPage_ + 1) % pages; rebuild(); }, {}, pages > 1);
-        return;
-    }
-    const auto found = std::ranges::find(session_.content().combos(), comboId_, &ComboDef::id);
-    assert(found != session_.content().combos().end());
-    const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), *found);
-    const auto metadata = chessComboMetadata(session_.content(), *found, progress.physicalCount, progress.effectiveCount,
-        progress.activeThresholdIndex, progress.nextThresholdIndex, progress.contributions, EffectDescriptionStyle::Full, progress.requiredCounts);
-    synergyIcon(found->iconId, {x, y + 58, 40, 40}, progress.active ? synergyActive : muted);
-    text(metadata.name + " " + metadata.progressCount, x + 48, y + 62, 20, gold, width - 48, 2);
-    if (thresholdIndex_ < 0) thresholdIndex_ = std::max(0, progress.activeThresholdIndex);
-    thresholdIndex_ = std::min(thresholdIndex_, static_cast<int>(metadata.thresholds.size()) - 1);
-    const auto& threshold = metadata.thresholds[thresholdIndex_];
-    button("threshold", {x, y + 116, width, 44}, std::format("{} 人 · {}  >", threshold.requiredCount, threshold.name),
-        [this, count = metadata.thresholds.size()] { thresholdIndex_ = (thresholdIndex_ + 1) % static_cast<int>(count); textPage_ = 0; rebuild(); },
-        "依序查看各門檻；金色代表目前已啟動", true, threshold.active);
-    const auto rows = panelTextRowsForEffectDescription(threshold.effects);
-    const int memberY = inspector_.y + inspector_.h - 146;
-    prose(rows, {x, y + 174, width, memberY - y - 182});
-    int memberX = x;
-    int memberRow = memberY;
-    // 成員姓名維持棋子階級色；完整成員與貢獻可進入既有一覽。
-    for (int i = 0; i < std::min(6, static_cast<int>(found->memberRoleIds.size())); ++i)
-    {
-        const auto* role = session_.content().role(found->memberRoleIds[i]);
-        text(role->Name, memberX, memberRow, 15, chessPieceTierColor(role->Cost), width / 3 - 4);
-        memberX += width / 3;
-        if (i % 3 == 2) { memberX = x; memberRow += 24; }
-    }
-    button("combo-catalog", {x, inspector_.y + inspector_.h - 64, width, 52}, "完整羈絆與成員 >", [this] { open(ChessContextMenuAction::ViewCombos); });
-}
-
 void ChessPreparationScreen::informationInspector()
 {
     const int x = inspector_.x + 12, y = inspector_.y + 12, width = inspector_.w - 24;
     const auto& cfg = session_.content().balance();
     std::string title;
     std::vector<PanelTextSourceRow> rows;
-    if (information_ == "more")
-    {
-        text("更多", x, y + 8, 22, gold);
-        disclosure("system-menu", {x, y + 64, width, 48}, "系統選單", [this] { open(ChessContextMenuAction::OpenSystemMenu); });
-        return;
-    }
+    const auto fact = [&](const std::string& label, const std::string& value, int top, Color color) {
+        text(label, x, top, 17, muted, width / 2);
+        text(value, x + width / 2, top, 19, color, width / 2);
+    };
+    const auto divider = [&](int top) {
+        drawings_.push_back([=] { fill({x, top, width, 1}, ChessUiStyle::line); });
+    };
     if (information_ == "economy")
     {
-        title = "金幣與利息";
-        rows = paragraph(std::format("目前金幣  {}\n本輪利息  +{}（上限 {}）\n預計勝利收入  {}\n基本獎勵  {}",
-            observation_.money, observation_.interestGold, observation_.maximumInterestGold,
-            observation_.projectedVictoryIncome, observation_.projectedBaseVictoryGold));
-        if (observation_.nextInterestThreshold) rows.push_back({.text = std::format("下一檔利息需存到 {} 金", *observation_.nextInterestThreshold)});
+        text("金幣與利息", x, y + 8, 22, gold, width - 88);
+        text("目前金幣", x, y + 64, 16, muted);
+        icon(Icon::Coin, {x, y + 90, 28, 28}, gold);
+        text(std::to_string(observation_.money), x + 40, y + 86, 32, gold);
+        divider(y + 134);
+        text("利息", x, y + 154, 20, gold);
+        fact("本輪利息", std::format("+{} 金", observation_.interestGold), y + 190, gold);
+        fact("計算比例", std::format("{}% · 上限 {} 金", cfg.interestPercent, observation_.maximumInterestGold), y + 226, muted);
+        if (observation_.nextInterestThreshold)
+        {
+            fact("下一檔存款", std::format("{} 金", *observation_.nextInterestThreshold), y + 262, gold);
+            fact("還需保留", std::format("{} 金", *observation_.nextInterestThreshold - observation_.money), y + 298, context);
+        }
+        else text(cfg.interestPercent > 0 ? "已達利息上限" : "本難度不計利息", x, y + 266, 18, muted, width);
+        divider(y + 336);
+        text("預計勝利收入", x, y + 356, 20, gold);
+        fact("基本獎勵", std::format("+{} 金", observation_.projectedBaseVictoryGold), y + 392, gold);
+        fact("利息", std::format("+{} 金", observation_.interestGold), y + 428, gold);
+        divider(y + 460);
+        fact("合計", std::format("+{} 金", observation_.projectedVictoryIncome), y + 480, positive);
+        return;
     }
     else if (information_ == "level")
     {
-        title = "等級與經驗";
-        rows = paragraph(std::format("等級 {}\n出戰上限 {} 名\n經驗 {} / {}", observation_.level + 1, observation_.maximumDeployment,
-            observation_.experience, observation_.experienceForNextLevel));
-        if (observation_.level < cfg.maxLevel)
+        const bool canLevel = observation_.level < cfg.maxLevel;
+        text("等級與經驗", x, y + 8, 22, gold, width - 88);
+        text(std::format("等級 {}", observation_.level + 1), x, y + 66, 28, context);
+        text(canLevel ? std::format("經驗 {} / {}", observation_.experience, observation_.experienceForNextLevel) : "已達最高等級",
+            x, y + 106, 18, context, width);
+        divider(y + 138);
+        fact("出戰上限", std::format("{} 名", observation_.maximumDeployment), y + 156, positive);
+        if (canLevel)
         {
-            const auto exp = buildChessBuyExpPreviewText(session_.state(), session_.content());
-            for (const auto& value : {exp.costLine, exp.deploymentLine + exp.deploymentNext, std::string("當前商店機率："), exp.currentWeights,
-                std::string("下一級："), exp.nextWeights}) rows.push_back({.text = value, .spacingAfter = 8});
-            iconButton("experience", {x, inspector_.y + inspector_.h - 64, width, 52}, Icon::Cultivation, std::format("修練  {} 金", cfg.buyExpCost),
+            const auto deployment = buildChessBuyExpDeploymentPreview(session_.state(), session_.content());
+            fact("下一級出戰", std::format("{} 名", deployment.next.value_or(deployment.current)), y + 190, positive);
+        }
+        text("商店階級機率", x, y + 238, 20, gold);
+        text("階級", x, y + 276, 16, muted);
+        text("目前", x + 112, y + 276, 16, muted);
+        text(canLevel ? "下一級" : "已滿級", x + 222, y + 276, 16, muted);
+        for (int tier = 0; tier < 5; ++tier)
+        {
+            const auto color = chessPieceTierColor(tier + 1);
+            const int top = y + 308 + tier * 32;
+            text(std::format("{}費", tier + 1), x, top, 18, color);
+            text(std::format("{}%", cfg.shopWeights[observation_.level][tier]), x + 112, top, 18, color);
+            text(canLevel ? std::format("{}%", cfg.shopWeights[observation_.level + 1][tier]) : "—", x + 222, top, 18, canLevel ? color : muted);
+        }
+        if (canLevel)
+        {
+            iconButton("experience", {x, inspector_.y + inspector_.h - 64, width, 52}, Icon::Cultivation,
+                std::format("{} 金 → +{} 經驗", cfg.buyExpCost, cfg.buyExpAmount),
                 [this] { submit(simpleAction(ChessActionType::BuyExp), "已購買經驗"); }, "購買經驗");
             controls_.back().touchConfirmation = true;
         }
-        else rows.push_back({.text = "已達最高等級"});
+        return;
     }
     else if (information_ == "talent")
     {
-        title = "天賦 · " + observation_.talentName;
-        rows = paragraph(observation_.talentDescription);
-        for (const auto& fact : buildChessTalentPresentation(cfg, observation_.talent).facts)
-            rows.push_back({.text = fact.category + " · " + fact.label + "：" + fact.value, .spacingAfter = 10});
+        text("天賦 · " + observation_.talentName, x, y + 8, 22, gold, width - 88, 2);
+        const auto presentation = buildChessTalentPresentation(cfg, observation_.talent);
+        const int height = inspector_.h - 150;
+        const auto pages = paginateChessTalentFacts(presentation, width, height, 18);
+        textPage_ = std::clamp(textPage_, 0, static_cast<int>(pages.size()) - 1);
+        drawings_.push_back([=, page = pages[textPage_]] { drawChessTalentFactTable(page, x, y + 64, width, height, 18, 18); });
+        const int bottom = inspector_.y + inspector_.h - 60;
+        iconButton("talent-prev", {x, bottom, 44, 44}, Icon::Up, "", [this] { --textPage_; rebuild(); }, {}, textPage_ > 0);
+        text(std::format("{} / {}", textPage_ + 1, pages.size()), x + 64, bottom + 12, 18, muted);
+        iconButton("talent-next", {x + width - 44, bottom, 44, 44}, Icon::Down, "", [this] { ++textPage_; rebuild(); }, {}, textPage_ + 1 < static_cast<int>(pages.size()));
+        return;
     }
     else
     {
@@ -1062,10 +961,12 @@ void ChessPreparationScreen::footer()
 {
     const int y = footer_.y + (footer_.h - 52) / 2;
     panel(footer_);
-    iconButton("equipment", {128, y + 4, 116, 44}, Icon::Bag, "裝備", [this] { navigate(View::Equipment); });
-    button("overview", {256, y + 4, 116, 44}, "棋局與系統", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
-    button("expedition", {384, y + 4, 72, 44}, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
-    button("offline", {468, y + 4, 72, 44}, "演武", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
+    iconButton("equipment", {112, y + 4, 100, 44}, Icon::Bag, "裝備", [this] { navigate(View::Equipment); });
+    button("overview", {220, y + 4, 100, 44}, "棋局圖鑑", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
+    button("expedition", {328, y + 4, 72, 44}, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
+    button("offline", {408, y + 4, 108, 44}, "離線對戰", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
+    iconButton("save", {552, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });
+    iconButton("load", {660, y + 4, 100, 44}, Icon::Load, "讀檔", [this] { open(ChessContextMenuAction::LoadProgress); });
     button("battle", {w_ - 304, y + 4, 176, 44}, observation_.campaignComplete ? "已通關 · 遠征" : "進入戰鬥",
         [this] { open(observation_.campaignComplete ? ChessContextMenuAction::ShowExpeditionChallenge : ChessContextMenuAction::EnterBattle); },
         "使用目前陣容出戰", true, false, Treatment::Primary);
@@ -1073,11 +974,10 @@ void ChessPreparationScreen::footer()
 
 void ChessPreparationScreen::navigate(View view, int detailId, std::string information)
 {
-    if (view_ == view && view != View::Ability && view != View::Combo && view != View::Neigong
+    if (view_ == view && view != View::Ability && view != View::Neigong
         && (view != View::Information || information_ == information)) { rebuild(); return; }
-    history_.push({view_, listPage_, textPage_, focusKey_, selection_, equipmentId_, equipmentType_, comboId_, thresholdIndex_, abilityId_, neigongId_, information_});
+    history_.push({view_, listPage_, textPage_, focusKey_, selection_, equipmentId_, equipmentType_, abilityId_, neigongId_, information_});
     view_ = view;
-    if (view == View::Combo) { comboId_ = detailId; thresholdIndex_ = -1; }
     if (view == View::Ability) abilityId_ = detailId;
     if (view == View::Neigong) neigongId_ = detailId;
     if (view == View::Information) information_ = std::move(information);
@@ -1088,6 +988,12 @@ void ChessPreparationScreen::navigate(View view, int detailId, std::string infor
 
 void ChessPreparationScreen::back()
 {
+    if (view_ == View::Piece && characterInspector_.expanded)
+    {
+        characterInspector_.expanded = false;
+        rebuild();
+        return;
+    }
     if (view_ == View::Replacement) replacementId_ = -1;
     if (auto previous = history_.pop())
     {
@@ -1096,8 +1002,6 @@ void ChessPreparationScreen::back()
         selection_ = context.selection;
         equipmentId_ = context.equipmentId;
         equipmentType_ = context.equipmentType;
-        comboId_ = context.comboId;
-        thresholdIndex_ = context.thresholdIndex;
         abilityId_ = context.abilityId;
         neigongId_ = context.neigongId;
         information_ = std::move(context.information);
@@ -1114,6 +1018,7 @@ void ChessPreparationScreen::selectPiece(int id)
     const auto& piece = session_.state().roster.at(id);
     if (view_ == View::Replacement && piece.deployed) { replacementId_ = id; textPage_ = 0; rebuild(); return; }
     selection_.selectPiece(id);
+    characterInspector_ = {};
     replacementId_ = -1;
     if (view_ != View::Equipment) { view_ = View::Piece; history_.clear(); }
     rebuild();
@@ -1122,6 +1027,7 @@ void ChessPreparationScreen::selectPiece(int id)
 void ChessPreparationScreen::selectShop(int slot)
 {
     selection_.selectShop(slot, session_.state().shop[slot].roleId);
+    characterInspector_ = {};
     view_ = View::Piece;
     history_.clear();
     replacementId_ = -1;
@@ -1286,6 +1192,13 @@ RunNode::PointerResult ChessPreparationScreen::onPointerEvent(const PointerEvent
             if (pinned) { pressedKey_ = "popover-dismiss"; return PointerResult::Captured; }
         }
     }
+    if (event.phase == PointerPhase::Wheel && view_ == View::Piece
+        && characterInspector_.expanded && contains(inspector_, event.uiPosition))
+    {
+        characterInspector_.page += event.wheel.y > 0 ? -1 : 1;
+        rebuild();
+        return PointerResult::Handled;
+    }
     if (event.phase == PointerPhase::ButtonUp && pressedKey_.starts_with("popover-"))
     {
         const auto key = std::exchange(pressedKey_, {});
@@ -1398,6 +1311,13 @@ void ChessPreparationScreen::dealEvent(EngineEvent& event)
         }
         if (equipmentPopover_.pinned && event.key.key != SDLK_ESCAPE) return;
     }
+    if (view_ == View::Piece && characterInspector_.expanded
+        && (event.key.key == SDLK_PAGEUP || event.key.key == SDLK_PAGEDOWN))
+    {
+        characterInspector_.page += event.key.key == SDLK_PAGEUP ? -1 : 1;
+        rebuild();
+        return;
+    }
     switch (event.key.key)
     {
     case SDLK_TAB:
@@ -1428,7 +1348,8 @@ void ChessPreparationScreen::onPressedCancel()
         touchConfirmation_.reset(); touchHint_.clear(); rebuild(); return;
     }
     if (banManagement_) { banManagement_ = false; rebuild(); return; }
-    if (view_ == View::Piece) setExit(true);
+    if (view_ == View::Piece && characterInspector_.expanded) back();
+    else if (view_ == View::Piece) setExit(true);
     else back();
 }
 

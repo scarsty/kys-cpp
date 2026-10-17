@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="ChessSelectionScreen.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
     <ClCompile Include="AtlasManager.cpp">
       <Filter>texture</Filter>
     </ClCompile>
@@ -541,6 +544,10 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="ChessUiCommon.h" />
+    <ClInclude Include="ChessUiStyle.h" />
+    <ClInclude Include="ChessSelectionScreen.h" />
+    <ClInclude Include="ChessCharacterPresentation.h" />
+    <ClInclude Include="ChessCharacterUi.h" />
     <ClInclude Include="DisplayText.h" />
     <ClInclude Include="ChessScreenLayout.h" />
     <ClInclude Include="UIRoleStatusMenu.h" />

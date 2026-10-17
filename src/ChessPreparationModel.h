@@ -87,7 +87,7 @@ struct ChessPreparationPortraitClicks
     void reset() { *this = {}; }
 };
 
-enum class ChessPreparationView { Piece, Equipment, Combos, Combo, Information, Replacement, Sell, Attributes, Ability, Neigongs, Neigong };
+enum class ChessPreparationView { Piece, Equipment, Information, Replacement, Sell, Attributes, Ability, Neigongs, Neigong };
 
 // 滑過只預覽；釘選後移動游標不會換物品，捲動亦不影響裝備選取。
 struct ChessPreparationEquipmentPopover
@@ -135,8 +135,6 @@ struct ChessPreparationNavigationContext
     ChessPreparationSelection selection;
     int equipmentId = -1;
     int equipmentType{};
-    int comboId = -1;
-    int thresholdIndex{};
     int abilityId = -1;
     int neigongId = -1;
     std::string information;

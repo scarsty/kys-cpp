@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "TextBox.h"
 #include <map>
 
@@ -81,4 +81,8 @@ public:
     std::string getResultString() { return getStringFromResult(result_); }
 
     int getResultFromString(std::string str);
+    void setFlatStyle(int width, int rowHeight);
+
+private:
+    std::optional<SDL_Point> flat_size_;
 };

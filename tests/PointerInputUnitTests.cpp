@@ -651,3 +651,43 @@ TEST_CASE("ImGui primary touch keeps a guarded sequence suppressed after the gua
     CHECK(routing.route(TouchPhase::Down, false).forwardToBackend);
     CHECK(routing.cancelNeedsBackendRelease());
 }
+
+TEST_CASE("Loading discards queued user actions but preserves window events", "[pointer_input][loading]")
+{
+    PointerInput input;
+    for (const auto type : {SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_KEY_UP,
+        SDL_EVENT_WINDOW_RESIZED, SDL_EVENT_MOUSE_BUTTON_UP, SDL_EVENT_GAMEPAD_BUTTON_UP,
+        SDL_EVENT_MOUSE_WHEEL, SDL_EVENT_QUIT})
+    {
+        SDL_Event event{};
+        event.type = type;
+        input.enqueueForTest(event);
+    }
+    input.discardPendingUserInput();
+    REQUIRE(input.pendingCount() == 2);
+    CHECK(input.popPending().event().type == SDL_EVENT_WINDOW_RESIZED);
+    CHECK(input.popPending().event().type == SDL_EVENT_QUIT);
+}
+
+TEST_CASE("A touch held during loading must end before a fresh gesture can activate", "[pointer_input][loading]")
+{
+    PointerInput input;
+    input.commitPresentGeometry({1, 1280, 720, {0, 0, 1280, 720}, 1280, 720});
+    SDL_Event event{};
+    event.type = SDL_EVENT_FINGER_DOWN;
+    event.tfinger.touchID = 1;
+    event.tfinger.fingerID = 2;
+    event.tfinger.x = 0.5f;
+    event.tfinger.y = 0.5f;
+    input.enqueueForTest(event);
+    input.discardPendingUserInput();
+    CHECK(input.empty());
+    event.type = SDL_EVENT_FINGER_MOTION;
+    CHECK_FALSE(input.processFingerEvent(event));
+    event.type = SDL_EVENT_FINGER_UP;
+    CHECK_FALSE(input.processFingerEvent(event));
+    event.type = SDL_EVENT_FINGER_DOWN;
+    const auto fresh = input.processFingerEvent(event);
+    REQUIRE(fresh);
+    CHECK(fresh->primaryGameEligible);
+}

@@ -1,6 +1,7 @@
-﻿#include "Button.h"
+#include "Button.h"
 #include "Font.h"
 #include "TextureManager.h"
+#include "ChessUiStyle.h"
 #include <algorithm>
 #include <cmath>
 
@@ -26,6 +27,24 @@ RunNode::PointerResult Button::onPointerEvent(const PointerEvent& event)
 
 void Button::draw()
 {
+    if (flat_style_)
+    {
+        using namespace KysChess::ChessUiStyle;
+        controlSurface({x_, y_, w_, h_}, {.hovered = state_ != NodeNormal,
+            .selected = visual_layers_.hasSelectionOverlay(),
+            .focused = flat_focused_ || visual_layers_.hasCustomOutline(), .primary = flat_primary_});
+        const int iconSize = font_size_ >= 28 ? 36 : 24;
+        int size = font_size_;
+        while (size > 12 && Font::getTextDrawSize(text_) * size / 2 > w_ - (flat_icon_ ? iconSize + 36 : 28)) --size;
+        if (flat_icon_)
+            asset("chess-preparation", iconId(*flat_icon_),
+                {x_ + 14, y_ + (h_ - iconSize) / 2, iconSize, iconSize}, false, flat_primary_ ? darkLabel : gold);
+        const Color textColor = flat_primary_ ? darkLabel
+            : color_normal_.r < 64 && color_normal_.g < 64 && color_normal_.b < 64 ? ink : color_normal_;
+        Font::getInstance()->draw(text_, size, x_ + (flat_icon_ ? std::max(text_x_, iconSize + 20) : text_x_),
+            y_ + (h_ - size) / 2, textColor);
+        return;
+    }
     if (text_only_)
     {
         if (!text_.empty())

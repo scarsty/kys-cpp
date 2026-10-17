@@ -4,6 +4,8 @@
 #include "BattleScenePauseControl.h"
 #include "Engine.h"
 #include "Font.h"
+#include "ChessUiStyle.h"
+#include "ChessSelectionLayout.h"
 #include "GameUtil.h"
 
 #include <algorithm>
@@ -35,12 +37,12 @@ std::string languageText(bool simplifiedChinese)
 
 Color textColorForStyle()
 {
-    return Engine::uiStyle() == 1 ? Color{240, 230, 210, 255} : Color{32, 32, 32, 255};
+    return ChessUiStyle::ink;
 }
 
 Color mutedTextColorForStyle()
 {
-    return Engine::uiStyle() == 1 ? Color{184, 174, 148, 255} : Color{76, 70, 56, 255};
+    return ChessUiStyle::muted;
 }
 
 }    // namespace
@@ -49,7 +51,7 @@ ChessSystemSettingsMenu::ChessSystemSettingsMenu(SystemSettingsData settings)
     : original_(settings)
     , settings_(settings)
 {
-    dark_ = 1;
+    dark_ = 0;
 }
 
 int ChessSystemSettingsMenu::rowCount() const
@@ -75,6 +77,31 @@ ChessSystemSettingsMenu::Layout ChessSystemSettingsMenu::layout() const
     const int uiH = engine->getUIHeight();
 
     Layout out;
+    out.compact = chessSelectionCompact(engine->getPresentWidth(), engine->getPresentHeight());
+    out.rowsPerColumn = (rowIndex(Row::Done) + 1) / 2;
+    if (out.compact)
+    {
+        out.panelW = uiW - 32;
+        out.panelH = uiH - 32;
+        out.panelX = 16;
+        out.panelY = 16;
+        out.rowX = 48;
+        out.rowY = 120;
+        out.rowW = uiW - 96;
+        out.rowH = out.rowsPerColumn <= 4 ? 88 : 80;
+        out.rowGap = out.rowsPerColumn <= 4 ? 20 : 8;
+        out.columnGap = 24;
+        out.columnW = (out.rowW - out.columnGap) / 2;
+        out.sliderW = out.columnW - 320;
+        out.actionButtonGap = 24;
+        out.actionButtonW = (out.rowW - out.actionButtonGap) / 2;
+        const auto footer = ChessUiStyle::actionFooter({out.rowX - 24, out.panelY,
+            out.rowW + 48, out.panelH}, true, out.actionButtonW, out.rowH);
+        out.actionCancelX = footer.leading.x;
+        out.actionDoneX = footer.trailing.x;
+        out.actionY = footer.leading.y;
+        return out;
+    }
     out.panelW = std::min(760, uiW - 80);
     out.panelH = std::min(Engine::supportsDesktopFullscreen() ? 660 : 610, uiH - 60);
     out.panelX = (uiW - out.panelW) / 2;
@@ -90,9 +117,11 @@ ChessSystemSettingsMenu::Layout ChessSystemSettingsMenu::layout() const
     out.sliderW = std::max(180, out.rowW - 430);
     out.actionButtonGap = 24;
     out.actionButtonW = (out.rowW - out.actionButtonGap) / 2;
-    out.actionDoneX = out.rowX;
-    out.actionCancelX = out.actionDoneX + out.actionButtonW + out.actionButtonGap;
-    out.actionY = settingsFooterActionY(out.panelY, out.panelH, out.rowH, kFooterBottomPadding);
+    const auto footer = ChessUiStyle::actionFooter({out.rowX - 16, out.panelY,
+        out.rowW + 32, out.panelH - kFooterBottomPadding + 16}, false, out.actionButtonW, out.rowH);
+    out.actionCancelX = footer.leading.x;
+    out.actionDoneX = footer.trailing.x;
+    out.actionY = footer.leading.y;
     return out;
 }
 
@@ -102,7 +131,30 @@ int ChessSystemSettingsMenu::rowTop(const Layout& layout, Row row) const
     {
         return layout.actionY;
     }
-    return layout.rowY + rowIndex(row) * (layout.rowH + layout.rowGap);
+    const int index = layout.compact ? rowIndex(row) % layout.rowsPerColumn : rowIndex(row);
+    return layout.rowY + index * (layout.rowH + layout.rowGap);
+}
+
+int ChessSystemSettingsMenu::rowLeft(const Layout& layout, Row row) const
+{
+    return layout.compact && !isActionRow(row)
+        ? layout.rowX + rowIndex(row) / layout.rowsPerColumn * (layout.columnW + layout.columnGap)
+        : layout.rowX;
+}
+
+int ChessSystemSettingsMenu::rowWidth(const Layout& layout, Row row) const
+{
+    return layout.compact && !isActionRow(row) ? layout.columnW : layout.rowW;
+}
+
+int ChessSystemSettingsMenu::valueLeft(const Layout& layout, Row row) const
+{
+    return layout.compact ? rowLeft(layout, row) + layout.columnW - 96 : layout.valueX;
+}
+
+int ChessSystemSettingsMenu::sliderLeft(const Layout& layout, Row row) const
+{
+    return layout.compact ? rowLeft(layout, row) + 210 : layout.sliderX;
 }
 
 std::optional<ChessSystemSettingsMenu::Row> ChessSystemSettingsMenu::rowAt(const Layout& layout, int x, int y) const
@@ -132,7 +184,8 @@ std::optional<ChessSystemSettingsMenu::Row> ChessSystemSettingsMenu::rowAt(const
             continue;
         }
         const int top = rowTop(layout, row);
-        if (y >= top && y <= top + layout.rowH)
+        const int left = rowLeft(layout, row);
+        if (x >= left && x <= left + rowWidth(layout, row) && y >= top && y <= top + layout.rowH)
         {
             return row;
         }
@@ -254,7 +307,8 @@ void ChessSystemSettingsMenu::updateSliderDrag(int pointerX)
     }
 
     const auto currentLayout = layout();
-    volumeForRow(*draggingSlider_) = settingsSliderValueFromPointer(pointerX, currentLayout.sliderX, currentLayout.sliderW);
+    volumeForRow(*draggingSlider_) = settingsSliderValueFromPointer(
+        pointerX, sliderLeft(currentLayout, *draggingSlider_), currentLayout.sliderW);
     applyPreview();
 }
 
@@ -298,12 +352,14 @@ void ChessSystemSettingsMenu::dealEvent(EngineEvent& e)
 
     if (e.type == EVENT_KEY_DOWN)
     {
+        keyboardFocus_ = true;
         switch (e.key.key)
         {
         case K_UP:
         case K_W:
             moveSelection(-1);
             break;
+        case SDLK_TAB:
         case K_DOWN:
         case K_S:
             moveSelection(1);
@@ -323,6 +379,7 @@ void ChessSystemSettingsMenu::dealEvent(EngineEvent& e)
 
     if (e.type == EVENT_GAMEPAD_BUTTON_DOWN)
     {
+        keyboardFocus_ = true;
         switch (e.gbutton.button)
         {
         case GAMEPAD_BUTTON_DPAD_UP:
@@ -349,6 +406,7 @@ RunNode::PointerResult ChessSystemSettingsMenu::onPointerEvent(const PointerEven
     {
         return PointerResult::Handled;
     }
+    if (event.phase == PointerPhase::Motion || event.phase == PointerPhase::ButtonDown) keyboardFocus_ = false;
     const auto currentLayout = layout();
     const int x = static_cast<int>(std::lround(event.uiPosition.x));
     const int y = static_cast<int>(std::lround(event.uiPosition.y));
@@ -434,22 +492,16 @@ void ChessSystemSettingsMenu::draw()
     auto* engine = Engine::getInstance();
     auto* font = Font::getInstance();
 
-    const Color panelBg = Engine::uiStyle() == 1 ? Color{16, 18, 16, 226} : Color{235, 226, 196, 232};
-    const Color panelBorder = Engine::uiStyle() == 1 ? Color{190, 166, 96, 220} : Color{86, 62, 38, 220};
-    const Color selectedBg = Engine::uiStyle() == 1 ? Color{76, 70, 42, 180} : Color{220, 196, 128, 190};
-    const Color rowBorder = Engine::uiStyle() == 1 ? Color{112, 98, 64, 160} : Color{116, 86, 52, 160};
-    const Color trackBg = Engine::uiStyle() == 1 ? Color{44, 48, 43, 230} : Color{176, 160, 126, 230};
-    const Color trackFill = Color{216, 180, 82, 255};
-    const Color knobColor = Color{246, 226, 132, 255};
-    const Color titleColor = Color{238, 221, 112, 255};
+    using namespace ChessUiStyle;
+    const Color trackBg{59, 54, 45, 230};
+    const Color trackFill = gold;
+    const Color knobColor = ink;
     const Color textColor = textColorForStyle();
     const Color mutedTextColor = mutedTextColorForStyle();
-    const Color dividerColor = Engine::uiStyle() == 1 ? Color{128, 112, 72, 170} : Color{124, 92, 54, 150};
+    const Color dividerColor = line;
 
-    engine->fillRoundedRect(panelBg, currentLayout.panelX, currentLayout.panelY, currentLayout.panelW, currentLayout.panelH, 12);
-    engine->drawRoundedRect(panelBorder, currentLayout.panelX, currentLayout.panelY, currentLayout.panelW, currentLayout.panelH, 12);
-
-    font->draw("系統設定", 34, currentLayout.panelX + 36, currentLayout.panelY + 28, titleColor);
+    engine->fillColor(canvasScrim, 0, 0, engine->getUIWidth(), engine->getUIHeight());
+    modalShell({currentLayout.panelX, currentLayout.panelY, currentLayout.panelW, currentLayout.panelH}, "系統設定", currentLayout.compact);
     engine->fillRoundedRect(dividerColor, currentLayout.rowX, currentLayout.actionY - kFooterDividerGap, currentLayout.rowW, 2, 1);
 
     const std::array<std::string, static_cast<int>(Row::Count)> labels = {
@@ -472,35 +524,40 @@ void ChessSystemSettingsMenu::draw()
         const Row row = rowFromIndex(i);
         const int top = rowTop(currentLayout, row);
         const bool actionRow = isActionRow(row);
-        const int itemX = actionRow ? actionX(currentLayout, row) : currentLayout.rowX;
-        const int itemW = actionRow ? currentLayout.actionButtonW : currentLayout.rowW;
-        if (row == selectedRow_)
-        {
-            engine->fillRoundedRect(selectedBg, itemX, top, itemW, currentLayout.rowH, 8);
-            engine->drawRoundedRect(rowBorder, itemX, top, itemW, currentLayout.rowH, 8);
-        }
+        const int itemX = actionRow ? actionX(currentLayout, row) : rowLeft(currentLayout, row);
+        const int itemW = actionRow ? currentLayout.actionButtonW : rowWidth(currentLayout, row);
+        const auto pointer = PointerInput::instance().logicalPointerUiPosition();
+        const bool hovered = pointer.x >= itemX && pointer.x < itemX + itemW && pointer.y >= top && pointer.y < top + currentLayout.rowH;
+        controlSurface({itemX, top, itemW, currentLayout.rowH}, {.hovered = hovered,
+            .focused = keyboardFocus_ && row == selectedRow_, .primary = row == Row::Done});
 
         if (actionRow)
         {
-            constexpr int fontSize = 26;
+            const int fontSize = currentLayout.compact ? 30 : Type::sectionTitle;
             const int textW = fontSize * Font::getTextDrawSize(labels[i]) / 2;
-            font->draw(labels[i], fontSize, itemX + (itemW - textW) / 2, top + 9, textColor);
+            font->draw(labels[i], fontSize, itemX + (itemW - textW) / 2,
+                top + (currentLayout.rowH - fontSize) / 2, row == Row::Done ? darkLabel : textColor);
             continue;
         }
 
-        font->draw(labels[i], 26, currentLayout.labelX, top + 9, textColor);
+        const int fontSize = currentLayout.compact ? 29 : Type::sectionTitle;
+        const int textY = top + (currentLayout.rowH - fontSize) / 2;
+        font->draw(labels[i], fontSize,
+            currentLayout.compact ? itemX + 14 : currentLayout.labelX, textY, textColor);
 
         if (isVolumeRow(row))
         {
             const int value = volumeForRow(row);
             const int trackY = top + currentLayout.rowH / 2 - 4;
             const int fillW = currentLayout.sliderW * value / 100;
-            const int knobRadius = 11;
-            const int knobCenterX = currentLayout.sliderX + fillW;
-            engine->fillRoundedRect(trackBg, currentLayout.sliderX, trackY, currentLayout.sliderW, 8, 4);
-            engine->fillRoundedRect(trackFill, currentLayout.sliderX, trackY, fillW, 8, 4);
+            const int knobRadius = currentLayout.compact ? 16 : 11;
+            const int trackX = sliderLeft(currentLayout, row);
+            const int knobCenterX = trackX + fillW;
+            engine->fillRoundedRect(trackBg, trackX, trackY, currentLayout.sliderW, 8, 4);
+            engine->fillRoundedRect(trackFill, trackX, trackY, fillW, 8, 4);
             engine->fillRoundedRect(knobColor, knobCenterX - knobRadius, trackY - 7, knobRadius * 2, knobRadius * 2, knobRadius);
-            font->draw(std::format("{}%", value), 24, currentLayout.valueX, top + 10, mutedTextColor);
+            font->draw(std::format("{}%", value), fontSize,
+                valueLeft(currentLayout, row), textY, mutedTextColor);
             continue;
         }
 
@@ -548,7 +605,26 @@ void ChessSystemSettingsMenu::draw()
         }
         if (!value.empty())
         {
-            font->draw(value, 26, currentLayout.valueX, top + 9, valueColor);
+            const int controlW = currentLayout.compact ? 156 : 136;
+            const int controlX = itemX + itemW - controlW - 12;
+            if (row == Row::BattleSpeed || row == Row::Language)
+            {
+                const int iconSize = currentLayout.compact ? 28 : 20;
+                controlSurface({controlX, top + 4, controlW, currentLayout.rowH - 8}, {});
+                asset("chess-preparation", iconId(Icon::Refresh), {controlX + controlW - iconSize - 8, top + (currentLayout.rowH - iconSize) / 2, iconSize, iconSize});
+                font->draw(value, fontSize, controlX + 10, textY, textColor);
+            }
+            else
+            {
+                const bool enabled = value == "開";
+                const int h = currentLayout.compact ? 44 : 28;
+                const int w = currentLayout.compact ? 80 : 56;
+                const int switchX = controlX + controlW - w;
+                const int switchY = top + (currentLayout.rowH - h) / 2;
+                engine->fillRoundedRect(enabled ? actionHoverFill : trackBg, switchX, switchY, w, h, h / 2);
+                engine->fillRoundedRect(enabled ? gold : muted, switchX + (enabled ? w - h + 3 : 3), switchY + 3, h - 6, h - 6, (h - 6) / 2);
+                font->draw(value, fontSize, controlX + 4, textY, valueColor);
+            }
         }
     }
 }

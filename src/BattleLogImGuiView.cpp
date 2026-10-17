@@ -22,12 +22,12 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         return;
     }
 
-    const ImVec4 panel_bg = colorU8(34, 38, 30, 164);
-    const ImVec4 panel_border = colorU8(192, 172, 118, 190);
-    const ImVec4 title_gold = colorU8(238, 221, 112);
-    const ImVec4 text_muted = colorU8(202, 198, 180);
-    const ImVec4 ally_color = colorU8(170, 232, 166);
-    const ImVec4 enemy_color = colorU8(245, 165, 155);
+    const ImVec4 panel_bg = colorU8(25, 23, 22, 242);
+    const ImVec4 panel_border = colorU8(177, 158, 120, 40);
+    const ImVec4 title_gold = colorU8(221, 200, 141);
+    const ImVec4 text_muted = colorU8(183, 179, 166);
+    const ImVec4 ally_color = colorU8(184, 204, 164);
+    const ImVec4 enemy_color = colorU8(218, 159, 146);
     const ImVec4 neutral_line = colorU8(230, 224, 205);
     const ImVec4 system_line = colorU8(241, 220, 118);
     const ImVec4 skill_color = colorU8(125, 205, 245);
@@ -36,9 +36,9 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
     const ImVec4 frame_color = colorU8(180, 205, 220);
     const ImVec4 formula_color = colorU8(255, 220, 135);
     const ImVec4 projectile_color = colorU8(155, 218, 255);
-    const ImVec4 chip_bg = colorU8(92, 96, 59, 150);
-    const ImVec4 child_bg = colorU8(30, 34, 27, 88);
-    const ImVec4 accent_line = colorU8(166, 152, 82, 90);
+    const ImVec4 chip_bg = colorU8(115, 98, 67, 90);
+    const ImVec4 child_bg = colorU8(18, 17, 16, 88);
+    const ImVec4 accent_line = colorU8(177, 158, 120, 40);
     const ImVec4 dim_bg = colorU8(8, 10, 8, 42);
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -61,7 +61,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
     ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(panel_size, ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, fs * 0.5f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.2f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(fs * 1.0f, fs * 0.8f));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, panel_bg);
     ImGui::PushStyleColor(ImGuiCol_Border, panel_border);
@@ -69,6 +69,15 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
     ImGui::PushStyleColor(ImGuiCol_Separator, accent_line);
     ImGui::PushStyleColor(ImGuiCol_TableRowBg, colorU8(255, 255, 255, 10));
     ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, colorU8(255, 255, 255, 18));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, chip_bg);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, colorU8(115, 98, 67, 150));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, colorU8(115, 98, 67, 190));
+    ImGui::PushStyleColor(ImGuiCol_Button, chip_bg);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colorU8(115, 98, 67, 150));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, colorU8(115, 98, 67, 190));
+    ImGui::PushStyleColor(ImGuiCol_Header, chip_bg);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, colorU8(115, 98, 67, 150));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, colorU8(115, 98, 67, 190));
 
     if (ImGui::Begin("battle_log_window", &state.model.open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus))
     {
@@ -121,7 +130,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
 
         ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, colorU8(188, 170, 110, 120));
         ImGui::PushStyleColor(ImGuiCol_TableBorderLight, colorU8(188, 170, 110, 70));
-        if (ImGui::BeginTable("battle_log_chips", static_cast<int>(chips.size()), ImGuiTableFlags_BordersOuter | ImGuiTableFlags_SizingStretchSame))
+        if (ImGui::BeginTable("battle_log_chips", static_cast<int>(chips.size()), ImGuiTableFlags_SizingStretchSame))
         {
             for (int i = 0; i < static_cast<int>(chips.size()); ++i)
             {
@@ -384,7 +393,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         }
     }
     ImGui::End();
-    ImGui::PopStyleColor(6);
+    ImGui::PopStyleColor(15);
     ImGui::PopStyleVar(3);
 
     if (state.inputGuardFrames > 0)

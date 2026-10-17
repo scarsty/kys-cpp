@@ -17,18 +17,18 @@
 #include "ChessGuiBattleFlow.h"
 #include "ChessGuiSavePolicy.h"
 #include "ChessManagementRules.h"
-#include "ChessMagicEffectDisplay.h"
 #include "ChessMenuFormatting.h"
 #include "ChessPresentationHelpers.h"
 #include "ChessPreparationScreen.h"
 #include "ChessPreparedBattleAnalysis.h"
 #include "ChessPvp.h"
 #include "ChessScreenLayout.h"
-#include "ChessRoleDetailLayout.h"
 #include "ChessSessionCheckpoint.h"
 #include "ChessStandaloneBattle.h"
 #include "ChessSystemSettingsMenu.h"
 #include "ChessUiCommon.h"
+#include "ChessUiStyle.h"
+#include "ChessSelectionScreen.h"
 #include "DrawableOnCall.h"
 #include "Engine.h"
 #include "Event.h"
@@ -37,12 +37,12 @@
 #include "InputBox.h"
 #include "Menu.h"
 #include "ScenePreloader.h"
-#include "SuperMenuText.h"
 #include "SystemSettings.h"
 #include "Talk.h"
 #include "TextBox.h"
 #include "TextureManager.h"
 #include "UISave.h"
+#include "strfunc.h"
 
 #include <SDL3/SDL.h>
 
@@ -71,89 +71,18 @@ namespace KysChess
 namespace
 {
 
-constexpr int kContextMenuX = 200;
-constexpr int kContextMenuFontSize = 36;
-constexpr int kContextMenuRowSpacing = 45;
-constexpr int kAvatarMinWidth = 96;
-constexpr int kAvatarHeight = 128;
-constexpr int kOwnedTextInset = 8;
-constexpr int kMagicEffectInset = 10;
-constexpr int kComboRowGap = 2;
-constexpr int kEquipIconOffsetX = 46;
-constexpr int kEquipIconSize = 28;
-constexpr int kEquipIconTopAdjust = 3;
-constexpr int kEquipFallbackTopAdjust = 2;
-constexpr int kEquipNameGap = 8;
-
-class ComboDetailsButton : public Button
-{
-public:
-    bool expanded = false;
-
-    ComboDetailsButton()
-    {
-        resize_with_text_ = false;
-        setFontSize(20);
-        setSize(144, 44);
-        setTextPosition(12, 12);
-        setTextColor({210, 220, 210, 255});
-        updateLabel();
-    }
-
-    void updateLabel() { setText(expanded ? "收起未啟動" : "展開未啟動"); }
-    void onPressedOK() override
-    {
-        expanded = !expanded;
-        updateLabel();
-    }
-};
-
-struct PanelColumnFlow
-{
-    Font* font{};
-    PanelFrame frame{};
-    int x{};
-    int y{};
-    int top{};
-    int bottom{};
-    int columnWidth{};
-
-    bool ensureSpace(int requiredHeight)
-    {
-        if (y + requiredHeight <= bottom)
-        {
-            return true;
-        }
-        x += columnWidth;
-        y = top;
-        return x + columnWidth <= frame.x + frame.w;
-    }
-
-    bool line(const std::string& value, int fontSize, Color color, int extraSpacing = 4, int indent = 0)
-    {
-        const int requiredHeight = fontSize + extraSpacing;
-        if (!ensureSpace(requiredHeight))
-        {
-            return false;
-        }
-        font->draw(value, fontSize, x + indent, y, color);
-        y += requiredHeight;
-        return true;
-    }
-};
-
-
 struct SessionMenuData
 {
     std::vector<std::string> labels;
     std::vector<Color> colors;
-    std::vector<Color> outlineColors;
-    std::vector<bool> animateOutlines;
-    std::vector<int> outlineThicknesses;
+    std::vector<ChessSelectionItem> cards;
+    bool browseOnly{};
+    bool commandMode{};
+    bool shortChoice{};
+    bool shopMode{};
+    std::string actionLabel = "選擇";
 };
 
-using PanelDrawer = std::function<void(int, const PanelFrame&)>;
-using PanelVisibility = std::function<bool(int)>;
 
 bool isPanelRowInRange(int row, int rowCount)
 {
@@ -429,8 +358,7 @@ void showCampaignVictoryFeedback(
     const std::string comboMessage = comboBonus > 0
         ? chessVictoryComboBonusText(session.content(), *gold, comboBonus)
         : std::string{};
-    auto text = std::make_shared<DismissibleTextBox>();
-    text->setText(std::format(
+    showChessMessage(std::format(
         "勝利！獲得${}{}{} 經驗+{}{}{}",
         gold->primaryId,
         interestMessage,
@@ -438,325 +366,13 @@ void showCampaignVictoryFeedback(
         experience->value,
         levelMessage,
         nextInformation));
-    text->setFontSize(32);
-    text->runCentered(Engine::getInstance()->getUIHeight() / 2);
 }
 
-void drawWrappedLines(
-    PanelTextCursor& cursor,
-    const std::string& text,
-    int fontSize,
-    Color color,
-    int pixelWidth,
-    int extraSpacing = 3,
-    int indent = 0)
-{
-    const int displayWidth = displayTextUnitsForPixelWidth(fontSize, pixelWidth, indent);
-    for (const auto& line : wrapDisplayText(text, displayWidth))
-    {
-        cursor.line(line, fontSize, color, extraSpacing, indent);
-    }
-}
-
-struct PanelVisualTextRow
-{
-    PanelTextSourceRow layout;
-    Color color;
-};
-
-void appendPanelTextRow(
-    std::vector<PanelVisualTextRow>& rows,
-    std::string text,
-    Color color,
-    int fontSizeDelta = 0,
-    int indentUnits = 0,
-    int spacingBefore = 0,
-    int spacingAfter = 0)
-{
-    rows.push_back({
-        .layout = {
-            .text = std::move(text),
-            .fontSizeDelta = fontSizeDelta,
-            .indentUnits = indentUnits,
-            .spacingBefore = spacingBefore,
-            .spacingAfter = spacingAfter,
-        },
-        .color = color,
-    });
-}
-
-void appendRenderedEffectDescriptionRows(
-    std::vector<PanelVisualTextRow>& rows,
-    const RenderedEffectDescription& rendered,
-    Color color,
-    int fontSizeDelta = 0,
-    int extraSpacing = 3,
-    int baseIndentUnits = 0)
-{
-    for (auto& layout : panelTextRowsForEffectDescription(
-             rendered,
-             fontSizeDelta,
-             extraSpacing,
-             baseIndentUnits))
-    {
-        rows.push_back({
-            .layout = std::move(layout),
-            .color = color,
-        });
-    }
-}
-
-std::vector<PanelTextSourceRow> panelTextLayoutRows(
-    std::span<const PanelVisualTextRow> rows)
-{
-    std::vector<PanelTextSourceRow> result;
-    result.reserve(rows.size());
-    for (const auto& row : rows)
-        result.push_back(row.layout);
-    return result;
-}
-
-void drawPanelText(
-    Font* font,
-    std::span<const PanelVisualTextRow> rows,
-    const PanelTextLayout& layout,
-    int x,
-    int y)
-{
-    for (const auto& line : layout.lines)
-    {
-        font->draw(
-            line.text,
-            line.fontSize,
-            x + line.indentPixels,
-            y + line.y,
-            rows[line.sourceRow].color);
-    }
-}
-
-PanelTextLayout fitVisualPanelText(
-    std::span<const PanelVisualTextRow> rows,
-    int pixelWidth,
-    int pixelHeight,
-    int preferredFontSize,
-    int minimumFontSize)
-{
-    const auto layoutRows = panelTextLayoutRows(rows);
-    return fitPanelText(
-        layoutRows,
-        pixelWidth,
-        pixelHeight,
-        preferredFontSize,
-        minimumFontSize);
-}
-
-std::shared_ptr<DrawableOnCall> makePanel(
-    PanelFrame frame,
-    PanelDrawer drawer,
-    PanelVisibility visibility = {},
-    Color fillColor = {0, 0, 0, 180},
-    Color borderColor = {180, 170, 140, 200},
-    int radius = 8)
-{
-    return std::make_shared<DrawableOnCall>(
-        [frame,
-            drawer = std::move(drawer),
-            visibility = std::move(visibility),
-            fillColor,
-            borderColor,
-            radius](DrawableOnCall* self) {
-            const int row = self->getItemIndex();
-            if (visibility && !visibility(row))
-            {
-                return;
-            }
-            ChessScreenLayout::drawPanel(frame, fillColor, borderColor, radius);
-            drawer(row, frame);
-        });
-}
-
-std::vector<std::string> equipmentEquippedBy(
-    const ChessGameSession& session,
-    int itemId,
-    std::optional<int> instanceFilter = std::nullopt)
-{
-    std::vector<std::string> names;
-    for (const auto& [instanceId, equipment] : session.state().equipmentInventory)
-    {
-        if (equipment.itemId != itemId
-            || (instanceFilter && instanceId != *instanceFilter)
-            || equipment.assignedChessInstanceId < 0)
-        {
-            continue;
-        }
-        const auto* piece = rosterPiece(session.state(), equipment.assignedChessInstanceId);
-        assert(piece);
-        const auto* role = session.content().role(piece->roleId);
-        assert(role);
-        names.push_back(std::format("{} {}", role->Name, chessStars(piece->star)));
-    }
-    return names;
-}
-
-void drawEquipmentDetail(
-    const ChessGameSession& session,
-    const EquipmentDef& equipment,
-    const PanelFrame& frame,
-    const std::vector<std::string>& equippedBy)
-{
-    const auto* item = session.content().item(equipment.itemId);
-    if (item)
-    {
-        TextureManager::getInstance()->renderTexture("item", equipment.itemId, frame.x + 10, frame.y + 10);
-    }
-
-    constexpr int fontSize = 28;
-    PanelTextCursor header{Font::getInstance(), frame.x + 150, frame.y + 10};
-    header.line(item ? item->name : "???", fontSize + 4, {255, 255, 100, 255}, 6);
-    int metadataX = header.x;
-    const auto drawMetadata = [&](const std::string& text, Color color) {
-        header.font->draw(text, fontSize, metadataX, header.y, color);
-        metadataX += fontSize * Font::getTextDrawSize(text) / 2;
-    };
-    constexpr Color metadataLabelColor{220, 220, 190, 255};
-    drawMetadata("層級: ", metadataLabelColor);
-    drawMetadata(chessRewardTierLabel(equipment.tier), chessRewardTierColor(equipment.tier));
-    drawMetadata("　類型: ", metadataLabelColor);
-    drawMetadata(chessEquipmentTypeName(equipment.equipType), chessEquipmentTypeColor(equipment.equipType));
-    header.skip(fontSize + 4);
-
-    std::vector<PanelVisualTextRow> bodyRows;
-    const int bodyWidth = frame.w - 20;
-    const auto metadata = chessEquipmentMetadata(
-        session.content(), equipment.itemId, EffectDescriptionStyle::Compact);
-    for (auto& row : panelTextRowsForEquipment(metadata))
-    {
-        const Color color = row.fontSizeDelta > 0
-            ? Color{255, 200, 100, 255}
-            : Color{220, 220, 100, 255};
-        bodyRows.push_back({std::move(row), color});
-    }
-
-    if (!equippedBy.empty())
-    {
-        appendPanelTextRow(
-            bodyRows,
-            "裝備棋子:",
-            {140, 220, 255, 255},
-            2,
-            0,
-            !bodyRows.empty() ? 16 : 0,
-            4);
-        for (const auto& name : equippedBy)
-        {
-            appendPanelTextRow(bodyRows, name, {210, 235, 255, 255}, 0, 1, 0, 2);
-        }
-    }
-    if (!bodyRows.empty())
-    {
-        constexpr int bodyTop = 100;
-        constexpr int bodyBottomInset = 10;
-        const auto layout = fitVisualPanelText(
-            bodyRows,
-            bodyWidth,
-            frame.h - bodyTop - bodyBottomInset,
-            fontSize - 2,
-            14);
-        drawPanelText(Font::getInstance(), bodyRows, layout, frame.x + 10, frame.y + bodyTop);
-    }
-}
-
-std::shared_ptr<DrawableOnCall> makeEquipmentDetailPanel(
-    const ChessGameSession& session,
-    std::vector<const EquipmentDef*> equipments,
-    std::vector<std::vector<std::string>> equippedByRows,
-    PanelFrame frame)
-{
-    const int rowCount = static_cast<int>(equipments.size());
-    return makePanel(
-        frame,
-        [&session,
-            equipments = std::move(equipments),
-            equippedByRows = std::move(equippedByRows)](int row, const PanelFrame& panelFrame) {
-            const std::vector<std::string> empty;
-            drawEquipmentDetail(
-                session,
-                *equipments[row],
-                panelFrame,
-                row < static_cast<int>(equippedByRows.size()) ? equippedByRows[row] : empty);
-        },
-        [rowCount](int row) { return isPanelRowInRange(row, rowCount); });
-}
-
-void drawNeigongDetail(
-    const ChessGameSession& session,
-    const NeigongDef& neigong,
-    const PanelFrame& frame,
-    bool showOwnedState)
-{
-    TextureManager::getInstance()->renderTexture("item", neigong.itemId, frame.x + 10, frame.y + 10);
-    constexpr int fontSize = 24;
-    PanelTextCursor header{Font::getInstance(), frame.x + 100, frame.y + 10};
-    header.line(neigong.name, fontSize + 4, {255, 255, 100, 255}, 6);
-    header.line(
-        std::format("層級: {}", chessRewardTierLabel(neigong.tier)),
-        fontSize,
-        chessRewardTierColor(neigong.tier));
-    if (showOwnedState)
-    {
-        const bool owned = session.state().obtainedNeigongIds.contains(neigong.magicId);
-        header.line(
-            owned ? "已獲得" : "未獲得",
-            fontSize,
-            owned ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255},
-            8);
-    }
-
-    std::vector<PanelVisualTextRow> bodyRows;
-    appendPanelTextRow(bodyRows, "效果:", {200, 200, 200, 255}, 2, 0, 0, 2);
-    const auto& document = neigong.effects;
-    const auto rendered = describeGameplayEffects(document, EffectDescriptionStyle::Full);
-    appendRenderedEffectDescriptionRows(
-        bodyRows,
-        rendered,
-        {220, 220, 220, 255},
-        0,
-        2,
-        2);
-    constexpr int bodyTop = 100;
-    constexpr int bodyBottomInset = 10;
-    const auto layout = fitVisualPanelText(
-        bodyRows,
-        frame.w - 20,
-        frame.h - bodyTop - bodyBottomInset,
-        fontSize,
-        14);
-    drawPanelText(Font::getInstance(), bodyRows, layout, frame.x + 10, frame.y + bodyTop);
-}
-
-std::shared_ptr<DrawableOnCall> makeNeigongDetailPanel(
-    const ChessGameSession& session,
-    std::vector<const NeigongDef*> neigongs,
-    PanelFrame frame,
-    bool showOwnedState)
-{
-    const int rowCount = static_cast<int>(neigongs.size());
-    return makePanel(
-        frame,
-        [&session,
-            neigongs = std::move(neigongs),
-            showOwnedState](int row, const PanelFrame& panelFrame) {
-            drawNeigongDetail(session, *neigongs[row], panelFrame, showOwnedState);
-        },
-        [rowCount](int row) { return isPanelRowInRange(row, rowCount); });
-}
-
-std::shared_ptr<DrawableOnCall> makeBattleMapPreviewPanel(
+std::function<void(int, SDL_Rect)> makeBattleMapPreviewPanel(
     const ChessGameSession& session,
     std::vector<int> mapIds)
 {
-    const auto frame = ChessScreenLayout::largeModalPreviewPanel();
-    return makePanel(frame, [&session, mapIds = std::move(mapIds)](int row, const PanelFrame& panelFrame) {
+    return [&session, mapIds = std::move(mapIds)](int row, SDL_Rect panelFrame) {
         if (row < 0 || row >= static_cast<int>(mapIds.size()))
         {
             return;
@@ -770,14 +386,14 @@ std::shared_ptr<DrawableOnCall> makeBattleMapPreviewPanel(
         const auto* catalog = ChessBattleMapCatalog::find(mapId);
 
         PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 12, panelFrame.y + 10};
-        cursor.line(chessBattleMapDisplayName(session.content(), mapId), 25, {255, 215, 0, 255}, 4);
+        cursor.line(chessBattleMapDisplayName(session.content(), mapId), 25, ChessUiStyle::gold, 4);
         cursor.line(
             std::format(
                 "我方上限{}　敵軍上限{}",
                 catalog ? catalog->teammatePositions.size() : map->second.teammateX.size(),
                 catalog ? catalog->enemyCapacity : map->second.enemyX.size()),
             18,
-            {220, 220, 220, 255},
+            ChessUiStyle::ink,
             6);
 
         std::vector<Point> allyPositions;
@@ -864,18 +480,112 @@ std::shared_ptr<DrawableOnCall> makeBattleMapPreviewPanel(
                     color);
             }
         }
-    });
+    };
 }
 
-int runIndexedMenu(
+ChessSelectionItem roleCard(const ChessGameSession& session, int roleId, int star = 1, int instanceId = -1)
+{
+    auto character = buildChessCharacterPresentation(session.content(), session.state(), roleId, star, instanceId);
+    ChessSelectionItem item{
+        .title = character.name,
+        .subtitle = character.context,
+        .badge = std::format("{}費 · {}星", character.cost, character.star),
+        .image = {"head", character.headId},
+        .accent = chessPieceTierColor(character.cost),
+        .category = std::format("{}費", character.cost),
+    };
+    const auto stats = chessCharacterStats(character.stats);
+    for (int i = 0; i < 4; ++i) item.facts.emplace_back(stats[i].first, std::to_string(stats[i].second));
+    for (const auto& ability : character.abilities)
+    {
+        if (!item.summary.empty()) item.summary += " · ";
+        item.summary += ability.title;
+    }
+    item.character = std::move(character);
+    item.openCombo = [&session](int id) { showChessComboOverview(session.content(), session.state(), id); };
+    return item;
+}
+
+std::vector<ChessSelectionItem> roleCards(const ChessGameSession& session, const std::vector<int>& roles,
+    const std::vector<int>& stars = {}, const std::vector<int>& instances = {})
+{
+    std::vector<ChessSelectionItem> cards;
+    for (int i = 0; i < static_cast<int>(roles.size()); ++i)
+        cards.push_back(roleCard(session, roles[i], stars.empty() ? 1 : stars[i], instances.empty() ? -1 : instances[i]));
+    return cards;
+}
+
+ChessSelectionItem equipmentCard(const ChessGameSession& session, const EquipmentDef& equipment)
+{
+    const auto metadata = chessEquipmentMetadata(session.content(), equipment.itemId, EffectDescriptionStyle::Compact);
+    ChessSelectionItem card{
+        .title = metadata.name,
+        .subtitle = chessEquipmentTypeName(equipment.equipType),
+        .badge = chessRewardTierLabel(equipment.tier),
+        .image = {"item", equipment.itemId},
+        .accent = chessRewardTierColor(equipment.tier),
+        .category = chessEquipmentTypeName(equipment.equipType),
+    };
+    for (const auto& row : panelTextRowsForEquipment(metadata))
+        if (row.fontSizeDelta == 0 && !row.text.empty()) { card.summary = row.text; break; }
+    for (const auto& row : panelTextRowsForEquipment(chessEquipmentMetadata(session.content(), equipment.itemId, EffectDescriptionStyle::Full)))
+        card.description += row.text + "\n";
+    return card;
+}
+
+ChessSelectionItem neigongCard(const ChessGameSession& session, const NeigongDef& neigong)
+{
+    return {
+        .title = neigong.name,
+        .subtitle = session.state().obtainedNeigongIds.contains(neigong.magicId) ? "已獲得" : "",
+        .badge = chessRewardTierLabel(neigong.tier),
+        .image = {"item", neigong.itemId},
+        .accent = chessRewardTierColor(neigong.tier),
+        .category = chessRewardTierLabel(neigong.tier),
+        .summary = joinEffectDescriptionRows(describeGameplayEffects(neigong.effects, EffectDescriptionStyle::Compact), " · "),
+        .description = joinEffectDescriptionRows(describeGameplayEffects(neigong.effects, EffectDescriptionStyle::Full)),
+    };
+}
+
+ChessSelectionItem comboCard(const ChessGameSession& session, const ComboDef& combo)
+{
+    const auto progress = evaluateChessComboProgress(session.state(), session.content(), combo);
+    ChessSelectionItem card{
+        .title = combo.name,
+        .subtitle = progress.active ? "已啟動" : "",
+        .badge = formatChessComboProgressCount(progress),
+        .image = {"chess-synergies", combo.iconId},
+        .accent = progress.active ? ChessUiStyle::positive : ChessUiStyle::muted,
+        .category = progress.active ? "已啟動" : "未啟動",
+        .relatedTitle = "羈絆成員",
+    };
+    const int threshold = progress.activeThresholdIndex >= 0 ? progress.activeThresholdIndex : 0;
+    if (!combo.thresholds.empty())
+    {
+        const auto& tier = combo.thresholds[threshold];
+        card.facts = {{"人數", std::format("{} / {}", progress.effectiveCount, progress.displayTargetCount)}, {"階段", tier.name}};
+        card.summary = joinEffectDescriptionRows(describeGameplayEffectsAndManagementRules(
+            tier.effects, tier.managementRules, EffectDescriptionStyle::Compact), " · ");
+    }
+    for (const int id : combo.memberRoleIds)
+        if (const auto* role = session.content().role(id)) card.related.push_back({"head", role->HeadID});
+    for (const auto& tier : combo.thresholds)
+    {
+        card.description += std::format("{} 人 · {}\n", tier.count, tier.name);
+        card.description += joinEffectDescriptionRows(describeGameplayEffectsAndManagementRules(
+            tier.effects, tier.managementRules, EffectDescriptionStyle::Full)) + "\n\n";
+    }
+    card.description += "羈絆成員\n";
+    for (const int id : combo.memberRoleIds)
+        if (const auto* role = session.content().role(id)) card.description += role->Name + "　";
+    return card;
+}
+
+int runSelection(
     const std::string& title,
     const SessionMenuData& data,
-    int fontSize = kChessBrowseMenuPresentation.fontSize,
-    int perPage = kChessBrowseMenuPresentation.itemsPerPage,
-    PanelAnchor anchor = ChessScreenLayout::contentMenuAnchor(),
-    const std::vector<std::shared_ptr<DrawableOnCall>>& panels = {},
+    std::function<void(int, SDL_Rect)> detailRenderer = {},
     bool showSearch = false,
-    bool showNavigation = true,
     bool exitable = true,
     std::function<bool()> exitConfirmation = {})
 {
@@ -884,42 +594,67 @@ int runIndexedMenu(
         return -1;
     }
 
-    SuperMenuTextExtraOptions options;
-    options.itemColors_ = data.colors;
-    options.outlineColors_ = data.outlineColors;
-    options.animateOutlines_ = data.animateOutlines;
-    options.outlineThicknesses_ = data.outlineThicknesses;
-    options.needInputBox_ = showSearch;
-    options.exitable_ = exitable;
-    auto menu = std::make_shared<SuperMenuText>(
-        title,
-        fontSize,
-        data.labels,
-        std::max(1, perPage),
-        std::move(options));
+    auto cards = data.cards;
+    if (cards.empty())
+        for (int i = 0; i < static_cast<int>(data.labels.size()); ++i)
+        {
+            std::string caption;
+            bool previousSpace = false;
+            for (const char ch : data.labels[i])
+            {
+                if (ch != ' ' || !previousSpace) caption += ch;
+                previousSpace = ch == ' ';
+            }
+            cards.push_back({.title = strfunc::trim(caption), .image = chessSelectionIcon(ChessUiStyle::Icon::Book),
+                .accent = i < static_cast<int>(data.colors.size()) ? data.colors[i] : ChessUiStyle::gold});
+        }
+    assert(cards.size() == data.labels.size());
+    auto menu = std::make_shared<ChessSelectionScreen>(title, std::move(cards));
+    menu->setBrowseOnly(data.browseOnly);
+    menu->setShopMode(data.shopMode);
+    menu->setCommandMode(data.commandMode || (!detailRenderer && data.cards.empty()));
+    if (data.shortChoice) menu->setShortChoiceMode();
+    menu->setActionLabel(data.actionLabel);
+    menu->setExitable(exitable);
+    menu->setSearchEnabled(showSearch || data.labels.size() > 12);
     menu->setExitConfirmation(std::move(exitConfirmation));
-    menu->setInputPosition(anchor.x, anchor.y);
-    menu->setShowNavigationButtons(showNavigation && data.labels.size() > static_cast<std::size_t>(perPage));
-    menu->setDoubleTapMode(GameUtil::isMobileDevice());
-    for (const auto& panel : panels)
-    {
-        menu->addDrawableOnCall(panel);
-    }
+    menu->setDetailRenderer(std::move(detailRenderer));
     menu->run();
     return menu->getResult();
 }
 
 std::optional<ChessContextMenuAction> runContextActionMenu(
-    const std::vector<ChessContextMenuItem>& items)
+    const std::string& title, const std::vector<ChessContextMenuItem>& items)
 {
-    auto menu = std::make_shared<MenuText>(chessContextMenuLabels(items));
-    menu->setFontSize(kContextMenuFontSize);
-    menu->arrange(0, 0, 0, kContextMenuRowSpacing);
-    const auto region = ChessScreenLayout::fullContentRegion();
-    menu->runAtPosition(
-        kContextMenuX,
-        centerChessContextMenuY(items.size(), region.y, region.h, kContextMenuRowSpacing));
-    const int result = menu->getResult();
+    SessionMenuData data;
+    data.labels = chessContextMenuLabels(items);
+    data.commandMode = true;
+    for (const auto& item : items)
+    {
+        using Icon = ChessUiStyle::Icon;
+        Icon icon = Icon::Book;
+        switch (item.action)
+        {
+        case ChessContextMenuAction::ShowPositionSwap:
+        case ChessContextMenuAction::SelectForBattle: icon = Icon::Formation; break;
+        case ChessContextMenuAction::RerollBattleSeed: icon = Icon::Refresh; break;
+        case ChessContextMenuAction::ViewCombos: icon = Icon::Link; break;
+        case ChessContextMenuAction::ViewChessPool: icon = Icon::Character; break;
+        case ChessContextMenuAction::ViewNeigong: icon = Icon::Cultivation; break;
+        case ChessContextMenuAction::ViewEffects: icon = Icon::Spark; break;
+        case ChessContextMenuAction::OpenEquipmentMenu:
+        case ChessContextMenuAction::ShowEquipmentInventory: icon = Icon::Bag; break;
+        case ChessContextMenuAction::ShowSystemSettings: icon = Icon::Sliders; break;
+        case ChessContextMenuAction::LoadProgress: icon = Icon::Load; break;
+        case ChessContextMenuAction::SaveProgress: icon = Icon::Save; break;
+        case ChessContextMenuAction::ShowGameGuide: icon = Icon::Book; break;
+        case ChessContextMenuAction::ShowExpeditionChallenge: icon = Icon::Mountain; break;
+        case ChessContextMenuAction::ReturnToTitle: icon = Icon::Home; break;
+        default: break;
+        }
+        data.cards.push_back({.title = item.label, .image = chessSelectionIcon(icon)});
+    }
+    const int result = runSelection(title, data);
     if (result < 0)
     {
         return std::nullopt;
@@ -932,651 +667,13 @@ int runSaveSlotMenu(int mode)
 {
     auto menu = std::make_shared<UISave>();
     menu->setMode(mode);
-    menu->setFontSize(kContextMenuFontSize);
-    menu->arrange(0, 0, 0, kContextMenuRowSpacing);
-    const auto region = ChessScreenLayout::fullContentRegion();
-    return menu->runAtPosition(
-        kContextMenuX,
-        centerChessContextMenuY(
-            menu->getChildCount(),
-            region.y,
-            region.h,
-            kContextMenuRowSpacing));
+    return menu->run();
 }
 
 bool confirmReturnToTitle()
 {
-    auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認返回開頭", "取消"});
-    menu->setFontSize(kContextMenuFontSize);
-    menu->arrange(0, 0, 0, kContextMenuRowSpacing);
-    const auto region = ChessScreenLayout::fullContentRegion();
-    return menu->runAtPosition(
-               kContextMenuX,
-               centerChessContextMenuY(
-                   menu->getChildCount(),
-                   region.y,
-                   region.h,
-                   kContextMenuRowSpacing))
-        == 0;
-}
-
-ChessMagicEffectDisplayLayout drawRoleDetail(
-    const ChessGameSession& session,
-    int roleId,
-    int star,
-    int instanceId,
-    const PanelFrame& frame,
-    int magicScrollOffset,
-    bool hasComboPanel)
-{
-    const auto* role = session.content().role(roleId);
-    assert(role);
-    auto* font = Font::getInstance();
-    const Color colorWhite{255, 255, 255, 255};
-    const Color colorName{255, 215, 0, 255};
-    const Color colorAbility{255, 250, 205, 255};
-    const Color colorRed{255, 90, 60, 255};
-    const Color colorMagic{236, 200, 40, 255};
-    const Color colorMagicEffect{150, 220, 255, 255};
-    const Color colorPurple{208, 152, 208, 255};
-    const Color colorEquip{210, 230, 220, 255};
-    const Color colorInactive{180, 180, 180, 255};
-
-    const auto selectStatColor = [&](int value, int maximum) -> Color {
-        if (value >= maximum * 0.9) return colorRed;
-        if (value >= maximum * 0.8) return {255, 165, 79, 255};
-        if (value >= maximum * 0.7) return {255, 255, 50, 255};
-        if (value < 0) return colorPurple;
-        return colorWhite;
-    };
-
-    const auto* piece = rosterPiece(session.state(), instanceId);
-    const int fightsWon = piece ? piece->fightsWon : 0;
-    const auto stats = chessRoleStats(
-        *role,
-        session.content().balance(),
-        star,
-        fightsWon,
-        session.content().balance().talent(session.state().talent).amplifiedGrowthPercent);
-
-    int avatarWidth = 128;
-    auto* headTexture = TextureManager::getInstance()->getTexture("head", role->HeadID);
-    if (headTexture)
-    {
-        headTexture->load();
-        if (headTexture->h > 0)
-        {
-            avatarWidth = std::max(kAvatarMinWidth, headTexture->w * kAvatarHeight / headTexture->h);
-        }
-    }
-
-    int equipmentWidth = 200;
-    if (piece)
-    {
-        for (const int equipmentId : {piece->weaponInstanceId, piece->armorInstanceId})
-        {
-            const auto* instance = equipmentInstance(session.state(), equipmentId);
-            const auto* item = instance ? session.content().item(instance->itemId) : nullptr;
-            if (item)
-                equipmentWidth = std::max(equipmentWidth,
-                    kEquipIconOffsetX + kEquipIconSize + kEquipNameGap + Font::getTextDrawSize(item->name) * 20 / 2);
-        }
-    }
-    auto layout = SessionStatusLayout::build(font, frame, avatarWidth, equipmentWidth);
-    if (headTexture)
-    {
-        const int renderH = std::max(1, layout.avatar.h);
-        const int renderW = std::max(kAvatarMinWidth, headTexture->h > 0 ? headTexture->w * renderH / headTexture->h : renderH);
-        TextureManager::getInstance()->renderTexture(
-            headTexture,
-            layout.avatar.x + headTexture->dx,
-            layout.avatar.y + headTexture->dy,
-            TextureManager::RenderInfo{colorWhite, 255},
-            renderW,
-            renderH);
-    }
-    else
-    {
-        TextureManager::getInstance()->renderTexture("head", role->HeadID, layout.avatar.x, layout.avatar.y);
-    }
-
-    const int statsY = layout.topY;
-    Color mpColor = colorWhite;
-    if (role->MPType == 0) mpColor = colorPurple;
-    else if (role->MPType == 1) mpColor = colorMagic;
-    layout.statsColumn.line(statsY, "血", std::to_string(stats.maxHp), colorWhite);
-    layout.statsColumn.line(statsY + layout.lineHeight, "內", formatChessRolePreviewMp(GameUtil::MAX_MP), mpColor);
-    layout.statsColumn.line(statsY + layout.lineHeight * 2, "攻", std::to_string(stats.attack), selectStatColor(stats.attack, Role::getMaxValue()->Attack));
-    layout.statsColumn.line(statsY + layout.lineHeight * 3, "防", std::to_string(stats.defence), selectStatColor(stats.defence, Role::getMaxValue()->Defence));
-    layout.statsColumn.line(statsY + layout.lineHeight * 4, "輕", std::to_string(stats.speed), selectStatColor(stats.speed, Role::getMaxValue()->Speed));
-
-    const int skillY = layout.skillTopY;
-    layout.skillCol1.line(skillY, "拳", std::to_string(stats.fist), selectStatColor(stats.fist, Role::getMaxValue()->Fist));
-    layout.skillCol2.line(skillY, "劍", std::to_string(stats.sword), selectStatColor(stats.sword, Role::getMaxValue()->Sword));
-    layout.skillCol1.line(skillY + layout.lineHeight, "刀", std::to_string(stats.knife), selectStatColor(stats.knife, Role::getMaxValue()->Knife));
-    layout.skillCol2.line(skillY + layout.lineHeight, "特", std::to_string(stats.unusual), selectStatColor(stats.unusual, Role::getMaxValue()->Unusual));
-
-    if (piece && piece->luckStacks > 0)
-    {
-        const int luckX = hasComboPanel ? layout.combo.x : layout.avatar.x;
-        const int luckY = hasComboPanel ? layout.sectionContentY : skillY + layout.lineHeight * 2 + 4;
-        if (hasComboPanel)
-            font->draw("賭運", layout.titleFontSize, luckX, layout.sectionTitleY, colorName);
-        font->draw("運", layout.fontSize, luckX, luckY, colorName);
-        font->draw(std::format("{}層 · {}%", piece->luckStacks,
-            session.content().balance().talent(session.state().talent).luckChance(piece->luckStacks)),
-            18, luckX + 30, luckY + 2, {255, 192, 136, 255});
-    }
-
-    font->draw("武學", layout.titleFontSize, layout.magic.x, layout.magic.y, colorName);
-    const auto selectedMagics = chessRoleMagicsForStar(session.content(), *role, star);
-    std::vector<const MagicSave*> magics;
-    magics.reserve(selectedMagics.size());
-    for (const auto& selection : selectedMagics)
-    {
-        magics.push_back(selection.first);
-    }
-    const int ultimateMagicId = selectedMagics.empty()
-        ? -1
-        : selectedMagics.back().first->ID;
-    const auto rawMagicRows = buildChessMagicEffectDisplayRows(
-        magics,
-        session.content().magicEffects(),
-        ultimateMagicId);
-    const auto magicDisplay = layoutChessMagicEffectDisplay(
-        rawMagicRows,
-        layout.magic.w,
-        layout.magicAvailableHeight);
-    for (const auto& displayLine : visibleChessMagicEffectDisplayLines(
-        magicDisplay,
-        magicScrollOffset))
-    {
-        const auto& magicRow = displayLine.content;
-        const int lineX = layout.magic.x + displayLine.x;
-        const int lineY = layout.magicStartY + displayLine.y;
-        if (magicRow.kind == ChessMagicEffectDisplayLineKind::Effect)
-        {
-            font->draw(
-                magicRow.text,
-                displayLine.fontSize,
-                lineX,
-                lineY,
-                colorMagicEffect);
-            continue;
-        }
-        const int magicPower = [&] {
-            int result = 0;
-            for (const auto& [magic, power] : selectedMagics)
-            {
-                if (magic->ID == magicRow.magic->ID)
-                {
-                    result = std::max(result, power);
-                }
-            }
-            return result;
-        }();
-        const int operationType = BattleSceneHades::getOperationType(magicRow.magic->AttackAreaType);
-        font->draw(
-            magicRow.text,
-            displayLine.fontSize,
-            lineX,
-            lineY,
-            magicRow.ultimate ? colorMagic : colorAbility);
-        font->draw(
-            std::format("{:4} {}", magicPower, BattleSceneHades::getOperationTypeName(operationType)),
-            displayLine.fontSize,
-            layout.magic.x + magicDisplay.skillValueX,
-            lineY,
-            colorWhite);
-    }
-    if (magicDisplay.scrollable)
-    {
-        const auto scrollOffset = clampChessMagicEffectDisplayScrollOffset(
-            magicDisplay,
-            magicScrollOffset);
-        const auto stop = std::ranges::find(magicDisplay.scrollStops, scrollOffset);
-        const int scrollStopIndex = stop == magicDisplay.scrollStops.end()
-            ? 1
-            : static_cast<int>(std::distance(magicDisplay.scrollStops.begin(), stop)) + 1;
-        font->draw(
-            std::format("捲動 PgUp/PgDn  {}/{}", scrollStopIndex, magicDisplay.scrollStops.size()),
-            magicDisplay.effectFontSize,
-            layout.magic.x + kMagicEffectInset,
-            layout.magicStartY + magicDisplay.viewportHeight
-                - magicDisplay.scrollIndicatorHeight,
-            colorInactive);
-    }
-
-    font->draw("擁有", layout.titleFontSize, layout.owned.x, layout.sectionTitleY, colorName);
-    std::map<int, int> starCounts;
-    for (const auto& [ownedInstanceId, ownedPiece] : session.state().roster)
-    {
-        if (ownedPiece.roleId == roleId) ++starCounts[ownedPiece.star];
-    }
-    if (starCounts.empty())
-    {
-        font->draw("無", layout.smallFontSize, layout.owned.x + kOwnedTextInset, layout.sectionContentY, colorInactive);
-    }
-    else
-    {
-        PanelTextCursor ownedCursor{font, layout.owned.x + kOwnedTextInset, layout.sectionContentY};
-        for (const auto& [ownedStar, count] : starCounts)
-        {
-            ownedCursor.line(std::format("{} x{}", chessStars(ownedStar), count), layout.smallFontSize, colorWhite, 4);
-        }
-        if (piece)
-        {
-            ownedCursor.line(
-                std::format("勝場 {}", fightsWon),
-                layout.smallFontSize,
-                colorAbility,
-                4);
-        }
-    }
-    if (starCounts.empty() && piece)
-    {
-        font->draw(
-            std::format("勝場 {}", fightsWon),
-            layout.smallFontSize,
-            layout.owned.x + kOwnedTextInset,
-            layout.sectionContentY + layout.smallFontSize + 8,
-            colorAbility);
-    }
-
-    std::vector<const ComboDef*> roleCombos;
-    for (const auto& combo : session.content().combos())
-    {
-        if (std::ranges::find(combo.memberRoleIds, roleId) != combo.memberRoleIds.end())
-        {
-            roleCombos.push_back(&combo);
-        }
-    }
-    if (!hasComboPanel)
-        font->draw("羈絆", layout.titleFontSize, layout.combo.x, layout.sectionTitleY, colorName);
-    if (!hasComboPanel && roleCombos.empty())
-    {
-        font->draw("無", layout.smallFontSize, layout.combo.x + kOwnedTextInset, layout.sectionContentY, colorInactive);
-    }
-    else if (!hasComboPanel)
-    {
-        layout.finalizeComboColumns(static_cast<int>(roleCombos.size()));
-        for (int index = 0; index < static_cast<int>(roleCombos.size()); ++index)
-        {
-            const int column = index / layout.comboRows;
-            const int row = index % layout.comboRows;
-            if (column >= layout.comboCols) break;
-            const auto& combo = *roleCombos[index];
-            const auto progress = evaluateChessComboProgress(session.state(), session.content(), combo);
-            font->draw(
-                combo.name,
-                layout.smallFontSize,
-                layout.combo.x + column * layout.comboColWidth,
-                layout.sectionContentY + row * (layout.smallFontSize + kComboRowGap),
-                progress.active ? Color{0, 255, 100, 255} : colorInactive);
-        }
-    }
-
-    if (piece)
-    {
-        font->draw("裝備", layout.titleFontSize, layout.equip.x, layout.sectionTitleY, colorName);
-        PanelTextCursor equipCursor{font, layout.equip.x, layout.sectionContentY};
-        const auto drawEquipment = [&](const char* slotName, int equipmentInstanceId) {
-            const int rowY = equipCursor.y;
-            const auto* instance = equipmentInstance(session.state(), equipmentInstanceId);
-            const auto* item = instance ? session.content().item(instance->itemId) : nullptr;
-            const int iconX = equipCursor.x + kEquipIconOffsetX;
-            font->draw(slotName, layout.smallFontSize, equipCursor.x, rowY, colorAbility);
-            if (item)
-            {
-                if (auto* itemTexture = TextureManager::getInstance()->getTexture("item", item->id))
-                {
-                    itemTexture->load();
-                    const double scale = static_cast<double>(kEquipIconSize) / std::max(itemTexture->w, itemTexture->h);
-                    const int renderW = static_cast<int>(itemTexture->w * scale);
-                    const int renderH = static_cast<int>(itemTexture->h * scale);
-                    TextureManager::getInstance()->renderTexture(
-                        itemTexture,
-                        iconX + (kEquipIconSize - renderW) / 2,
-                        rowY - kEquipIconTopAdjust + (kEquipIconSize - renderH) / 2,
-                        TextureManager::RenderInfo{colorWhite, 255},
-                        renderW,
-                        renderH);
-                }
-                else
-                {
-                    TextureManager::getInstance()->renderTexture(
-                        "item",
-                        item->id,
-                        iconX,
-                        rowY - kEquipFallbackTopAdjust,
-                        TextureManager::RenderInfo{colorWhite, 255, 0.26, 0.26});
-                }
-                font->draw(item->name, layout.smallFontSize, iconX + kEquipIconSize + kEquipNameGap, rowY, colorEquip);
-            }
-            else
-            {
-                font->draw("無", layout.smallFontSize, iconX, rowY, colorInactive);
-            }
-            equipCursor.skip(layout.smallFontSize + 8);
-        };
-        drawEquipment("武器", piece->weaponInstanceId);
-        drawEquipment("護甲", piece->armorInstanceId);
-    }
-    return magicDisplay;
-}
-
-std::shared_ptr<DrawableOnCall> makeRoleDetailPanel(
-    const ChessGameSession& session,
-    std::vector<int> roleIds,
-    std::vector<int> starsByRow = {},
-    std::vector<int> instanceIds = {},
-    std::optional<PanelFrame> requestedFrame = std::nullopt,
-    bool hasComboPanel = false)
-{
-    const auto frame = requestedFrame.value_or(ChessScreenLayout::browseDetailRegion());
-    std::vector<bool> visibleRows;
-    visibleRows.reserve(roleIds.size());
-    for (const int roleId : roleIds)
-    {
-        visibleRows.push_back(roleId >= 0);
-    }
-    struct ScrollState
-    {
-        int row = -1;
-        int offset{};
-        std::optional<ChessMagicEffectDisplayLayout> layout;
-    };
-    auto scroll = std::make_shared<ScrollState>();
-    auto panel = std::make_shared<DrawableOnCall>(
-        [frame,
-            &session,
-            roleIds = std::move(roleIds),
-            starsByRow = std::move(starsByRow),
-            instanceIds = std::move(instanceIds),
-            visibleRows = std::move(visibleRows),
-            hasComboPanel,
-            scroll](DrawableOnCall* self) {
-            const int row = self->getItemIndex();
-            if (!isPanelRowInRange(row, static_cast<int>(visibleRows.size()))
-                || !visibleRows[row])
-            {
-                scroll->layout.reset();
-                return;
-            }
-            if (scroll->row != row)
-            {
-                scroll->row = row;
-                scroll->offset = 0;
-            }
-            ChessScreenLayout::drawPanel(
-                frame,
-                {0, 0, 0, 128},
-                {180, 170, 140, 200},
-                8);
-            const int star = row < static_cast<int>(starsByRow.size()) ? starsByRow[row] : 1;
-            const int instanceId = row < static_cast<int>(instanceIds.size()) ? instanceIds[row] : -1;
-            scroll->layout = drawRoleDetail(
-                session,
-                roleIds[row],
-                star,
-                instanceId,
-                frame,
-                scroll->offset,
-                hasComboPanel);
-            scroll->offset = clampChessMagicEffectDisplayScrollOffset(
-                *scroll->layout,
-                scroll->offset);
-        });
-    panel->setEventHandler([scroll](DrawableOnCall*, EngineEvent& event) {
-        if (!scroll->layout || !scroll->layout->scrollable) return;
-        int direction{};
-        if (event.type == EVENT_KEY_UP)
-        {
-            if (event.key.key == K_PAGEUP) direction = -1;
-            if (event.key.key == K_PAGEDOWN) direction = 1;
-        }
-        else if (event.type == EVENT_GAMEPAD_BUTTON_UP)
-        {
-            if (event.gbutton.button == GAMEPAD_BUTTON_LEFT_SHOULDER) direction = -1;
-            if (event.gbutton.button == GAMEPAD_BUTTON_RIGHT_SHOULDER) direction = 1;
-        }
-        if (direction != 0)
-        {
-            scroll->offset = stepChessMagicEffectDisplayScrollOffset(
-                *scroll->layout,
-                scroll->offset,
-                direction);
-            event.type = EVENT_FIRST;
-        }
-    });
-    return panel;
-}
-
-std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
-    const ChessGameSession& session,
-    std::vector<int> roleIds,
-    PanelFrame frame)
-{
-    auto details = std::make_shared<ComboDetailsButton>();
-    auto panel = std::make_shared<DrawableOnCall>(
-        [&session, roleIds = std::move(roleIds), frame, details](DrawableOnCall* self) {
-            const int row = self->getItemIndex();
-            if (row < 0 || row >= static_cast<int>(roleIds.size()) || roleIds[row] < 0)
-            {
-                details->setVisible(false);
-                return;
-            }
-
-            std::vector<const ComboDef*> roleCombos;
-            for (const auto& combo : session.content().combos())
-            {
-                if (std::ranges::find(combo.memberRoleIds, roleIds[row]) != combo.memberRoleIds.end())
-                {
-                    roleCombos.push_back(&combo);
-                }
-            }
-            if (roleCombos.empty())
-            {
-                details->setVisible(false);
-                return;
-            }
-
-            details->setVisible(true);
-            ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
-            auto* font = Font::getInstance();
-            constexpr int preferredFontSize = 19;
-            constexpr int minimumFontSize = ChessScreenLayout::kComboPanelMinimumFontSize;
-            font->draw("羈絆", preferredFontSize + 5,
-                frame.x + 10, frame.y + 12, {255, 255, 100, 255});
-
-            std::vector<std::vector<PanelVisualTextRow>> blocks;
-            blocks.reserve(roleCombos.size());
-            for (const auto* combo : roleCombos)
-            {
-                const auto progress = evaluateChessComboProgress(
-                    session.state(), session.content(), *combo);
-                const ComboThreshold* shownThreshold = nullptr;
-                if (progress.activeThresholdIndex >= 0)
-                    shownThreshold = &combo->thresholds[progress.activeThresholdIndex];
-                else if (progress.nextThresholdIndex >= 0)
-                    shownThreshold = &combo->thresholds[progress.nextThresholdIndex];
-                else if (!combo->thresholds.empty())
-                    shownThreshold = &combo->thresholds.back();
-
-                const auto headerColor = progress.active
-                    ? Color{0, 255, 100, 255}
-                    : Color{200, 200, 200, 255};
-                const auto effectColor = progress.active
-                    ? Color{180, 220, 255, 255}
-                    : Color{180, 180, 180, 255};
-                std::vector<PanelVisualTextRow> block;
-                appendPanelTextRow(
-                    block,
-                    std::format("{} ({})", combo->name, formatChessComboProgressCount(progress)),
-                    headerColor,
-                    1,
-                    0,
-                    0,
-                    2);
-                if (shownThreshold && (progress.active || details->expanded))
-                {
-                    const auto rendered = describeGameplayEffectsAndManagementRules(
-                        shownThreshold->effects,
-                        shownThreshold->managementRules,
-                        EffectDescriptionStyle::Compact);
-                    appendRenderedEffectDescriptionRows(
-                        block,
-                        rendered,
-                        effectColor,
-                        0,
-                        1,
-                        2);
-                }
-                blocks.push_back(std::move(block));
-            }
-
-            const auto combineBlocks = [&](std::size_t first, std::size_t last)
-            {
-                std::vector<PanelVisualTextRow> result;
-                for (std::size_t index = first; index < last; ++index)
-                    result.insert(result.end(), blocks[index].begin(), blocks[index].end());
-                return result;
-            };
-            constexpr int contentTop = 54;
-            constexpr int contentBottomInset = 10;
-            const int availableHeight = frame.h - contentTop - contentBottomInset;
-            std::vector<std::vector<PanelTextSourceRow>> layoutBlocks;
-            layoutBlocks.reserve(blocks.size());
-            for (const auto& block : blocks)
-                layoutBlocks.push_back(panelTextLayoutRows(block));
-            const auto chosen = fitPanelTextBlocks(
-                layoutBlocks,
-                frame.w - 20,
-                availableHeight,
-                preferredFontSize,
-                minimumFontSize,
-                8);
-            assert(chosen && "formal Compact combo descriptions must fit two readable columns");
-            for (std::size_t columnIndex = 0; columnIndex < chosen->columns.size(); ++columnIndex)
-            {
-                const auto& column = chosen->columns[columnIndex];
-                const auto rows = combineBlocks(column.firstBlock, column.lastBlock);
-                drawPanelText(
-                    font,
-                    rows,
-                    column.layout,
-                    frame.x + 10 + static_cast<int>(columnIndex) * chosen->columnWidth,
-                    frame.y + contentTop);
-            }
-        });
-    panel->addChild(details, frame.x + frame.w - 154, frame.y + 4);
-    panel->setEventHandler([details](DrawableOnCall*, EngineEvent& event) {
-        if ((event.type == EVENT_KEY_UP && event.key.key == K_TAB)
-            || (event.type == EVENT_GAMEPAD_BUTTON_UP && event.gbutton.button == GAMEPAD_BUTTON_WEST))
-        {
-            details->onPressedOK();
-            event.type = EVENT_FIRST;
-        }
-    });
-    return panel;
-}
-
-std::shared_ptr<DrawableOnCall> makeRosterPanel(const ChessGameSession& session, PanelFrame frame);
-
-std::vector<std::shared_ptr<DrawableOnCall>> makeCharacterPreviewPanels(
-    const ChessGameSession& session,
-    const ShopPanelLayout& frames,
-    const std::vector<int>& roleIds,
-    const std::vector<int>& stars = {},
-    const std::vector<int>& instanceIds = {},
-    bool showRoster = false)
-{
-    std::vector<std::shared_ptr<DrawableOnCall>> panels{
-        makeRoleDetailPanel(session, roleIds, stars, instanceIds, frames.status, true),
-        makeComboInfoPanel(session, roleIds, frames.combo),
-    };
-    if (showRoster)
-        panels.push_back(makeRosterPanel(session, frames.owned));
-    return panels;
-}
-
-std::shared_ptr<DrawableOnCall> makeRosterPanel(
-    const ChessGameSession& session,
-    PanelFrame frame)
-{
-    return makePanel(frame, [&session](int, const PanelFrame& panelFrame) {
-        auto* font = Font::getInstance();
-        constexpr int kFontSize = 20;
-        font->draw("我方棋子", kFontSize + 4, panelFrame.x + 10, panelFrame.y + 5, {255, 255, 100, 255});
-
-        std::map<std::pair<int, int>, int> totalCount;
-        std::map<std::pair<int, int>, int> deployedCount;
-        for (const auto& [instanceId, piece] : session.state().roster)
-        {
-            ++totalCount[{piece.roleId, piece.star}];
-            if (piece.deployed)
-            {
-                ++deployedCount[{piece.roleId, piece.star}];
-            }
-        }
-
-        struct Entry
-        {
-            std::string label;
-            Color color;
-        };
-        std::vector<Entry> deployed;
-        std::vector<Entry> bench;
-        for (const auto& [roleAndStar, count] : totalCount)
-        {
-            const auto* role = session.content().role(roleAndStar.first);
-            assert(role);
-            int deployedForRole = deployedCount[roleAndStar];
-            const auto tierColor = chessPieceTierColor(role->Cost);
-            const std::string baseName = std::format("{}{}", role->Name, chessStars(roleAndStar.second));
-            for (int index = 0; index < count; ++index)
-            {
-                if (deployedForRole > 0)
-                {
-                    deployed.push_back({"▶" + baseName, tierColor});
-                    --deployedForRole;
-                }
-                else
-                {
-                    bench.push_back({
-                        " " + baseName,
-                        {
-                            static_cast<unsigned char>(tierColor.r / 2 + 80),
-                            static_cast<unsigned char>(tierColor.g / 2 + 80),
-                            static_cast<unsigned char>(tierColor.b / 2 + 80),
-                            200,
-                        },
-                    });
-                }
-            }
-        }
-
-        const int columnWidth = std::max(150, (panelFrame.w - 30) / 3);
-        PanelColumnFlow flow{
-            font,
-            panelFrame,
-            panelFrame.x + 10,
-            panelFrame.y + kFontSize + 34,
-            panelFrame.y + kFontSize + 34,
-            panelFrame.y + panelFrame.h,
-            columnWidth,
-        };
-        for (const auto& entry : deployed)
-        {
-            flow.line(entry.label, kFontSize, entry.color);
-        }
-        for (const auto& entry : bench)
-        {
-            flow.line(entry.label, kFontSize, entry.color);
-        }
-    },
-        [&session](int) { return !session.state().roster.empty(); },
-        {0, 0, 0, 160});
+    return runChessChoiceMenu("返回開頭？", {"返回開頭", "取消"},
+        ChessChoiceStyle::DestructiveConfirmation) == 0;
 }
 
 constexpr int kBattlePreviewComboFontSize = 16;
@@ -1955,24 +1052,20 @@ public:
     void draw() override
     {
         Color fill = fill_;
-        Color outline{150, 160, 165, 230};
         if (selected_)
         {
-            fill = {45, 65, 35, 235};
-            outline = {255, 220, 70, 255};
+            fill = ChessUiStyle::activeFill;
         }
         else if (state_ == NodePass)
         {
-            fill = {35, 45, 55, 235};
-            outline = {220, 220, 190, 255};
+            fill = {115, 98, 67, 130};
         }
         else if (state_ == NodePress)
         {
-            fill = {65, 60, 35, 240};
-            outline = {255, 235, 150, 255};
+            fill = {132, 111, 69, 180};
         }
         Engine::getInstance()->fillRoundedRect(fill, x_, y_, w_, h_, 7);
-        Engine::getInstance()->drawRoundedRect(outline, x_, y_, w_, h_, 7);
+        if (selected_) Engine::getInstance()->fillColor(ChessUiStyle::gold, x_ + 8, y_ + h_ - 2, w_ - 16, 2);
         const int textWidth = font_size_ * Font::getTextDrawSize(text_) / 2;
         Font::getInstance()->draw(
             text_,
@@ -1983,7 +1076,7 @@ public:
     }
 
 private:
-    Color fill_{15, 20, 24, 220};
+    Color fill_ = ChessUiStyle::panelFill;
     bool selected_ = false;
 };
 
@@ -2067,14 +1160,7 @@ void drawPvpFormationFrame(
 {
     auto* engine = Engine::getInstance();
     engine->fillRoundedRect(
-        {10, 14, 18, 210},
-        originX - 8,
-        originY - 8,
-        kPvpFormationPanelWidth + 16,
-        kPvpFormationPanelHeight + 16,
-        8);
-    engine->drawRoundedRect(
-        {80, 90, 95, 220},
+        ChessUiStyle::quietFill,
         originX - 8,
         originY - 8,
         kPvpFormationPanelWidth + 16,
@@ -2106,13 +1192,6 @@ void drawPvpFormation(
         fill.a = 210;
         Engine::getInstance()->fillRoundedRect(
             fill,
-            originX + offset.x,
-            originY + offset.y,
-            kPvpFormationSlotWidth,
-            kPvpFormationSlotHeight,
-            7);
-        Engine::getInstance()->drawRoundedRect(
-            occupied ? Color{220, 220, 200, 230} : Color{100, 100, 100, 210},
             originX + offset.x,
             originY + offset.y,
             kPvpFormationSlotWidth,
@@ -2156,29 +1235,32 @@ void drawOfflineBattlePresentation(
     std::uint32_t battleSeed)
 {
     auto* engine = Engine::getInstance();
-    engine->fillColor({0, 0, 0, 245}, 0, 0, engine->getUIWidth(), engine->getUIHeight());
+    ChessUiStyle::page("離線對戰");
+    ChessUiStyle::panel(24, 76, 572, 398);
+    ChessUiStyle::panel(684, 76, 572, 398);
+    ChessUiStyle::panel(304, 476, 672, 132);
+    ChessUiStyle::panel(16, 620, 1248, 84);
     auto* font = Font::getInstance();
-    font->draw("離線對戰", 36, 555, 24, {255, 220, 90, 255});
-    font->draw("我的陣形", 24, 240, 68, {120, 220, 255, 255});
-    font->draw("對手陣形", 24, 875, 68, {255, 140, 140, 255});
+    font->draw("我的陣形", 24, 240, 80, ChessUiStyle::context);
+    font->draw("對手陣形", 24, 875, 80, ChessUiStyle::negative);
     drawPvpFormationFrame(45, 125, false);
     if (opponent)
     {
-        drawPvpFormation(*opponent, content, 700, 125, true, {90, 30, 30, 210});
-        font->draw("已驗證", 22, 925, 405, {100, 255, 120, 255});
+        drawPvpFormation(*opponent, content, 700, 125, true, {64, 45, 39, 200});
+        font->draw("已驗證", 22, 925, 405, ChessUiStyle::positive);
     }
     else
     {
         drawPvpFormationFrame(700, 125, true);
         font->draw("尚未匯入對手存檔", 24, 835, 225, {210, 210, 200, 255});
     }
-    font->draw("VS", 28, 618, 230, {255, 220, 90, 255});
+    font->draw("VS", 28, 618, 230, ChessUiStyle::gold);
     font->draw(
         std::format("我方出戰 {} 名", local.pieces.size()),
         20,
         235,
         445,
-        local.pieces.empty() ? Color{255, 100, 100, 255} : Color{220, 220, 210, 255});
+        local.pieces.empty() ? ChessUiStyle::negative : Color{220, 220, 210, 255});
     const auto seedText = std::format("戰鬥種子：{}", battleSeed);
     const int seedTextWidth = 22 * Font::getTextDrawSize(seedText) / 2;
     font->draw(
@@ -2186,7 +1268,7 @@ void drawOfflineBattlePresentation(
         22,
         (engine->getUIWidth() - seedTextWidth) / 2,
         480,
-        {255, 220, 120, 255});
+        ChessUiStyle::gold);
 }
 
 class ChessOfflineBattleScreenNode : public Menu
@@ -2209,7 +1291,7 @@ public:
           actions_(std::move(actionIds))
     {
         assert(actions_.size() == actionLabels.size());
-        full_window_ = 1;
+        full_window_ = 0;
         for (int slot = 0; slot < kChessFormationSlotCount; ++slot)
         {
             const auto offset = formationUiOffsets(false)[slot];
@@ -2505,7 +1587,7 @@ private:
             assert(button);
             button->setText(pvpSlotLabel(local_, content_, slot));
             button->setFillColor(local_.formationSlots[slot] >= 0
-                ? Color{25, 65, 90, 220}
+                ? Color{64, 60, 45, 200}
                 : Color{18, 18, 18, 210});
             button->setSelected(selectedSlot_ && *selectedSlot_ == slot);
         }
@@ -2542,10 +1624,10 @@ public:
     void draw() override
     {
         auto* engine = Engine::getInstance();
-        engine->fillRoundedRect({12, 16, 22, 245}, 320, 12, 640, 54, 10);
-        engine->drawRoundedRect({150, 160, 165, 240}, 320, 12, 640, 54, 10);
-        engine->fillRoundedRect({12, 16, 22, 245}, 250, 500, 780, 195, 12);
-        engine->drawRoundedRect({150, 160, 165, 240}, 250, 500, 780, 195, 12);
+        engine->fillRoundedRect(ChessUiStyle::panelFill, 320, 12, 640, 54, 10);
+
+        engine->fillRoundedRect(ChessUiStyle::panelFill, 250, 500, 780, 195, 12);
+
         auto* font = Font::getInstance();
         font->draw(
             std::format("離線對戰  >  驗證{}", targetLabel_),
@@ -2576,7 +1658,7 @@ public:
         if (completedWidth > 0)
         {
             engine->fillRoundedRect(
-                {80, 175, 220, 255},
+                ChessUiStyle::gold,
                 390,
                 595,
                 completedWidth,
@@ -2850,6 +1932,7 @@ void ChessGuiSessionAdapter::showShop()
     {
         const auto observation = session_.observe();
         SessionMenuData data;
+        data.shopMode = true;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<int> roleIds{-1, -1};
         std::vector<int> starRows{1, 1};
@@ -2857,6 +1940,9 @@ void ChessGuiSessionAdapter::showShop()
         std::vector<int> shopSlots{-1, -1};
 
         const bool freeRefresh = observation.freeShopRefreshAvailable;
+        data.cards.push_back({.title = "刷新", .badge = freeRefresh ? "免費" : std::format("{} 金", session_.content().balance().refreshCost),
+            .image = chessSelectionIcon(ChessUiStyle::Icon::Refresh)});
+        data.cards.push_back({.title = observation.shopLocked ? "解除鎖定" : "鎖定商店", .image = chessSelectionIcon(ChessUiStyle::Icon::Lock)});
         labelRows.push_back({
             {},
             "刷新",
@@ -2868,14 +1954,8 @@ void ChessGuiSessionAdapter::showShop()
         data.colors.push_back(freeRefresh
             ? Color{255, 235, 120, 255}
             : Color{255, 204, 229, 255});
-        data.outlineColors.push_back(freeRefresh ? Color{255, 215, 0, 255} : Color{});
-        data.animateOutlines.push_back(freeRefresh);
-        data.outlineThicknesses.push_back(freeRefresh ? 3 : 1);
         labelRows.push_back({{}, observation.shopLocked ? "[已鎖定] 點擊解鎖" : "[未鎖定] 點擊鎖定", {}, {}});
-        data.colors.push_back(observation.shopLocked ? Color{255, 80, 80, 255} : Color{128, 128, 128, 255});
-        data.outlineColors.push_back({});
-        data.animateOutlines.push_back(false);
-        data.outlineThicknesses.push_back(1);
+        data.colors.push_back(observation.shopLocked ? ChessUiStyle::negative : Color{128, 128, 128, 255});
 
         for (int shopSlot = 0; shopSlot < static_cast<int>(observation.shop.size()); ++shopSlot)
         {
@@ -2893,33 +1973,19 @@ void ChessGuiSessionAdapter::showShop()
             starRows.push_back(1);
             instanceRows.push_back(-1);
             shopSlots.push_back(shopSlot);
-            const auto outline = chessShopRowOutlineStyle(
-                chessShopRowEmphasis(session_.state(), slot.roleId));
-            data.outlineColors.push_back(outline.color);
-            data.animateOutlines.push_back(outline.animated);
-            data.outlineThicknesses.push_back(outline.thickness);
+            auto card = roleCard(session_, slot.roleId);
+            card.character->context = "商店預覽";
+            card.subtitle = std::format("{} 金", price);
+            data.cards.push_back(std::move(card));
         }
         data.labels = alignedMenuLabels(labelRows);
 
-        const auto panels = ChessScreenLayout::shopPanelsForMenu(
-            ChessScreenLayout::contentMenuAnchor(),
-            data.labels,
-            32,
-            8);
-        const int selected = runIndexedMenu(
-            std::format(
+        const int selected = runSelection(std::format(
                 "購買棋子　等級{}　${}　背包{}/{}",
                 observation.level + 1,
                 observation.money,
                 benchCount(session_.state()),
-                session_.content().balance().benchSize),
-            data,
-            32,
-            static_cast<int>(data.labels.size()),
-            ChessScreenLayout::contentMenuAnchor(),
-            makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceRows, true),
-            false,
-            false);
+                session_.content().balance().benchSize), data, {}, false);
         if (selected < 0)
         {
             return;
@@ -2983,18 +2049,11 @@ void ChessGuiSessionAdapter::chooseChess(ChessActionType actionType)
             instanceIds.push_back(piece.instanceId);
         }
         data.labels = alignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
-        const int selected = runIndexedMenu(
-            actionType == ChessActionType::SellChess
+        data.cards = roleCards(session_, roleIds, starRows, instanceIds);
+        data.actionLabel = actionType == ChessActionType::SellChess ? "出售" : "選擇";
+        const int selected = runSelection(actionType == ChessActionType::SellChess
                 ? std::format("出售棋子　背包{}/{}", benchCount(session_.state()), session_.content().balance().benchSize)
-                : "選擇棋子",
-            data,
-            32,
-            12,
-            anchor,
-            makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceIds),
-            false);
+                : "選擇棋子", data, {}, false);
         if (selected < 0)
         {
             return;
@@ -3070,28 +2129,21 @@ void ChessGuiSessionAdapter::chooseDeployment()
                 chessStars(piece->star),
                 std::format("${}", ChessManagementRules::pieceValue(session_.content(), piece->roleId, piece->star)),
             });
-            data.colors.push_back(deployed ? Color{255, 215, 0, 255} : chessPieceTierColor(role->Cost));
+            data.colors.push_back(deployed ? ChessUiStyle::gold : chessPieceTierColor(role->Cost));
             roleIds.push_back(piece->roleId);
             starRows.push_back(piece->star);
             instanceIds.push_back(piece->instanceId);
         }
         data.labels = alignedMenuLabels(labelRows);
+        data.cards = roleCards(session_, roleIds, starRows, instanceIds);
+        data.actionLabel = "切換出戰";
 
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
-        const int selected = runIndexedMenu(
-            std::format(
+        const int selected = runSelection(std::format(
                 "選擇出戰棋子 {}/{} 背包{}/{}",
                 selectedIds.size(),
                 observation.maximumDeployment,
                 observation.roster.size() - selectedIds.size(),
-                session_.content().balance().benchSize),
-            data,
-            32,
-            12,
-            anchor,
-            makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceIds),
-            false);
+                session_.content().balance().benchSize), data, {}, false);
         if (selected < 0)
         {
             return;
@@ -3150,29 +2202,20 @@ void ChessGuiSessionAdapter::showBanManagement()
                 std::format("${}", ChessManagementRules::pieceValue(session_.content(), row.roleId, 1)),
             });
             data.colors.push_back(chessPieceTierColor(role->Cost));
-            const auto outline = chessBanManagementRowOutlineStyle(row.banned);
-            data.outlineColors.push_back(outline.color);
-            data.animateOutlines.push_back(outline.animated);
-            data.outlineThicknesses.push_back(outline.thickness);
             roleIds.push_back(row.roleId);
         }
         data.labels = alignedMenuLabels(labelRows);
+        data.cards = roleCards(session_, roleIds);
+        data.actionLabel = "封棋";
+        for (int i = 0; i < static_cast<int>(rows.size()); ++i)
+            data.cards[i].subtitle = rows[i].banned ? "已封棋" : "可封棋";
 
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
         const int bannedCount = static_cast<int>(observation.bans.size());
-        const int choice = runIndexedMenu(
-            std::format(
+        const int choice = runSelection(std::format(
                 "禁棋管理　已禁{}/{}　剩餘{}",
                 bannedCount,
                 maximum,
-                std::max(0, maximum - bannedCount)),
-            data,
-            32,
-            12,
-            anchor,
-            makeCharacterPreviewPanels(session_, panels, roleIds),
-            false);
+                std::max(0, maximum - bannedCount)), data, {}, false);
         if (choice < 0)
         {
             return;
@@ -3224,8 +2267,8 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
         roleIds.push_back(roleId);
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
+    data.cards = roleCards(session_, roleIds);
+    data.actionLabel = "封棋";
     const std::string title = forced
         ? std::format(
             "禁棋選擇 (≤{}費)　剩餘{}/{}",
@@ -3242,28 +2285,13 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
     if (forced)
     {
         const int remaining = session_.state().pendingRewards.front().parameter;
-        exitConfirmation = [remaining, anchor]() {
-            auto prompt = std::make_shared<MenuText>(std::vector<std::string>{
-                std::format("確認放棄剩餘{}次（不會保留）", remaining),
-                "繼續選擇",
-            });
-            prompt->setFontSize(32);
-            prompt->arrange(0, 0, 0, 42);
-            prompt->setIsDark(1);
-            return prompt->runAtPosition(anchor.x, anchor.y) == 0;
+        exitConfirmation = [remaining]() {
+            return runChessChoiceMenu("放棄本次禁棋機會？", {
+                std::format("確認放棄剩餘{}次（不會保留）", remaining), "繼續選擇"},
+                ChessChoiceStyle::DestructiveConfirmation) == 0;
         };
     }
-    const int choice = runIndexedMenu(
-        title,
-        data,
-        32,
-        12,
-        anchor,
-        makeCharacterPreviewPanels(session_, panels, roleIds),
-        false,
-        true,
-        true,
-        std::move(exitConfirmation));
+    const int choice = runSelection(title, data, {}, false, true, std::move(exitConfirmation));
     if (choice < 0)
     {
         return false;
@@ -3311,18 +2339,10 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
             });
             data.colors.push_back(item.action == ChessContextMenuAction::BuyLegendaryEquipment
                 ? Color{255, 140, 255, 255}
-                : Color{220, 220, 220, 255});
+                : ChessUiStyle::ink);
         }
         data.labels = alignedMenuLabels(labelRows);
-        const int selected = runIndexedMenu(
-            std::format("裝備管理　${}", session_.state().money),
-            data,
-            kChessCompactMenuPresentation.fontSize,
-            static_cast<int>(data.labels.size()),
-            ChessScreenLayout::contentMenuAnchor(),
-            {},
-            false,
-            false);
+        const int selected = runSelection(std::format("裝備管理　${}", session_.state().money), data, {}, false);
         if (selected < 0)
         {
             return;
@@ -3407,38 +2427,13 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
                 chessEquipmentAssignmentColumn(instance && instance->assignedChessInstanceId >= 0),
                 {},
             });
-            data.colors.push_back(row.owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255});
+            data.colors.push_back(row.owned ? ChessUiStyle::positive : Color{120, 120, 120, 255});
+            auto card = equipmentCard(session_, *row.definition);
+            card.subtitle = !row.owned ? "未持有" : instance && instance->assignedChessInstanceId >= 0 ? "已裝備" : "行囊";
+            data.cards.push_back(std::move(card));
         }
         data.labels = contentSizedAlignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
-            anchor,
-            data.labels,
-            kChessBrowseMenuPresentation.fontSize);
-        std::vector<const EquipmentDef*> detailEquipments;
-        std::vector<std::vector<std::string>> equippedByRows;
-        detailEquipments.reserve(rows.size());
-        equippedByRows.reserve(rows.size());
-        for (const auto& row : rows)
-        {
-            detailEquipments.push_back(row.definition);
-            equippedByRows.push_back(row.instanceId >= 0
-                ? equipmentEquippedBy(session_, row.definition->itemId, row.instanceId)
-                : std::vector<std::string>{});
-        }
-        auto detail = makeEquipmentDetailPanel(
-            session_,
-            std::move(detailEquipments),
-            std::move(equippedByRows),
-            frame);
-        const int selected = runIndexedMenu(
-            "裝備一覽",
-            data,
-            kChessBrowseMenuPresentation.fontSize,
-            kChessBrowseMenuPresentation.itemsPerPage,
-            anchor,
-            {detail},
-            false);
+        const int selected = runSelection("裝備一覽", data);
         if (selected < 0)
         {
             return;
@@ -3478,10 +2473,11 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
                 chessEquipmentAssignmentColumn(instance->assignedChessInstanceId >= 0),
                 {},
             });
-            equipmentData.colors.push_back({0, 255, 0, 255});
+            equipmentData.colors.push_back(ChessUiStyle::positive);
+            equipmentData.cards.push_back(equipmentCard(session_, *equipmentDefinition(session_.content(), instance->itemId)));
         }
         equipmentData.labels = alignedMenuLabels(equipmentRows);
-        const int choice = runIndexedMenu("選擇裝備", equipmentData);
+        const int choice = runSelection("選擇裝備", equipmentData);
         if (choice < 0)
         {
             return;
@@ -3511,16 +2507,9 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
         instanceIds.push_back(piece.instanceId);
     }
     pieceData.labels = alignedMenuLabels(pieceRows);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, pieceData.labels, 32, 8);
-    const int selected = runIndexedMenu(
-        "選擇棋子",
-        pieceData,
-        32,
-        12,
-        anchor,
-        makeCharacterPreviewPanels(session_, panels, roleIds, starRows, instanceIds),
-        false);
+    pieceData.cards = roleCards(session_, roleIds, starRows, instanceIds);
+    pieceData.actionLabel = "裝備";
+    const int selected = runSelection("選擇棋子", pieceData, {}, false);
     if (selected < 0)
     {
         return;
@@ -3541,6 +2530,7 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
     for (;;)
     {
         SessionMenuData data;
+        data.shopMode = true;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<const EquipmentDef*> definitions;
         for (const int itemId : descriptor.candidateIds)
@@ -3556,29 +2546,12 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
             });
             data.colors.push_back({255, 100, 255, 255});
             definitions.push_back(definition);
+            auto card = equipmentCard(session_, *definition);
+            card.subtitle = std::format("{} 金", session_.content().balance().legendaryShop.price);
+            data.cards.push_back(std::move(card));
         }
         data.labels = alignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        const auto frame = ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, 32);
-        std::vector<std::vector<std::string>> equippedByRows;
-        equippedByRows.reserve(definitions.size());
-        for (const auto* definition : definitions)
-        {
-            equippedByRows.push_back(equipmentEquippedBy(session_, definition->itemId));
-        }
-        auto detail = makeEquipmentDetailPanel(
-            session_,
-            definitions,
-            std::move(equippedByRows),
-            frame);
-        const int choice = runIndexedMenu(
-            std::format("神兵商店　${}", session_.state().money),
-            data,
-            kChessCompactMenuPresentation.fontSize,
-            kChessBrowseMenuPresentation.itemsPerPage,
-            anchor,
-            {detail},
-            false);
+        const int choice = runSelection(std::format("神兵商店　${}", session_.state().money), data);
         if (choice < 0)
         {
             return;
@@ -3605,7 +2578,7 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
 void ChessGuiSessionAdapter::showOverviewMenu()
 {
     const auto items = buildChessOverviewMenu();
-    const auto action = runContextActionMenu(items);
+    const auto action = runContextActionMenu("棋局圖鑑", items);
     if (!action)
     {
         return;
@@ -3740,7 +2713,7 @@ bool ChessGuiSessionAdapter::runSystemMenu()
 {
     for (;;)
     {
-        const auto action = runContextActionMenu(buildChessSystemMenu());
+        const auto action = runContextActionMenu("系統選單", buildChessSystemMenu());
         if (!action)
         {
             return false;
@@ -3780,32 +2753,14 @@ bool ChessGuiSessionAdapter::runSystemMenu()
 void ChessGuiSessionAdapter::showPositionSwap()
 {
     const bool currentEnabled = session_.state().options.positionSwapEnabled;
-    const auto frame = ChessScreenLayout::positionSwapPanel();
-    auto panel = makePanel(frame, [currentEnabled](int selectedRow, const PanelFrame& panelFrame) {
-        const bool willEnable = chessPositionSwapPreviewEnabled(currentEnabled, selectedRow);
-        constexpr int fontSize = 32;
-        PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 10, panelFrame.y + 10};
-        cursor.line(
-            willEnable ? "狀態：開啟" : "狀態：關閉",
-            fontSize,
-            willEnable ? Color{0, 255, 0, 255} : Color{255, 80, 80, 255},
-            6);
-        cursor.line("戰鬥開始前可交換我方棋子位置", fontSize, {255, 215, 0, 255}, 6);
-        cursor.line("點擊兩個我方棋子即可互換位置", fontSize, {255, 255, 255, 255}, 6);
-        cursor.line("右鍵確認完成佈陣", fontSize, {255, 255, 255, 255}, 6);
-    }, PanelVisibility{}, {0, 0, 0, 180}, {180, 170, 140, 200}, 6);
-    SessionMenuData data;
-    data.labels = {"  關閉  ", "  開啟  "};
-    const auto anchor = ChessScreenLayout::modalMenuAnchor();
-    const int selected = runIndexedMenu(
-        "",
-        data,
-        kChessPositionSwapMenuPresentation.fontSize,
-        kChessPositionSwapMenuPresentation.itemsPerPage,
-        anchor,
-        {panel},
-        false,
-        false);
+    auto menu = std::make_shared<ChessSelectionScreen>(
+        std::format("戰前佈陣 · 目前{}", currentEnabled ? "開啟" : "關閉"),
+        std::vector<ChessSelectionItem>{
+            {.title = "關閉戰前佈陣", .image = chessSelectionIcon(ChessUiStyle::Icon::Close)},
+            {.title = "開啟戰前佈陣", .image = chessSelectionIcon(ChessUiStyle::Icon::Formation)},
+        });
+    menu->setCommandMode(true);
+    const int selected = menu->run();
     if (selected == 0 || selected == 1)
     {
         ChessAction action;
@@ -3818,26 +2773,9 @@ void ChessGuiSessionAdapter::showPositionSwap()
 void ChessGuiSessionAdapter::showEnemyReroll()
 {
     const int cost = session_.content().balance().enemyRerollCost;
-    const auto frame = ChessScreenLayout::largeModalPreviewPanel();
-    auto panel = makePanel(frame, [cost](int, const PanelFrame& panelFrame) {
-        constexpr int fontSize = 22;
-        PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 10, panelFrame.y + 10};
-        cursor.line("逆天改命", fontSize + 2, {255, 215, 0, 255}, 8);
-        cursor.line(
-            std::format("花費 ${}  重新抽取下場戰鬥的敵方隨機種子", cost),
-            fontSize,
-            {255, 255, 255, 255},
-            12);
-        cursor.line("敵人陣容會改變，地圖不保證改變", fontSize, {130, 220, 255, 255}, 8);
-        cursor.line("確認後立即生效", fontSize, {100, 255, 100, 255}, 8);
-    });
-    auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認逆天改命", "取消"});
-    menu->setFontSize(36);
-    menu->arrange(0, 0, 0, 45);
-    menu->addChild(panel);
-    const auto anchor = ChessScreenLayout::modalMenuAnchor();
-    menu->runAtPosition(anchor.x, anchor.y);
-    if (menu->getResult() == 0)
+    if (runChessChoiceMenu(
+        "逆天改命 · 重抽下場敵軍，地圖可能不變",
+        {std::format("花費 ${} 重抽", cost), "取消"}, ChessChoiceStyle::Confirmation) == 0)
     {
         ChessAction action;
         action.type = ChessActionType::RerollEnemySeed;
@@ -3855,201 +2793,15 @@ void ChessGuiSessionAdapter::showEnemyReroll()
     }
 }
 
-namespace
-{
-std::shared_ptr<DrawableOnCall> makeComboOverviewPanel(
-    const ChessGameSession& session,
-    std::vector<const ComboDef*> rows,
-    const PanelFrame& frame)
-{
-    const std::unordered_set<int> poolRoles(
-        session.content().poolRoleIds().begin(),
-        session.content().poolRoleIds().end());
-    std::map<int, int> deployedStarByRole;
-    for (const auto& [instanceId, piece] : session.state().roster)
-    {
-        if (piece.deployed)
-        {
-            deployedStarByRole[piece.roleId] = std::max(deployedStarByRole[piece.roleId], piece.star);
-        }
-    }
-    return makePanel(frame, [&session, rows = std::move(rows), poolRoles, deployedStarByRole](int row, const PanelFrame& panelFrame) {
-        if (row < 0 || row >= static_cast<int>(rows.size()))
-        {
-            return;
-        }
-        const auto& combo = *rows[row];
-        constexpr int preferredFontSize = 24;
-        constexpr int minimumFontSize = 14;
-        auto* font = Font::getInstance();
-        font->draw(combo.name, preferredFontSize + 4,
-            panelFrame.x + 10, panelFrame.y + 10, {255, 255, 100, 255});
-
-        const auto progress = evaluateChessComboProgress(session.state(), session.content(), combo);
-        std::vector<PanelVisualTextRow> memberRows;
-        appendPanelTextRow(memberRows, "成員:", {200, 200, 200, 255}, 0, 0, 0, 2);
-        int totalBonus = 0;
-        for (const int roleId : combo.memberRoleIds)
-        {
-            if (!poolRoles.contains(roleId))
-            {
-                continue;
-            }
-            const auto* role = session.content().role(roleId);
-            assert(role);
-            const auto foundStar = deployedStarByRole.find(roleId);
-            const bool deployed = foundStar != deployedStarByRole.end();
-            std::string starSuffix;
-            if (deployed && combo.starSynergyBonus)
-            {
-                starSuffix = std::format(" ★{}", foundStar->second);
-                totalBonus += foundStar->second - 1;
-            }
-            appendPanelTextRow(
-                memberRows,
-                std::format("  {} ({}費){}{}", role->Name, role->Cost, deployed ? " ✓" : "", starSuffix),
-                deployed ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255},
-                0,
-                0,
-                0,
-                1);
-        }
-
-        std::vector<PanelVisualTextRow> thresholdRows;
-        appendPanelTextRow(
-            thresholdRows,
-            combo.isAntiCombo ? "條件:" : "閾值:",
-            {200, 200, 200, 255});
-        if (session.state().selectedTalentComboId == combo.id)
-        {
-            appendPanelTextRow(thresholdRows,
-                std::format("合縱：永久 +{}人", session.content().balance().talent(session.state().talent).selectedComboBonus),
-                {115, 220, 190, 255});
-        }
-        if (combo.starSynergyBonus)
-        {
-            appendPanelTextRow(
-                thresholdRows,
-                totalBonus > 0
-                    ? std::format("★ 成員星級計人數，當前+{}人", totalBonus)
-                    : "★ 成員星級計人數（2★=2人）",
-                {255, 200, 50, 255},
-                -4,
-                0,
-                4,
-                2);
-            appendPanelTextRow(
-                thresholdRows,
-                "每額外★計入1羈絆人數",
-                {180, 160, 80, 255},
-                -6,
-                2);
-        }
-        for (int index = 0; index < static_cast<int>(combo.thresholds.size()); ++index)
-        {
-            const auto& threshold = combo.thresholds[index];
-            const int requiredCount = progress.requiredCounts[index];
-            const bool active = index <= progress.activeThresholdIndex;
-            appendPanelTextRow(
-                thresholdRows,
-                std::format("{}人: {}{}", requiredCount, threshold.name, active ? " ✓" : ""),
-                active ? Color{0, 255, 0, 255} : Color{255, 200, 100, 255},
-                0,
-                0,
-                8,
-                1);
-            const auto rendered = describeGameplayEffectsAndManagementRules(
-                threshold.effects,
-                threshold.managementRules,
-                EffectDescriptionStyle::Compact);
-            appendRenderedEffectDescriptionRows(
-                thresholdRows,
-                rendered,
-                active ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255},
-                -2,
-                0,
-                2);
-        }
-        appendPanelTextRow(
-            thresholdRows,
-            "完整說明：棋局總覽 → 效果全覽",
-            {160, 160, 160, 255},
-            -4,
-            0,
-            12);
-
-        constexpr int contentTop = 45;
-        constexpr int contentBottomInset = 10;
-        constexpr int memberWidth = 270;
-        const int thresholdWidth = panelFrame.w - 300;
-        const int availableHeight = panelFrame.h - contentTop - contentBottomInset;
-        const auto memberSourceRows = panelTextLayoutRows(memberRows);
-        const auto thresholdSourceRows = panelTextLayoutRows(thresholdRows);
-        std::optional<std::pair<PanelTextLayout, PanelTextLayout>> fitted;
-        for (int fontSize = preferredFontSize; fontSize >= minimumFontSize; --fontSize)
-        {
-            auto memberLayout = layoutPanelText(memberSourceRows, memberWidth, fontSize);
-            auto thresholdLayout = layoutPanelText(thresholdSourceRows, thresholdWidth, fontSize);
-            if (memberLayout.height <= availableHeight
-                && thresholdLayout.height <= availableHeight)
-            {
-                fitted = std::pair{
-                    std::move(memberLayout),
-                    std::move(thresholdLayout),
-                };
-                break;
-            }
-        }
-        assert(fitted && "compact combo descriptions must fit the overview panel");
-        drawPanelText(font, memberRows, fitted->first,
-            panelFrame.x + 10, panelFrame.y + contentTop);
-        drawPanelText(font, thresholdRows, fitted->second,
-            panelFrame.x + 290, panelFrame.y + contentTop);
-    });
-}
-}
-
 void ChessGuiSessionAdapter::viewCombos()
 {
-    SessionMenuData data;
-    std::vector<std::pair<std::string, std::string>> labelRows;
-    std::vector<const ComboDef*> rows;
-    const std::unordered_set<int> poolRoles(
-        session_.content().poolRoleIds().begin(),
-        session_.content().poolRoleIds().end());
-    for (const auto& combo : session_.content().combos())
-    {
-        if (combo.isNpcOnly || std::ranges::none_of(combo.memberRoleIds, [&](int roleId) { return poolRoles.contains(roleId); }))
-        {
-            continue;
-        }
-        const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), combo);
-        labelRows.push_back({combo.name, formatChessComboProgressCount(progress)});
-        data.colors.push_back(progress.effectiveCount > 0
-            ? Color{0, 255, 0, 255}
-            : Color{180, 180, 180, 255});
-        rows.push_back(&combo);
-    }
-    data.labels = buildAlignedComboCatalogLabels(labelRows, menuDisplayWidth);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
-        anchor,
-        data.labels,
-        kChessBrowseMenuPresentation.fontSize);
-    auto detail = makeComboOverviewPanel(session_, std::move(rows), frame);
-    runIndexedMenu(
-        "羈絆一覽",
-        data,
-        kChessBrowseMenuPresentation.fontSize,
-        kChessBrowseMenuPresentation.itemsPerPage,
-        anchor,
-        {detail},
-        false);
+    showChessComboOverview(session_.content(), session_.state());
 }
 
 void ChessGuiSessionAdapter::viewChessPool()
 {
     SessionMenuData data;
+    data.browseOnly = true;
     std::vector<ChessMenuColumnRow> labelRows;
     std::vector<int> roleIds;
     std::set<int> owned;
@@ -4069,23 +2821,18 @@ void ChessGuiSessionAdapter::viewChessPool()
         });
         data.colors.push_back(chessPieceTierColor(role->Cost));
         roleIds.push_back(roleId);
+        auto card = roleCard(session_, roleId);
+        card.subtitle = owned.contains(roleId) ? "已招募 · 圖鑑預覽" : "圖鑑預覽";
+        data.cards.push_back(std::move(card));
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
-    runIndexedMenu(
-        "棋子一覽",
-        data,
-        kChessCompactMenuPresentation.fontSize,
-        kChessCompactMenuPresentation.itemsPerPage,
-        anchor,
-        makeCharacterPreviewPanels(session_, panels, roleIds),
-        false);
+    runSelection("棋子一覽", data, {}, false);
 }
 
 void ChessGuiSessionAdapter::viewNeigong()
 {
     SessionMenuData data;
+    data.browseOnly = true;
     std::vector<ChessMenuColumnRow> labelRows;
     std::vector<const NeigongDef*> rows;
     for (const auto& neigong : session_.content().neigong())
@@ -4097,31 +2844,19 @@ void ChessGuiSessionAdapter::viewNeigong()
             owned ? " ✓" : "",
             {},
         });
-        data.colors.push_back(owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255});
+        data.colors.push_back(owned ? ChessUiStyle::positive : Color{120, 120, 120, 255});
         rows.push_back(&neigong);
+        data.cards.push_back(neigongCard(session_, neigong));
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
-        anchor,
-        data.labels,
-        kChessBrowseMenuPresentation.fontSize);
-    auto detail = makeNeigongDetailPanel(session_, std::move(rows), frame, true);
-    runIndexedMenu(
-        "內功一覽",
-        data,
-        kChessBrowseMenuPresentation.fontSize,
-        kChessBrowseMenuPresentation.itemsPerPage,
-        anchor,
-        {detail},
-        false);
+    runSelection("內功一覽", data);
 }
 
 void ChessGuiSessionAdapter::viewEffects()
 {
     auto entries = chessEffectCatalog(session_.content());
-    const auto effectCount = entries.size();
     SessionMenuData data;
+    data.browseOnly = true;
     std::vector<ChessMenuColumnRow> labelRows;
     labelRows.reserve(entries.size());
     for (const auto& entry : entries)
@@ -4135,165 +2870,34 @@ void ChessGuiSessionAdapter::viewEffects()
             {},
         });
         data.colors.push_back(effectCatalogSourceColor(entry.source));
+        data.cards.push_back({
+            .title = entry.sourceName,
+            .subtitle = std::format("效果 {} / {}", entry.ruleOrdinal, entry.sourceRuleCount),
+            .badge = chessEffectCatalogSourceLabel(entry.source),
+            .image = chessSelectionIcon(ChessUiStyle::Icon::Spark),
+            .accent = effectCatalogSourceColor(entry.source),
+            .category = chessEffectCatalogSourceLabel(entry.source),
+            .summary = joinEffectDescriptionRows(entry.effects, " · "),
+            .description = entry.sourceContext + "\n\n" + joinEffectDescriptionRows(entry.effects),
+        });
     }
     data.labels = contentSizedAlignedMenuLabels(labelRows);
-
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
-        anchor,
-        data.labels,
-        kChessCompactMenuPresentation.fontSize);
-    auto detail = makePanel(
-        frame,
-        [entries = std::move(entries)](int row, const PanelFrame& panelFrame)
-        {
-            if (!isPanelRowInRange(row, static_cast<int>(entries.size()))) return;
-            const auto& entry = entries[row];
-            const auto sourceColor = effectCatalogSourceColor(entry.source);
-            std::vector<PanelVisualTextRow> rows;
-            appendPanelTextRow(
-                rows,
-                entry.sourceName,
-                {255, 255, 100, 255},
-                5,
-                0,
-                0,
-                4);
-            appendPanelTextRow(
-                rows,
-                std::format("{}效果 · 配置 {}/{}",
-                    chessEffectCatalogSourceLabel(entry.source),
-                    entry.ruleOrdinal,
-                    entry.sourceRuleCount),
-                sourceColor,
-                1,
-                0,
-                0,
-                3);
-            appendPanelTextRow(
-                rows,
-                entry.sourceContext,
-                {185, 185, 185, 255},
-                -2,
-                0,
-                0,
-                12);
-            appendRenderedEffectDescriptionRows(
-                rows,
-                entry.effects,
-                {225, 225, 225, 255},
-                0,
-                3);
-            const auto layout = fitVisualPanelText(
-                rows,
-                panelFrame.w - 20,
-                panelFrame.h - 20,
-                22,
-                14);
-            drawPanelText(
-                Font::getInstance(),
-                rows,
-                layout,
-                panelFrame.x + 10,
-                panelFrame.y + 10);
-        });
-    runIndexedMenu(
-        std::format("效果全覽 · {}項", effectCount),
-        data,
-        kChessCompactMenuPresentation.fontSize,
-        kChessCompactMenuPresentation.itemsPerPage,
-        anchor,
-        {detail},
-        false);
+    runSelection("效果全覽", data);
 }
 
 void ChessGuiSessionAdapter::showGameGuide()
 {
-    const auto frame = ChessScreenLayout::fullContentRegion();
     const auto sections = buildChessGameGuideSections(session_.content(), session_.state().talent);
-    auto panel = makePanel(frame, [sections](int, const PanelFrame& panelFrame) {
-        auto* font = Font::getInstance();
-        constexpr int titleFontSize = 22;
-        constexpr int bodyFontSize = 19;
-        constexpr int bodySpacing = 4;
-        const int columnWidth = (panelFrame.w - 90) / 2;
-
-        font->draw(
-            "珍瓏棋局 · 遊戲說明",
-            titleFontSize + 4,
-            panelFrame.x + 30,
-            panelFrame.y + 14,
-            {255, 255, 100, 255});
-
-        const auto lineColor = [](ChessGameGuideLineTone tone) {
-            switch (tone)
-            {
-            case ChessGameGuideLineTone::Standard: return Color{220, 220, 220, 255};
-            case ChessGameGuideLineTone::Information: return Color{200, 230, 255, 255};
-            case ChessGameGuideLineTone::Highlight: return Color{255, 210, 150, 255};
-            }
-            std::unreachable();
-        };
-
-        const auto measureWrappedLines = [columnWidth](const std::string& text) {
-            const int displayWidth = displayTextUnitsForPixelWidth(bodyFontSize, columnWidth - 24);
-            return std::max(1, static_cast<int>(wrapDisplayText(text, displayWidth).size()));
-        };
-
-        const auto measureSectionHeight = [&](const ChessGameGuideSection& section) {
-            int height = titleFontSize + 8;
-            for (const auto& line : section.lines)
-            {
-                height += measureWrappedLines(line.text) * (bodyFontSize + bodySpacing);
-            }
-            return height + 8;
-        };
-
-        PanelColumnFlow flow{
-            font,
-            panelFrame,
-            panelFrame.x + 30,
-            panelFrame.y + 58,
-            panelFrame.y + 58,
-            panelFrame.y + panelFrame.h - 42,
-            columnWidth,
-        };
-        for (const auto& section : sections)
-        {
-            if (!flow.ensureSpace(measureSectionHeight(section)))
-            {
-                break;
-            }
-
-            PanelTextCursor cursor{font, flow.x, flow.y};
-            cursor.line(section.title, titleFontSize, {255, 255, 100, 255}, 8);
-            for (const auto& line : section.lines)
-            {
-                drawWrappedLines(
-                    cursor,
-                    line.text,
-                    bodyFontSize,
-                    lineColor(line.tone),
-                    columnWidth - 12,
-                    bodySpacing);
-            }
-            cursor.skip(8);
-            flow.y = cursor.y;
-        }
-
-        font->draw(
-            "點擊任意處返回",
-            bodyFontSize - 1,
-            panelFrame.x + 30,
-            panelFrame.y + panelFrame.h - 28,
-            {150, 150, 150, 255});
-    });
-    auto box = std::make_shared<DismissibleTextBox>();
-    box->setText("　");
-    box->setHaveBox(false);
-    box->setFontSize(1);
-    box->addChild(panel);
-    box->runAtPosition(0, 0);
+    SessionMenuData data;
+    data.browseOnly = true;
+    for (const auto& section : sections)
+    {
+        data.labels.push_back(section.title);
+        data.cards.push_back({.title = section.title, .image = chessSelectionIcon(ChessUiStyle::Icon::Book),
+            .summary = section.lines.empty() ? std::string{} : section.lines.front().text});
+        for (const auto& line : section.lines) data.cards.back().description += line.text + "\n\n";
+    }
+    runSelection("遊戲說明", data);
 }
 
 void ChessGuiSessionAdapter::showSystemSettings()
@@ -4320,6 +2924,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
         }
 
         SessionMenuData data;
+        data.actionLabel = "挑戰";
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<const BalanceConfig::ChallengeDef*> rows;
         for (const auto& name : descriptor.candidateStableIds)
@@ -4338,57 +2943,35 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
             });
             data.colors.push_back(chessChallengeMenuRowColor(complete));
             rows.push_back(&*found);
+            ChessSelectionItem card{
+                .title = found->name,
+                .subtitle = complete ? "已完成" : "",
+                .badge = std::format("{} 名對手", found->enemies.size()),
+                .image = chessSelectionIcon(ChessUiStyle::Icon::Mountain),
+                .accent = complete ? ChessUiStyle::positive : ChessUiStyle::gold,
+                .category = complete ? "已完成" : "未完成",
+                .facts = {{"對手", std::to_string(found->enemies.size())}, {"獎勵", "擇一"}},
+                .summary = found->rewards.empty() ? "" : chessChallengeRewardDescription(session_.content(), found->rewards.front()),
+                .relatedTitle = "敵方陣容",
+            };
+            for (const auto& enemy : found->enemies)
+            {
+                const auto* role = session_.content().role(enemy.roleId);
+                assert(role);
+                card.related.push_back({"head", role->HeadID});
+            }
+            if (!card.related.empty()) card.image = card.related.front();
+            std::string enemies, rewards;
+            for (const auto& enemy : found->enemies)
+                enemies += chessChallengeEnemyDescription(session_.content(), enemy) + "\n\n";
+            for (const auto& reward : found->rewards)
+                rewards += chessChallengeRewardDescription(session_.content(), reward) + "\n\n";
+            card.description = found->description;
+            card.detailTabs = {{"概況", found->description}, {"敵陣", std::move(enemies)}, {"獎勵", "通關後擇一\n\n" + rewards}};
+            data.cards.push_back(std::move(card));
         }
         data.labels = alignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
-            anchor,
-            data.labels,
-            kChessChallengeMenuPresentation.fontSize);
-        auto detail = makePanel(frame, [this, rows](int row, const PanelFrame& panelFrame) {
-            if (row < 0 || row >= static_cast<int>(rows.size()))
-            {
-                return;
-            }
-            const auto& challenge = *rows[row];
-            constexpr int fontSize = 22;
-            PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 10, panelFrame.y + 10};
-            cursor.line(challenge.name, fontSize + 4, {255, 255, 100, 255}, 6);
-            cursor.line(challenge.description, fontSize, {200, 200, 200, 255}, 8);
-            if (session_.state().completedChallengeNames.contains(challenge.name))
-            {
-                cursor.line(chessChallengeCompletionLabel(true), fontSize, {0, 255, 0, 255}, 8);
-            }
-
-            cursor.line("敵方陣容:", fontSize, {255, 150, 150, 255});
-            for (const auto& enemy : challenge.enemies)
-            {
-                cursor.line(
-                    chessChallengeEnemyDescription(session_.content(), enemy),
-                    fontSize - 2,
-                    {220, 180, 180, 255},
-                    2);
-            }
-            cursor.skip(8);
-
-            cursor.line("通關獎勵(擇一):", fontSize, {100, 255, 100, 255});
-            for (const auto& reward : challenge.rewards)
-            {
-                cursor.line(
-                    "  " + chessChallengeRewardDescription(session_.content(), reward),
-                    fontSize - 2,
-                    {200, 255, 200, 255},
-                    2);
-            }
-        });
-        const int choice = runIndexedMenu(
-            "遠征挑戰",
-            data,
-            kChessChallengeMenuPresentation.fontSize,
-            kChessChallengeMenuPresentation.itemsPerPage,
-            anchor,
-            {detail},
-            false);
+        const int choice = runSelection("遠征挑戰", data);
         if (choice < 0)
         {
             return currentChessGuiFlowResult();
@@ -4431,6 +3014,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 return option.goldCost <= session_.state().money;
             });
         SessionMenuData data;
+        data.actionLabel = "領取";
         std::vector<ChessMenuColumnRow> labelRows;
         for (const auto& option : availableOptions)
         {
@@ -4446,6 +3030,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     chessRewardOptionCostColumn(option),
                 });
                 data.colors.push_back(chessRewardTierColor(definition->tier));
+                data.cards.push_back(equipmentCard(session_, *definition));
             }
             else if (option.kind == ChessRewardKind::InternalSkill)
             {
@@ -4458,6 +3043,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     chessRewardOptionCostColumn(option),
                 });
                 data.colors.push_back(chessRewardTierColor(found->tier));
+                data.cards.push_back(neigongCard(session_, *found));
             }
             else if (option.kind == ChessRewardKind::Piece)
             {
@@ -4465,6 +3051,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 assert(role);
                 labelRows.push_back({{}, role->Name, chessStars(1), chessRewardOptionCostColumn(option)});
                 data.colors.push_back(chessPieceTierColor(role->Cost));
+                data.cards.push_back(roleCard(session_, role->ID));
             }
             else if (option.kind == ChessRewardKind::Synergy)
             {
@@ -4473,6 +3060,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 const auto& talent = session_.content().balance().talent(session_.state().talent);
                 labelRows.push_back({{}, combo->name, std::format("+{}人", talent.selectedComboBonus), {}});
                 data.colors.push_back({115, 220, 190, 255});
+                data.cards.push_back(comboCard(session_, *combo));
             }
             else if (option.kind == ChessRewardKind::StarUpgrade)
             {
@@ -4486,6 +3074,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     chessRewardOptionCostColumn(option),
                 });
                 data.colors.push_back(chessPieceTierColor(role->Cost));
+                data.cards.push_back(roleCard(session_, piece.roleId, option.value2, piece.instanceId));
             }
             else
             {
@@ -4504,99 +3093,51 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     {},
                     chessRewardOptionCostColumn(option),
                 });
-                data.colors.push_back({255, 255, 100, 255});
+                data.colors.push_back(ChessUiStyle::gold);
+                ChessSelectionItem card{.image = chessSelectionIcon(ChessUiStyle::Icon::Spark), .summary = option.id};
+                using Type = BalanceConfig::ChallengeRewardType;
+                switch (reward->type)
+                {
+                case Type::Gold:
+                    card.title = std::format("+{} 金幣", reward->value);
+                    card.image = chessSelectionIcon(ChessUiStyle::Icon::Coin);
+                    break;
+                case Type::GetPiece:
+                    card.title = "招募棋子";
+                    card.badge = std::format("最高{}費", reward->value);
+                    card.image = chessSelectionIcon(ChessUiStyle::Icon::Character);
+                    break;
+                case Type::GetNeigong:
+                    card.title = "獲得內功";
+                    card.badge = std::format("最高{}階", reward->value);
+                    card.image = chessSelectionIcon(ChessUiStyle::Icon::Cultivation);
+                    break;
+                case Type::StarUp1to2:
+                case Type::StarUp2to3:
+                    card.title = reward->type == Type::StarUp1to2 ? "★ → ★★" : "★★ → ★★★";
+                    card.badge = std::format("最高{}費", reward->value);
+                    card.image = chessSelectionIcon(ChessUiStyle::Icon::Up);
+                    break;
+                case Type::GetEquipment:
+                    card.title = "獲得裝備";
+                    card.badge = std::format("最高{}階", reward->value);
+                    card.image = chessSelectionIcon(ChessUiStyle::Icon::Bag);
+                    break;
+                case Type::GetSpecificEquipment:
+                    card.title = chessItemDisplayName(session_.content(), reward->value);
+                    card.image = {"item", reward->value};
+                    break;
+                }
+                data.cards.push_back(std::move(card));
             }
+            if (option.goldCost > 0) data.cards.back().subtitle = std::format("{} 金", option.goldCost);
         }
         data.labels = buildAlignedChessRewardMenuLabels(
             pending.kind,
             labelRows,
             menuDisplayWidth);
-        const auto menuPresentation = chessRewardMenuPresentation(
-            pending,
-            static_cast<int>(data.labels.size()));
-
-        const auto anchor = ChessScreenLayout::contentMenuAnchor();
-        std::vector<std::shared_ptr<DrawableOnCall>> detailPanels;
-        if (pending.kind == ChessRewardKind::Equipment)
-        {
-            std::vector<const EquipmentDef*> equipments;
-            equipments.reserve(availableOptions.size());
-            for (const auto& option : availableOptions)
-            {
-                assert(option.kind == ChessRewardKind::Equipment);
-                const auto* equipment = equipmentDefinition(session_.content(), option.value);
-                assert(equipment);
-                equipments.push_back(equipment);
-            }
-            detailPanels.push_back(makeEquipmentDetailPanel(
-                session_,
-                std::move(equipments),
-                {},
-                ChessScreenLayout::browseDetailRegionForMenu(
-                    anchor,
-                    data.labels,
-                    menuPresentation.fontSize)));
-        }
-        else if (pending.kind == ChessRewardKind::InternalSkill)
-        {
-            const auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(
-                anchor,
-                data.labels,
-                menuPresentation.fontSize);
-            std::vector<const NeigongDef*> neigongs;
-            neigongs.reserve(availableOptions.size());
-            for (const auto& option : availableOptions)
-            {
-                const auto found = std::ranges::find(
-                    session_.content().neigong(),
-                    option.value,
-                    &NeigongDef::magicId);
-                assert(found != session_.content().neigong().end());
-                neigongs.push_back(&*found);
-            }
-            detailPanels.push_back(makeNeigongDetailPanel(
-                session_,
-                std::move(neigongs),
-                detailFrame,
-                false));
-        }
-        else if (pending.kind == ChessRewardKind::Synergy)
-        {
-            std::vector<const ComboDef*> combos;
-            for (const auto& option : availableOptions)
-            {
-                const auto combo = std::ranges::find(session_.content().combos(), option.value, &ComboDef::id);
-                assert(combo != session_.content().combos().end());
-                combos.push_back(&*combo);
-            }
-            detailPanels.push_back(makeComboOverviewPanel(session_, std::move(combos),
-                ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, menuPresentation.fontSize)));
-        }
-        else if (pending.kind == ChessRewardKind::Piece || pending.kind == ChessRewardKind::StarUpgrade)
-        {
-            std::vector<int> roleIds;
-            std::vector<int> starRows;
-            std::vector<int> instanceIds;
-            roleIds.reserve(availableOptions.size());
-            starRows.reserve(availableOptions.size());
-            instanceIds.reserve(availableOptions.size());
-            for (const auto& option : availableOptions)
-            {
-                const auto preview = chessRewardRolePreview(session_.state(), option);
-                assert(preview);
-                roleIds.push_back(preview->roleId);
-                starRows.push_back(preview->star);
-                instanceIds.push_back(preview->instanceId);
-            }
-            const auto panels = ChessScreenLayout::shopPanelsForMenu(
-                anchor,
-                data.labels,
-                menuPresentation.fontSize,
-                8);
-            detailPanels = makeCharacterPreviewPanels(
-                session_, panels, roleIds, starRows, instanceIds);
-        }
-
+        data.shortChoice = pending.kind == ChessRewardKind::ChallengeReward
+            && availableOptions.size() <= 3;
         std::string title = "選擇獎勵";
         if (pending.kind == ChessRewardKind::Equipment) title = "選擇裝備獎勵";
         else if (pending.kind == ChessRewardKind::InternalSkill) title = "內功對所有成員自動生效";
@@ -4604,16 +3145,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
         else if (pending.kind == ChessRewardKind::Synergy) title = "合縱：選擇永久加點羈絆";
         else if (pending.kind == ChessRewardKind::StarUpgrade)
             title = chessStarUpgradeRewardTitle(session_.state(), pending);
-        const int choice = runIndexedMenu(
-            title,
-            data,
-            menuPresentation.fontSize,
-            menuPresentation.itemsPerPage,
-            anchor,
-            detailPanels,
-            false,
-            true,
-            false);
+        const int choice = runSelection(title, data, {}, false, false);
         if (choice < 0)
         {
             if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
@@ -4683,21 +3215,18 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
 void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descriptor)
 {
     SessionMenuData data;
+    data.actionLabel = "前往戰場";
     for (const int mapId : descriptor.candidateIds)
     {
         data.labels.push_back(chessBattleMapDisplayName(session_.content(), mapId));
         data.colors.push_back({230, 230, 220, 255});
+        const auto* map = ChessBattleMapCatalog::find(mapId);
+        data.cards.push_back({.title = chessBattleMapDisplayName(session_.content(), mapId),
+            .image = chessSelectionIcon(ChessUiStyle::Icon::Mountain),
+            .facts = map ? std::vector<std::pair<std::string, std::string>>{{"我方上限", std::to_string(map->teammatePositions.size())},
+                {"敵方上限", std::to_string(map->enemyCapacity)}} : std::vector<std::pair<std::string, std::string>>{}});
     }
-    const int choice = runIndexedMenu(
-        "選擇戰場",
-        data,
-        32,
-        12,
-                ChessScreenLayout::contentMenuAnchor(),
-        {makeBattleMapPreviewPanel(session_, descriptor.candidateIds)},
-        false,
-        true,
-        false);
+    const int choice = runSelection("選擇戰場", data, makeBattleMapPreviewPanel(session_, descriptor.candidateIds), false, false);
     if (choice >= 0)
     {
         ChessAction action;
@@ -4729,12 +3258,10 @@ void ChessGuiSessionAdapter::chooseSwap(const ChessLegalActionDescriptor& descri
         starRows.push_back(found->star);
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::contentMenuAnchor();
-    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, 32);
-    const auto panel = makeRoleDetailPanel(session_, roleIds, starRows, {}, frame);
-    const int first = runIndexedMenu("第一個位置", data, 32, 12, anchor, {panel});
+    data.cards = roleCards(session_, roleIds, starRows);
+    const int first = runSelection("第一個位置", data);
     if (first < 0) return;
-    const int second = runIndexedMenu("第二個位置", data, 32, 12, anchor, {panel});
+    const int second = runSelection("第二個位置", data);
     if (second < 0) return;
     ChessAction action;
     action.type = ChessActionType::SwapPositions;
@@ -5005,6 +3532,12 @@ bool ChessGuiSessionAdapter::openPreparationCommand(ChessContextMenuAction comma
     }
     case ChessContextMenuAction::OpenSystemMenu:
         if (runSystemMenu()) return true;
+        break;
+    case ChessContextMenuAction::LoadProgress:
+        if (runSaveSlotMenu(0) >= 0) return true;
+        break;
+    case ChessContextMenuAction::SaveProgress:
+        runSaveSlotMenu(1);
         break;
     default: std::unreachable();
     }

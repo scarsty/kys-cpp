@@ -1,5 +1,6 @@
-﻿#include "Menu.h"
+#include "Menu.h"
 #include "Button.h"
+#include "ChessUiStyle.h"
 
 Menu::Menu()
 {
@@ -157,11 +158,17 @@ void Menu::dealEvent(EngineEvent& e)
             active_child_ = findNextVisibleChild(active_child_, direct);
         }
         forceActiveChild();
+        for (int i = 0; i < static_cast<int>(childs_.size()); ++i)
+            if (auto button = std::dynamic_pointer_cast<Button>(childs_[i]))
+                button->setFlatFocused(i == active_child_);
     }
 }
 
 RunNode::PointerResult Menu::onPointerEvent(const PointerEvent& event)
 {
+    if (event.phase == PointerPhase::Motion || event.phase == PointerPhase::ButtonDown)
+        for (const auto& child : childs_)
+            if (auto button = std::dynamic_pointer_cast<Button>(child)) button->setFlatFocused(false);
     if (event.phase == PointerPhase::Cancel)
     {
         onPointerInputReset();
@@ -302,7 +309,7 @@ void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> c
         item_spacing = font_size_ + 9;
     }
 
-    for (int i = 0; i < strings_.size(); ++i) 
+    for (int i = 0; i < strings_.size(); ++i)
     {
         auto& str = strings_[i];
         if (str.length() > len)
@@ -326,14 +333,29 @@ void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> c
             b->setOutlineThickness(outlineThicknesses[i]);
         }
     }
-    w_ = 10 * len;
-    h_ = item_spacing * strings_.size();
+    if (flat_size_) setFlatStyle(flat_size_->x, flat_size_->y);
+    w_ = flat_size_ ? flat_size_->x : 10 * len;
+    h_ = (flat_size_ ? flat_size_->y : item_spacing) * strings_.size();
 
     childs_text_.clear();
     for (int i = 0; i < strings_.size(); i++)
     {
         childs_text_[strings_[i]] = childs_[i];
     }
+}
+
+void MenuText::setFlatStyle(int width, int rowHeight)
+{
+    flat_size_ = SDL_Point{width, rowHeight};
+    setHaveBox(false);
+    for (int i = 0; i < getChildCount(); ++i)
+    {
+        auto button = std::dynamic_pointer_cast<Button>(childs_[i]);
+        assert(button);
+        button->setFlatStyle(width, rowHeight - 4);
+        button->setPosition(x_, y_ + i * rowHeight);
+    }
+    setSize(width, rowHeight * getChildCount());
 }
 
 std::string MenuText::getStringFromResult(int i)

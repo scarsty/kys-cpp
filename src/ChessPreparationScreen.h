@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessContextMenu.h"
+#include "ChessCharacterPresentation.h"
 #include "ChessGameSession.h"
 #include "ChessPreparationModel.h"
 #include "ChessScreenLayout.h"
@@ -12,6 +13,8 @@
 
 namespace KysChess
 {
+
+struct ChessCharacterEntry;
 
 struct ChessPreparationCallbacks
 {
@@ -36,7 +39,7 @@ public:
 
 private:
     using View = ChessPreparationView;
-    enum class Icon { Coin, Bag, Armor, Seal, Left, Right, Up, Down, Link, Eye, Refresh, Lock, Collapse, Sword, More, Sliders, Mountain, Spark, Book, Cultivation, Close, Ultimate, Count };
+    using Icon = ChessUiStyle::Icon;
     enum class Treatment { Quiet, Card, Slot, Action, Primary, Row };
     struct Control
     {
@@ -55,6 +58,7 @@ private:
     std::optional<ChessContextMenuAction> pendingCommand_;
     ChessGameplayObservation observation_;
     ChessPreparationSelection selection_;
+    ChessCharacterInspectorState characterInspector_;
     View view_ = View::Piece;
     ChessPreparationHistory history_;
     std::vector<Control> controls_;
@@ -96,8 +100,6 @@ private:
     int textPage_{};
     int equipmentId_ = -1;
     int equipmentType_{};
-    int comboId_ = -1;
-    int thresholdIndex_{};
     int replacementId_ = -1;
     int abilityId_ = -1;
     int neigongId_ = -1;
@@ -112,7 +114,6 @@ private:
     void inspector();
     void pieceInspector();
     void equipmentInspector();
-    void comboInspector();
     void informationInspector();
     void expandedInspector();
     void replacementInspector();
@@ -134,7 +135,7 @@ private:
         std::function<void()> action, std::string tooltip = {}, bool enabled = true,
         bool selected = false, Treatment treatment = Treatment::Quiet, Color color = {236, 232, 214, 255},
         bool touchConfirmation = false, std::function<void()> preview = {});
-    void panel(PanelFrame frame, bool reading = false);
+    void panel(PanelFrame frame);
     void text(std::string value, int x, int y, int size = 18,
         Color color = {236, 232, 214, 255}, int width = 0, int lines = 1);
     void image(std::string group, int id, PanelFrame frame);
@@ -143,9 +144,8 @@ private:
     void synergyIcon(int iconId, PanelFrame frame, Color color);
     void disclosure(std::string key, PanelFrame frame, std::string label, std::function<void()> action);
     int iconButton(std::string key, PanelFrame frame, Icon icon, std::string label,
-        std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false);
+        std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false, Color color = ChessUiStyle::ink);
     void pieceCard(const ChessSessionPiece& piece, PanelFrame frame, bool compact);
-    void itemSlot(int instanceId, PanelFrame frame, int type);
     void prose(const std::vector<PanelTextSourceRow>& rows, PanelFrame frame);
     void drawEquipmentPopover();
     void drawActionFeedback();

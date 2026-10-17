@@ -1,5 +1,6 @@
 #include "BattleSceneHades.h"
 #include "Audio.h"
+#include "Button.h"
 #include "BattleLogPresenter.h"
 #include "BattleSetupFactory.h"
 #include "BattleScenePauseControl.h"
@@ -15,6 +16,8 @@
 #include "ChessGuiBattleFlow.h"
 #include "ChessPvp.h"
 #include "ChessUiCommon.h"
+#include "ChessUiStyle.h"
+#include "ChessSelectionScreen.h"
 #include "Engine.h"
 #include "Event.h"
 #include "Find.h"
@@ -55,11 +58,6 @@ constexpr int ROLE_STATUS_BAR_Y = -120;
 constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_HEIGHT / 3;
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
-constexpr int BATTLE_CONTROL_PLAY_TEXTURE_ID = 333;
-constexpr int BATTLE_CONTROL_PAUSE_TEXTURE_ID = 334;
-constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
-constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
-constexpr int BATTLE_CONTROL_SURRENDER_TEXTURE_ID = 337;
 constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
 constexpr float PAPER_CAMERA_FOV = 60.0f;
 constexpr float PAPER_CAMERA_CLASSIC_VIEW_ANGLE = -0.17453292520f;
@@ -663,18 +661,22 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
         return;
     }
 
-    auto prompt = std::make_shared<MenuText>(
-        std::vector<std::string>{"地圖佈陣", "列表佈陣", "直接開戰"});
-    prompt->setFontSize(36);
-    prompt->arrange(0, 0, 0, 45);
-    prompt->runAtPosition(300, 220);
-    if (prompt->getResult() == 0)
+    using namespace KysChess;
+    using ChessUiStyle::Icon;
+    for (;;)
     {
-        runPositionSwapLoop();
-    }
-    else if (prompt->getResult() == 1)
-    {
-        runListBasedSwap();
+        auto menu = std::make_shared<ChessSelectionScreen>("戰前佈陣", std::vector<ChessSelectionItem>{
+            {.title = "地圖佈陣", .image = chessSelectionIcon(Icon::Map)},
+            {.title = "列表佈陣", .image = chessSelectionIcon(Icon::List)},
+            {.title = "開始戰鬥", .image = chessSelectionIcon(Icon::Play)},
+        });
+        menu->setCommandMode(true);
+        menu->setExitable(false);
+        const int choice = menu->run();
+        if (RunNode::runOwnerExitRequested() || choice == 2) return;
+        if (choice == 0) runPositionSwapLoop();
+        else if (choice == 1) runListBasedSwap();
+        if (RunNode::runOwnerExitRequested()) return;
     }
 }
 
@@ -2474,18 +2476,10 @@ void BattleSceneHades::confirmBattleSurrender()
     setBattlePaused(true);
     onPointerInputReset();
     invalidatePointerOwnership();
-    auto confirm = std::make_shared<MenuText>(
-        std::vector<std::string>{"繼續戰鬥", "確認投降（本場判負）"});
-    confirm->setFontSize(28);
-    confirm->setHaveBox(true);
-    confirm->arrange(0, 0, 0, 42);
-    int uiW = 0;
-    int uiH = 0;
-    Engine::getInstance()->getUISize(uiW, uiH);
-    confirm->runAtPosition(uiW / 2 - 160, uiH / 2 - 42);
+    const int choice = KysChess::runChessChoiceMenu("是否結束本場戰鬥？", {"繼續戰鬥", "確認投降（本場判負）"});
     onPointerInputReset();
     invalidatePointerOwnership();
-    if (confirm->getResult() != 1 || RunNode::runOwnerExitRequested())
+    if (choice != 1 || RunNode::runOwnerExitRequested())
     {
         setBattlePaused(wasPaused);
         return;
@@ -2568,6 +2562,7 @@ void BattleSceneHades::activateBattleControl(BattleControlId control)
 
 void BattleSceneHades::drawBattleControls()
 {
+    if (formation_preview_runtime_) return;
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
@@ -2579,58 +2574,23 @@ void BattleSceneHades::drawBattleControls()
     const std::string cameraModeText(battleCameraModeDisplayText(camera_auto_center_));
 
     auto* engine = Engine::getInstance();
-    auto drawIconButton = [&](const Rect& rect, int textureId, bool enabled)
-    {
-        const uint8_t alpha = enabled ? 255 : 96;
-        engine->fillRoundedRect({ 0, 0, 0, 95 }, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 14);
-        TextureManager::getInstance()->renderTexture(
-            "title",
-            textureId,
-            rect.x,
-            rect.y,
-            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, alpha },
-            rect.w,
-            rect.h);
-        if (!enabled)
-        {
-            engine->fillRoundedRect({ 0, 0, 0, 80 }, rect.x + 4, rect.y + 4, rect.w - 8, rect.h - 8, 12);
-        }
+    const auto pointer = PointerInput::instance().logicalPointerUiPosition();
+    using namespace KysChess::ChessUiStyle;
+    const auto drawControl = [&](BattleControlId id, const std::string& caption, Icon symbol, bool enabled = true) {
+        const auto rect = *layout.rect(id);
+        const bool hovered = enabled && layout.hitTest(pointer) == id;
+        engine->fillRoundedRect(hovered ? activeFill : panelFill, rect.x, rect.y, rect.w, rect.h, 6);
+        const auto color = enabled ? gold : muted;
+        asset("chess-preparation", iconId(symbol), {rect.x + 18, rect.y + 7, 28, 28}, false, color);
+        const int textWidth = Font::getTextDrawSize(caption) * 16 / 2;
+        label(caption, 16, rect.x + (rect.w - textWidth) / 2, rect.y + 42, color, rect.w - 8);
     };
-
-    auto drawTextButton = [&](const Rect& rect, int textureId, const std::string& text)
-    {
-        engine->fillRoundedRect({ 0, 0, 0, 95 }, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 14);
-        if (textureId >= 0)
-        {
-            TextureManager::getInstance()->renderTexture(
-                "title",
-                textureId,
-                rect.x,
-                rect.y,
-                TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255 },
-                rect.w,
-                rect.h);
-        }
-        const int fontSize = 20;
-        const int textW = Font::getTextDrawSize(text) * fontSize / 2;
-        const int textX = rect.x + (rect.w - textW) / 2;
-        const int textY = rect.y + (rect.h - fontSize) / 2 + 2;
-        Font::getInstance()->draw(text, fontSize, textX + 1, textY + 1, { 24, 18, 10, 255 }, 180);
-        Font::getInstance()->draw(text, fontSize, textX, textY, { 245, 222, 128, 255 }, 255);
-    };
-
-    drawTextButton(*layout.rect(BattleControlId::Speed), BATTLE_CONTROL_SPEED_TEXTURE_ID, speedText);
-    drawTextButton(*layout.rect(BattleControlId::PaperView), BATTLE_CONTROL_SPEED_TEXTURE_ID, paperViewText);
-    drawTextButton(*layout.rect(BattleControlId::CameraMode), BATTLE_CONTROL_SPEED_TEXTURE_ID, cameraModeText);
-    if (battle_paused_)
-    {
-        drawIconButton(*layout.rect(BattleControlId::Log), BATTLE_CONTROL_LOG_TEXTURE_ID, true);
-    }
-    drawIconButton(
-        *layout.rect(BattleControlId::Pause),
-        battle_paused_ ? BATTLE_CONTROL_PLAY_TEXTURE_ID : BATTLE_CONTROL_PAUSE_TEXTURE_ID,
-        pauseEnabled || battle_paused_);
-    drawIconButton(*layout.rect(BattleControlId::Surrender), BATTLE_CONTROL_SURRENDER_TEXTURE_ID, result_ < 0);
+    drawControl(BattleControlId::Speed, speedText, Icon::Speed);
+    drawControl(BattleControlId::PaperView, paperViewText, active_paper_battle_view_ ? Icon::View3D : Icon::View2D);
+    drawControl(BattleControlId::CameraMode, cameraModeText, camera_auto_center_ ? Icon::CameraFollow : Icon::CameraFree);
+    if (battle_paused_) drawControl(BattleControlId::Log, "日誌", Icon::Book);
+    drawControl(BattleControlId::Pause, battle_paused_ ? "繼續" : "暫停", battle_paused_ ? Icon::Play : Icon::Pause, pauseEnabled || battle_paused_);
+    drawControl(BattleControlId::Surrender, "投降", Icon::Flag, result_ < 0);
 }
 
 int BattleSceneHades::getBattleStepsThisRender()
@@ -2795,7 +2755,26 @@ BattlePostBattleSummary BattleSceneHades::makePostBattleSummary() const
 class PositionSwapNode : public RunNode
 {
 public:
-    explicit PositionSwapNode(BattleSceneHades* battle) : battle_(battle) {}
+    explicit PositionSwapNode(BattleSceneHades* battle) : battle_(battle)
+    {
+        auto back = std::make_shared<Button>();
+        back->setText("返回佈陣選單");
+        back->setFontSize(18);
+        back->setFlatStyle(208, 48);
+        back->setFlatIcon(KysChess::ChessUiStyle::Icon::Left);
+        addChild(back, 1056, 16);
+    }
+
+    void draw() override
+    {
+        KysChess::ChessUiStyle::panel(16, 16, 670, 48);
+        KysChess::ChessUiStyle::label("地圖佈陣 · 點選兩枚友軍交換位置", 20, 32, 30, KysChess::ChessUiStyle::ink, 620);
+    }
+
+    void onPressedOK() override
+    {
+        if (getChild(0)->getResult() == 0) onPressedCancel();
+    }
 
     void dealEvent(EngineEvent&) override
     {
@@ -2864,16 +2843,8 @@ public:
 
     void onPressedCancel() override
     {
-        auto menu = std::make_shared<MenuText>(
-            std::vector<std::string>{"佈陣完成", "繼續調整"});
-        menu->setFontSize(36);
-        menu->arrange(0, 0, 0, 45);
-        menu->runAtPosition(400, 300);
-        if (menu->getResult() == 0)
-        {
-            battle_->swapSelectedUnitId_ = -1;
-            setExit(true);
-        }
+        battle_->swapSelectedUnitId_ = -1;
+        setExit(true);
     }
 
 private:
@@ -2934,9 +2905,6 @@ void BattleSceneHades::runListBasedSwap()
         }
 
         std::vector<std::string> names;
-        std::vector<Color> colors;
-        std::vector<Color> outlineColors;
-        std::vector<bool> animateOutlines;
         for (int index = 0; index < static_cast<int>(allies.size()); ++index)
         {
             const auto& unit = scene_units_.requireRuntimeUnit(allies[index]);
@@ -2945,43 +2913,17 @@ void BattleSceneHades::runListBasedSwap()
                 + maximumCoordinateWidth - Font::getTextDrawSize(coordinate)
                 + 2;
             names.push_back(std::format("{}{}{}", unit.name, std::string(gap, ' '), coordinate));
-            colors.push_back({255, 255, 255, 255});
-            outlineColors.push_back(index == highlight ? Color{255, 255, 100, 255} : Color{});
-            animateOutlines.push_back(index == highlight);
+            if (index == highlight) names.back() += "  已選";
         }
-        return std::make_tuple(names, colors, outlineColors, animateOutlines);
+        return names;
     };
 
     for (;;)
     {
-        auto [firstNames, firstColors, firstOutlines, firstAnimations] = buildNames();
-        auto firstMenu = std::make_shared<MenuText>();
-        firstMenu->setStrings(firstNames, firstColors, firstOutlines, firstAnimations);
-        firstMenu->setFontSize(28);
-        firstMenu->arrange(0, 0, 0, 36);
-        firstMenu->runAtPosition(100, 100);
-        const int first = firstMenu->getResult();
-        if (first < 0)
-        {
-            auto confirm = std::make_shared<MenuText>(
-                std::vector<std::string>{"佈陣完成", "繼續調整"});
-            confirm->setFontSize(36);
-            confirm->arrange(0, 0, 0, 45);
-            confirm->runAtPosition(400, 300);
-            if (confirm->getResult() == 0)
-            {
-                break;
-            }
-            continue;
-        }
+        const int first = KysChess::runChessChoiceMenu("列表佈陣 · 選擇第一個陣位", buildNames());
+        if (first < 0) break;
 
-        auto [secondNames, secondColors, secondOutlines, secondAnimations] = buildNames(first);
-        auto secondMenu = std::make_shared<MenuText>();
-        secondMenu->setStrings(secondNames, secondColors, secondOutlines, secondAnimations);
-        secondMenu->setFontSize(28);
-        secondMenu->arrange(0, 0, 0, 36);
-        secondMenu->runAtPosition(100, 100);
-        const int second = secondMenu->getResult();
+        const int second = KysChess::runChessChoiceMenu("選擇要交換的陣位", buildNames(first));
         if (second < 0 || second == first)
         {
             continue;

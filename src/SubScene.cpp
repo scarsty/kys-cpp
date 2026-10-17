@@ -977,8 +977,22 @@ void SubScene::onEntrance()
     // scene_name->setStayFrame(40);
     // addChild(scene_name);
 
-    chess_mod_->onSubSceneEntrance(submap_id_);
-    if (submap_id_ == 53) openQuickChessMenu();
+    const bool newChessGame = chess_mod_->onSubSceneEntrance(submap_id_);
+    if (submap_id_ == 53)
+    {
+        if (newChessGame)
+        {
+            // 擂鼓山第零號事件是蘇星河；沿既有尋路動畫走到身旁，再觸發整備。
+            const auto* host = submap_info_->Event(0);
+            assert(host && host->Event1 > 0);
+            const int hostX = submap_info_->Event(0)->X(), hostY = submap_info_->Event(0)->Y();
+            FindWay(man_x_, man_y_, hostX, hostY);
+            std::erase_if(way_que_, [=](const Point& point) { return point.x == hostX && point.y == hostY; });
+            assert(!way_que_.empty());
+            setMouseEventPoint(hostX, hostY);
+        }
+        else openQuickChessMenu();
+    }
 }
 
 void SubScene::onExit()

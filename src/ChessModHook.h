@@ -22,7 +22,7 @@ public:
     explicit ChessMod(ChessGameSession& session);
     ~ChessMod();
 
-    void onSubSceneEntrance(int submapId);
+    bool onSubSceneEntrance(int submapId);
     bool interceptEvent(int submapId, int eventId);
     bool blockExit(int submapId) const;
     void showContextMenu();

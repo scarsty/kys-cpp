@@ -132,7 +132,7 @@ bool ChessMod::interceptEvent(int submap_id, int event_id)
     return false;
 }
 
-void ChessMod::onSubSceneEntrance(int submap_id)
+bool ChessMod::onSubSceneEntrance(int submap_id)
 {
     if (submap_id == MOD_SCENE_ID && needIntro_)
     {
@@ -165,7 +165,9 @@ void ChessMod::onSubSceneEntrance(int submap_id)
                 115);
             advancedModeTalk->run();
         }
+        return true;
     }
+    return false;
 }
 
 bool ChessMod::blockExit(int submap_id) const

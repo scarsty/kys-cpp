@@ -2,6 +2,7 @@
 
 #include "RunNode.h"
 #include "SystemSettings.h"
+#include "ChessUiStyle.h"
 
 #include <algorithm>
 #include <cassert>
@@ -25,7 +26,7 @@ inline int adjustSettingsSliderValue(int value, int delta)
 
 inline Color settingsToggleValueColor(bool enabled)
 {
-    return enabled ? Color{0, 255, 100, 255} : Color{255, 80, 80, 255};
+    return enabled ? ChessUiStyle::positive : ChessUiStyle::negative;
 }
 
 inline int settingsFooterActionY(int panelY, int panelH, int rowH, int bottomPadding)
@@ -81,6 +82,10 @@ private:
 
     struct Layout
     {
+        bool compact{};
+        int rowsPerColumn{};
+        int columnW{};
+        int columnGap{};
         int panelX{};
         int panelY{};
         int panelW{};
@@ -106,6 +111,10 @@ private:
     int rowIndex(Row row) const;
     Row rowFromIndex(int index) const;
     int rowTop(const Layout& layout, Row row) const;
+    int rowLeft(const Layout& layout, Row row) const;
+    int rowWidth(const Layout& layout, Row row) const;
+    int valueLeft(const Layout& layout, Row row) const;
+    int sliderLeft(const Layout& layout, Row row) const;
     std::optional<Row> rowAt(const Layout& layout, int x, int y) const;
     bool isActionRow(Row row) const;
     int actionX(const Layout& layout, Row row) const;
@@ -126,6 +135,7 @@ private:
     Row selectedRow_ = Row::ManualCamera;
     std::optional<Row> draggingSlider_;
     int inputGuardFrames_ = 8;
+    bool keyboardFocus_{};
     bool suppressNextOk_ = false;
     bool suppressNextCancel_ = false;
     std::optional<Row> pointerDownRow_;

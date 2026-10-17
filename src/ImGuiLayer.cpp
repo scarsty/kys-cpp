@@ -372,16 +372,16 @@ void ImGuiLayer::renderChangelogWindow()
         return;
     }
 
-    const ImVec4 panel_bg = colorU8(31, 34, 29, 232);
-    const ImVec4 panel_border = colorU8(190, 166, 96, 205);
-    const ImVec4 title_gold = colorU8(242, 222, 126);
-    const ImVec4 heading_gold = colorU8(232, 205, 112);
+    const ImVec4 panel_bg = colorU8(25, 23, 22, 242);
+    const ImVec4 panel_border = colorU8(177, 158, 120, 40);
+    const ImVec4 title_gold = colorU8(221, 200, 141);
+    const ImVec4 heading_gold = colorU8(221, 200, 141);
     const ImVec4 text_main = colorU8(236, 232, 215);
     const ImVec4 text_muted = colorU8(168, 164, 145);
     const ImVec4 bullet_color = colorU8(211, 177, 92);
     const ImVec4 accent_line = colorU8(166, 145, 78, 90);
-    const ImVec4 chip_bg = colorU8(91, 96, 59, 165);
-    const ImVec4 child_bg = colorU8(18, 21, 18, 118);
+    const ImVec4 chip_bg = colorU8(115, 98, 67, 90);
+    const ImVec4 child_bg = colorU8(18, 17, 16, 118);
     const ImVec4 dim_bg = colorU8(6, 7, 6, 70);
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -412,7 +412,7 @@ void ImGuiLayer::renderChangelogWindow()
     ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(panel_size, ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, fs * 0.7f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.2f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(fs * 1.1f, fs * 0.9f));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, fs * 0.45f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, fs * 0.25f);

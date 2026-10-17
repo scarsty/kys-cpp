@@ -16,6 +16,8 @@
 
 namespace KysChess
 {
+void showChessComboOverview(const ChessGameContent& content, const ChessSessionState& state, int comboId = -1);
+
 
 inline const EquipmentDef* equipmentDefinition(const ChessGameContent& content, int itemId)
 {
@@ -225,6 +227,9 @@ struct LabelValueColumn
 };
 
 void showChessMessage(const std::string& text, int fontSize = 32);
+enum class ChessChoiceStyle { Options, Confirmation, DestructiveConfirmation };
+int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
+    ChessChoiceStyle style = ChessChoiceStyle::Options);
 void playChessUpgradeSound();
 int getRandomChessMusic();
 int getRandomBattleMusic();
