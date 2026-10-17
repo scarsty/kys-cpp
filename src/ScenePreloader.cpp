@@ -162,17 +162,18 @@ void preloadSubSceneAssets(int submapId)
     }
 }
 
-void preloadBattlefieldAssets(int battlefieldId)
+std::vector<std::pair<std::string, int>> battlefieldAssets(int battlefieldId)
 {
+    std::vector<std::pair<std::string, int>> assets;
     if (battlefieldId < 0)
     {
-        return;
+        return assets;
     }
 
     auto* textureManager = TextureManager::getInstance();
     if (textureManager->getTextureGroupCount("smap") <= 0)
     {
-        return;
+        return assets;
     }
 
     MapSquareInt earth(BATTLEMAP_COORD_COUNT);
@@ -187,13 +188,14 @@ void preloadBattlefieldAssets(int battlefieldId)
 
     for (int id : smapIds)
     {
-        preloadTexture("smap", id);
+        assets.emplace_back("smap", id);
     }
 
     if (textureManager->getTextureGroup("battle-earth")->getTextureCount() > 0)
     {
-        preloadTexture("battle-earth", battlefieldId);
+        assets.emplace_back("battle-earth", battlefieldId);
     }
+    return assets;
 }
 
 void showPromptAndPreload(const std::string& message, const std::function<void()>& preload)

@@ -75,7 +75,8 @@ public:
     void cancelPrimaryTouch();
     bool processApplicationContextMenu();
     void render(SDL_Window* window, SDL_Renderer* renderer, int main_texture_w, int main_texture_h, const char* renderer_name);
-    void showBattleLog(const BattleLogViewModel& model);
+    void showBattleLog(const BattleLogViewModel& model, std::function<void()> togglePause = {});
+    void updateBattleLog(BattleLogViewModel model);
     void hideBattleLog();
     bool isBattleLogOpen() const;
     void showChangelog(const ChangelogData& data);

@@ -18,7 +18,7 @@ private:
     std::map<BattleControlId, SDL_Rect> rects_;
 };
 
-BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible);
+BattleControlLayout makeBattleControlLayout(int uiWidth);
 
 class BattleControlCapture
 {

@@ -4,6 +4,7 @@
 #include "BattlefieldData.h"
 #include "ChessCombo.h"
 #include "ChessGuiBattleFlow.h"
+#include "ChessBattleOverviewLayout.h"
 #include "ChessMagicEffectDisplay.h"
 #include "HeadlessBattleRunner.h"
 
@@ -71,33 +72,59 @@ TEST_CASE("initial battle camera converts the integer allied grid average to wor
     CHECK(center.world.y != averagedWorld.y);
 }
 
-TEST_CASE("prebattle summary preloads after its first rendered frame before dismissal",
+TEST_CASE("prebattle overview yields between load batches and enables input after a ready frame",
           "[chess][battle][gui][preview][lifecycle]")
 {
     ChessGuiPreBattleFlow flow;
-    int preloadCount{};
-    const auto preload = [&preloadCount] { ++preloadCount; };
+    int batches{};
+    const auto load = [&] { return ++batches == 3; };
+    CHECK_FALSE(flow.runLoadBatch(load));
+    CHECK_FALSE(flow.interactive());
+    flow.markFramePresented();
+    REQUIRE(flow.runLoadBatch(load));
+    CHECK_FALSE(flow.assetsLoaded());
+    CHECK_FALSE(flow.interactive());
+    flow.markFramePresented();
+    REQUIRE(flow.runLoadBatch(load));
+    CHECK_FALSE(flow.interactive());
+    REQUIRE(flow.runLoadBatch(load));
+    CHECK(flow.assetsLoaded());
+    CHECK_FALSE(flow.interactive());
+    CHECK_FALSE(flow.runLoadBatch(load));
+    flow.markFramePresented();
+    CHECK(flow.interactive());
+    CHECK_FALSE(flow.runLoadBatch(load));
+    CHECK(batches == 3);
+}
 
-    CHECK(flow.loadingVisible());
-    CHECK_FALSE(flow.canDismiss());
-    CHECK_FALSE(flow.runPreloadAfterFirstFrame(preload));
-    CHECK(preloadCount == 0);
-    CHECK_FALSE(flow.shouldDismiss(ChessGuiPreBattleDismissInput::KeyboardRelease));
-
-    flow.markFirstFramePresented();
-    CHECK_FALSE(flow.shouldDismiss(ChessGuiPreBattleDismissInput::PointerRelease));
-
-    REQUIRE(flow.runPreloadAfterFirstFrame(preload));
-
-    CHECK(preloadCount == 1);
-    CHECK_FALSE(flow.loadingVisible());
-    CHECK(flow.canDismiss());
-    CHECK(flow.shouldDismiss(ChessGuiPreBattleDismissInput::KeyboardRelease));
-    CHECK(flow.shouldDismiss(ChessGuiPreBattleDismissInput::GamepadRelease));
-    CHECK(flow.shouldDismiss(ChessGuiPreBattleDismissInput::PointerRelease));
-    CHECK_FALSE(flow.shouldDismiss(ChessGuiPreBattleDismissInput::None));
-    CHECK_FALSE(flow.runPreloadAfterFirstFrame(preload));
-    CHECK(preloadCount == 1);
+TEST_CASE("prebattle overview fits 13 pieces per side without overlapping synergies or inspector",
+          "[chess][battle][gui][preview][layout]")
+{
+    namespace Layout = ChessBattleOverviewLayout;
+    for (int side = 0; side < 2; ++side)
+    {
+        const auto team = Layout::team(side);
+        for (int row = 0; row < 13; ++row)
+        {
+            const auto frame = Layout::row(side, row);
+            CHECK(frame.x >= team.x);
+            CHECK(frame.x + frame.w <= team.x + team.w);
+            CHECK(frame.y + frame.h <= Layout::synergyTop);
+            if (row < 12) CHECK(frame.y + frame.h <= Layout::row(side, row + 1).y);
+            for (int slot = 0; slot < 2; ++slot)
+            {
+                const auto equipment = Layout::equipment(side, row, slot);
+                CHECK(equipment.x >= frame.x);
+                CHECK(equipment.x + equipment.w <= frame.x + frame.w);
+                CHECK(equipment.y + equipment.h <= frame.y + frame.h);
+            }
+        }
+        const auto last = Layout::synergy(side, Layout::synergiesPerPage - 1);
+        CHECK(last.y + last.h <= Layout::details.y);
+        CHECK(last.x + last.w <= team.x + team.w);
+    }
+    CHECK(Layout::details.y + Layout::details.h <= Layout::proceed.y);
+    CHECK(Layout::proceed.y + Layout::proceed.h <= 720);
 }
 
 TEST_CASE("GUI battle captures completion after terminal presentation sets its result",

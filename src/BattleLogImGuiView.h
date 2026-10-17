@@ -3,6 +3,8 @@
 #include "BattleLogViewModel.h"
 
 #include <string_view>
+#include <functional>
+#include <utility>
 
 inline std::string_view battleLogCategoryFilterLabel(BattleLogEntryCategory category)
 {
@@ -36,12 +38,14 @@ struct BattleLogWindowState
     bool dragging = false;
     int childFlip = 0;
     BattleLogFilter filter;
+    bool followLatest = true;
+    std::function<void()> togglePause;
 };
 
 class BattleLogImGuiView
 {
 public:
-    void show(BattleLogWindowState& state, const BattleLogViewModel& model) const
+    void show(BattleLogWindowState& state, const BattleLogViewModel& model, std::function<void()> togglePause = {}) const
     {
         state.model = model;
         state.model.open = true;
@@ -50,11 +54,20 @@ public:
         state.dragging = false;
         state.childFlip ^= 1;
         state.filter = {};
+        state.followLatest = true;
+        state.togglePause = std::move(togglePause);
+    }
+
+    void update(BattleLogWindowState& state, BattleLogViewModel model) const
+    {
+        model.open = state.model.open;
+        state.model = std::move(model);
     }
 
     void hide(BattleLogWindowState& state) const
     {
         state.model.open = false;
+        state.togglePause = {};
         state.inputGuardFrames = 0;
         state.hoverGuard = false;
         state.dragging = false;

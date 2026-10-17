@@ -17,6 +17,8 @@
 namespace KysChess
 {
 void showChessComboOverview(const ChessGameContent& content, const ChessSessionState& state, int comboId = -1);
+void showChessComboOverview(const ChessGameContent& content, std::span<const ChessComboMetadata> combos,
+    std::span<const int> deployedRoles, int comboId, const std::string& title);
 
 
 inline const EquipmentDef* equipmentDefinition(const ChessGameContent& content, int itemId)

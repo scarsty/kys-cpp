@@ -4,6 +4,9 @@
     <ClCompile Include="ChessSelectionScreen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="ChessBattleOverview.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
     <ClCompile Include="AtlasManager.cpp">
       <Filter>texture</Filter>
     </ClCompile>
@@ -546,6 +549,8 @@
     <ClInclude Include="ChessUiCommon.h" />
     <ClInclude Include="ChessUiStyle.h" />
     <ClInclude Include="ChessSelectionScreen.h" />
+    <ClInclude Include="ChessBattleOverview.h" />
+    <ClInclude Include="ChessBattleOverviewLayout.h" />
     <ClInclude Include="ChessCharacterPresentation.h" />
     <ClInclude Include="ChessCharacterUi.h" />
     <ClInclude Include="DisplayText.h" />

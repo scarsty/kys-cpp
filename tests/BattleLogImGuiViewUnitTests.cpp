@@ -52,3 +52,41 @@ TEST_CASE("BattleLogImGuiView_CategoryFilterLabelsUseTraditionalChinese", "[batt
     CHECK(battleLogCategoryFilterLabel(BattleLogEntryCategory::Lifecycle) == "擊倒");
     CHECK(battleLogCategoryFilterLabel(BattleLogEntryCategory::BattleEnd) == "戰鬥結束");
 }
+
+TEST_CASE("live battle log updates preserve reading position controls and never reopen a closed view", "[battle][log_imgui][live]")
+{
+    BattleLogWindowState state;
+    BattleLogImGuiView view;
+    BattleLogViewModel initial;
+    initial.live = true;
+    int pauseRequests{};
+    view.show(state, initial, [&] { ++pauseRequests; });
+    state.filter.allyUnitId = 101;
+    state.filter.category = BattleLogEntryCategory::Damage;
+    state.followLatest = false;
+    state.inputGuardFrames = 0;
+    state.dragging = true;
+    const int child = state.childFlip;
+
+    BattleLogViewModel next;
+    next.live = true;
+    next.totalFrames = 80;
+    next.entries.push_back({.category = BattleLogEntryCategory::Damage, .sourceId = 101});
+    view.update(state, next);
+    CHECK(state.model.open);
+    CHECK(state.model.totalFrames == 80);
+    REQUIRE(state.model.entries.size() == 1);
+    CHECK(state.filter.allyUnitId == 101);
+    CHECK(state.filter.category == BattleLogEntryCategory::Damage);
+    CHECK_FALSE(state.followLatest);
+    CHECK(state.dragging);
+    CHECK(state.inputGuardFrames == 0);
+    CHECK(state.childFlip == child);
+    state.togglePause();
+    CHECK(pauseRequests == 1);
+
+    view.hide(state);
+    view.update(state, next);
+    CHECK_FALSE(state.model.open);
+    CHECK_FALSE(state.togglePause);
+}

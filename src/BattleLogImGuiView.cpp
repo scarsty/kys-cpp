@@ -22,7 +22,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         return;
     }
 
-    const ImVec4 panel_bg = colorU8(25, 23, 22, 242);
+    const ImVec4 panel_bg = colorU8(25, 23, 22, state.model.live ? 210 : 242);
     const ImVec4 panel_border = colorU8(177, 158, 120, 40);
     const ImVec4 title_gold = colorU8(221, 200, 141);
     const ImVec4 text_muted = colorU8(183, 179, 166);
@@ -293,45 +293,48 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
             if (line_tone == BattleLogEntryTone::System) return system_line;
             return neutral_line;
         };
-        bool drewAnyEntry = false;
+        std::vector<const BattleLogEntryView*> visibleEntries;
         for (const auto& entry : state.model.entries)
+            if (battleLogEntryMatchesFilter(entry, state.filter)) visibleEntries.push_back(&entry);
+        const bool drewAnyEntry = !visibleEntries.empty();
+        ImGuiListClipper clipper;
+        clipper.Begin(static_cast<int>(visibleEntries.size()));
+        while (clipper.Step())
         {
-            if (!battleLogEntryMatchesFilter(entry, state.filter))
+            for (int index = clipper.DisplayStart; index < clipper.DisplayEnd; ++index)
             {
-                continue;
-            }
-
-            drewAnyEntry = true;
-            ImVec4 line_color = neutral_line;
-            if (entry.tone == BattleLogEntryTone::Ally) line_color = ally_color;
-            if (entry.tone == BattleLogEntryTone::Enemy) line_color = enemy_color;
-            if (entry.tone == BattleLogEntryTone::System) line_color = system_line;
-            ImGui::Bullet();
-            if (!entry.segments.empty())
-            {
-                ImGui::SameLine();
-                for (int i = 0; i < static_cast<int>(entry.segments.size()); ++i)
+                const auto& entry = *visibleEntries[index];
+                ImVec4 line_color = neutral_line;
+                if (entry.tone == BattleLogEntryTone::Ally) line_color = ally_color;
+                if (entry.tone == BattleLogEntryTone::Enemy) line_color = enemy_color;
+                if (entry.tone == BattleLogEntryTone::System) line_color = system_line;
+                ImGui::Bullet();
+                if (!entry.segments.empty())
                 {
-                    const auto& seg = entry.segments[i];
-                    ImGui::PushStyleColor(ImGuiCol_Text, colorForField(seg.tone, entry.tone));
-                    auto localizedSegment = localizeImGuiText(seg.text);
-                    ImGui::TextUnformatted(localizedSegment.c_str());
-                    ImGui::PopStyleColor();
-                    if (i + 1 < static_cast<int>(entry.segments.size()))
+                    ImGui::SameLine();
+                    for (int i = 0; i < static_cast<int>(entry.segments.size()); ++i)
                     {
-                        ImGui::SameLine(0.0f, 0.0f);
+                        const auto& seg = entry.segments[i];
+                        ImGui::PushStyleColor(ImGuiCol_Text, colorForField(seg.tone, entry.tone));
+                        auto localizedSegment = localizeImGuiText(seg.text);
+                        ImGui::TextUnformatted(localizedSegment.c_str());
+                        ImGui::PopStyleColor();
+                        if (i + 1 < static_cast<int>(entry.segments.size()))
+                        {
+                            ImGui::SameLine(0.0f, 0.0f);
+                        }
                     }
                 }
+                else
+                {
+                    ImGui::SameLine();
+                    ImGui::PushStyleColor(ImGuiCol_Text, line_color);
+                    auto localizedEntry = localizeImGuiText(entry.plainText());
+                    ImGui::TextUnformatted(localizedEntry.c_str());
+                    ImGui::PopStyleColor();
+                }
+                ImGui::Spacing();
             }
-            else
-            {
-                ImGui::SameLine();
-                ImGui::PushStyleColor(ImGuiCol_Text, line_color);
-                auto localizedEntry = localizeImGuiText(entry.plainText());
-                ImGui::TextWrapped("%s", localizedEntry.c_str());
-                ImGui::PopStyleColor();
-            }
-            ImGui::Spacing();
         }
 
         if (!drewAnyEntry)
@@ -354,11 +357,14 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         {
             state.dragging = false;
         }
+        if (state.model.live && mouse_in_child && (drag_io.MouseWheel != 0 || (state.dragging && drag_io.MouseDelta.y != 0)))
+            state.followLatest = false;
         if (state.dragging)
         {
             ImGui::SetScrollY(ImGui::GetScrollY() - drag_io.MouseDelta.y);
             ImGui::SetScrollX(ImGui::GetScrollX() - drag_io.MouseDelta.x);
         }
+        if (state.model.live && state.followLatest) ImGui::SetScrollY(ImGui::GetScrollMaxY());
         ImGui::EndChild();
         ImGui::PopStyleVar();
 
@@ -368,9 +374,19 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
 
         ImGui::PushFont(nullptr, fsBase * 1.04f);
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        textLocalized("點擊「繼續」關閉日誌");
+        textLocalized(state.model.live ? (state.model.finished ? "戰鬥已結束" : state.model.paused ? "戰鬥已暫停" : "即時更新 · 戰鬥繼續中") : "點擊「繼續」關閉日誌");
         ImGui::PopStyleColor();
         ImGui::SameLine();
+        if (state.model.live)
+        {
+            const auto followLabel = localizeImGuiText("追蹤最新");
+            ImGui::Checkbox(followLabel.c_str(), &state.followLatest);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!allow_close || state.model.finished);
+            if (buttonLocalized(state.model.paused ? "繼續戰鬥" : "暫停戰鬥")) state.togglePause();
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+        }
         float button_w = fs * 8.5f;
         float button_x = ImGui::GetWindowContentRegionMax().x - button_w;
         float button_h = ImGui::GetFrameHeight() * 1.5f;
@@ -380,7 +396,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, allow_close ? colorU8(67, 78, 39, 230) : chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, allow_close ? colorU8(88, 98, 50, 230) : chip_bg);
         ImGui::PushFont(nullptr, fsBase * 1.14f);
-        if (buttonLocalized("繼續", ImVec2(button_w, button_h)) && allow_close)
+        if (buttonLocalized(state.model.live ? "關閉日誌" : "繼續", ImVec2(button_w, button_h)) && allow_close)
         {
             state.model.open = false;
             state.dragging = false;

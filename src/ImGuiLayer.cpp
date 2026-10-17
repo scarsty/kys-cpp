@@ -323,9 +323,14 @@ bool ImGuiLayer::wantsCaptureEvent(const SDL_Event& event) const
     }
 }
 
-void ImGuiLayer::showBattleLog(const BattleLogViewModel& model)
+void ImGuiLayer::showBattleLog(const BattleLogViewModel& model, std::function<void()> togglePause)
 {
-    battle_log_view_.show(battle_log_, model);
+    battle_log_view_.show(battle_log_, model, std::move(togglePause));
+}
+
+void ImGuiLayer::updateBattleLog(BattleLogViewModel model)
+{
+    battle_log_view_.update(battle_log_, std::move(model));
 }
 
 void ImGuiLayer::hideBattleLog()

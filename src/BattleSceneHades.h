@@ -78,6 +78,8 @@ protected:
     void toggleBattlePause();
     void setBattlePaused(bool paused);
     void showInBattleLog();
+    void refreshInBattleLog(bool force = false);
+    BattleLogViewModel makeInBattleLogModel() const;
     void confirmBattleSurrender();
     void applyBattleAdvance(KysChess::ChessAutomaticAdvanceResult advance);
     void cycleBattleSpeed();
@@ -142,6 +144,7 @@ protected:
     bool completed_scene_run_{};
     bool half_speed_step_on_next_render_ = true;
     bool battle_paused_ = false;
+    uint64_t last_log_refresh_{};
     bool active_paper_battle_view_ = false;
     bool camera_auto_center_{};
     BattleSceneCamera camera_;

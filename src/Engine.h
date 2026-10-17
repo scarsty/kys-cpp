@@ -405,7 +405,8 @@ public:
     void cancelImGuiPrimaryTouch() const;
     bool processImGuiApplicationContextMenu() const;
     void renderImGuiOverlay() const;
-    void showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting = true) const;
+    void showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting = true, std::function<void()> togglePause = {}) const;
+    void updateBattleLogOverlay(BattleLogViewModel model) const;
     void hideBattleLogOverlay() const;
     bool isBattleLogOverlayOpen() const;
     void showChangelogWindow(const ChangelogData& data) const;

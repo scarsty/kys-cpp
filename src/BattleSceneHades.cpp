@@ -2211,7 +2211,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         toggleCameraMode();
         return;
     }
-    if (active_paper_battle_view_)
+    if (active_paper_battle_view_ && !Engine::getInstance()->isBattleLogOverlayOpen())
     {
         auto engine = Engine::getInstance();
         float targetDistance = paper_camera_distance_;
@@ -2262,7 +2262,13 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             PAPER_CAMERA_MIN_HEIGHT,
             PAPER_CAMERA_MAX_HEIGHT);
     }
-    if (battle_paused_ || Engine::getInstance()->isBattleLogOverlayOpen())
+    refreshInBattleLog();
+    if (result_ >= 0 && slow_ == 0)
+    {
+        finishBattleIfReady();
+        return;
+    }
+    if (battle_paused_)
     {
         return;
     }
@@ -2280,7 +2286,7 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto controls = makeBattleControlLayout(uiW, battle_paused_);
+    const auto controls = makeBattleControlLayout(uiW);
 
     if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT)
     {
@@ -2368,7 +2374,7 @@ void BattleSceneHades::onTouchSample(const TouchSample& sample)
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto controls = makeBattleControlLayout(uiW, battle_paused_);
+    const auto controls = makeBattleControlLayout(uiW);
     for (const auto& action : paper_camera_touch_.process(sample, controls))
     {
         switch (action.type)
@@ -2453,16 +2459,34 @@ void BattleSceneHades::setBattlePaused(bool paused)
     updateFrameApplierContext();
 }
 
-void BattleSceneHades::showInBattleLog()
+BattleLogViewModel BattleSceneHades::makeInBattleLogModel() const
 {
     auto model = BattleLogPresenter().present(makePostBattleSummary(), battle_report_.report());
-    if (result_ < 0)
-    {
-        model.title = "戰鬥中日誌";
-        model.resultText = "戰鬥中";
-        model.totalFrames = battle_frame_;
-    }
-    Engine::getInstance()->showBattleLogOverlay(model, false);
+    model.title = "即時戰鬥日誌";
+    model.live = true;
+    model.paused = battle_paused_;
+    model.finished = result_ >= 0;
+    if (!model.finished) model.resultText = battle_paused_ ? "已暫停" : "戰鬥中";
+    if (!model.finished) model.totalFrames = activeRuntimeSession()->runtime().movement.frame;
+    return model;
+}
+
+void BattleSceneHades::refreshInBattleLog(bool force)
+{
+    auto* engine = Engine::getInstance();
+    const auto now = SDL_GetTicks();
+    if (!engine->isBattleLogOverlayOpen() || (!force && now - last_log_refresh_ < 150)) return;
+    engine->updateBattleLogOverlay(makeInBattleLogModel());
+    last_log_refresh_ = now;
+}
+
+void BattleSceneHades::showInBattleLog()
+{
+    Engine::getInstance()->showBattleLogOverlay(makeInBattleLogModel(), false, [this] {
+        toggleBattlePause();
+        refreshInBattleLog(true);
+    });
+    last_log_refresh_ = SDL_GetTicks();
     paper_camera_touch_.reset();
     battle_control_capture_.reset();
     invalidatePointerOwnership();
@@ -2566,7 +2590,7 @@ void BattleSceneHades::drawBattleControls()
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto layout = makeBattleControlLayout(uiW, battle_paused_);
+    const auto layout = makeBattleControlLayout(uiW);
     const bool pauseEnabled = canToggleBattlePause();
     const auto* settings = SystemSettings::getInstance();
     const std::string speedText(battleSpeedDisplayText(settings->data().battleSpeed));
@@ -2588,7 +2612,7 @@ void BattleSceneHades::drawBattleControls()
     drawControl(BattleControlId::Speed, speedText, Icon::Speed);
     drawControl(BattleControlId::PaperView, paperViewText, active_paper_battle_view_ ? Icon::View3D : Icon::View2D);
     drawControl(BattleControlId::CameraMode, cameraModeText, camera_auto_center_ ? Icon::CameraFollow : Icon::CameraFree);
-    if (battle_paused_) drawControl(BattleControlId::Log, "日誌", Icon::Book);
+    drawControl(BattleControlId::Log, "日誌", Icon::Book);
     drawControl(BattleControlId::Pause, battle_paused_ ? "繼續" : "暫停", battle_paused_ ? Icon::Play : Icon::Pause, pauseEnabled || battle_paused_);
     drawControl(BattleControlId::Surrender, "投降", Icon::Flag, result_ < 0);
 }
@@ -3050,6 +3074,11 @@ void BattleSceneHades::finishBattleIfReady()
 {
     if (slow_ == 0 && (result_ == 0 || result_ == 1))
     {
+        if (Engine::getInstance()->isBattleLogOverlayOpen())
+        {
+            refreshInBattleLog();
+            return;
+        }
         calExpGot();
         completed_scene_run_ = true;
         setExit(true);

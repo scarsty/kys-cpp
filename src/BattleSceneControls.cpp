@@ -30,7 +30,7 @@ BattleControlId BattleControlLayout::hitTest(SDL_FPoint point) const
     return BattleControlId::None;
 }
 
-BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible)
+BattleControlLayout makeBattleControlLayout(int uiWidth)
 {
     assert(uiWidth > 0);
     BattleControlLayout layout;
@@ -41,7 +41,7 @@ BattleControlLayout makeBattleControlLayout(int uiWidth, bool logVisible)
         return SDL_Rect{right - column * step, ButtonMargin + row * step, ButtonSize, ButtonSize};
     };
     layout.set(BattleControlId::Pause, button(0, 0));
-    if (logVisible) layout.set(BattleControlId::Log, button(1, 0));
+    layout.set(BattleControlId::Log, button(1, 0));
     layout.set(BattleControlId::Speed, button(2, 0));
     layout.set(BattleControlId::Surrender, button(0, 1));
     layout.set(BattleControlId::CameraMode, button(1, 1));

@@ -1452,7 +1452,7 @@ void Engine::renderImGuiOverlay() const
     imgui_->render(window_, renderer_, main_texture_w, main_texture_h, SDL_GetRendererName(renderer_));
 }
 
-void Engine::showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting) const
+void Engine::showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting, std::function<void()> togglePause) const
 {
     if (!imgui_)
     {
@@ -1462,7 +1462,12 @@ void Engine::showBattleLogOverlay(const BattleLogViewModel& model, bool respectU
     {
         return;
     }
-    imgui_->showBattleLog(model);
+    imgui_->showBattleLog(model, std::move(togglePause));
+}
+
+void Engine::updateBattleLogOverlay(BattleLogViewModel model) const
+{
+    if (imgui_) imgui_->updateBattleLog(std::move(model));
 }
 
 void Engine::hideBattleLogOverlay() const

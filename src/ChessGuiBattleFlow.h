@@ -53,77 +53,29 @@ ChessGuiInitialBattleCameraCenter chessGuiInitialBattleCameraCenter(
     };
 }
 
-enum class ChessGuiPreBattleDismissInput : std::uint8_t
-{
-    None,
-    KeyboardRelease,
-    GamepadRelease,
-    PointerRelease,
-};
-
+// 載入期間不開放操作；最後一批完成後還需呈現一幀，避免累積輸入穿透。
 class ChessGuiPreBattleFlow
 {
 public:
-    void markFirstFramePresented()
+    void markFramePresented()
     {
-        if (phase_ == Phase::AwaitingFirstFrame)
-        {
-            phase_ = Phase::PreloadPending;
-        }
+        if (phase_ == Phase::AwaitingFirstFrame) phase_ = Phase::Loading;
+        else if (phase_ == Phase::AwaitingReadyFrame) phase_ = Phase::Ready;
     }
 
-    template <class Preload>
-    bool runPreloadAfterFirstFrame(Preload&& preload)
+    template <class LoadBatch>
+    bool runLoadBatch(LoadBatch&& batch)
     {
-        if (!beginPreload())
-        {
-            return false;
-        }
-        std::forward<Preload>(preload)();
-        completePreload();
+        if (phase_ != Phase::Loading) return false;
+        if (std::forward<LoadBatch>(batch)()) phase_ = Phase::AwaitingReadyFrame;
         return true;
     }
 
-    bool loadingVisible() const
-    {
-        return phase_ != Phase::Ready;
-    }
-
-    bool canDismiss() const
-    {
-        return phase_ == Phase::Ready;
-    }
-
-    bool shouldDismiss(ChessGuiPreBattleDismissInput input) const
-    {
-        return canDismiss() && input != ChessGuiPreBattleDismissInput::None;
-    }
+    bool assetsLoaded() const { return phase_ == Phase::AwaitingReadyFrame || phase_ == Phase::Ready; }
+    bool interactive() const { return phase_ == Phase::Ready; }
 
 private:
-    enum class Phase : std::uint8_t
-    {
-        AwaitingFirstFrame,
-        PreloadPending,
-        Preloading,
-        Ready,
-    };
-
-    bool beginPreload()
-    {
-        if (phase_ != Phase::PreloadPending)
-        {
-            return false;
-        }
-        phase_ = Phase::Preloading;
-        return true;
-    }
-
-    void completePreload()
-    {
-        assert(phase_ == Phase::Preloading);
-        phase_ = Phase::Ready;
-    }
-
+    enum class Phase { AwaitingFirstFrame, Loading, AwaitingReadyFrame, Ready };
     Phase phase_ = Phase::AwaitingFirstFrame;
 };
 

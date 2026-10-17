@@ -97,54 +97,85 @@ int runChessChoiceMenu(const std::string& title, const std::vector<std::string>&
     return menu->run();
 }
 
-void showChessComboOverview(const ChessGameContent& content, const ChessSessionState& state, int comboId)
+namespace
+{
+ChessSelectionItem comboOverviewItem(const ChessGameContent& content, const ChessComboMetadata& metadata,
+    std::span<const int> deployedRoles, const std::string& bonusNote = {})
 {
     using namespace ChessUiStyle;
+    const auto found = std::ranges::find(content.combos(), metadata.comboId, &ComboDef::id);
+    assert(found != content.combos().end());
+    const auto& combo = *found;
+    ChessSelectionItem item{
+        .title = combo.name, .subtitle = metadata.active ? "已啟動" : "未啟動",
+        .badge = metadata.progressCount,
+        .image = {"chess-synergies", combo.iconId}, .accent = metadata.active ? positive : muted,
+    };
+    ChessOverviewColumn members{.width = 256};
+    members.rows.push_back({"成員 · 出戰標記 ✓", gold, true});
+    for (const int id : combo.memberRoleIds)
+    {
+        const bool deployed = std::ranges::contains(deployedRoles, id);
+        if (!std::ranges::contains(content.poolRoleIds(), id) && !deployed) continue;
+        const auto* role = content.role(id);
+        members.rows.push_back({std::format("{} · {}費{}", role->Name, role->Cost, deployed ? " ✓" : ""), chessPieceTierColor(role->Cost)});
+    }
+    ChessOverviewColumn effects{.width = 664};
+    if (combo.starSynergyBonus) effects.rows.push_back({"★ 星級計點 · 每多一星增加一點", gold, true});
+    if (!bonusNote.empty()) effects.rows.push_back({bonusNote, context, true});
+    for (const auto& threshold : metadata.thresholds)
+    {
+        effects.rows.push_back({std::format("{}點 · {} · {}", threshold.requiredCount, threshold.name,
+            threshold.active ? "已啟動" : "未啟動"), threshold.active ? positive : gold, true});
+        for (const auto& line : panelTextRowsForEffectDescription(threshold.effects))
+            effects.rows.push_back({line.text, ink});
+    }
+    item.overview = {std::move(members), std::move(effects)};
+    return item;
+}
+
+void runComboOverview(std::vector<ChessSelectionItem> items, int selected, const std::string& title)
+{
+    auto screen = std::make_shared<ChessSelectionScreen>(title, std::move(items));
+    screen->setOverviewMode();
+    screen->setBrowseOnly(true);
+    screen->setSelectedItem(selected);
+    screen->run();
+}
+}
+
+void showChessComboOverview(const ChessGameContent& content, const ChessSessionState& state, int comboId)
+{
     std::vector<ChessSelectionItem> items;
+    std::vector<int> deployedRoles;
+    for (const auto& [id, piece] : state.roster) if (piece.deployed) deployedRoles.push_back(piece.roleId);
     int selected{};
     for (const auto& row : chessPreparationCombos(state, content))
     {
         const auto& combo = *row.definition;
         if (std::ranges::none_of(combo.memberRoleIds, [&](int role) { return std::ranges::contains(content.poolRoleIds(), role); })) continue;
         if (combo.id == comboId) selected = static_cast<int>(items.size());
-        ChessSelectionItem item{
-            .title = combo.name, .subtitle = row.progress.active ? "已啟動" : "未啟動",
-            .badge = formatChessComboProgressCount(row.progress),
-            .image = {"chess-synergies", combo.iconId}, .accent = row.progress.active ? positive : muted,
-        };
-        ChessOverviewColumn members{.width = 256};
-        members.rows.push_back({"成員 · 出戰標記 ✓", gold, true});
-        for (const int id : combo.memberRoleIds)
-        {
-            if (!std::ranges::contains(content.poolRoleIds(), id)) continue;
-            const auto* role = content.role(id);
-            const bool deployed = std::ranges::any_of(state.roster, [&](const auto& pair) {
-                return pair.second.roleId == id && pair.second.deployed;
-            });
-            members.rows.push_back({std::format("{} · {}費{}", role->Name, role->Cost, deployed ? " ✓" : ""), chessPieceTierColor(role->Cost)});
-        }
-        ChessOverviewColumn effects{.width = 664};
-        if (combo.starSynergyBonus) effects.rows.push_back({"★ 星級計點 · 每多一星增加一點", gold, true});
-        if (state.selectedTalentComboId == combo.id)
-            effects.rows.push_back({std::format("合縱 · 永久 +{}點", content.balance().talent(state.talent).selectedComboBonus), context, true});
         const auto metadata = chessComboMetadata(content, combo, row.progress.physicalCount, row.progress.effectiveCount,
             row.progress.activeThresholdIndex, row.progress.nextThresholdIndex, row.progress.contributions,
             EffectDescriptionStyle::Full, row.progress.requiredCounts);
-        for (const auto& threshold : metadata.thresholds)
-        {
-            effects.rows.push_back({std::format("{}點 · {} · {}", threshold.requiredCount, threshold.name,
-                threshold.active ? "已啟動" : "未啟動"), threshold.active ? positive : gold, true});
-            for (const auto& line : panelTextRowsForEffectDescription(threshold.effects))
-                effects.rows.push_back({line.text, ink});
-        }
-        item.overview = {std::move(members), std::move(effects)};
-        items.push_back(std::move(item));
+        const auto bonusNote = state.selectedTalentComboId == combo.id
+            ? std::format("合縱 · 永久 +{}點", content.balance().talent(state.talent).selectedComboBonus) : std::string{};
+        items.push_back(comboOverviewItem(content, metadata, deployedRoles, bonusNote));
     }
-    auto screen = std::make_shared<ChessSelectionScreen>("羈絆一覽", std::move(items));
-    screen->setOverviewMode();
-    screen->setBrowseOnly(true);
-    screen->setSelectedItem(selected);
-    screen->run();
+    runComboOverview(std::move(items), selected, "羈絆一覽");
+}
+
+void showChessComboOverview(const ChessGameContent& content, std::span<const ChessComboMetadata> combos,
+    std::span<const int> deployedRoles, int comboId, const std::string& title)
+{
+    std::vector<ChessSelectionItem> items;
+    int selected{};
+    for (const auto& combo : combos)
+    {
+        if (combo.comboId == comboId) selected = static_cast<int>(items.size());
+        items.push_back(comboOverviewItem(content, combo, deployedRoles));
+    }
+    runComboOverview(std::move(items), selected, title);
 }
 
 void playChessUpgradeSound()

@@ -55,6 +55,9 @@ struct BattleLogRoleFilterRow
 struct BattleLogViewModel
 {
     bool open = false;
+    bool live{};
+    bool paused{};
+    bool finished{};
     std::string title;
     std::string resultText;
     int totalFrames = 0;
