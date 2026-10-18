@@ -60,6 +60,7 @@ Write-WasmAssetManifest `
     -WasmDir $paths.WasmDir `
     -GameDir $distGameDir `
     -OutputPath (Join-Path $distDir (Get-WasmManifestFileName))
+Remove-Item -LiteralPath (Join-Path $distGameDir 'music\mid.sf2')
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 # /*

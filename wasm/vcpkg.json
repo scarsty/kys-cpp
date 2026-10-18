@@ -38,6 +38,13 @@
       ]
     },
     {
+      "name": "fluidsynth",
+      "default-features": false,
+      "features": [
+        "sndfile"
+      ]
+    },
+    {
       "name": "sdl3-mixer",
       "features": [
         "fluidsynth"

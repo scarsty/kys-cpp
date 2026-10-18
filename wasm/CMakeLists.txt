@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(WASM_DEPS_DIR)
     list(PREPEND CMAKE_PREFIX_PATH "${WASM_DEPS_DIR}")
+    list(PREPEND CMAKE_FIND_ROOT_PATH "${WASM_DEPS_DIR}")
     set(imgui_DIR "${WASM_DEPS_DIR}/share/imgui")
     set(SDL3_DIR "${WASM_DEPS_DIR}/share/sdl3")
     set(unordered_dense_DIR "${WASM_DEPS_DIR}/share/unordered_dense")
@@ -17,6 +18,7 @@ endif()
 
 find_package(imgui CONFIG REQUIRED)
 find_package(unordered_dense CONFIG REQUIRED)
+find_package(SndFile CONFIG REQUIRED)
 
 kys_collect_all_game_sources(SRC_LIST "${KYS_ROOT}")
 
@@ -47,6 +49,7 @@ target_link_libraries(kyschess
     unordered_dense::unordered_dense
     SDL3_mixer
     fluidsynth
+    SndFile::sndfile
     SDL3_image
     webpdemux
     webpmux

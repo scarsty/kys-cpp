@@ -10,7 +10,7 @@
 #     yaml-cpp:wasm32-emscripten \
 #     libzip[bzip2]:wasm32-emscripten marisa-trie:wasm32-emscripten \
 #     sdl3-image[png,webp]:wasm32-emscripten sdl3-ttf[svg]:wasm32-emscripten \
-#     sdl3-mixer[fluidsynth]:wasm32-emscripten
+#     sdl3-mixer[fluidsynth]:wasm32-emscripten fluidsynth[sndfile]:wasm32-emscripten
 #
 # FALLBACK: This script builds from source. Requires emsdk activated.
 # Usage: ./build_deps.sh [install_prefix]
@@ -245,6 +245,8 @@ if [ ! -f "${INSTALL_DIR}/lib/libfluidsynth.a" ]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_SHARED_LIBS=OFF \
         -Dosal=cpp11 \
+        -Denable-libsndfile=ON \
+        -DCMAKE_PREFIX_PATH="${INSTALL_DIR}" \
         -Denable-libinstpatch=0 \
         -DCMAKE_C_FLAGS="-fexceptions" \
         -DCMAKE_CXX_FLAGS="-fexceptions" \

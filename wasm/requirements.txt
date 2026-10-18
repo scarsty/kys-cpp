@@ -1,0 +1,2 @@
+-r ../tools/promo/requirements.txt
+soundfile==0.14.0

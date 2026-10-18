@@ -114,7 +114,11 @@ if(VCPKG_TARGET_IS_EMSCRIPTEN)
              DESTINATION "${CURRENT_PACKAGES_DIR}/share/fluidsynth")
     endif()
 
-    # Generate a minimal pkgconfig file so downstream ports (SDL3_mixer) pass validation.
+    # SDL3_mixer uses pkg-config to link static FluidSynth and its dependencies.
+    set(_private_requires "")
+    if("sndfile" IN_LIST FEATURES)
+        set(_private_requires "sndfile")
+    endif()
     file(MAKE_DIRECTORY "${CURRENT_PACKAGES_DIR}/lib/pkgconfig")
     file(WRITE "${CURRENT_PACKAGES_DIR}/lib/pkgconfig/fluidsynth.pc"
 "prefix=\${pcfiledir}/../..
@@ -124,6 +128,7 @@ includedir=\${prefix}/include
 Name: FluidSynth
 Description: Software synthesizer based on the SoundFont 2 spec
 Version: ${VERSION}
+Requires.private: ${_private_requires}
 Libs: -L\${libdir} -lfluidsynth
 Cflags: -I\${includedir}
 ")
@@ -136,9 +141,11 @@ includedir=\${prefix}/include
 Name: FluidSynth
 Description: Software synthesizer based on the SoundFont 2 spec
 Version: ${VERSION}
+Requires.private: ${_private_requires}
 Libs: -L\${libdir} -lfluidsynth
 Cflags: -I\${includedir}
 ")
+    vcpkg_fixup_pkgconfig()
 else()
     vcpkg_cmake_install()
     vcpkg_copy_pdbs()

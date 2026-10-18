@@ -6,7 +6,7 @@ This document describes how to build kys-cpp as a browser-playable WebAssembly a
 
 The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key differences from the native build:
 
-- **Audio**: Uses SDL3_mixer (prerelease-3.1.2) + FluidSynth 2.5.3 built from source. Supports WAV, MP3, and MIDI (FluidSynth with sf2 soundfont).
+- **Audio**: Uses SDL3_mixer + FluidSynth with libsndfile/Vorbis support. Supports WAV, MP3, and MIDI with a quality 4 SF3 SoundFont.
 - **Scripting**: Lua is stubbed (unused in the chess mod).
 - **Networking**: Disabled (`WITH_NETWORK=OFF` equivalent — no network code compiled).
 - **Threading**: Uses `-pthread` with `PROXY_TO_PTHREAD` — `main()` runs on a real worker thread, enabling standard `std::this_thread::sleep_for`.
@@ -20,6 +20,14 @@ The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key d
 - **Emscripten SDK (emsdk)** — tested with 5.0.1
 - **vcpkg** with the `wasm32-emscripten` community triplet
 - **Game assets** in `work/game-dev/`
+- **Python dependencies**: `python -m pip install -r wasm/requirements.txt` (SoundFile supplies the build-time Vorbis encoder; the requirements also include promo-page dependencies).
+
+`rebuild.ps1`, `build.ps1`, and `package.ps1` generate `music/mid.sf3` from
+`music/mid.sf2` with Vorbis quality 4, plus `mid.sf3.gz` for nginx `gzip_static`.
+The generator reuses outputs until the source SF2 or converter changes. The
+browser manifest excludes SF2 and HTTP compression sidecars. Native builds
+continue using SF2; release WASM packages omit it. Install WASM dependencies
+through `rebuild.ps1`, whose manifest enables `fluidsynth[sndfile]`.
 
 ## Step 1: Install Emscripten SDK
 
@@ -192,7 +200,10 @@ FluidSynth's `src/utils/fluid_file.cpp` and `src/utils/fluid_sys_cpp11.cpp` use 
 
 ## Step 6: Build SDL3_mixer from source
 
-SDL3_mixer `prerelease-3.1.2` with FluidSynth for MIDI playback via sf2 soundfont.
+SDL3_mixer uses FluidSynth for MIDI playback via the generated SF3 SoundFont.
+Manual dependency builds must enable FluidSynth's `enable-libsndfile` option
+and provide libsndfile with Ogg/Vorbis support. The maintained vcpkg flow does
+this automatically.
 
 ```bash
 cd "$DEPS_SRC"
@@ -378,6 +389,13 @@ The deployment uses stable filenames such as `index.html`, `kyschess.js`, and `k
 
 `gzip_static on` tells nginx to serve pre-compressed `.gz` files when available, avoiding on-the-fly compression overhead.
 
+`package.ps1` includes `kys/game/music/mid.sf3.gz`. Keep `gzip_static on` to serve
+that file for requests to `mid.sf3` from browsers accepting gzip. This matters:
+the quality 4 bank is about 2.24 MiB raw but only 0.53 MiB with gzip. The SF3
+decoder adds code to the WASM binary, so the overall download savings depend on
+HTTP compression. Check the deployed `mid.sf3` response has
+`Content-Encoding: gzip`; compression of the deployment ZIP alone is insufficient.
+
 ### Enable gzip for WASM content
 
 In `/etc/nginx/nginx.conf`, uncomment or add `gzip_types` to include `application/wasm`:
@@ -425,7 +443,7 @@ All changes are guarded with `#ifdef __EMSCRIPTEN__` / `#ifndef __EMSCRIPTEN__` 
 
 ### `src/Audio.h` / `src/Audio.cpp`
 - Uses SDL3_mixer (same code path as native non-BASS build)
-- MIDI files use FluidSynth decoder with `mid.sf2` soundfont
+- MIDI files use FluidSynth with the generated quality 4 `mid.sf3` SoundFont; `synth.lock-memory` is disabled for WASM.
 - WAV and MP3 playback via SDL3_mixer's vendored decoders
 
 ### `src/Script.h` / `src/Script.cpp`
@@ -482,7 +500,7 @@ All changes are guarded with `#ifdef __EMSCRIPTEN__` / `#ifndef __EMSCRIPTEN__` 
 
 - **All dependencies must be built with `-pthread`** — the `-pthread` flag (which enables `atomics` and `bulk-memory` features) must be passed to all dependency builds. Without it, `wasm-ld` will error with `--shared-memory is disallowed because it was not compiled with 'atomics' or 'bulk-memory' features`.
 - **Asset manifest** — `wasm/wasm_manifest.inc` must be regenerated (via `wasm/gen_manifest.py`) whenever game assets are added or removed. The WasmFS fetch backend cannot auto-discover files from the server.
-- **Audio** — supported via SDL3_mixer (prerelease-3.1.2) with FluidSynth 2.5.3 for MIDI (using `mid.sf2` soundfont), plus WAV and MP3 (vendored drmp3) decoders. Music looping (`MIX_PROP_PLAY_LOOPS_NUMBER`) may not work correctly in this prerelease.
+- **Audio** — supported via SDL3_mixer with FluidSynth for MIDI (using quality 4 `mid.sf3`), plus WAV and MP3 decoders. SF3 samples are decompressed during synth initialization; browser and mobile track-start latency should be checked when changing the audio stack.
 - **No Lua scripting** — stubbed. Not needed for the chess mod.
 - **WasmFS** — marked experimental in Emscripten. Core functionality is well-tested but edge cases may exist.
 - **Browser requirement** — `SharedArrayBuffer` (pthreads) requires COOP/COEP headers. OPFS requires Chrome 102+, Edge 102+, Firefox 111+. Safari has partial/no OPFS support.

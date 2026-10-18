@@ -207,7 +207,14 @@ MUSIC Audio::loadMusic(const std::string& file)
         }
         pro.set(MIX_PROP_AUDIO_LOAD_IOSTREAM_POINTER, io);
         pro.set(MIX_PROP_AUDIO_DECODER_STRING, "fluidsynth");
+#ifdef __EMSCRIPTEN__
+        pro.set("SDL_mixer.decoder.fluidsynth.soundfont_path", (GameUtil::PATH() + "music/mid.sf3").c_str());
+        Prop synthProps;
+        synthProps.set("synth.lock-memory", 0);
+        pro.set("SDL_mixer.decoder.fluidsynth.props", static_cast<int64_t>(synthProps.id()));
+#else
         pro.set("SDL_mixer.decoder.fluidsynth.soundfont_path", (GameUtil::PATH() + "music/mid.sf2").c_str());
+#endif
         auto m = MIX_LoadAudioWithProperties(pro.id());
         SDL_CloseIO(io);
         if (!m)
