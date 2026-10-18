@@ -593,6 +593,10 @@ void BattleSceneHades::updateFrameApplierContext()
 void BattleSceneHades::initializeSceneRuntime(
     const KysChess::Battle::BattleRuntimeSession& runtime)
 {
+    inspected_unit_id_ = -1;
+    inspector_pinned_ = false;
+    inspector_scroll_ = 0;
+    piece_hit_targets_.clear();
     initializeScenePresentationUnits(scene_units_.initialize(runtime));
 
     const auto cameraCenter = KysChess::chessGuiInitialBattleCameraCenter(
@@ -682,12 +686,13 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 
 void BattleSceneHades::draw()
 {
+    piece_hit_targets_.clear();
     if (active_paper_battle_view_)
     {
         drawPaperView();
-        return;
     }
-    drawClassicView();
+    else drawClassicView();
+    drawPieceInspector();
 }
 
 std::optional<float> BattleSceneHades::defaultPaperCameraAngleFromRuntimeUnits() const
@@ -1016,6 +1021,7 @@ void BattleSceneHades::drawClassicView()
 
     struct DrawInfo
     {
+        int unitId = -1;
         TextureWarpper* tex = nullptr;
         Pointf p;
         Pointf sort_p;
@@ -1063,6 +1069,7 @@ void BattleSceneHades::drawClassicView()
         //if (r->Dead) { continue; }
         DrawInfo info;
         const auto& presentation = scene_units_.requirePresentation(unit.id);
+        info.unitId = unit.alive ? unit.id : -1;
         auto path = std::format("fight/fight{:03}", unit.headId);
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
@@ -1320,6 +1327,19 @@ void BattleSceneHades::drawClassicView()
         return int((rect1.y + (wy - rect0.y) * viewScaleY) * sceneToUiY);
     };
     float sizeScale = viewScaleX * sceneToUiX;
+
+    for (const auto& info : draw_infos)
+    {
+        if (info.unitId < 0) continue;
+        const float scaleX = (use_whole_scene ? viewScaleX : 1.0f) * sceneToUiX;
+        const float scaleY = (use_whole_scene ? viewScaleY : 1.0f) * sceneToUiY;
+        // 動作圖含有大片透明留白與武器特效；命中區域只涵蓋棋子本體。
+        const float height = std::min(128.0f, float(info.tex->dy));
+        piece_hit_targets_.push_back({info.unitId,
+            {worldToUiX(info.p.x) - 36 * scaleX,
+                worldToUiY(renderGroundY(info.p)) - height * scaleY,
+                72 * scaleX, (height + 8) * scaleY}});
+    }
 
     // Text effects (damage numbers etc.) - deferred for crisp rendering
     for (auto& te : text_effects_)
@@ -1651,6 +1671,7 @@ void BattleSceneHades::drawPaperView()
 
     struct PaperSprite
     {
+        int unitId = -1;
         Texture* texture = nullptr;
         TextureWarpper* tex = nullptr;
         Pointf anchor;
@@ -1854,6 +1875,7 @@ void BattleSceneHades::drawPaperView()
         sprite.anchor = unit.motion.position;
         sprite.sortAnchor = sprite.anchor;
         sprite.debugRoleTexture = true;
+        sprite.unitId = unit.alive ? unit.id : -1;
         sprite.debugHeadId = unit.headId;
         sprite.alpha = presentation.attention ? 255 - presentation.attention * 4 : 255;
         sprite.color = calculateHurtFlashColor(unit.id, sprite.color);
@@ -2015,6 +2037,27 @@ void BattleSceneHades::drawPaperView()
             localPoint(right, bottom),
             localPoint(left, bottom),
         };
+        if (sprite.unitId >= 0 && pointsInCameraFront(paper_camera_, world))
+        {
+            // 與 2D 共用本體範圍，排除透明留白，並套用目前的相機投影。
+            const float bodyTop = std::min(128.0f, top);
+            const auto projected = paper_camera_.getProj({
+                localPoint(-36, bodyTop), localPoint(36, bodyTop),
+                localPoint(36, -8), localPoint(-36, -8)});
+            float minX = projected.front().x, maxX = minX;
+            float minY = projected.front().y, maxY = minY;
+            for (const auto& point : projected)
+            {
+                minX = std::min(minX, point.x);
+                maxX = std::max(maxX, point.x);
+                minY = std::min(minY, point.y);
+                maxY = std::max(maxY, point.y);
+            }
+            const float scaleX = float(engine->getUIWidth()) / sceneW;
+            const float scaleY = float(engine->getUIHeight()) / sceneH;
+            piece_hit_targets_.push_back({sprite.unitId,
+                {minX * scaleX, minY * scaleY, (maxX - minX) * scaleX, (maxY - minY) * scaleY}});
+        }
         const std::vector<FPoint> source = {
             { 0, 0 },
             { static_cast<float>(sprite.tex->w), 0 },
@@ -2282,11 +2325,12 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
 
 RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& event)
 {
-    const PointerIdentity pointer{event.source, event.pointerId, event.button};
+    const PointerIdentity pointer{event.source, event.pointerId,
+        event.phase == PointerPhase::Motion ? std::uint8_t{SDL_BUTTON_LEFT} : event.button};
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto controls = makeBattleControlLayout(uiW);
+    const auto controls = battleControlLayout();
 
     if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT)
     {
@@ -2306,6 +2350,53 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
             battle_control_capture_.cancel(pointer);
         }
         return PointerResult::Handled;
+    }
+
+    if (piece_pointer_ && *piece_pointer_ == pointer)
+    {
+        if (event.phase == PointerPhase::Motion
+            && std::hypot(event.uiPosition.x - piece_press_position_.x,
+                event.uiPosition.y - piece_press_position_.y) > 10.0f)
+            pressed_unit_id_ = -1;
+        if (event.phase == PointerPhase::ButtonUp || event.phase == PointerPhase::Cancel)
+        {
+            if (event.phase == PointerPhase::ButtonUp && event.insidePresent && pressed_unit_id_ >= 0
+                && std::hypot(event.uiPosition.x - piece_press_position_.x,
+                    event.uiPosition.y - piece_press_position_.y) <= 10.0f)
+            {
+                inspected_unit_id_ = pressed_unit_id_;
+                inspector_pinned_ = true;
+                inspector_scroll_ = 0;
+            }
+            piece_pointer_.reset();
+        }
+        return PointerResult::Handled;
+    }
+    if (event.phase == PointerPhase::Wheel && inspected_unit_id_ >= 0
+        && (controls.hitTest(event.uiPosition) == BattleControlId::InspectorBody
+            || controls.hitTest(event.uiPosition) == BattleControlId::InspectorPrevious
+            || controls.hitTest(event.uiPosition) == BattleControlId::InspectorNext))
+    {
+        inspector_scroll_ = std::clamp(inspector_scroll_ - int(event.wheel.y), 0, inspector_max_scroll_);
+        return PointerResult::Handled;
+    }
+    if (event.phase == PointerPhase::Motion && !inspector_pinned_ && !camera_.manualDragging()
+        && !Engine::checkMouseButtonPress(SDL_BUTTON_RIGHT)
+        && controls.hitTest(event.uiPosition) == BattleControlId::None)
+    {
+        const int hovered = event.insidePresent ? pieceAtPoint(event.uiPosition) : -1;
+        if (hovered != inspected_unit_id_) inspector_scroll_ = 0;
+        inspected_unit_id_ = hovered;
+    }
+    if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT && event.insidePresent)
+    {
+        pressed_unit_id_ = pieceAtPoint(event.uiPosition);
+        if (pressed_unit_id_ >= 0)
+        {
+            piece_pointer_ = pointer;
+            piece_press_position_ = event.uiPosition;
+            return PointerResult::Captured;
+        }
     }
 
     if (active_paper_battle_view_
@@ -2374,11 +2465,14 @@ void BattleSceneHades::onTouchSample(const TouchSample& sample)
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto controls = makeBattleControlLayout(uiW);
+    const auto controls = battleControlLayout();
     for (const auto& action : paper_camera_touch_.process(sample, controls))
     {
         switch (action.type)
         {
+        case PaperCameraTouchActionType::Tap:
+            selectPieceAtPoint(action.delta);
+            break;
         case PaperCameraTouchActionType::ControlActivated:
             activateBattleControl(action.control);
             break;
@@ -2419,6 +2513,7 @@ void BattleSceneHades::onTouchSample(const TouchSample& sample)
 
 void BattleSceneHades::onPointerInputReset()
 {
+    piece_pointer_.reset();
     paper_camera_touch_.reset();
     battle_control_capture_.reset();
 }
@@ -2561,6 +2656,20 @@ void BattleSceneHades::activateBattleControl(BattleControlId control)
 {
     switch (control)
     {
+    case BattleControlId::InspectorClose:
+        inspected_unit_id_ = -1;
+        inspector_pinned_ = false;
+        inspector_scroll_ = 0;
+        break;
+    case BattleControlId::InspectorPrevious:
+        inspector_scroll_ = std::max(0, inspector_scroll_ - 1);
+        break;
+    case BattleControlId::InspectorNext:
+        inspector_scroll_ = std::min(inspector_max_scroll_, inspector_scroll_ + 1);
+        break;
+    case BattleControlId::InspectorBody:
+        inspector_pinned_ = true;
+        break;
     case BattleControlId::Pause:
         toggleBattlePause();
         break;
@@ -3087,6 +3196,7 @@ void BattleSceneHades::finishBattleIfReady()
 
 void BattleSceneHades::onPressedCancel()
 {
+    activateBattleControl(BattleControlId::InspectorClose);
 }
 
 void BattleSceneHades::renderExtraRoleInfo(

@@ -5,7 +5,8 @@
 #include <map>
 #include <optional>
 
-enum class BattleControlId { None, Speed, PaperView, CameraMode, Log, Pause, Surrender };
+enum class BattleControlId { None, Speed, PaperView, CameraMode, Log, Pause, Surrender,
+    InspectorClose, InspectorPrevious, InspectorNext, InspectorBody };
 
 class BattleControlLayout
 {

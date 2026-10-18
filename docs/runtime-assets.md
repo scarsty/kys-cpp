@@ -39,6 +39,12 @@ python tools/pack_chess_smap_zip.py
 
 ## 棋局戰鬥特效
 
+### 棋子狀態圖示
+
+`resource/chess-status.zip` 包含 24 張 96×96 透明無損 WebP，固定編號對應 `BattlePieceInspector.h` 的 `BattleEffectIcon`。19 種狀態各有專用圖示；護盾、生命、攻擊、防禦與輕功圖示亦供屬性修正使用。檢視器以增益／減益顏色著色，名稱、數值、層數、來源和剩餘幀數分欄呈現。
+
+生成原稿位於 `tmp/asset-sources/status-icons/atlas.png`（六欄四列），以 `python tools/pack_chess_status_icons.py` 打包；預覽輸出至 `output/status-icons/preview.png`。原稿與正式套件沿用既有資源管理規則，不加入版本控制；發佈時必須包含 `resource/chess-status.zip`。
+
 特效與原有法術共用 `resource/eft/`，每組是一個 ZIP，使用既有貼圖載入流程：
 
 | 套件 | 用途 |

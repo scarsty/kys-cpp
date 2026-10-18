@@ -74,6 +74,10 @@ protected:
     void finishBattleIfReady();
     void activateBattleControl(BattleControlId control);
     void drawBattleControls();
+    void drawPieceInspector();
+    BattleControlLayout battleControlLayout() const;
+    int pieceAtPoint(SDL_FPoint point) const;
+    void selectPieceAtPoint(SDL_FPoint point);
     bool canToggleBattlePause() const;
     void toggleBattlePause();
     void setBattlePaused(bool paused);
@@ -159,4 +163,17 @@ protected:
     BattleControlCapture battle_control_capture_;
     BattleScenePaperCameraTouch paper_camera_touch_;
     uint64_t battle_control_layout_revision_{};
+    struct PieceHitTarget
+    {
+        int unitId{};
+        SDL_FRect frame{};
+    };
+    std::vector<PieceHitTarget> piece_hit_targets_;
+    int inspected_unit_id_ = -1;
+    bool inspector_pinned_{};
+    int inspector_scroll_{};
+    int inspector_max_scroll_{};
+    std::optional<PointerIdentity> piece_pointer_;
+    SDL_FPoint piece_press_position_{};
+    int pressed_unit_id_ = -1;
 };

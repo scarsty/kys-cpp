@@ -158,6 +158,7 @@
     <ClCompile Include="BattleLogPresenter.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
     <ClCompile Include="BattleSceneHades.cpp" />
+    <ClCompile Include="BattleSceneInspector.cpp" />
     <ClCompile Include="BattleStatsView.cpp" />
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="ChemistryEngine.cpp" />

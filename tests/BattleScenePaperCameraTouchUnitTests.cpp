@@ -2,6 +2,40 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+TEST_CASE("Paper camera taps select without turning pans or pinches into selections", "[paper_camera_touch]")
+{
+    BattleScenePaperCameraTouch touch;
+    const auto layout = makeBattleControlLayout(1280);
+    const auto send = [&](TouchPhase phase, int finger, float x)
+    {
+        TouchSample input;
+        input.phase = phase;
+        input.key = {SDL_TouchID{1}, static_cast<SDL_FingerID>(finger)};
+        input.uiPosition = {x, 300};
+        input.insidePresent = true;
+        return touch.process(input, layout);
+    };
+    send(TouchPhase::Down, 1, 400);
+    const auto tap = send(TouchPhase::Up, 1, 404);
+    REQUIRE(tap.size() == 1);
+    CHECK(tap.front().type == PaperCameraTouchActionType::Tap);
+    CHECK(tap.front().delta.x == 404);
+
+    send(TouchPhase::Down, 1, 400);
+    send(TouchPhase::Motion, 1, 420);
+    send(TouchPhase::Motion, 1, 400);
+    CHECK(send(TouchPhase::Up, 1, 400).empty());
+
+    send(TouchPhase::Down, 1, 400);
+    send(TouchPhase::Down, 2, 500);
+    CHECK(send(TouchPhase::Up, 2, 500).empty());
+    CHECK(send(TouchPhase::Up, 1, 400).empty());
+
+    send(TouchPhase::Down, 1, 400);
+    CHECK(send(TouchPhase::Canceled, 1, 400).empty());
+    CHECK(send(TouchPhase::Up, 1, 400).empty());
+}
+
 namespace
 {
 TouchSample sample(

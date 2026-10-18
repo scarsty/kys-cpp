@@ -92,6 +92,7 @@ void BattleScenePaperCameraTouch::handleDown(const TouchSample& sample, const Ba
     if (contacts_.contains(sample.key)) return;
     Contact contact;
     contact.position = sample.uiPosition;
+    contact.downPosition = sample.uiPosition;
     contact.control = controls.hitTest(sample.uiPosition);
     if (!sample.insidePresent)
     {
@@ -112,6 +113,8 @@ void BattleScenePaperCameraTouch::handleDown(const TouchSample& sample, const Ba
         contact.ownership = Ownership::Camera;
     }
     contacts_.emplace(sample.key, contact);
+    if (contacts_.size() > 1)
+        for (auto& [key, existing] : contacts_) existing.tapEligible = false;
     rebaselineCamera();
 }
 
@@ -120,6 +123,8 @@ std::vector<PaperCameraTouchAction> BattleScenePaperCameraTouch::handleMotion(co
     const auto it = contacts_.find(sample.key);
     if (it == contacts_.end()) return {};
     it->second.position = sample.uiPosition;
+    const auto fromDown = subtract(sample.uiPosition, it->second.downPosition);
+    if (std::hypot(fromDown.x, fromDown.y) >= PanThreshold) it->second.tapEligible = false;
     if (it->second.ownership != Ownership::Camera || controlContactCount_ > 0) return {};
 
     const auto keys = cameraKeys();
@@ -178,6 +183,10 @@ std::vector<PaperCameraTouchAction> BattleScenePaperCameraTouch::handleUp(
     if (it == contacts_.end()) return {};
 
     std::vector<PaperCameraTouchAction> actions;
+    const auto fromDown = subtract(sample.uiPosition, it->second.downPosition);
+    if (it->second.ownership == Ownership::Camera && it->second.tapEligible
+        && sample.insidePresent && std::hypot(fromDown.x, fromDown.y) < PanThreshold)
+        actions.push_back({PaperCameraTouchActionType::Tap, BattleControlId::None, sample.uiPosition});
     if (it->second.ownership == Ownership::Control)
     {
         const bool armed = armedControlKey_ && *armedControlKey_ == sample.key;

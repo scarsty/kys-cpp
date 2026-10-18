@@ -6,7 +6,7 @@
 #include <optional>
 #include <vector>
 
-enum class PaperCameraTouchActionType { ControlActivated, PanActivated, Pan, Pair };
+enum class PaperCameraTouchActionType { ControlActivated, PanActivated, Pan, Pair, Tap };
 
 struct PaperCameraTouchAction
 {
@@ -31,6 +31,8 @@ private:
         Ownership ownership{};
         SDL_FPoint position{};
         BattleControlId control = BattleControlId::None;
+        bool tapEligible = true;
+        SDL_FPoint downPosition{};
     };
     struct PairGeometry
     {
