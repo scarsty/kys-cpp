@@ -1,2 +1,3 @@
 -r ../tools/promo/requirements.txt
 soundfile==0.14.0
+fonttools==4.66.1

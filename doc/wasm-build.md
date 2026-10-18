@@ -20,7 +20,7 @@ The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key d
 - **Emscripten SDK (emsdk)** — tested with 5.0.1
 - **vcpkg** with the `wasm32-emscripten` community triplet
 - **Game assets** in `work/game-dev/`
-- **Python dependencies**: `python -m pip install -r wasm/requirements.txt` (SoundFile supplies the build-time Vorbis encoder; the requirements also include promo-page dependencies).
+- **Python dependencies**: `python -m pip install -r wasm/requirements.txt` (fontTools subsets the fonts, SoundFile supplies the build-time Vorbis encoder, and the requirements also include promo-page dependencies).
 
 `rebuild.ps1`, `build.ps1`, and `package.ps1` generate `music/mid.sf3` from
 `music/mid.sf2` with Vorbis quality 4, plus `mid.sf3.gz` for nginx `gzip_static`.
@@ -28,6 +28,35 @@ The generator reuses outputs until the source SF2 or converter changes. The
 browser manifest excludes SF2 and HTTP compression sidecars. Native builds
 continue using SF2; release WASM packages omit it. Install WASM dependencies
 through `rebuild.ps1`, whose manifest enables `fluidsynth[sndfile]`.
+
+The same scripts generate `font/wasm/chinese.ttf` and `font/wasm/english.ttf`,
+plus deterministic `.gz` sidecars for `gzip_static`. `prepare_fonts.py` collects
+C++ string and character literals (including raw strings and Unicode escapes),
+YAML strings from canonical and staged configuration, the staged changelog,
+static `game.db` text, and text assets in `list/` and `resource/talkutf8.txt` when
+present. Comments, player saves, and arbitrary imported filenames do not enlarge
+the fonts. Printable ASCII is always included for generated numbers and names.
+The Chinese font also retains ASCII for ImGui.
+
+The alphabet is expanded using the first translation candidate in the game's
+own `STPhrases`, `STCharacters`, `TSPhrases`, and `TSCharacters` dictionaries.
+Repeating this expansion covers both language settings and phrase matches across
+text assembled at runtime. Only rules whose key characters can occur add glyphs;
+the full dictionary alphabet is not packed. Existing font coverage, hinting,
+metrics, copyright and license records are preserved for retained characters.
+The Chinese subset also keeps FreeType's CJK hinting reference characters so
+removing unused text does not alter how retained glyphs are rasterized.
+
+Font generation runs before each manifest, so source, configuration, database,
+changelog and dictionary changes are picked up automatically. Identical fonts
+and gzip sidecars are not rewritten. The browser manifest excludes the full
+native fonts and compression sidecars; release WASM packages remove the full
+fonts. Native builds continue to load the original `font/*.ttf` files. To regenerate
+the subsets without compiling:
+
+```powershell
+python wasm/prepare_fonts.py --game-dir work/game-dev
+```
 
 ## Step 1: Install Emscripten SDK
 

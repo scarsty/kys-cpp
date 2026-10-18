@@ -46,6 +46,15 @@ public:
         return s;
     }
 
+    static std::string fontPath()
+    {
+#ifdef __EMSCRIPTEN__
+        return PATH() + "font/wasm/";
+#else
+        return PATH() + "font/";
+#endif
+    }
+
     static std::string autoGamePath()
     {
         std::string s;

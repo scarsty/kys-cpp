@@ -60,7 +60,7 @@ void ImGuiLayer::init(SDL_Window* window, SDL_Renderer* renderer)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.IniFilename = nullptr;
-    std::string chinese_font = GameUtil::PATH() + "font/chinese.ttf";
+    std::string chinese_font = GameUtil::fontPath() + "chinese.ttf";
     if (!io.Fonts->AddFontFromFileTTF(chinese_font.c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesChineseFull()))
     {
         io.Fonts->AddFontDefault();

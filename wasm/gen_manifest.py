@@ -20,7 +20,7 @@ def main():
             dirs.append(f"{mount}/{p}")
         for f in sorted(filenames):
             p = f"{rel}/{f}" if rel else f
-            if p == 'music/mid.sf2' or f.endswith(('.gz', '.br')):
+            if p in ('music/mid.sf2', 'font/chinese.ttf', 'font/english.ttf') or f.endswith(('.gz', '.br')):
                 continue
             files.append(f"{mount}/{p}")
 

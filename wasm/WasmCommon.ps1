@@ -320,6 +320,14 @@ function Write-WasmAssetManifest
 
     Ensure-PathExists -Path $GameDir -Message "Game assets not found at $GameDir"
 
+    Write-Host '=== Subsetting WASM fonts ==='
+    Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
+        (Join-Path $WasmDir 'prepare_fonts.py'),
+        '--project-dir',
+        $ProjectDir,
+        '--game-dir',
+        $GameDir
+    )
     Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
         (Join-Path $WasmDir 'prepare_soundfont.py'),
         (Join-Path $GameDir 'music\mid.sf2'),
@@ -361,6 +369,10 @@ function Get-WasmDeploymentArtifactNames
     Get-WasmSiteAssetNames
     'kys/game/music/mid.sf3'
     'kys/game/music/mid.sf3.gz'
+    'kys/game/font/wasm/chinese.ttf'
+    'kys/game/font/wasm/chinese.ttf.gz'
+    'kys/game/font/wasm/english.ttf'
+    'kys/game/font/wasm/english.ttf.gz'
 }
 
 function Get-WasmBuildArtifactPaths

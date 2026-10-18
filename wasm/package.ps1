@@ -61,6 +61,10 @@ Write-WasmAssetManifest `
     -GameDir $distGameDir `
     -OutputPath (Join-Path $distDir (Get-WasmManifestFileName))
 Remove-Item -LiteralPath (Join-Path $distGameDir 'music\mid.sf2')
+foreach ($fontName in @('chinese.ttf', 'english.ttf'))
+{
+    Remove-Item -LiteralPath (Join-Path $distGameDir "font\$fontName")
+}
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 # /*
