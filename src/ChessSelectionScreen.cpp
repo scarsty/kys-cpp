@@ -297,6 +297,7 @@ void ChessSelectionScreen::draw()
     if (!headerNote_.empty()) label(headerNote_, Type::metadata, 220, 34, muted, 844);
     if (exitable_) button(compact_ ? SDL_Rect{1008, 16, 240, 84} : SDL_Rect{1080, 20, 168, 44},
         "返回", [this] {
+            if (browseOnly_ && inspection_) { closeInspection(); return; }
             if (!exitConfirmation_ || exitConfirmation_()) exitWithResult(-1);
         }, false, Icon::Left);
     if (layout_ == ChessSelectionLayout::Overview)
@@ -419,14 +420,21 @@ void ChessSelectionScreen::drawOverview()
     if (page_ + 1 < pages) button({228, 648, 52, 44}, {}, [this] { changePage(1); }, false, Icon::Right);
 
     const auto& item = items_[selected_];
-    panel(304, 80, browseOnly_ ? 960 : 536, 624);
+    panel(304, 80, browseOnly_ ? (inspection_ ? 276 : 960) : 536, 624);
     if (!browseOnly_) panel(852, 80, 412, 624);
     image(item.image, {324, 96, 48, 48});
     label(item.title, 28, 388, 104, gold, 480);
     if (browseOnly_)
     {
-        label(item.badge + " · " + item.subtitle, 20, 900, 110, item.accent, 336);
+        if (!inspection_) label(item.badge + " · " + item.subtitle, 20, 900, 110, item.accent, 336);
         drawOverviewBody({324, 174, 920, 454}, 20);
+        if (inspection_)
+        {
+            panel(592, 80, 672, 624);
+            Engine::getInstance()->fillColor(line, 604, 640, 648, 1);
+            button({604, 648, 316, 44}, "返回羈絆", [this] { closeInspection(); }, false, Icon::Left);
+            characterInspector(*inspection_, {592, 80, 672, 560}, SDL_Rect{936, 648, 316, 44});
+        }
     }
     else
     {
@@ -437,13 +445,7 @@ void ChessSelectionScreen::drawOverview()
         if (inspection_)
         {
             Engine::getInstance()->fillColor(line, 864, 572, 388, 1);
-            button({864, 584, 188, 44}, "返回獎勵", [this] {
-                inspectedRow_ = -1;
-                inspection_.reset();
-                characterInspector_ = {};
-                detailScroll_ = 0;
-                ++revision_;
-            }, false, Icon::Left);
+            button({864, 584, 188, 44}, "返回獎勵", [this] { closeInspection(); }, false, Icon::Left);
             characterInspector(*inspection_, {852, 80, 412, 496}, SDL_Rect{1064, 584, 188, 44});
         }
         button({864, 648, 388, 44}, confirmationLabel(), [this] { exitWithResult(selected_); }, true);
@@ -552,7 +554,7 @@ void ChessSelectionScreen::drawOverviewBody(SDL_Rect frame, int fontSize)
                     inspection_ = inspect();
                     characterInspector_ = {};
                     inspectedRow_ = index;
-                    detailScroll_ = 0;
+                    inspectionOriginScroll_ = detailScroll_;
                     ++revision_;
                 });
                 label("›", fontSize, area.x + area.w - 20, area.y + 3, context, 20);
@@ -696,7 +698,7 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
 {
     if (event.phase == PointerPhase::Wheel)
     {
-        if (inspection_ && event.uiPosition.x >= 852)
+        if (inspection_ && event.uiPosition.x >= (browseOnly_ ? 592 : 852))
         {
             if (characterInspector_.expanded) characterInspector_.page += event.wheel.y > 0 ? -1 : 1;
             return PointerResult::Handled;
@@ -818,6 +820,15 @@ void ChessSelectionScreen::onPressedOK()
     }
 }
 
+void ChessSelectionScreen::closeInspection()
+{
+    inspectedRow_ = -1;
+    inspection_.reset();
+    characterInspector_ = {};
+    detailScroll_ = inspectionOriginScroll_;
+    ++revision_;
+}
+
 void ChessSelectionScreen::onPressedCancel()
 {
     if (inspection_)
@@ -828,10 +839,7 @@ void ChessSelectionScreen::onPressedCancel()
             ++revision_;
             return;
         }
-        inspectedRow_ = -1;
-        inspection_.reset();
-        detailScroll_ = 0;
-        ++revision_;
+        closeInspection();
         return;
     }
     if (expanded_) { expand(false); return; }

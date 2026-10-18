@@ -117,6 +117,7 @@ private:
     int detailTab_{};
     int detailScrollMax_{};
     int inspectedRow_ = -1;
+    int inspectionOriginScroll_{};
     std::optional<ChessCharacterPresentation> inspection_;
     ChessCharacterInspectorState characterInspector_;
     int dialogPrimary_ = -1;
@@ -143,6 +144,7 @@ private:
     void button(SDL_Rect frame, const std::string& text, std::function<void()> activate,
         bool primary = false, std::optional<ChessUiStyle::Icon> icon = std::nullopt, bool selected = false, bool action = false);
     void inspector();
+    void closeInspection();
     void characterInspector(const ChessCharacterPresentation& character, SDL_Rect frame,
         std::optional<SDL_Rect> navigationFrame = std::nullopt);
     void drawChoice();

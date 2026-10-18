@@ -100,7 +100,7 @@ int runChessChoiceMenu(const std::string& title, const std::vector<std::string>&
 namespace
 {
 ChessSelectionItem comboOverviewItem(const ChessGameContent& content, const ChessComboMetadata& metadata,
-    std::span<const int> deployedRoles, const std::string& bonusNote = {})
+    std::span<const int> deployedRoles, const std::string& bonusNote = {}, const ChessSessionState* state = nullptr)
 {
     using namespace ChessUiStyle;
     const auto found = std::ranges::find(content.combos(), metadata.comboId, &ComboDef::id);
@@ -111,14 +111,23 @@ ChessSelectionItem comboOverviewItem(const ChessGameContent& content, const Ches
         .badge = metadata.progressCount,
         .image = {"chess-synergies", combo.iconId}, .accent = metadata.active ? positive : muted,
     };
+    item.openCombo = [&content, state](int id) {
+        showChessComboOverview(content, state ? *state : ChessSessionState{}, id);
+    };
     ChessOverviewColumn members{.width = 256};
     members.rows.push_back({"成員 · 出戰標記 ✓", gold, true});
-    for (const int id : combo.memberRoleIds)
+    auto memberRoleIds = combo.memberRoleIds;
+    std::ranges::stable_sort(memberRoleIds, {}, [&](int id) { return content.role(id)->Cost; });
+    for (const int id : memberRoleIds)
     {
         const bool deployed = std::ranges::contains(deployedRoles, id);
         if (!std::ranges::contains(content.poolRoleIds(), id) && !deployed) continue;
         const auto* role = content.role(id);
-        members.rows.push_back({std::format("{} · {}費{}", role->Name, role->Cost, deployed ? " ✓" : ""), chessPieceTierColor(role->Cost)});
+        members.rows.push_back({.text = std::format("{} · {}費{}", role->Name, role->Cost, deployed ? " ✓" : ""),
+            .color = chessPieceTierColor(role->Cost),
+            .inspect = [&content, state, id] {
+                return buildChessCharacterPresentation(content, state ? *state : ChessSessionState{}, id);
+            }});
     }
     ChessOverviewColumn effects{.width = 664};
     if (combo.starSynergyBonus) effects.rows.push_back({"★ 星級計點 · 每多一星增加一點", gold, true});
@@ -160,7 +169,8 @@ void showChessComboOverview(const ChessGameContent& content, const ChessSessionS
             EffectDescriptionStyle::Full, row.progress.requiredCounts);
         const auto bonusNote = state.selectedTalentComboId == combo.id
             ? std::format("合縱 · 永久 +{}點", content.balance().talent(state.talent).selectedComboBonus) : std::string{};
-        items.push_back(comboOverviewItem(content, metadata, deployedRoles, bonusNote));
+        auto item = comboOverviewItem(content, metadata, deployedRoles, bonusNote, &state);
+        items.push_back(std::move(item));
     }
     runComboOverview(std::move(items), selected, "羈絆一覽");
 }
@@ -173,7 +183,8 @@ void showChessComboOverview(const ChessGameContent& content, std::span<const Che
     for (const auto& combo : combos)
     {
         if (combo.comboId == comboId) selected = static_cast<int>(items.size());
-        items.push_back(comboOverviewItem(content, combo, deployedRoles));
+        auto item = comboOverviewItem(content, combo, deployedRoles);
+        items.push_back(std::move(item));
     }
     runComboOverview(std::move(items), selected, title);
 }
