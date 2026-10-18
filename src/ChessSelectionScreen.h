@@ -28,6 +28,9 @@ struct ChessOverviewRow
     std::string text;
     Color color = ChessUiStyle::ink;
     bool heading{};
+    std::function<ChessCharacterPresentation()> inspect;
+    std::function<std::vector<ChessCharacterEntry>()> synergies;
+    std::optional<std::pair<std::string, Color>> prefix;
 };
 
 struct ChessOverviewColumn
@@ -71,6 +74,7 @@ public:
     void setTalentMode() { layout_ = ChessSelectionLayout::Talent; }
     void setConfirmation(bool destructive = false) { dialogPrimary_ = 0; dialogDestructive_ = destructive ? 0 : -1; }
     void setActionLabel(std::string label) { actionLabel_ = std::move(label); }
+    void setHeaderNote(std::string note) { headerNote_ = std::move(note); }
     void setExitable(bool value) { exitable_ = value; }
     void setExitConfirmation(std::function<bool()> confirmation) { exitConfirmation_ = std::move(confirmation); }
     void setSelectedItem(int index);
@@ -95,6 +99,7 @@ private:
         int itemIndex = -1;
     };
     std::string title_;
+    std::string headerNote_;
     std::vector<ChessSelectionItem> items_;
     std::vector<int> visible_;
     std::vector<std::string> categories_;
@@ -111,6 +116,8 @@ private:
     int detailScroll_{};
     int detailTab_{};
     int detailScrollMax_{};
+    int inspectedRow_ = -1;
+    std::optional<ChessCharacterPresentation> inspection_;
     ChessCharacterInspectorState characterInspector_;
     int dialogPrimary_ = -1;
     int dialogDestructive_ = -1;
@@ -134,8 +141,10 @@ private:
     int hit(SDL_FPoint point) const;
     void control(SDL_Rect frame, std::function<void()> activate);
     void button(SDL_Rect frame, const std::string& text, std::function<void()> activate,
-        bool primary = false, std::optional<ChessUiStyle::Icon> icon = std::nullopt, bool selected = false);
+        bool primary = false, std::optional<ChessUiStyle::Icon> icon = std::nullopt, bool selected = false, bool action = false);
     void inspector();
+    void characterInspector(const ChessCharacterPresentation& character, SDL_Rect frame,
+        std::optional<SDL_Rect> navigationFrame = std::nullopt);
     void drawChoice();
     void drawTalent();
     void drawOverview();

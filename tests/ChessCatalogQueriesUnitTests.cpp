@@ -29,7 +29,9 @@ GameplayEffect attributeDefinition(BattleAttribute attribute, int amount)
 
 EffectRule attributeRule(BattleAttribute attribute, int amount)
 {
-    return attributeDefinition(attribute, amount)->buildRules().front();
+    auto rule = attributeDefinition(attribute, amount)->buildRules().front();
+    rule.id = EffectRuleId{static_cast<std::uint64_t>(attribute) + 1};
+    return rule;
 }
 
 ChessGameContent catalogContent(int attackAreaType = 3, bool twoAbilities = false)
@@ -124,6 +126,7 @@ ChessGameContent catalogContent(int attackAreaType = 3, bool twoAbilities = fals
 
     ComboDef combo;
     combo.id = 3;
+    combo.iconId = 13;
     combo.name = "共用羈絆";
     combo.memberRoleIds = {role.ID};
     combo.thresholds.push_back({
@@ -137,6 +140,7 @@ ChessGameContent catalogContent(int attackAreaType = 3, bool twoAbilities = fals
 
     ComboDef hiddenCombo;
     hiddenCombo.id = 4;
+    hiddenCombo.iconId = 14;
     hiddenCombo.name = "隱藏羈絆";
     hiddenCombo.isNpcOnly = true;
     hiddenCombo.memberRoleIds = {role.ID};
@@ -329,6 +333,18 @@ TEST_CASE("public effect catalog covers player rules by source and excludes NPC 
     CHECK(catalog[0].ruleOrdinal == 1);
     CHECK(catalog[0].sourceRuleCount == 2);
     CHECK(catalog[1].ruleOrdinal == 2);
+    // 圖示依來源 ID 解析，戰鬥與整備規則皆須保留相同來源。
+    for (const auto& entry : catalog)
+    {
+        switch (entry.source)
+        {
+        case ChessEffectCatalogSource::Magic: CHECK(entry.sourceId == 100); break;
+        case ChessEffectCatalogSource::Equipment:
+        case ChessEffectCatalogSource::EquipmentSynergy: CHECK(entry.sourceId == 500); break;
+        case ChessEffectCatalogSource::Neigong: CHECK(entry.sourceId == 700); break;
+        case ChessEffectCatalogSource::ComboThreshold: CHECK(entry.sourceId == 3); break;
+        }
+    }
     CHECK(joinEffectDescriptionRows(catalog[0].effects).contains("攻擊+4"));
 
     const auto synergy = std::ranges::find(
@@ -429,9 +445,55 @@ TEST_CASE("character inspector uses chess attacks and limits effects to the ulti
                 CHECK_FALSE(row.text.contains("沒有額外配置"));
             }
         REQUIRE(character.synergies.size() == 1);
-        CHECK_FALSE(character.synergies[0].tooltip.empty());
+        CHECK(character.synergies[0].tooltip.empty());
         CHECK(character.synergies[0].id == content.combos().front().id);
     }
+}
+
+TEST_CASE("enemy character inspector shares equipment and skills while using enemy stats and synergies", "[chess][ui][catalog]")
+{
+    const auto content = catalogContent(3, true);
+    const auto analysis = analyzeChessChallengeEnemies(content, content.balance().challenges.front());
+    REQUIRE(analysis.units.size() == 1);
+    const auto& unit = analysis.units.front();
+    const auto enemy = buildChessBattleCharacterPresentation(content, unit, analysis.enemySynergies);
+
+    ChessSessionState state;
+    state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = 10, .star = 2, .weaponInstanceId = 2});
+    state.equipmentInventory.emplace(2, ChessEquipmentInstance{.instanceId = 2, .itemId = 500});
+    const auto owned = buildChessCharacterPresentation(content, state, 10, 2, 1);
+    CHECK(enemy.stats == *unit.initializedCombatStats);
+    CHECK(enemy.stats != owned.stats);
+    CHECK_FALSE(enemy.showCost);
+    CHECK(owned.showCost);
+    CHECK(enemy.owned.empty());
+    CHECK(enemy.equipment[0].imageId == 500);
+    CHECK(enemy.equipment[1].title == "未裝備");
+    REQUIRE(enemy.equipment[0].details.size() == owned.equipment[0].details.size());
+    for (int i = 0; i < static_cast<int>(enemy.equipment[0].details.size()); ++i)
+        CHECK(enemy.equipment[0].details[i].text == owned.equipment[0].details[i].text);
+    REQUIRE(enemy.abilities.size() == owned.abilities.size());
+    for (int i = 0; i < static_cast<int>(enemy.abilities.size()); ++i)
+    {
+        CHECK(enemy.abilities[i].value == owned.abilities[i].value);
+        CHECK(enemy.abilities[i].combatStyle == owned.abilities[i].combatStyle);
+        REQUIRE(enemy.abilities[i].details.size() == owned.abilities[i].details.size());
+        for (int j = 0; j < static_cast<int>(enemy.abilities[i].details.size()); ++j)
+            CHECK(enemy.abilities[i].details[j].text == owned.abilities[i].details[j].text);
+    }
+    REQUIRE_FALSE(enemy.synergies.empty());
+    for (const auto& entry : enemy.synergies)
+    {
+        const auto metadata = std::ranges::find(analysis.enemySynergies, entry.id, &ChessComboMetadata::comboId);
+        REQUIRE(metadata != analysis.enemySynergies.end());
+        CHECK(entry.active);
+        CHECK(entry.value + " ✓" == metadata->progressCount);
+        CHECK(entry.tooltip.empty());
+        CHECK(entry.imageGroup == "chess-synergies");
+        CHECK(entry.imageId == (entry.id == 3 ? 13 : 14));
+    }
+    CHECK(std::ranges::any_of(enemy.synergies, [](const auto& entry) { return entry.id == 4; }));
+    CHECK_FALSE(owned.synergies.front().active);
 }
 
 TEST_CASE("talent tables paginate long cells without shrinking or dropping text", "[chess][ui][catalog]")

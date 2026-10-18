@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChessGameSession.h"
+#include "ChessPreparedBattleAnalysis.h"
 #include "ChessUiCommon.h"
 #include "ChessPresentationHelpers.h"
 #include "ChessMenuFormatting.h"
@@ -27,6 +28,11 @@ struct ChessCharacterEntry
     std::vector<PanelTextSourceRow> details;
 };
 
+inline std::string chessComboCountWithoutStatus(const ChessComboMetadata& synergy)
+{
+    return synergy.progressCount.substr(0, synergy.progressCount.find(" ✓"));
+}
+
 struct ChessCharacterInspectorState
 {
     bool expanded{};
@@ -49,6 +55,7 @@ struct ChessCharacterPresentation
     int headId{};
     int cost{};
     int star{};
+    bool showCost = true;
     std::string name;
     std::string context;
     std::string growth;
@@ -66,35 +73,14 @@ inline std::array<std::pair<std::string, int>, 10> chessCharacterStats(const Che
         {"耍刀", stats.knife}, {"奇門", stats.unusual}, {"內力", stats.maxMp}, {"暗器", stats.hiddenWeapon}}};
 }
 
-inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGameContent& content,
-    const ChessSessionState& state, int roleId, int star = 1, int instanceId = -1,
-    ChessCharacterContext context = ChessCharacterContext::Catalogue)
+inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameContent& content,
+    int roleId, int star, const std::array<int, 2>& equipmentItemIds)
 {
     const auto* role = content.role(roleId);
     assert(role);
-    const auto* piece = rosterPiece(state, instanceId);
-    assert(instanceId < 0 || (piece && piece->roleId == roleId));
-    auto preview = piece ? *piece : ChessSessionPiece{};
-    preview.star = star;
-    const int growthPercent = content.balance().talent(state.talent).amplifiedGrowthPercent;
     ChessCharacterPresentation result{
         .roleId = roleId, .headId = role->HeadID, .cost = role->Cost, .star = star, .name = role->Name,
-        .context = piece ? (piece->star != star ? "升星預覽" : piece->deployed ? "出戰中" : "候補")
-            : context == ChessCharacterContext::Shop ? "商店預覽" : "圖鑑預覽",
-        .growth = piece ? std::format("勝場 {} · 含裝備基礎加成", piece->fightsWon) : "無勝場成長 · 未裝備",
-        .stats = piece ? chessPieceStats(content, preview, growthPercent)
-            : chessRoleStats(*role, content.balance(), star, 0, growthPercent),
     };
-    if (piece && piece->luckStacks > 0)
-        result.growth += std::format(" · 賭運 {} 層 / {}%", piece->luckStacks,
-            content.balance().talent(state.talent).luckChance(piece->luckStacks));
-    std::map<int, int> owned;
-    for (const auto& [id, member] : state.roster)
-        if (member.roleId == roleId) ++owned[member.star];
-    for (const auto& [ownedStar, count] : owned)
-        result.owned += std::format("{}星 ×{}  ", ownedStar, count);
-    if (result.owned.empty()) result.owned = "尚未擁有";
-
     const auto abilities = chessAbilitiesForRoleStar(content, *role, star, EffectDescriptionStyle::Full);
     for (const auto& ability : abilities)
     {
@@ -133,11 +119,9 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
     {
         auto& entry = result.equipment[slot];
         entry.value = slot == 0 ? "武器" : "防具";
-        const int equipmentId = piece ? (slot == 0 ? piece->weaponInstanceId : piece->armorInstanceId) : -1;
-        entry.id = equipmentId;
-        const auto* instance = equipmentInstance(state, equipmentId);
-        if (!instance) { entry.title = "未裝備"; continue; }
-        const auto* item = content.item(instance->itemId);
+        entry.id = equipmentItemIds[slot];
+        if (entry.id < 0) { entry.title = "未裝備"; continue; }
+        const auto* item = content.item(entry.id);
         assert(item);
         entry.title = item->name;
         entry.imageGroup = "item";
@@ -152,6 +136,41 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
         const auto effects = panelTextRowsForEquipment(metadata, roleId);
         entry.details.insert(entry.details.end(), effects.begin(), effects.end());
     }
+    return result;
+}
+
+inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGameContent& content,
+    const ChessSessionState& state, int roleId, int star = 1, int instanceId = -1,
+    ChessCharacterContext context = ChessCharacterContext::Catalogue)
+{
+    const auto* role = content.role(roleId);
+    assert(role);
+    const auto* piece = rosterPiece(state, instanceId);
+    assert(instanceId < 0 || (piece && piece->roleId == roleId));
+    auto preview = piece ? *piece : ChessSessionPiece{};
+    preview.star = star;
+    const int growthPercent = content.balance().talent(state.talent).amplifiedGrowthPercent;
+    std::array<int, 2> equipmentItemIds{-1, -1};
+    if (piece)
+        for (int slot = 0; slot < 2; ++slot)
+            if (const auto* equipment = equipmentInstance(state, slot == 0 ? piece->weaponInstanceId : piece->armorInstanceId))
+                equipmentItemIds[slot] = equipment->itemId;
+    auto result = buildChessCharacterContent(content, roleId, star, equipmentItemIds);
+    result.context = piece ? (piece->star != star ? "升星預覽" : piece->deployed ? "出戰中" : "候補")
+        : context == ChessCharacterContext::Shop ? "商店預覽" : "圖鑑預覽";
+    result.growth = piece ? std::format("勝場 {} · 含裝備基礎加成", piece->fightsWon) : "無勝場成長 · 未裝備";
+    result.stats = piece ? chessPieceStats(content, preview, growthPercent)
+        : chessRoleStats(*role, content.balance(), star, 0, growthPercent);
+    if (piece && piece->luckStacks > 0)
+        result.growth += std::format(" · 賭運 {} 層 / {}%", piece->luckStacks,
+            content.balance().talent(state.talent).luckChance(piece->luckStacks));
+    std::map<int, int> owned;
+    for (const auto& [id, member] : state.roster)
+        if (member.roleId == roleId) ++owned[member.star];
+    for (const auto& [ownedStar, count] : owned)
+        result.owned += std::format("{}星 ×{}  ", ownedStar, count);
+    if (result.owned.empty()) result.owned = "尚未擁有";
+
     for (const auto& combo : content.combos())
     {
         if (combo.isNpcOnly || !std::ranges::contains(combo.memberRoleIds, roleId)) continue;
@@ -159,8 +178,31 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
         const auto count = formatChessComboProgressCount(progress);
         ChessCharacterEntry entry{.id = combo.id, .title = combo.name, .value = count,
             .imageGroup = "chess-synergies", .imageId = combo.iconId, .active = progress.active};
-        entry.tooltip = combo.name + " · " + count;
         result.synergies.push_back(std::move(entry));
+    }
+    return result;
+}
+
+// 戰鬥角色沿用整備／圖鑑的武學與裝備資料，數值與羈絆取自所屬陣容。
+inline ChessCharacterPresentation buildChessBattleCharacterPresentation(const ChessGameContent& content,
+    const ChessPreparedBattleUnitAnalysis& unit, std::span<const ChessComboMetadata> synergies)
+{
+    assert(unit.initializedCombatStats);
+    auto result = buildChessCharacterContent(content, unit.roleId, unit.star, {unit.weaponItemId, unit.armorItemId});
+    result.showCost = false;
+    result.context = unit.team == 0 ? "我方陣容" : "敵方陣容";
+    result.growth = "含星級、裝備及陣容羈絆的開戰數值；戰中觸發效果另計。";
+    result.stats = *unit.initializedCombatStats;
+    for (const auto& synergy : synergies)
+    {
+        const auto combo = std::ranges::find(content.combos(), synergy.comboId, &ComboDef::id);
+        assert(combo != content.combos().end());
+        const bool contributes = std::ranges::any_of(synergy.contributions, [&](const auto& contribution) {
+            return std::ranges::contains(contribution.unitIds, unit.unitId);
+        });
+        if (!contributes && !std::ranges::contains(combo->memberRoleIds, unit.roleId)) continue;
+        result.synergies.push_back({.id = combo->id, .title = combo->name, .value = chessComboCountWithoutStatus(synergy),
+            .imageGroup = "chess-synergies", .imageId = combo->iconId, .active = synergy.active});
     }
     return result;
 }

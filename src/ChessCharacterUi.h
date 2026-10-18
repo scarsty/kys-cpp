@@ -13,7 +13,8 @@ inline void drawChessCharacterIdentity(const ChessCharacterPresentation& charact
     const int x = frame.x + portrait + 12, width = frame.w - portrait - 12;
     label(character.name, size, x, frame.y + 2, ink, width);
     const bool showContext = character.context != "商店預覽" && character.context != "圖鑑預覽";
-    label(std::format("{}費 · {}星", character.cost, character.star)
+    label((character.showCost ? std::format("{}費 · {}星", character.cost, character.star)
+        : std::format("{}星", character.star))
         + (frame.h < 78 && showContext ? " · " + character.context : ""), size * 3 / 4,
         x, frame.y + size + 10, chessPieceTierColor(character.cost), width);
     if (showContext && frame.h >= 78)
@@ -63,6 +64,7 @@ struct ChessInspectorControl
     std::string label;
     std::optional<ChessUiStyle::Icon> icon;
     bool selected{};
+    bool action{};
     int section = -1;
     int entry = -1;
     int pageStep{};
@@ -85,9 +87,10 @@ inline void applyChessInspectorControl(ChessCharacterInspectorState& state, cons
     else state.expanded = false;
 }
 
-// 整備與圖鑑共用同一個檢視器；容器只負責輸入、焦點及自己的操作按鈕。
+// 整備、圖鑑與遠征共用同一個檢視器；容器只負責輸入、焦點及自己的操作按鈕。
 inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacterPresentation& character,
-    SDL_Rect frame, ChessCharacterInspectorState& state, bool compact)
+    SDL_Rect frame, ChessCharacterInspectorState& state, bool compact,
+    std::optional<SDL_Rect> navigationFrame = std::nullopt)
 {
     using namespace ChessUiStyle;
     ChessInspectorContent content;
@@ -133,11 +136,12 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             const SDL_Rect area{x + i % synergyColumns * (width + 8) / synergyColumns,
                 top + i / synergyColumns * 52, (width + 8) / synergyColumns - 8, 50};
             entry(character.synergies[i], area, tight ? 22 : compact ? 24 : 16, true);
-            content.controls.push_back({.frame = area, .comboId = character.synergies[i].id, .tooltip = character.synergies[i].tooltip});
+            content.controls.push_back({.frame = area, .comboId = character.synergies[i].id});
         }
         const int actionHeight = compact ? 84 : 44;
         const int actionY = frame.y + frame.h - actionHeight - 12;
-        content.controls.push_back({.frame = {x, actionY, width, actionHeight}, .label = "詳細資料", .icon = Icon::Right, .section = 0});
+        content.controls.push_back({.frame = navigationFrame.value_or(SDL_Rect{x, actionY, width, actionHeight}),
+            .label = "詳細資料", .icon = Icon::List, .action = true, .section = 0});
         return content;
     }
 
@@ -165,7 +169,8 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
         {
             const int top = contextPage ? bodyY : contextY;
             text(character.growth, x, top, compact ? 23 : 15, muted, width, 2);
-            text("擁有：" + character.owned, x, top + (compact ? 52 : 40), compact ? 23 : 15, muted, width);
+            if (!character.owned.empty())
+                text("擁有：" + character.owned, x, top + (compact ? 52 : 40), compact ? 23 : 15, muted, width);
         }
     }
     else
@@ -220,8 +225,9 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             footerY + (compact ? 28 : 13), compact ? 26 : 16, muted, compact ? 100 : 68);
         if (state.page + 1 < pageCount) content.controls.push_back({.frame = {x + buttonWidth + (compact ? 112 : 76), footerY, buttonWidth, height}, .icon = Icon::Down, .pageStep = 1});
     }
-    content.controls.push_back({.frame = {x + width - (compact ? 164 : 112), footerY, compact ? 164 : 112, tight ? 64 : compact ? 84 : 44},
-        .label = "收起", .icon = Icon::Collapse});
+    content.controls.push_back({.frame = navigationFrame.value_or(SDL_Rect{
+            x + width - (compact ? 208 : 148), footerY, compact ? 208 : 148, tight ? 64 : compact ? 84 : 44}),
+        .label = "角色摘要", .icon = Icon::Collapse, .action = true});
     return content;
 }
 } // namespace KysChess

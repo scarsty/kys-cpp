@@ -89,6 +89,8 @@ void ChessSelectionScreen::filter()
 void ChessSelectionScreen::select(int index)
 {
     selected_ = index;
+    inspectedRow_ = -1;
+    inspection_.reset();
     detailScroll_ = 0;
     detailTab_ = 0;
     characterInspector_ = {.expanded = expanded_};
@@ -121,10 +123,11 @@ void ChessSelectionScreen::control(SDL_Rect frame, std::function<void()> activat
 }
 
 void ChessSelectionScreen::button(SDL_Rect frame, const std::string& text, std::function<void()> activate,
-    bool primary, std::optional<Icon> symbol, bool selected)
+    bool primary, std::optional<Icon> symbol, bool selected, bool action)
 {
     const ControlState state{.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
-        .selected = selected, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size()), .primary = primary};
+        .selected = selected, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size()),
+        .primary = primary, .action = action};
     controlSurface(frame, state);
     const int inset = symbol ? (compact_ ? 44 : 32) : 0;
     const int size = std::min(compact_ ? 28 : Type::body,
@@ -133,31 +136,34 @@ void ChessSelectionScreen::button(SDL_Rect frame, const std::string& text, std::
     control(frame, std::move(activate));
 }
 
+void ChessSelectionScreen::characterInspector(const ChessCharacterPresentation& character, SDL_Rect frame,
+    std::optional<SDL_Rect> navigationFrame)
+{
+    auto content = composeChessCharacterInspector(character, frame, characterInspector_, compact_, navigationFrame);
+    for (const auto& itemControl : content.controls)
+    {
+        button(itemControl.frame, itemControl.label, [this, itemControl] {
+            if (itemControl.comboId)
+            {
+                items_[selected_].openCombo(*itemControl.comboId);
+                return;
+            }
+            applyChessInspectorControl(characterInspector_, itemControl);
+            if (!inspection_) expanded_ = characterInspector_.expanded;
+            ++revision_;
+        }, false, itemControl.icon, itemControl.selected, itemControl.action);
+        controls_.back().tooltip = itemControl.tooltip;
+    }
+    for (const auto& draw : content.drawings) draw();
+}
+
 void ChessSelectionScreen::inspector()
 {
     const auto& item = items_[selected_];
     SDL_Rect frame = compact_ ? SDL_Rect{568, 112, 696, 592} : SDL_Rect{904, 80, 360, 560};
     if (!browseOnly_) frame.h -= compact_ ? 96 : 64;
     panel(frame.x, frame.y, frame.w, frame.h);
-    if (item.character)
-    {
-        auto content = composeChessCharacterInspector(*item.character, frame, characterInspector_, compact_);
-        for (const auto& itemControl : content.controls)
-        {
-            button(itemControl.frame, itemControl.label, [this, itemControl] {
-                if (itemControl.comboId)
-                {
-                    items_[selected_].openCombo(*itemControl.comboId);
-                    return;
-                }
-                applyChessInspectorControl(characterInspector_, itemControl);
-                expanded_ = characterInspector_.expanded;
-                ++revision_;
-            }, false, itemControl.icon, itemControl.selected);
-            controls_.back().tooltip = itemControl.tooltip;
-        }
-        for (const auto& draw : content.drawings) draw();
-    }
+    if (item.character) characterInspector(*item.character, frame);
     else
     {
         const int x = frame.x + 12, y = frame.y + 12, width = frame.w - 24;
@@ -288,6 +294,7 @@ void ChessSelectionScreen::draw()
         return;
     }
     ChessUiStyle::page(title_, {}, compact_ ? 30 : Type::sectionTitle);
+    if (!headerNote_.empty()) label(headerNote_, Type::metadata, 220, 34, muted, 844);
     if (exitable_) button(compact_ ? SDL_Rect{1008, 16, 240, 84} : SDL_Rect{1080, 20, 168, 44},
         "返回", [this] {
             if (!exitConfirmation_ || exitConfirmation_()) exitWithResult(-1);
@@ -404,6 +411,7 @@ void ChessSelectionScreen::drawOverview()
         label(item.title, 20, area.x + 54, area.y + 6, item.accent, 190);
         label(item.badge, 16, area.x + 54, area.y + 32, muted, 190);
         control(area, [this, index] { select(index); });
+        controls_.back().itemIndex = index;
     }
     const int pages = (static_cast<int>(items_.size()) + pageSize() - 1) / pageSize();
     if (page_ > 0) button({28, 648, 52, 44}, {}, [this] { changePage(-1); }, false, Icon::Left);
@@ -411,11 +419,35 @@ void ChessSelectionScreen::drawOverview()
     if (page_ + 1 < pages) button({228, 648, 52, 44}, {}, [this] { changePage(1); }, false, Icon::Right);
 
     const auto& item = items_[selected_];
-    panel(304, 80, 960, 624);
+    panel(304, 80, browseOnly_ ? 960 : 536, 624);
+    if (!browseOnly_) panel(852, 80, 412, 624);
     image(item.image, {324, 96, 48, 48});
     label(item.title, 28, 388, 104, gold, 480);
-    label(item.badge + " · " + item.subtitle, 20, 900, 110, item.accent, 336);
-    drawOverviewBody({324, 174, 920, 454}, 20);
+    if (browseOnly_)
+    {
+        label(item.badge + " · " + item.subtitle, 20, 900, 110, item.accent, 336);
+        drawOverviewBody({324, 174, 920, 454}, 20);
+    }
+    else
+    {
+        Engine::getInstance()->fillColor(line, 864, 640, 388, 1);
+        if (!inspection_) label(item.badge, Type::body, 1060, 110, item.accent, 176);
+        label(item.subtitle, Type::body, 324, 152, muted, 500);
+        drawOverviewBody({324, 190, 920, 502}, Type::body);
+        if (inspection_)
+        {
+            Engine::getInstance()->fillColor(line, 864, 572, 388, 1);
+            button({864, 584, 188, 44}, "返回獎勵", [this] {
+                inspectedRow_ = -1;
+                inspection_.reset();
+                characterInspector_ = {};
+                detailScroll_ = 0;
+                ++revision_;
+            }, false, Icon::Left);
+            characterInspector(*inspection_, {852, 80, 412, 496}, SDL_Rect{1064, 584, 188, 44});
+        }
+        button({864, 648, 388, 44}, confirmationLabel(), [this] { exitWithResult(selected_); }, true);
+    }
 }
 
 void ChessSelectionScreen::drawTabbed()
@@ -437,23 +469,39 @@ void ChessSelectionScreen::drawOverviewBody(SDL_Rect frame, int fontSize)
 {
     const auto& item = items_[selected_];
     const int bodyY = frame.y, bodyHeight = frame.h, lineHeight = fontSize + 6;
-    struct Line { std::string text; Color color; int y{}; };
+    struct Line { std::string text; Color color; int y{}; int sourceRow{}; };
     std::vector<std::vector<std::vector<Line>>> columns;
     detailScrollMax_ = 0;
     for (const auto& column : item.overview)
     {
+        if (inspection_ && &column == &item.overview.back()) break;
+        const int columnHeight = layout_ == ChessSelectionLayout::Overview && !browseOnly_
+            && &column == &item.overview.back() ? 448 : bodyHeight;
+        const auto& rows = column.rows;
         std::vector<std::vector<Line>> pages(1);
         int y{};
-        for (const auto& row : column.rows)
+        for (int rowIndex = 0; rowIndex < static_cast<int>(rows.size()); ++rowIndex)
         {
-            const auto lines = wrapDisplayText(row.text, (column.width - 16) * 2 / fontSize, true, DisplayTextWrapping::Prose);
+            const auto& row = rows[rowIndex];
+            if (row.synergies)
+            {
+                const int perLine = (column.width - 80) / 90;
+                const int count = static_cast<int>(row.synergies().size());
+                const int height = count == 0 ? 32 : (count + perLine - 1) / perLine * 40;
+                if (y + height + lineHeight > columnHeight) { pages.emplace_back(); y = 0; }
+                pages.back().push_back({row.text, row.color, y, rowIndex});
+                y += height;
+                continue;
+            }
+            const auto lines = wrapDisplayText((row.prefix ? row.prefix->first : "") + row.text,
+                (column.width - (row.inspect ? 48 : 16)) * 2 / fontSize, true, DisplayTextWrapping::Prose);
             if (row.heading && y > 0) y += 8;
             // 標題至少與下一行一起留在同頁。
-            if (y + lineHeight * (row.heading ? 2 : 1) > bodyHeight) { pages.emplace_back(); y = 0; }
+            if (y + lineHeight * (row.heading ? 2 : 1) > columnHeight) { pages.emplace_back(); y = 0; }
             for (const auto& line : lines)
             {
-                if (y + lineHeight > bodyHeight) { pages.emplace_back(); y = 0; }
-                pages.back().push_back({line, row.color, y});
+                if (y + lineHeight > columnHeight) { pages.emplace_back(); y = 0; }
+                pages.back().push_back({line, row.color, y, rowIndex});
                 y += lineHeight;
             }
             y += 8;
@@ -467,14 +515,76 @@ void ChessSelectionScreen::drawOverviewBody(SDL_Rect frame, int fontSize)
     {
         const auto& pages = columns[i];
         const auto& lines = pages[std::min(detailScroll_, static_cast<int>(pages.size()) - 1)];
-        for (const auto& line : lines) label(line.text, fontSize, x, bodyY + line.y, line.color, item.overview[i].width - 16);
+        for (int start = 0; start < static_cast<int>(lines.size());)
+        {
+            const auto& line = lines[start];
+            int end = start + 1;
+            while (end < static_cast<int>(lines.size()) && lines[end].sourceRow == line.sourceRow) ++end;
+            const auto& rows = item.overview[i].rows;
+            const auto& row = rows[line.sourceRow];
+            if (row.synergies)
+            {
+                label(row.text, fontSize, x, bodyY + line.y, row.color, 60);
+                const auto entries = row.synergies();
+                const int perLine = (item.overview[i].width - 80) / 90;
+                for (int n = 0; n < static_cast<int>(entries.size()); ++n)
+                {
+                    const auto& entry = entries[n];
+                    const SDL_Rect area{x + 64 + n % perLine * 90, bodyY + line.y - 3 + n / perLine * 40, 88, 38};
+                    controlSurface(area, {.hovered = contains(area, PointerInput::instance().logicalPointerUiPosition()),
+                        .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
+                    asset(entry.imageGroup, entry.imageId, {area.x + 2, area.y + 5, 28, 28});
+                    label(entry.value, 16, area.x + 34, area.y + 10, positive, 56);
+                    control(area, [this, id = entry.id] { items_[selected_].openCombo(id); });
+                    controls_.back().tooltip = entry.tooltip;
+                }
+                start = end;
+                continue;
+            }
+            if (row.inspect)
+            {
+                const SDL_Rect area{x, bodyY + line.y - 3, item.overview[i].width - 20,
+                    lines[end - 1].y - line.y + lineHeight + 6};
+                controlSurface(area, {.hovered = contains(area, PointerInput::instance().logicalPointerUiPosition()),
+                    .selected = inspectedRow_ == line.sourceRow,
+                    .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
+                control(area, [this, index = line.sourceRow, inspect = row.inspect] {
+                    inspection_ = inspect();
+                    characterInspector_ = {};
+                    inspectedRow_ = index;
+                    detailScroll_ = 0;
+                    ++revision_;
+                });
+                label("›", fontSize, area.x + area.w - 20, area.y + 3, context, 20);
+            }
+            for (int index = start; index < end; ++index)
+            {
+                int textX = x + (row.inspect ? 6 : 0);
+                int textWidth = item.overview[i].width - (row.inspect ? 48 : 16);
+                auto text = lines[index].text;
+                if (row.prefix && text.starts_with(row.prefix->first))
+                {
+                    const auto& [prefix, color] = *row.prefix;
+                    const int prefixWidth = Font::getTextDrawSize(prefix) * fontSize / 2;
+                    label(prefix, fontSize, textX, bodyY + lines[index].y, color, prefixWidth);
+                    text.erase(0, prefix.size());
+                    textX += prefixWidth;
+                    textWidth -= prefixWidth;
+                }
+                label(text, fontSize, textX, bodyY + lines[index].y, lines[index].color, textWidth);
+            }
+            start = end;
+        }
         x += item.overview[i].width;
     }
     if (detailScrollMax_ > 0)
     {
-        if (detailScroll_ > 0) button({976, 648, 52, 44}, {}, [this] { --detailScroll_; }, false, Icon::Up);
-        label(std::format("說明 {} / {}", detailScroll_ + 1, detailScrollMax_ + 1), 16, 1040, 662, muted, 140);
-        if (detailScroll_ < detailScrollMax_) button({1196, 648, 52, 44}, {}, [this] { ++detailScroll_; }, false, Icon::Down);
+        const bool actionOverview = layout_ == ChessSelectionLayout::Overview && !browseOnly_;
+        const int x = actionOverview ? 324 : 976;
+        const int nextX = actionOverview ? 544 : 1196;
+        if (detailScroll_ > 0) button({x, 648, 44, 44}, {}, [this] { --detailScroll_; }, false, Icon::Up);
+        label(std::format("{} / {}", detailScroll_ + 1, detailScrollMax_ + 1), 16, x + 52, 662, muted, nextX - x - 60);
+        if (detailScroll_ < detailScrollMax_) button({nextX, 648, 44, 44}, {}, [this] { ++detailScroll_; }, false, Icon::Down);
     }
 }
 
@@ -586,6 +696,11 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
 {
     if (event.phase == PointerPhase::Wheel)
     {
+        if (inspection_ && event.uiPosition.x >= 852)
+        {
+            if (characterInspector_.expanded) characterInspector_.page += event.wheel.y > 0 ? -1 : 1;
+            return PointerResult::Handled;
+        }
         if ((layout_ == ChessSelectionLayout::Overview && event.uiPosition.x >= 304)
             || layout_ == ChessSelectionLayout::Tabbed)
         {
@@ -632,7 +747,7 @@ void ChessSelectionScreen::dealEvent(EngineEvent& event)
     {
         if (event.type == EVENT_KEY_DOWN && !event.key.repeat)
         {
-            if (items_[selected_].character)
+            if (items_[selected_].character || (inspection_ && characterInspector_.expanded))
             {
                 if (event.key.key == SDLK_PAGEUP) --characterInspector_.page;
                 if (event.key.key == SDLK_PAGEDOWN) ++characterInspector_.page;
@@ -694,7 +809,7 @@ void ChessSelectionScreen::onPressedOK()
         const auto activate = controls_[focused_].activate;
         activate();
     }
-    else if (expanded_ || layout_ == ChessSelectionLayout::Tabbed) return;
+    else if (expanded_ || inspection_.has_value() || layout_ == ChessSelectionLayout::Tabbed) return;
     else if (!visible_.empty())
     {
         if (compact_ && layout_ == ChessSelectionLayout::Catalogue) expand(true);
@@ -705,6 +820,20 @@ void ChessSelectionScreen::onPressedOK()
 
 void ChessSelectionScreen::onPressedCancel()
 {
+    if (inspection_)
+    {
+        if (characterInspector_.expanded)
+        {
+            characterInspector_ = {};
+            ++revision_;
+            return;
+        }
+        inspectedRow_ = -1;
+        inspection_.reset();
+        detailScroll_ = 0;
+        ++revision_;
+        return;
+    }
     if (expanded_) { expand(false); return; }
     if (exitable_ && (!exitConfirmation_ || exitConfirmation_())) exitWithResult(-1);
 }

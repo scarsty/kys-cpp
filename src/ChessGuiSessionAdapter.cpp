@@ -81,7 +81,9 @@ struct SessionMenuData
     bool commandMode{};
     bool shortChoice{};
     bool shopMode{};
+    bool overviewMode{};
     std::string actionLabel = "選擇";
+    std::string headerNote;
 };
 
 
@@ -117,6 +119,33 @@ Color effectCatalogSourceColor(ChessEffectCatalogSource source)
     case ChessEffectCatalogSource::EquipmentSynergy: return {255, 170, 100, 255};
     case ChessEffectCatalogSource::Neigong: return {120, 255, 160, 255};
     case ChessEffectCatalogSource::ComboThreshold: return {130, 210, 255, 255};
+    }
+    std::unreachable();
+}
+
+ChessSelectionImage effectCatalogImage(const ChessGameContent& content, const ChessEffectCatalogEntry& entry)
+{
+    switch (entry.source)
+    {
+    case ChessEffectCatalogSource::Magic:
+        for (const auto& [id, item] : content.items())
+            if (item.magicId == entry.sourceId) return {"item", id};
+        return chessSelectionIcon(ChessUiStyle::Icon::Ultimate);
+    case ChessEffectCatalogSource::Equipment:
+    case ChessEffectCatalogSource::EquipmentSynergy:
+        return {"item", entry.sourceId};
+    case ChessEffectCatalogSource::Neigong:
+    {
+        const auto found = std::ranges::find(content.neigong(), entry.sourceId, &NeigongDef::magicId);
+        assert(found != content.neigong().end());
+        return {"item", found->itemId};
+    }
+    case ChessEffectCatalogSource::ComboThreshold:
+    {
+        const auto found = std::ranges::find(content.combos(), entry.sourceId, &ComboDef::id);
+        assert(found != content.combos().end());
+        return {"chess-synergies", found->iconId};
+    }
     }
     std::unreachable();
 }
@@ -419,7 +448,9 @@ int runSelection(
     menu->setShopMode(data.shopMode);
     menu->setCommandMode(data.commandMode || (!detailRenderer && data.cards.empty()));
     if (data.shortChoice) menu->setShortChoiceMode();
+    if (data.overviewMode) menu->setOverviewMode();
     menu->setActionLabel(data.actionLabel);
+    menu->setHeaderNote(data.headerNote);
     menu->setExitable(exitable);
     menu->setSearchEnabled(showSearch || data.labels.size() > 12);
     menu->setExitConfirmation(std::move(exitConfirmation));
@@ -2077,7 +2108,7 @@ void ChessGuiSessionAdapter::viewEffects()
             .title = entry.sourceName,
             .subtitle = std::format("效果 {} / {}", entry.ruleOrdinal, entry.sourceRuleCount),
             .badge = chessEffectCatalogSourceLabel(entry.source),
-            .image = chessSelectionIcon(ChessUiStyle::Icon::Spark),
+            .image = effectCatalogImage(session_.content(), entry),
             .accent = effectCatalogSourceColor(entry.source),
             .category = chessEffectCatalogSourceLabel(entry.source),
             .summary = joinEffectDescriptionRows(entry.effects, " · "),
@@ -2134,8 +2165,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
 
         SessionMenuData data;
         data.actionLabel = "挑戰";
+        data.overviewMode = true;
+        data.headerNote = "不推進主線 · 僅首勝領獎與累計勝場 · 獎勵依條件提供";
         std::vector<ChessMenuColumnRow> labelRows;
-        std::vector<const BalanceConfig::ChallengeDef*> rows;
         for (const auto& name : descriptor.candidateStableIds)
         {
             const auto found = std::ranges::find(
@@ -2151,32 +2183,68 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
                 {},
             });
             data.colors.push_back(chessChallengeMenuRowColor(complete));
-            rows.push_back(&*found);
             ChessSelectionItem card{
                 .title = found->name,
-                .subtitle = complete ? "已完成" : "",
-                .badge = std::format("{} 名對手", found->enemies.size()),
+                .subtitle = found->description,
+                .badge = complete ? "已完成" : "未完成",
                 .image = chessSelectionIcon(ChessUiStyle::Icon::Mountain),
                 .accent = complete ? ChessUiStyle::positive : ChessUiStyle::gold,
-                .category = complete ? "已完成" : "未完成",
-                .facts = {{"對手", std::to_string(found->enemies.size())}, {"獎勵", "擇一"}},
-                .summary = found->rewards.empty() ? "" : chessChallengeRewardDescription(session_.content(), found->rewards.front()),
-                .relatedTitle = "敵方陣容",
             };
-            for (const auto& enemy : found->enemies)
+            const auto metadata = chessChallengeMetadata(session_.content(), *found);
+            auto analysis = std::make_shared<std::optional<ChessPreparedBattleAnalysis>>();
+            const auto enemyAnalysis = [this, challenge = &*found, analysis]() -> const ChessPreparedBattleAnalysis& {
+                if (!*analysis) *analysis = analyzeChessChallengeEnemies(session_.content(), *challenge);
+                return **analysis;
+            };
+            ChessOverviewColumn enemies{.width = 540};
+            enemies.rows.push_back({.text = std::format("{} 人", metadata.enemies.size()),
+                .color = ChessUiStyle::context, .heading = true,
+                .synergies = [this, enemyAnalysis] {
+                    std::vector<ChessCharacterEntry> entries;
+                    for (const auto& synergy : enemyAnalysis().enemySynergies)
+                    {
+                        const auto combo = std::ranges::find(session_.content().combos(), synergy.comboId, &ComboDef::id);
+                        assert(combo != session_.content().combos().end());
+                        entries.push_back({.id = combo->id, .title = combo->name, .value = chessComboCountWithoutStatus(synergy),
+                            .imageGroup = "chess-synergies", .imageId = combo->iconId, .active = synergy.active,
+                            .tooltip = combo->name});
+                    }
+                    return entries;
+                }});
+            for (int i = 0; i < static_cast<int>(metadata.enemies.size()); ++i)
             {
-                const auto* role = session_.content().role(enemy.roleId);
-                assert(role);
-                card.related.push_back({"head", role->HeadID});
+                const auto& enemy = metadata.enemies[i];
+                std::string equipment;
+                if (enemy.weapon) equipment += " · " + enemy.weapon->name;
+                if (enemy.armor) equipment += " · " + enemy.armor->name;
+                enemies.rows.push_back({.text = chessStars(enemy.star) + equipment,
+                    .inspect = [this, enemyAnalysis, i] {
+                        const auto& battle = enemyAnalysis();
+                        return buildChessBattleCharacterPresentation(session_.content(), battle.units[i], battle.enemySynergies);
+                    },
+                    .prefix = std::pair{enemy.name + " ", chessPieceTierColor(session_.content().role(enemy.roleId)->Cost)}});
             }
-            if (!card.related.empty()) card.image = card.related.front();
-            std::string enemies, rewards;
-            for (const auto& enemy : found->enemies)
-                enemies += chessChallengeEnemyDescription(session_.content(), enemy) + "\n\n";
-            for (const auto& reward : found->rewards)
-                rewards += chessChallengeRewardDescription(session_.content(), reward) + "\n\n";
-            card.description = found->description;
-            card.detailTabs = {{"概況", found->description}, {"敵陣", std::move(enemies)}, {"獎勵", "通關後擇一\n\n" + rewards}};
+            ChessOverviewColumn rewards{.width = 380};
+            rewards.rows.push_back({complete ? "首勝獎勵 · 已領取"
+                : metadata.rewards.size() > 1 ? "首勝獎勵 · 擇一" : "首勝獎勵",
+                complete ? ChessUiStyle::muted : ChessUiStyle::gold, true});
+            for (int i = 0; i < static_cast<int>(metadata.rewards.size()); ++i)
+                rewards.rows.push_back({std::format("{}. {}", i + 1, metadata.rewards[i]),
+                    complete ? ChessUiStyle::muted : ChessUiStyle::ink});
+            card.overview = {std::move(enemies), std::move(rewards)};
+            card.openCombo = [this, enemyAnalysis](int id) {
+                const auto& battle = enemyAnalysis();
+                if (battle.enemySynergies.empty())
+                {
+                    showChessMessage("敵方尚無羈絆啟動");
+                    return;
+                }
+                std::vector<int> roles;
+                for (const auto& unit : battle.units) roles.push_back(unit.roleId);
+                showChessComboOverview(session_.content(), battle.enemySynergies, roles, id, "敵方羈絆");
+            };
+            if (!found->enemies.empty())
+                card.image = {"head", session_.content().role(found->enemies.front().roleId)->HeadID};
             data.cards.push_back(std::move(card));
         }
         data.labels = alignedMenuLabels(labelRows);

@@ -90,6 +90,18 @@ void appendSkillAssets(
 
 }  // namespace
 
+ChessPreparedBattleAnalysis analyzeChessChallengeEnemies(
+    const ChessGameContent& content, const BalanceConfig::ChallengeDef& challenge)
+{
+    PreparedChessBattle preview;
+    preview.kind = PreparedChessBattleKind::Standalone;
+    for (const auto& enemy : challenge.enemies)
+        preview.units.push_back({.unitId = static_cast<int>(preview.units.size()) + 1,
+            .roleId = enemy.roleId, .team = 1, .star = enemy.star,
+            .weaponItemId = enemy.weaponId, .armorItemId = enemy.armorId});
+    return analyzePreparedChessBattle(preview, content, kChessBattleFrameLimit);
+}
+
 std::array<std::vector<ChessComboMetadata>, 2> preparedChessBattleSynergies(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content)

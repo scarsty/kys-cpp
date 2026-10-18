@@ -9,6 +9,37 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("challenge enemy inspection initializes each configured star and equipment without a selected map",
+          "[chess][prepared-analysis][challenge]")
+{
+    const auto content = configuredMapChoiceContent();
+    BalanceConfig::ChallengeDef challenge;
+    challenge.name = "敵陣預覽";
+    challenge.enemies = {{10, 1}, {10, 3, 500}, {20, 2}};
+    const auto preview = analyzeChessChallengeEnemies(*content, challenge);
+    REQUIRE(preview.combatInitialized);
+    REQUIRE(preview.units.size() == 3);
+    CHECK(preview.units[0].roleId == preview.units[1].roleId);
+    CHECK(preview.units[0].star == 1);
+    CHECK(preview.units[1].star == 3);
+    CHECK(preview.units[0].weaponItemId == -1);
+    CHECK(preview.units[1].weaponItemId == 500);
+    CHECK(preview.units[1].initializedCombatStats->maxHp > preview.units[0].initializedCombatStats->maxHp);
+    CHECK_FALSE(preview.units[1].abilities.empty());
+
+    PreparedChessBattle battle;
+    battle.kind = PreparedChessBattleKind::Challenge;
+    battle.chosenMapId = 7;
+    battle.units = {{1, -1, 10, 1, 1}, {2, -1, 10, 1, 3, 500}, {3, -1, 20, 1, 2}};
+    const auto actual = analyzePreparedChessBattle(battle, *content, kChessBattleFrameLimit);
+    for (int i = 0; i < 3; ++i)
+    {
+        CHECK(preview.units[i].team == 1);
+        CHECK(preview.units[i].initializedCombatStats == actual.units[i].initializedCombatStats);
+    }
+    CHECK(preview.enemySynergies.size() == actual.enemySynergies.size());
+}
+
 TEST_CASE("battle result retains both dense rosters and ranks skill contributions", "[chess][result]")
 {
     const auto content = configuredMapChoiceContent();

@@ -161,9 +161,9 @@ void ChessPreparationScreen::disclosure(std::string key, PanelFrame frame, std::
 }
 
 int ChessPreparationScreen::iconButton(std::string key, PanelFrame frame, Icon symbol, std::string label,
-    std::function<void()> action, std::string tooltip, bool enabled, bool selected, Color color)
+    std::function<void()> action, std::string tooltip, bool enabled, bool selected, Color color, Treatment treatment)
 {
-    const int index = button(std::move(key), frame, {}, std::move(action), std::move(tooltip), enabled, selected);
+    const int index = button(std::move(key), frame, {}, std::move(action), std::move(tooltip), enabled, selected, treatment);
     drawings_.push_back([frame, symbol, label = std::move(label), enabled, color] {
         controlLabel({frame.x, frame.y, frame.w, frame.h}, label, 18,
             enabled ? color : muted, symbol, enabled ? color : muted);
@@ -601,9 +601,10 @@ void ChessPreparationScreen::pieceInspector()
             applyChessInspectorControl(characterInspector_, control);
             rebuild();
         };
+        const auto treatment = control.action ? Treatment::Action : Treatment::Quiet;
         if (control.icon) iconButton(std::format("character-control:{}", i), area, *control.icon,
-            control.label, activate, control.tooltip, true, control.selected);
-        else button(std::format("character-control:{}", i), area, control.label, activate, control.tooltip, true, control.selected);
+            control.label, activate, control.tooltip, true, control.selected, ink, treatment);
+        else button(std::format("character-control:{}", i), area, control.label, activate, control.tooltip, true, control.selected, treatment);
     }
     for (auto& draw : content.drawings) drawings_.push_back(std::move(draw));
     const int bottom = inspector_.y + inspector_.h - 64;

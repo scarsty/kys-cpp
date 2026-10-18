@@ -565,6 +565,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
     std::vector<ChessEffectCatalogEntry> result;
     const auto appendRules = [&result, descriptionStyle](
         ChessEffectCatalogSource source,
+        int sourceId,
         const std::string& sourceName,
         const std::string& sourceContext,
         std::span<const GameplayEffect> definitions,
@@ -575,6 +576,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
             const auto document = std::span<const GameplayEffect>{&definitions[index], 1};
             result.push_back({
                 .source = source,
+                .sourceId = sourceId,
                 .sourceName = sourceName,
                 .sourceContext = sourceContext,
                 .ruleOrdinal = index + 1,
@@ -590,6 +592,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
                     descriptionStyle == EffectDescriptionStyle::Compact));
             result.push_back({
                 .source = source,
+                .sourceId = sourceId,
                 .sourceName = sourceName,
                 .sourceContext = sourceContext,
                 .ruleOrdinal = definitions.size() + index + 1,
@@ -603,6 +606,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
     {
         appendRules(
             ChessEffectCatalogSource::Magic,
+            definition.magicId,
             definition.name,
             std::format("武功 ID {}", definition.magicId),
             definition.effects);
@@ -612,6 +616,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
     {
         appendRules(
             ChessEffectCatalogSource::Equipment,
+            definition.itemId,
             chessItemDisplayName(content, definition.itemId),
             std::format("{} · {} · 裝備 ID {}",
                 chessRewardTierLabel(definition.tier),
@@ -627,6 +632,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
         const auto roles = joinedRoleNames(content, synergy.roleIds);
         appendRules(
             ChessEffectCatalogSource::EquipmentSynergy,
+            synergy.equipmentId,
             // 目錄名只取裝備名：成員角色會隨配置增長，交由 sourceContext 呈現，
             // 以免一覽選單的欄寬跟著角色數爆掉。
             chessItemDisplayName(content, synergy.equipmentId),
@@ -643,6 +649,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
     {
         appendRules(
             ChessEffectCatalogSource::Neigong,
+            definition.magicId,
             definition.name,
             std::format("{} · 武功 ID {}",
                 chessRewardTierLabel(definition.tier),
@@ -657,6 +664,7 @@ std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
         {
             appendRules(
                 ChessEffectCatalogSource::ComboThreshold,
+                combo.id,
                 std::format("{} · {}", combo.name, threshold.name),
                 std::format("{}人門檻 · 羈絆 ID {}", threshold.count, combo.id),
                 threshold.effects,

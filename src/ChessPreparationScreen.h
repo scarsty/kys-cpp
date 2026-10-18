@@ -144,7 +144,8 @@ private:
     void synergyIcon(int iconId, PanelFrame frame, Color color);
     void disclosure(std::string key, PanelFrame frame, std::string label, std::function<void()> action);
     int iconButton(std::string key, PanelFrame frame, Icon icon, std::string label,
-        std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false, Color color = ChessUiStyle::ink);
+        std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false,
+        Color color = ChessUiStyle::ink, Treatment treatment = Treatment::Quiet);
     void pieceCard(const ChessSessionPiece& piece, PanelFrame frame, bool compact);
     void prose(const std::vector<PanelTextSourceRow>& rows, PanelFrame frame);
     void drawEquipmentPopover();

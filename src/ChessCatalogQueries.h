@@ -106,6 +106,7 @@ enum class ChessEffectCatalogSource
 struct ChessEffectCatalogEntry
 {
     ChessEffectCatalogSource source{};
+    int sourceId{};
     std::string sourceName;
     std::string sourceContext;
     std::size_t ruleOrdinal{};

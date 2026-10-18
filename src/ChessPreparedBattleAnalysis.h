@@ -82,4 +82,8 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     int maximumFrames,
     std::optional<EffectDescriptionStyle> descriptionStyle = EffectDescriptionStyle::Full);
 
+// 僅初始化敵陣，不消耗本局亂數、不選戰場，也不推進戰鬥。
+ChessPreparedBattleAnalysis analyzeChessChallengeEnemies(
+    const ChessGameContent& content, const BalanceConfig::ChallengeDef& challenge);
+
 }  // namespace KysChess
