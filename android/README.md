@@ -66,9 +66,11 @@ The Android build regenerates launcher mipmaps from the shared source icon at `a
 - `app/src/main/res/mipmap-xhdpi/ic_launcher.png` at 96x96
 - `app/src/main/res/mipmap-xxhdpi/ic_launcher.png` at 144x144
 - `app/src/main/res/mipmap-xxxhdpi/ic_launcher.png` at 192x192
-- `app/src/main/res/drawable/ic_launcher_foreground.png` for the adaptive icon foreground
+- `app/src/main/res/drawable/ic_launcher_foreground.png` at 432x432, with the source inset to the central 264x264 area for adaptive launcher masks
 
 If you want to refresh them manually, run `tools/GenerateAppIcons.ps1 -Target Android` from the repository root.
+
+The shared icon uses muted ivory lettering and a grey sword over a warm charcoal grid. Its source and generation prompt are documented in [assets/README.md](../assets/README.md).
 
 ## Building
 

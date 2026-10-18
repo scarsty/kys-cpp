@@ -66,7 +66,9 @@ function Invoke-WithResizedBitmap
         [int]$Size,
 
         [Parameter(Mandatory = $true)]
-        [scriptblock]$Action
+        [scriptblock]$Action,
+
+        [double]$ContentScale = 1.0
     )
 
     $bitmap = [System.Drawing.Bitmap]::new($Size, $Size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -80,7 +82,9 @@ function Invoke-WithResizedBitmap
             $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
             $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
             $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-            $graphics.DrawImage($SourceImage, 0, 0, $Size, $Size)
+            $contentSize = [int][Math]::Round($Size * $ContentScale)
+            $offset = [int][Math]::Round(($Size - $contentSize) / 2)
+            $graphics.DrawImage($SourceImage, $offset, $offset, $contentSize, $contentSize)
         }
         finally
         {
@@ -105,11 +109,13 @@ function Save-ResizedPng
         [int]$Size,
 
         [Parameter(Mandatory = $true)]
-        [string]$Path
+        [string]$Path,
+
+        [double]$ContentScale = 1.0
     )
 
     New-ParentDirectory -Path $Path
-    Invoke-WithResizedBitmap -SourceImage $SourceImage -Size $Size -Action {
+    Invoke-WithResizedBitmap -SourceImage $SourceImage -Size $Size -ContentScale $ContentScale -Action {
         param([System.Drawing.Bitmap]$Bitmap)
         $Bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
     }
@@ -221,14 +227,16 @@ function Write-AndroidIcons
         @{ Folder = 'mipmap-xhdpi'; Size = 96 },
         @{ Folder = 'mipmap-xxhdpi'; Size = 144 },
         @{ Folder = 'mipmap-xxxhdpi'; Size = 192 },
-        @{ Folder = 'drawable'; File = 'ic_launcher_foreground.png'; Size = 432 }
+        @{ Folder = 'drawable'; File = 'ic_launcher_foreground.png'; Size = 432; ContentScale = (66.0 / 108.0) }
     )
 
     foreach ($targetInfo in $targets)
     {
         $outputDir = Join-Path $AndroidResRoot $targetInfo.Folder
         $fileName = if ($targetInfo.ContainsKey('File')) { $targetInfo.File } else { 'ic_launcher.png' }
-        Save-ResizedPng -SourceImage $SourceImage -Size $targetInfo.Size -Path (Join-Path $outputDir $fileName)
+        # 自適應圖示預留外圍空間，讓劍、文字與棋格完整落在啟動器遮罩內。
+        $contentScale = if ($targetInfo.ContainsKey('ContentScale')) { $targetInfo.ContentScale } else { 1.0 }
+        Save-ResizedPng -SourceImage $SourceImage -Size $targetInfo.Size -Path (Join-Path $outputDir $fileName) -ContentScale $contentScale
     }
 }
 
@@ -250,8 +258,8 @@ function Write-WasmIcons
   "name": "\u91d1\u7fa4\u81ea\u8d70\u68cb",
   "short_name": "\u91d1\u7fa4\u81ea\u8d70\u68cb",
   "display": "fullscreen",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#121110",
+  "theme_color": "#121110",
   "icons": [
     {
       "src": "icon-192.png",
