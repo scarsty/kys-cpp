@@ -71,6 +71,7 @@ struct ChessInspectorControl
     int entryStep{};
     std::optional<int> comboId;
     std::string tooltip;
+    std::optional<int> equipmentSlot;
 };
 
 struct ChessInspectorContent
@@ -126,8 +127,13 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
         for (int slot = 0; slot < 2; ++slot)
         {
             const SDL_Rect area{x + slot * (width + 8) / 2, top, (width - 8) / 2, compact ? 62 : 54};
-            entry(character.equipment[slot], area, compact ? 24 : 16, true);
-            content.controls.push_back({.frame = area, .section = 2, .entry = slot});
+            auto equipment = character.equipment[slot];
+            const bool pick = character.equipmentEditable && equipment.id < 0;
+            if (pick) equipment.title = "選擇裝備";
+            entry(equipment, area, compact ? 24 : 16, true);
+            content.controls.push_back({.frame = area, .section = 2, .entry = slot,
+                .tooltip = pick ? "從行囊選擇裝備" : "查看裝備效果",
+                .equipmentSlot = pick ? std::optional(slot) : std::nullopt});
         }
         top += compact ? 66 : 58;
         const int synergyColumns = tight ? 4 : 2;
@@ -190,31 +196,21 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             if (state.entry + 1 < static_cast<int>(entries.size())) content.controls.push_back({
                 .frame = {x + width - navWidth, bodyY, navWidth, headingHeight},
                 .icon = Icon::Right, .entryStep = 1, .tooltip = std::string("下一項") + names[state.section]});
-            auto heading = selected;
-            heading.value += std::format(" · {}/{}", state.entry + 1, entries.size());
-            entry(heading, {x + navWidth + 4, bodyY, width - navWidth * 2 - 8, headingHeight}, tight ? 24 : compact ? 28 : 20, true);
+            entry(selected, {x + navWidth + 4, bodyY, width - navWidth * 2 - 8, headingHeight}, tight ? 24 : compact ? 28 : 20, true);
             int textY = bodyY + headingHeight + 8;
             auto rows = selected.details;
-            const int availableHeight = footerY - textY - 8;
-            const auto layout = layoutPanelText(rows, width - 8, textSize);
-            std::vector<std::vector<PanelTextPhysicalLine>> pages(1);
-            int origin{};
-            for (auto line : layout.lines)
-            {
-                if (!pages.back().empty() && line.y + line.fontSize - origin > availableHeight)
-                {
-                    pages.emplace_back();
-                    origin = line.y;
-                }
-                line.y -= origin;
-                pages.back().push_back(std::move(line));
-            }
+            const int availableHeight = footerY - textY - 8
+                - (state.section == 2 && character.equipmentEditable ? 52 : 0);
+            const auto pages = paginatePanelText(rows, width - 8, textSize, availableHeight);
             pageCount = static_cast<int>(pages.size());
             state.page = std::clamp(state.page, 0, pageCount - 1);
             for (const auto& line : pages[state.page])
                 text(line.text, x + line.indentPixels, textY + line.y,
-                    line.fontSize, line.tone == PanelTextTone::Heading ? gold
-                        : line.tone == PanelTextTone::Context ? context : ink, width - line.indentPixels);
+                    line.fontSize, panelTextColor(line.tone), width - line.indentPixels);
+            if (state.section == 2 && character.equipmentEditable)
+                content.controls.push_back({.frame = {x, footerY - 52, width, 44},
+                    .label = selected.id < 0 ? "選擇裝備" : "更換裝備", .icon = Icon::Bag,
+                    .action = true, .equipmentSlot = state.entry});
         }
     }
     if (pageCount > 1)

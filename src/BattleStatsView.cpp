@@ -103,6 +103,11 @@ void BattleStatsView::drawTeam(int side, SDL_Rect frame)
     const int totalsX = width - textWidth(totals, 14);
     font->draw(totals, 14, x + totalsX, frame.y + 3, ink);
     const int count = static_cast<int>(team.units.size());
+    int skillDamageWidth{};
+    for (const auto& resultTeam : teams_)
+        for (const auto& entry : resultTeam.units)
+            for (int damage : entry.skillDamage)
+                skillDamageWidth = std::max(skillDamageWidth, textWidth(std::to_string(damage), 14));
     const int rowHeight = count == 0 ? 20 : std::min(28, (frame.h - teamHeaderHeight - 6) / count);
     int y = frame.y + teamHeaderHeight;
     int row{};
@@ -126,10 +131,18 @@ void BattleStatsView::drawTeam(int side, SDL_Rect frame)
             fittedText(std::to_string(values[col]), 16, x + columns[col + 2], textY,
                 columns[col + 3] - columns[col + 2] - 10, colors[col], true);
         }
-        const std::string hp = unit.dead ? "退場" : std::format("{}/{}", unit.hpRemaining, unit.maxHpRemaining);
-        fittedText(hp, 16, x + columns[7], textY, columns[8] - columns[7] - 12, unit.dead ? muted : positive, true);
+        // 目前生命與上限各自靠右；分隔線不隨三位／四位數移動。
+        constexpr int hpHalfWidth = (columns[8] - columns[7] - 20) / 2;
+        fittedText(unit.dead ? "退場" : std::to_string(unit.hpRemaining), 16,
+            x + columns[7], textY, hpHalfWidth, unit.dead ? muted : positive, true);
+        if (!unit.dead)
+        {
+            font->draw("/", 16, x + columns[7] + hpHalfWidth + 2, textY, muted);
+            fittedText(std::to_string(unit.maxHpRemaining), 16,
+                x + columns[7] + hpHalfWidth + 10, textY, hpHalfWidth, muted, true);
+        }
 
-        // 每件裝備預留六個中文字，武學傷害緊接名稱，避免過大的閱讀間距。
+        // 每件裝備預留六個中文字；武學傷害共用欄界，方便逐行比較。
         constexpr int equipmentWidth = (columns[9] - columns[8]) / 2;
         for (int slot = 0; slot < 2; ++slot)
         {
@@ -150,10 +163,10 @@ void BattleStatsView::drawTeam(int side, SDL_Rect frame)
             const int skillX = x + columns[9 + skill];
             const int skillWidth = columns[10 + skill] - columns[9 + skill];
             const auto damage = std::to_string(entry.skillDamage[skill]);
-            const int nameWidth = skillWidth - textWidth(damage, 14) - 14;
+            const int nameWidth = skillWidth - skillDamageWidth - 14;
             const int nameSize = std::min(14, nameWidth * 2 / Font::getTextDrawSize(entry.skillNames[skill]));
             font->draw(entry.skillNames[skill], nameSize, skillX, smallTextY, muted);
-            font->draw(damage, 14, skillX + textWidth(entry.skillNames[skill], nameSize) + 6, smallTextY, ink);
+            fittedText(damage, 14, skillX + nameWidth + 6, smallTextY, skillDamageWidth, ink, true);
         }
         y += rowHeight;
     }

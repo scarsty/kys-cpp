@@ -123,17 +123,17 @@ void ChessSelectionScreen::control(SDL_Rect frame, std::function<void()> activat
 }
 
 void ChessSelectionScreen::button(SDL_Rect frame, const std::string& text, std::function<void()> activate,
-    bool primary, std::optional<Icon> symbol, bool selected, bool action)
+    bool primary, std::optional<Icon> symbol, bool selected, bool action, bool enabled)
 {
-    const ControlState state{.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
-        .selected = selected, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size()),
-        .primary = primary, .action = action};
+    const ControlState state{.hovered = enabled && contains(frame, PointerInput::instance().logicalPointerUiPosition()),
+        .selected = selected, .focused = enabled && keyboard_ && focused_ == static_cast<int>(controls_.size()),
+        .disabled = !enabled, .primary = primary, .action = action};
     controlSurface(frame, state);
     const int inset = symbol ? (compact_ ? 44 : 32) : 0;
     const int size = std::min(compact_ ? 28 : Type::body,
         (frame.w - 20 - inset) * 2 / std::max(1, Font::getTextDrawSize(text)));
     controlLabel(frame, text, size, controlText(state), symbol);
-    control(frame, std::move(activate));
+    if (enabled) control(frame, std::move(activate));
 }
 
 void ChessSelectionScreen::characterInspector(const ChessCharacterPresentation& character, SDL_Rect frame,
@@ -180,7 +180,29 @@ void ChessSelectionScreen::inspector()
         const int actionHeight = compact_ ? 84 : 44;
         const int actionY = frame.y + frame.h - actionHeight - 12;
         const bool hasDetails = detailRenderer_ || !item.detailTabs.empty() || !item.description.empty();
-        if (expanded_ && hasDetails)
+        if (!item.effectRows.empty())
+        {
+            const int fontSize = compact_ ? 26 : 18;
+            const int height = frame.y + frame.h - bodyY - 12;
+            auto pages = paginatePanelText(item.effectRows, width, fontSize, height);
+            if (pages.size() > 1)
+                pages = paginatePanelText(item.effectRows, width, fontSize, height - actionHeight - 12);
+            detailScrollMax_ = static_cast<int>(pages.size()) - 1;
+            detailScroll_ = std::clamp(detailScroll_, 0, detailScrollMax_);
+            for (const auto& row : pages[detailScroll_])
+                Font::getInstance()->draw(row.text, row.fontSize, x + row.indentPixels, bodyY + row.y, panelTextColor(row.tone));
+            if (detailScrollMax_ > 0)
+            {
+                const int arrow = compact_ ? 84 : 44;
+                if (detailScroll_ > 0) button({x, actionY, arrow, actionHeight}, {},
+                    [this] { --detailScroll_; }, false, Icon::Up);
+                label(std::format("{} / {}", detailScroll_ + 1, detailScrollMax_ + 1), compact_ ? 26 : 16,
+                    x + arrow + 8, actionY + (compact_ ? 28 : 14), muted, 100);
+                if (detailScroll_ < detailScrollMax_) button({x + width - arrow, actionY, arrow, actionHeight}, {},
+                    [this] { ++detailScroll_; }, false, Icon::Down);
+            }
+        }
+        else if (expanded_ && hasDetails)
         {
             auto tabs = item.detailTabs;
             if (!tabs.empty())
@@ -241,7 +263,7 @@ void ChessSelectionScreen::inspector()
         }
     }
     if (!browseOnly_) button(compact_ ? SDL_Rect{584, 612, 664, 84} : SDL_Rect{920, 588, 328, 52},
-        confirmationLabel(), [this] { exitWithResult(selected_); }, true);
+        confirmationLabel(), [this] { exitWithResult(selected_); }, true, std::nullopt, false, false, item.actionEnabled);
 }
 
 void ChessSelectionScreen::drawTopmostOverlay()
@@ -271,16 +293,22 @@ void ChessSelectionScreen::draw()
         const int dialogColumns = items_.size() == 2 ? 2 : compact_ ? 1 : 2;
         const int rowHeight = compact_ ? 82 : 60;
         const int rows = (static_cast<int>(items_.size()) + dialogColumns - 1) / dialogColumns;
-        const int height = 120 + rows * (rowHeight + 12);
+        const int noteSize = compact_ ? 24 : 18;
+        const auto noteRows = wrapLines(headerNote_, 736 * 2 / noteSize);
+        const int noteHeight = static_cast<int>(noteRows.size()) * (noteSize + 6);
+        const int noteOffset = compact_ && !noteRows.empty() ? 28 : 0;
+        const int height = 120 + noteOffset + noteHeight + rows * (rowHeight + 12);
         const int top = (720 - height) / 2;
         modalShell({240, top, 800, height}, title_, compact_);
         if (exitable_) button({compact_ ? 948 : 984, top + 12, compact_ ? 80 : 44, compact_ ? 80 : 44},
             {}, [this] { onPressedCancel(); }, false, Icon::Close);
+        for (int i = 0; i < static_cast<int>(noteRows.size()); ++i)
+            label(noteRows[i], noteSize, 272, top + 84 + noteOffset + i * (noteSize + 6), muted, 736);
         for (int visual = 0; visual < static_cast<int>(items_.size()); ++visual)
         {
             const int i = dialogPrimary_ == 0 && items_.size() == 2 ? 1 - visual : visual;
             SDL_Rect frame{272 + visual % dialogColumns * 376,
-                top + 96 + visual / dialogColumns * (rowHeight + 12), dialogColumns == 1 ? 736 : 360, rowHeight};
+                top + 96 + noteOffset + noteHeight + visual / dialogColumns * (rowHeight + 12), dialogColumns == 1 ? 736 : 360, rowHeight};
             const ControlState state{.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
                 .focused = keyboard_ && focused_ == static_cast<int>(controls_.size()),
                 .primary = dialogPrimary_ == i && dialogDestructive_ != i,
@@ -710,7 +738,7 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
             return PointerResult::Handled;
         }
         const bool overInspector = event.uiPosition.x >= (compact_ ? 568 : 904);
-        if (!expanded_ || !overInspector) changePage(event.wheel.y > 0 ? -1 : 1);
+        if (!overInspector || (!expanded_ && items_[selected_].effectRows.empty())) changePage(event.wheel.y > 0 ? -1 : 1);
         else if (items_[selected_].character) characterInspector_.page += event.wheel.y > 0 ? -1 : 1;
         else detailScroll_ = std::clamp(detailScroll_ + (event.wheel.y > 0 ? -1 : 1), 0, detailScrollMax_);
         return PointerResult::Handled;
@@ -745,7 +773,8 @@ void ChessSelectionScreen::dealEvent(EngineEvent& event)
         focused_ = nextChessSelectionFocus(focused_, static_cast<int>(controls_.size()));
         return;
     }
-    if (expanded_ || layout_ == ChessSelectionLayout::Overview || layout_ == ChessSelectionLayout::Tabbed)
+    if (expanded_ || !items_[selected_].effectRows.empty()
+        || layout_ == ChessSelectionLayout::Overview || layout_ == ChessSelectionLayout::Tabbed)
     {
         if (event.type == EVENT_KEY_DOWN && !event.key.repeat)
         {
@@ -816,7 +845,7 @@ void ChessSelectionScreen::onPressedOK()
     {
         if (compact_ && layout_ == ChessSelectionLayout::Catalogue) expand(true);
         else if (browseOnly_) { if (items_[selected_].character || detailRenderer_ || !items_[selected_].description.empty()) expand(true); }
-        else exitWithResult(selected_);
+        else if (items_[selected_].actionEnabled) exitWithResult(selected_);
     }
 }
 

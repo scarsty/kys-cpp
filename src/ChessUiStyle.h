@@ -6,6 +6,7 @@
 #include "TextureManager.h"
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <optional>
 
 namespace KysChess::ChessUiStyle
@@ -22,6 +23,7 @@ inline constexpr Color disabledFill{69, 62, 49, 190};
 inline constexpr Color positive{184, 204, 164, 255};
 inline constexpr Color negative{218, 159, 146, 255};
 inline constexpr Color context{158, 201, 213, 255};
+inline constexpr Color exclusive{210, 182, 229, 255};
 inline constexpr Color canvasScrim{18, 17, 16, 48};
 inline constexpr Color quietFill{12, 11, 10, 48};
 inline constexpr Color modalFill = panelFill;
@@ -50,7 +52,7 @@ enum class Icon : int
     Coin, Bag, Armor, Seal, Left, Right, Up, Down, Link, Eye, Refresh, Lock,
     Collapse, Sword, More, Sliders, Mountain, Spark, Book, Cultivation, Close, Ultimate,
     Character, Formation, Load, Save, Search, Transfer, Home,
-    Play, Pause, Speed, CameraFollow, CameraFree, View2D, View3D, Flag, List, Map,
+    Play, Pause, Speed, CameraFollow, CameraFree, View2D, View3D, Flag, List, Map, Ban,
 };
 
 inline int iconId(Icon icon) { return static_cast<int>(icon); }
@@ -88,6 +90,14 @@ inline void controlSurface(SDL_Rect frame, ControlState state)
 inline Color controlText(ControlState state)
 {
     return state.disabled ? muted : state.primary ? darkLabel : state.destructive ? negative : ink;
+}
+
+inline void attentionOutline(SDL_Rect frame, Color color, int thickness = 3)
+{
+    for (int inset = 0; inset < thickness; ++inset)
+        Engine::getInstance()->drawAnimatedRoundedRect(color, frame.x + inset, frame.y + inset,
+            frame.w - inset * 2, frame.h - inset * 2, std::max(0, 4 - inset),
+            std::fmod(Engine::getTicks() * 0.0005, 1.0));
 }
 
 inline void panel(int x, int y, int w, int h, Color fill = panelFill)
@@ -158,6 +168,10 @@ inline void drawUtilityIcon(Icon symbol, SDL_Rect frame, Color color)
     case Icon::Map:
         for (int i = 0; i < 4; ++i) { line(3 + i * 6, 3, 3 + i * 6, 21); line(3, 3 + i * 6, 21, 3 + i * 6); }
         box(10, 10, 4, 4); break;
+    case Icon::Ban:
+        line(8, 3, 16, 3); line(16, 3, 21, 8); line(21, 8, 21, 16);
+        line(21, 16, 16, 21); line(16, 21, 8, 21); line(8, 21, 3, 16);
+        line(3, 16, 3, 8); line(3, 8, 8, 3); line(5, 5, 19, 19); break;
     case Icon::CameraFollow:
         line(7, 7, 17, 7); line(17, 7, 17, 17); line(17, 17, 7, 17); line(7, 17, 7, 7);
         box(11, 2, 2, 7); box(11, 15, 2, 7); box(2, 11, 7, 2); box(15, 11, 7, 2); break;

@@ -437,6 +437,18 @@ TEST_CASE("character inspector uses chess attacks and limits effects to the ulti
         CHECK(character.abilities[0].details.size() == 1);
         CHECK(character.abilities[1].ultimate);
         CHECK(character.abilities[1].details.size() > 1);
+        const auto compact = chessAbilitiesForRoleStar(content, *content.role(10), 1, EffectDescriptionStyle::Compact);
+        const auto effectRows = effectDescriptionTextRows(compact.back().effects);
+        REQUIRE_FALSE(effectRows.empty());
+        CHECK(character.abilities[1].details.front().text == effectRows.front());
+        CHECK(character.abilities[1].details.back().tone == PanelTextTone::Context);
+        if (area == 1 || area == 2)
+        {
+            CHECK(character.abilities[0].details.back().text.contains("兩枚20%"));
+            CHECK(character.abilities[1].details.back().text.contains("三枚35%"));
+            CHECK(character.abilities[1].details.back().text.contains("穿透"));
+            CHECK(character.abilities[1].details.back().text.contains("抵消或削弱"));
+        }
         for (const auto& ability : character.abilities)
             for (const auto& row : ability.details)
             {
@@ -447,6 +459,35 @@ TEST_CASE("character inspector uses chess attacks and limits effects to the ulti
         REQUIRE(character.synergies.size() == 1);
         CHECK(character.synergies[0].tooltip.empty());
         CHECK(character.synergies[0].id == content.combos().front().id);
+    }
+}
+
+TEST_CASE("effect pages retain every line and semantic color within their height", "[chess][ui][panel-text]")
+{
+    const std::vector<PanelTextSourceRow> rows{
+        {.text = "特殊效果：", .fontSizeDelta = 2, .spacingAfter = 4, .tone = PanelTextTone::Heading},
+        {.text = std::string(90, 'a'), .spacingAfter = 3, .tone = PanelTextTone::Effect},
+        {.text = "測試角色專屬：", .spacingBefore = 12, .tone = PanelTextTone::Exclusive},
+        {.text = std::string(120, 'b'), .indentUnits = 2, .tone = PanelTextTone::Exclusive},
+    };
+    for (const int width : {112, 336, 672})
+    {
+        const auto layout = layoutPanelText(rows, width, 18);
+        const auto pages = paginatePanelText(layout, 76);
+        REQUIRE(pages.size() > 1);
+        std::size_t index{};
+        for (const auto& page : pages)
+            for (const auto& line : page)
+            {
+                REQUIRE(index < layout.lines.size());
+                CHECK(line.text == layout.lines[index].text);
+                CHECK(line.tone == layout.lines[index].tone);
+                CHECK(line.indentPixels == layout.lines[index].indentPixels);
+                CHECK(line.y >= 0);
+                CHECK(line.y + line.fontSize <= 76);
+                ++index;
+            }
+        CHECK(index == layout.lines.size());
     }
 }
 

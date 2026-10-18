@@ -94,7 +94,7 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(
             {"圖示旁的 2/4 表示目前計點與目標門檻。點擊圖示開啟完整羈絆一覽，查看成員、已啟動及下一階效果。"},
             {"江南七絕等星級羈絆按其規則計點；合縱會調整羈絆計點及門檻。實際數字以本局羈絆一覽為準。", Tone::Information},
             {bansEnabled
-                ? std::format("一般禁棋：開局 {} 個名額，每升級增加 {} 個；在「禁棋管理」選擇已見過的角色。", balance.banBaseCount, balance.banCountPerLevel)
+                ? std::format("一般禁棋：開局 {} 個名額，每升級增加 {} 個；由整備底列「封禁」管理已見角色，也可選中商店棋子後按右下「封禁」，確認後生效。", balance.banBaseCount, balance.banCountPerLevel)
                 : "本局沒有一般禁棋名額或額外禁棋獎勵。"},
             {bansEnabled ? "禁棋會影響後續抽取，不會移除已持有棋子，也不會立刻替換目前商店商品；已禁角色不能解除。" : "不同難度及天賦可能開放禁棋，規則依本局設定。"},
             {std::format("額外禁棋：關卡獎勵共 {} 段；本天賦開局另提供 {} 個。獎勵會列明可禁費用，可選擇放棄剩餘名額。", balance.banUnlocks.size(), talent.openingBans)},

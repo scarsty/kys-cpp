@@ -97,6 +97,17 @@ int runChessChoiceMenu(const std::string& title, const std::vector<std::string>&
     return menu->run();
 }
 
+bool confirmChessBan(const std::string& roleName)
+{
+    std::vector<ChessSelectionItem> items{{.title = "確認封禁"}, {.title = "取消"}};
+    auto menu = std::make_shared<ChessSelectionScreen>(std::format("封禁「{}」？", roleName), std::move(items));
+    menu->setCompactChoices(true);
+    menu->setConfirmation(true);
+    menu->setSelectedItem(1);
+    menu->setHeaderNote("本局無法解除；後續商店不再抽到。保留已持有棋子與當輪商品。");
+    return menu->run() == 0;
+}
+
 namespace
 {
 ChessSelectionItem comboOverviewItem(const ChessGameContent& content, const ChessComboMetadata& metadata,

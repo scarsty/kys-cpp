@@ -24,20 +24,6 @@ using namespace ChessUiStyle;
 constexpr Color equipmentContext = context;
 constexpr Color synergyActive = positive;
 
-Color equipmentTextColor(PanelTextTone tone)
-{
-    switch (tone)
-    {
-    case PanelTextTone::Heading: return gold;
-    case PanelTextTone::Effect: return {187, 213, 170, 255};
-    case PanelTextTone::Exclusive: return {210, 182, 229, 255};
-    case PanelTextTone::Inactive: return muted;
-    case PanelTextTone::Combo:
-    case PanelTextTone::Context: return equipmentContext;
-    default: return ink;
-    }
-}
-
 // Engine 的 UI 固定為 1280×720；畫布與觸控座標的縮放由共用呈現層處理。
 void fill(PanelFrame frame, Color color, int radius = 0)
 {
@@ -137,7 +123,7 @@ void ChessPreparationScreen::image(std::string group, int id, PanelFrame frame)
 // 圖示沿用正式資源的 WebP 貼圖群組，由 TextureManager 管理生命週期。
 void ChessPreparationScreen::drawIcon(Icon symbol, PanelFrame frame, Color color)
 {
-    ChessUiStyle::asset("chess-preparation", static_cast<int>(symbol),
+    ChessUiStyle::asset("chess-preparation", iconId(symbol),
         {frame.x, frame.y, frame.w, frame.h}, false, color);
 }
 
@@ -418,11 +404,7 @@ void ChessPreparationScreen::roster()
 void ChessPreparationScreen::shop()
 {
     panel(shop_);
-    text(banManagement_ ? "封棋" : "商店", shop_.x + 12, shop_.y + 16, 20, gold);
-    iconButton("shop-bans", {shop_.x + shop_.w - 344, shop_.y + 6, 46, 44}, banManagement_ ? Icon::Left : Icon::Seal, "",
-        [this] { banManagement_ = !banManagement_; portraitClicks_.reset(); rebuild(); },
-        banManagement_ ? "返回商店；保留候選與鎖定" : "管理已出現的棋子封印", true, banManagement_);
-    if (banManagement_) { bans(); return; }
+    text("商店", shop_.x + 12, shop_.y + 16, 20, gold);
     iconButton("auto-deploy", {shop_.x + shop_.w - 286, shop_.y + 6, 46, 44}, Icon::Up, "",
         [this] { automaticDeployment_ = !automaticDeployment_; rebuild(); },
         "購買後自動上陣", true, automaticDeployment_);
@@ -431,6 +413,14 @@ void ChessPreparationScreen::shop()
         [this] { const auto result = submit(simpleAction(ChessActionType::RefreshShop), "商店已刷新");
             if (result.accepted && selection_.shopSlot >= 0) { selection_ = {}; rebuild(); } }, "刷新商店");
     controls_.back().touchConfirmation = true;
+    if (observation_.freeShopRefreshAvailable)
+    {
+        const auto frame = controls_.back().frame;
+        drawings_.push_back([frame] {
+            attentionOutline({frame.x, frame.y, frame.w, frame.h},
+                chessShopRowOutlineStyle(ChessShopRowEmphasis::Merge).color);
+        });
+    }
     iconButton("lock", {shop_.x + shop_.w - 76, shop_.y + 6, 64, 44}, Icon::Lock, "",
         [this] { auto action = simpleAction(ChessActionType::SetShopLocked); action.value = !session_.state().shopLocked;
             submit(action, action.value ? "商店已鎖定" : "商店已解鎖"); }, "鎖定商店", true, observation_.shopLocked);
@@ -482,54 +472,12 @@ void ChessPreparationScreen::shop()
         icon(Icon::Coin, {priceX, frame.y + frame.h - 30, 20, 20}, affordable ? gold : muted);
         text(price, priceX + 26, frame.y + frame.h - 29, 18, affordable ? gold : muted);
         drawings_.push_back([=] {
-            auto* engine = Engine::getInstance();
             // 沿用舊選單的短光點與兩秒週期；不再疊加常亮外框。
             // dotLength 是周長比例，使用共用預設值，不能傳入像素長度。
             if (emphasisStyle.animated)
-            {
-                for (int inset = 0; inset < emphasisStyle.thickness; ++inset)
-                    engine->drawAnimatedRoundedRect(emphasisStyle.color, frame.x + inset, frame.y + inset,
-                        frame.w - 2 * inset, frame.h - 2 * inset, std::max(0, 4 - inset),
-                        std::fmod(Engine::getTicks() * 0.0005, 1.0));
-            }
+                attentionOutline({frame.x, frame.y, frame.w, frame.h}, emphasisStyle.color, emphasisStyle.thickness);
             fill({frame.x + 1, frame.y + 3, 3, frame.h - 6}, tier);
         });
-    }
-}
-
-void ChessPreparationScreen::bans()
-{
-    const auto rows = buildChessBanManagementRows(observation_, session_.content());
-    const int pages = std::max(1, (static_cast<int>(rows.size()) + 5) / 6);
-    banPage_ = std::clamp(banPage_, 0, pages - 1);
-    text(std::format("{} / {}", observation_.bans.size(), observation_.maximumBanCount), shop_.x + 80, shop_.y + 18, 16, muted);
-    iconButton("ban-prev", {shop_.x + shop_.w - 228, shop_.y + 6, 46, 44}, Icon::Left, "",
-        [this] { --banPage_; rebuild(); }, "上一頁封棋", banPage_ > 0);
-    text(std::format("{} / {}", banPage_ + 1, pages), shop_.x + shop_.w - 168, shop_.y + 20, 16, muted);
-    iconButton("ban-next", {shop_.x + shop_.w - 76, shop_.y + 6, 64, 44}, Icon::Right, "",
-        [this] { ++banPage_; rebuild(); }, "下一頁封棋", banPage_ + 1 < pages);
-    if (rows.empty()) text("尚未見過可封棋的角色", shop_.x + 12, shop_.y + 88, 18, muted);
-    const int width = (shop_.w - 64) / 6;
-    for (int column = 0; column < 6; ++column)
-    {
-        const int index = banPage_ * 6 + column;
-        if (index >= static_cast<int>(rows.size())) break;
-        const auto row = rows[index];
-        const auto* role = session_.content().role(row.roleId);
-        auto action = simpleAction(ChessActionType::AddBan); action.roleId = row.roleId;
-        const bool eligible = ChessManagementRules::validate(session_.state(), session_.content(), action) == ChessRuleErrorCode::None;
-        PanelFrame frame{shop_.x + 12 + column * (width + 8), shop_.y + 58, width, shop_.h - 70};
-        button(std::format("ban:{}", row.roleId), frame, {}, [this, action] { submit(action, "已封棋；影響後續生成的商店"); },
-            row.banned ? role->Name + " · 已封棋（本局永久）" : role->Name + " · 封棋；影響後續刷新，保留當輪商店",
-            eligible, row.banned, Treatment::Card, ink, true);
-        image("head", role->HeadID, {frame.x + 12, frame.y + 4, frame.w - 24, frame.h - 42});
-        if (row.banned)
-        {
-            drawings_.push_back([frame] { fill({frame.x + 4, frame.y + 4, frame.w - 8, frame.h - 40}, {25,23,22,145}); });
-            icon(Icon::Seal, {frame.x + frame.w - 30, frame.y + 8, 24, 24});
-        }
-        text(role->Name, frame.x + 8, frame.y + frame.h - 30, 16, ink, frame.w - 16);
-        drawings_.push_back([frame, tier = chessPieceTierColor(role->Cost)] { fill({frame.x + 1, frame.y + 4, 3, frame.h - 8}, tier); });
     }
 }
 
@@ -592,6 +540,11 @@ void ChessPreparationScreen::pieceInspector()
         const auto control = content.controls[i];
         const PanelFrame area{control.frame.x, control.frame.y, control.frame.w, control.frame.h};
         const auto activate = [this, control] {
+            if (control.equipmentSlot)
+            {
+                pickEquipment(*control.equipmentSlot);
+                return;
+            }
             if (control.comboId)
             {
                 showChessComboOverview(session_.content(), session_.state(), *control.comboId);
@@ -616,8 +569,17 @@ void ChessPreparationScreen::pieceInspector()
     else
     {
         const auto analysis = queryChessShopSlot(session_.state(), session_.content(), selection_.shopSlot);
-        button("inspector-buy", {x, bottom, width, 52}, std::format("購買  {} 金", analysis.goldCost),
+        button("inspector-buy", {x, bottom, width - 100, 52}, std::format("購買  {} 金", analysis.goldCost),
             [this, slot = selection_.shopSlot] { buy(slot); }, "購買此棋子", analysis.purchaseError == ChessRuleErrorCode::None, false, Treatment::Action, ink, true);
+        auto action = simpleAction(ChessActionType::AddBan);
+        action.roleId = roleId;
+        const auto error = ChessManagementRules::validate(session_.state(), session_.content(), action);
+        iconButton("inspector-ban", {x + width - 92, bottom, 92, 52}, Icon::Ban, "封禁",
+            [this, roleId] { ban(roleId); },
+            error == ChessRuleErrorCode::RoleAlreadyBanned ? "本局已封禁此角色"
+                : error == ChessRuleErrorCode::BanLimitReached ? "封禁名額已滿；升級可增加名額"
+                : "封禁此角色；確認後影響後續商店，本局無法解除",
+            error == ChessRuleErrorCode::None, false, negative, Treatment::Action);
     }
 }
 
@@ -626,19 +588,10 @@ void ChessPreparationScreen::prose(const std::vector<PanelTextSourceRow>& rows, 
     const auto layout = layoutProse(rows, frame.w, 17);
     const int pageHeight = std::max(24, frame.h - 46);
     // 依完整行分頁，不裁斷長裝備效果，也不把字縮到無法閱讀。
-    std::vector<std::vector<PanelTextPhysicalLine>> pages(1);
-    int origin = 0;
-    for (auto line : layout.lines)
-    {
-        if (!pages.back().empty() && line.y + line.fontSize - origin > pageHeight)
-        {
-            pages.emplace_back(); origin = line.y;
-        }
-        line.y -= origin;
-        pages.back().push_back(std::move(line));
-    }
+    const auto pages = paginatePanelText(layout, pageHeight);
     textPage_ = std::clamp(textPage_, 0, static_cast<int>(pages.size()) - 1);
-    for (const auto& row : pages[textPage_]) text(row.text, frame.x + row.indentPixels, frame.y + row.y, row.fontSize);
+    for (const auto& row : pages[textPage_])
+        text(row.text, frame.x + row.indentPixels, frame.y + row.y, row.fontSize, panelTextColor(row.tone));
     if (pages.size() > 1)
     {
         button("text-prev", {frame.x, frame.y + frame.h - 44, 64, 44}, "<", [this] { --textPage_; rebuild(); }, {}, textPage_ > 0);
@@ -658,7 +611,7 @@ void ChessPreparationScreen::equipmentInspector()
     {
         const auto* role = session_.content().role(target->roleId);
         image("head", role->HeadID, {x, y + 40, 40, 44});
-        text(role->Name, x + 48, y + 54, 18, ink, width - 52);
+        text("為" + role->Name + "選擇" + chessEquipmentTypeName(equipmentType_), x + 48, y + 54, 18, ink, width - 52);
     }
     else text("點選出戰或候補棋子，選擇持有人", x, y + 52, 16, muted, width);
     for (int type = 0; type < 2; ++type)
@@ -668,10 +621,13 @@ void ChessPreparationScreen::equipmentInspector()
     for (const auto& [id, equipment] : session_.state().equipmentInventory)
         if (equipmentDefinition(session_.content(), equipment.itemId)->equipType == equipmentType_) inventory.push_back(&equipment);
     std::stable_sort(inventory.begin(), inventory.end(), [&](const auto* left, const auto* right) {
+        const bool leftAvailable = left->assignedChessInstanceId < 0;
+        const bool rightAvailable = right->assignedChessInstanceId < 0;
+        if (leftAvailable != rightAvailable) return leftAvailable;
         return chessEquipmentMenuOrderLess({true, equipmentDefinition(session_.content(), left->itemId)->tier, left->itemId},
             {true, equipmentDefinition(session_.content(), right->itemId)->tier, right->itemId});
     });
-    constexpr int columns = 4;
+    constexpr int columns = 3;
     constexpr int pageSize = columns * 3;
     constexpr int gap = 6;
     constexpr int cellHeight = 60;
@@ -681,7 +637,9 @@ void ChessPreparationScreen::equipmentInspector()
     const auto selected = std::ranges::find(inventory, equipmentId_, &ChessEquipmentInstance::instanceId);
     if (selected != inventory.end()) listPage_ = static_cast<int>(selected - inventory.begin()) / pageSize;
     else equipmentId_ = inventory.empty() ? -1 : inventory[listPage_ * pageSize]->instanceId;
-    if (inventory.empty()) text("尚無此類裝備", x, y + 156, 18, muted);
+    if (inventory.empty())
+        text(std::format("尚無{}。可從關卡獎勵或神兵商店取得，再回到這裡裝備。", chessEquipmentTypeName(equipmentType_)),
+            x, y + 156, 18, muted, width, 4);
     for (int slot = 0; slot < pageSize; ++slot)
     {
         const int index = listPage_ * pageSize + slot;
@@ -691,10 +649,11 @@ void ChessPreparationScreen::equipmentInspector()
         const auto* definition = equipmentDefinition(session_.content(), equipment.itemId);
         PanelFrame frame{x + (slot % columns) * (cellWidth + gap), y + 140 + (slot / columns) * (cellHeight + gap), cellWidth, cellHeight};
         button(std::format("equipment:{}", equipment.instanceId), frame, {}, [this, id = equipment.instanceId] {
-            equipmentId_ = id; textPage_ = 0; rebuild(); equipmentPopover_.pin(id);
+            equipmentId_ = id; textPage_ = 0; rebuild();
         }, item->name, true, equipmentId_ == equipment.instanceId, Treatment::Slot);
         controls_.back().equipmentId = equipment.instanceId;
-        image("item", item->id, {frame.x + 8, frame.y + 6, frame.w - 16, 46});
+        image("item", item->id, {frame.x + 8, frame.y + 4, frame.w - 16, 32});
+        text(item->name, frame.x + 4, frame.y + 40, 14, chessRewardTierColor(definition->tier), frame.w - 8);
         drawings_.push_back([frame, tier = definition->tier] {
             fill({frame.x + 2, frame.y + 6, 2, frame.h - 12}, chessRewardTierColor(tier));
         });
@@ -711,7 +670,7 @@ void ChessPreparationScreen::equipmentInspector()
             [this] { ++listPage_; equipmentId_ = -1; rebuild(); }, "下一頁裝備", listPage_ + 1 < pages);
     }
     else if (!inventory.empty())
-        text(std::format("{} 件 · {}", inventory.size(), touchInput_ ? "點選裝備查看效果" : "滑過查看，點選固定"), x, y + 350, 15, muted, width);
+        text(std::format("{} 件 · 選擇後按{}", inventory.size(), target ? "下方裝備" : "棋子以裝備"), x, y + 350, 15, muted, width);
     const auto* equipment = equipmentInstance(session_.state(), equipmentId_);
     const int detailY = y + 388;
     const int bottom = inspector_.y + inspector_.h - 64;
@@ -743,7 +702,8 @@ void ChessPreparationScreen::equipmentInspector()
                     x, detailY + 64, 15, muted, width);
         }
         const bool equipped = wearer && target && wearer->instanceId == target->instanceId;
-        button("equip", {x, bottom, width, 52}, equipped ? "已裝備" : wearer ? "轉交" : "裝備",
+        button("equip", {x, bottom, width, 52}, equipped ? "已裝備" : target
+                ? std::format("{}給{}", wearer ? "轉交" : "裝備", session_.content().role(target->roleId)->Name) : "先選擇持有人",
             [this] { auto action = simpleAction(ChessActionType::Equip); action.equipmentInstanceId = equipmentId_;
                 action.targetChessInstanceId = selection_.instanceId; submit(action, "已裝備"); },
             equipped ? "" : wearer ? "轉交給所選棋子" : "裝備給所選棋子", target && !equipped, false, Treatment::Action);
@@ -966,8 +926,10 @@ void ChessPreparationScreen::footer()
     button("overview", {220, y + 4, 100, 44}, "棋局圖鑑", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
     button("expedition", {328, y + 4, 72, 44}, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
     button("offline", {408, y + 4, 108, 44}, "離線對戰", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
-    iconButton("save", {552, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });
-    iconButton("load", {660, y + 4, 100, 44}, Icon::Load, "讀檔", [this] { open(ChessContextMenuAction::LoadProgress); });
+    iconButton("bans", {524, y + 4, 92, 44}, Icon::Ban, "封禁",
+        [this] { open(ChessContextMenuAction::ManageBans); }, "管理已見角色的永久封禁與剩餘名額");
+    iconButton("save", {624, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });
+    iconButton("load", {732, y + 4, 100, 44}, Icon::Load, "讀檔", [this] { open(ChessContextMenuAction::LoadProgress); });
     button("battle", {w_ - 304, y + 4, 176, 44}, observation_.campaignComplete ? "已通關 · 遠征" : "進入戰鬥",
         [this] { open(observation_.campaignComplete ? ChessContextMenuAction::ShowExpeditionChallenge : ChessContextMenuAction::EnterBattle); },
         "使用目前陣容出戰", true, false, Treatment::Primary);
@@ -1033,6 +995,25 @@ void ChessPreparationScreen::selectShop(int slot)
     history_.clear();
     replacementId_ = -1;
     rebuild();
+}
+
+void ChessPreparationScreen::pickEquipment(int type)
+{
+    assert(selection_.instanceId >= 0);
+    navigate(View::Equipment);
+    equipmentType_ = type;
+    equipmentId_ = -1;
+    listPage_ = 0;
+    textPage_ = 0;
+    rebuild();
+}
+
+void ChessPreparationScreen::ban(int roleId)
+{
+    if (!confirmChessBan(session_.content().role(roleId)->Name)) return;
+    auto action = simpleAction(ChessActionType::AddBan);
+    action.roleId = roleId;
+    submit(action, "已封禁；後續商店不再出現，本局無法解除");
 }
 
 void ChessPreparationScreen::open(ChessContextMenuAction command)
@@ -1348,7 +1329,6 @@ void ChessPreparationScreen::onPressedCancel()
     {
         touchConfirmation_.reset(); touchHint_.clear(); rebuild(); return;
     }
-    if (banManagement_) { banManagement_ = false; rebuild(); return; }
     if (view_ == View::Piece && characterInspector_.expanded) back();
     else if (view_ == View::Piece) setExit(true);
     else back();
@@ -1406,7 +1386,7 @@ void ChessPreparationScreen::drawEquipmentPopover()
         const int rowY = row.y - equipmentPopover_.scroll;
         // 以完整行顯示，不讓文字越過標題、提示或畫布邊緣。
         if (rowY >= 0 && rowY + row.fontSize <= bodyHeight)
-            drawText(row.text, row.fontSize, x + 20 + row.indentPixels, bodyY + rowY, equipmentTextColor(row.tone));
+            drawText(row.text, row.fontSize, x + 20 + row.indentPixels, bodyY + rowY, panelTextColor(row.tone));
     }
     if (popoverScrollMax_ > 0)
     {

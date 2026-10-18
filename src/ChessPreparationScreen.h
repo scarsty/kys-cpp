@@ -92,8 +92,6 @@ private:
     bool arrivalMerged_{};
     bool automaticDeployment_ = true;
     bool benchNames_ = false;
-    bool banManagement_{};
-    int banPage_{};
     int benchPage_{};
     int shopPage_{};
     int listPage_{};
@@ -110,7 +108,6 @@ private:
     void header();
     void roster();
     void shop();
-    void bans();
     void inspector();
     void pieceInspector();
     void equipmentInspector();
@@ -125,6 +122,8 @@ private:
     void open(ChessContextMenuAction command);
     ChessActionResult submit(const ChessAction& action, const std::string& message);
     void buy(int slot);
+    void pickEquipment(int type);
+    void ban(int roleId);
     void deploy();
     void activate(std::string key, bool touch = false);
     int hit(SDL_FPoint point) const;

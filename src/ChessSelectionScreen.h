@@ -57,6 +57,8 @@ struct ChessSelectionItem
     std::vector<std::pair<std::string, std::string>> detailTabs;
     std::vector<ChessOverviewColumn> overview;
     std::function<void(int)> openCombo;
+    std::vector<PanelTextSourceRow> effectRows;
+    bool actionEnabled = true;
 };
 
 // 棋局共用的卡片與檢視器；選取只更新預覽，明確操作才提交結果。
@@ -142,7 +144,8 @@ private:
     int hit(SDL_FPoint point) const;
     void control(SDL_Rect frame, std::function<void()> activate);
     void button(SDL_Rect frame, const std::string& text, std::function<void()> activate,
-        bool primary = false, std::optional<ChessUiStyle::Icon> icon = std::nullopt, bool selected = false, bool action = false);
+        bool primary = false, std::optional<ChessUiStyle::Icon> icon = std::nullopt, bool selected = false,
+        bool action = false, bool enabled = true);
     void inspector();
     void closeInspection();
     void characterInspector(const ChessCharacterPresentation& character, SDL_Rect frame,

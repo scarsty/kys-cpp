@@ -2,6 +2,7 @@
 
 #include "ChessEffectDescription.h"
 #include "ChessCatalogQueries.h"
+#include "ChessUiStyle.h"
 #include "DisplayText.h"
 #include "Font.h"
 
@@ -58,6 +59,21 @@ struct PanelTextCursor
 };
 
 enum class PanelTextTone { Body, Heading, Effect, Exclusive, Inactive, Combo, Context };
+
+inline Color panelTextColor(PanelTextTone tone)
+{
+    using namespace ChessUiStyle;
+    switch (tone)
+    {
+    case PanelTextTone::Heading: return gold;
+    case PanelTextTone::Effect: return positive;
+    case PanelTextTone::Exclusive: return exclusive;
+    case PanelTextTone::Inactive: return muted;
+    case PanelTextTone::Combo:
+    case PanelTextTone::Context: return context;
+    default: return ink;
+    }
+}
 
 struct PanelTextSourceRow
 {
@@ -143,16 +159,19 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
             .tone = tone,
         });
     };
-    const auto appendEffects = [&](const RenderedEffectDescription& effects, PanelTextTone tone) {
-        auto effectRows = panelTextRowsForEffectDescription(effects, 0, 2);
+    const auto appendEffects = [&](const RenderedEffectDescription& effects, PanelTextTone tone, int indent = 0) {
+        auto effectRows = panelTextRowsForEffectDescription(effects, 0, 2, indent);
         for (auto& row : effectRows) row.tone = tone;
         rows.insert(rows.end(),
             std::make_move_iterator(effectRows.begin()),
             std::make_move_iterator(effectRows.end()));
     };
-    const auto appendCombos = [&](const std::vector<std::string>& names, PanelTextTone tone) {
+    const auto appendCombos = [&](const std::vector<std::string>& names, PanelTextTone tone, int indent = 0) {
         for (const auto& name : names)
+        {
             appendText(chessNonBattleRuleDescription(CountsAsComboRule{ name }, true), tone);
+            rows.back().indentUnits = indent;
+        }
     };
     if (!equipment.specialEffects.sections.empty())
     {
@@ -173,8 +192,8 @@ inline std::vector<PanelTextSourceRow> panelTextRowsForEquipment(
         if (recipientRoleId) heading += applicable ? "（適用）" : "（不適用）";
         const auto tone = applicable ? PanelTextTone::Exclusive : PanelTextTone::Inactive;
         appendText(heading + "：", tone, true);
-        appendCombos(bonus.countsAsCombos, applicable ? PanelTextTone::Combo : tone);
-        appendEffects(bonus.effects, tone);
+        appendCombos(bonus.countsAsCombos, applicable ? PanelTextTone::Combo : tone, 2);
+        appendEffects(bonus.effects, tone, 2);
     }
     return rows;
 }
@@ -188,6 +207,7 @@ void showChessMessage(const std::string& text, int fontSize = 32);
 enum class ChessChoiceStyle { Options, Confirmation, DestructiveConfirmation };
 int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
     ChessChoiceStyle style = ChessChoiceStyle::Options);
+bool confirmChessBan(const std::string& roleName);
 void playChessUpgradeSound();
 int getRandomChessMusic();
 int getRandomBattleMusic();
@@ -239,6 +259,31 @@ inline PanelTextLayout layoutPanelText(
         }
     }
     return result;
+}
+
+inline std::vector<std::vector<PanelTextPhysicalLine>> paginatePanelText(
+    const PanelTextLayout& layout, int pageHeight)
+{
+    assert(pageHeight >= layout.baseFontSize);
+    std::vector<std::vector<PanelTextPhysicalLine>> pages(1);
+    int origin{};
+    for (auto line : layout.lines)
+    {
+        if (!pages.back().empty() && line.y + line.fontSize - origin > pageHeight)
+        {
+            pages.emplace_back();
+            origin = line.y;
+        }
+        line.y -= origin;
+        pages.back().push_back(std::move(line));
+    }
+    return pages;
+}
+
+inline std::vector<std::vector<PanelTextPhysicalLine>> paginatePanelText(
+    std::span<const PanelTextSourceRow> rows, int width, int fontSize, int pageHeight)
+{
+    return paginatePanelText(layoutPanelText(rows, width, fontSize), pageHeight);
 }
 
 }    // namespace KysChess

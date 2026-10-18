@@ -84,6 +84,7 @@ struct SessionMenuData
     bool overviewMode{};
     std::string actionLabel = "選擇";
     std::string headerNote;
+    int selectedItem = -1;
 };
 
 
@@ -362,14 +363,13 @@ ChessSelectionItem equipmentCard(const ChessGameSession& session, const Equipmen
     };
     for (const auto& row : panelTextRowsForEquipment(metadata))
         if (row.fontSizeDelta == 0 && !row.text.empty()) { card.summary = row.text; break; }
-    for (const auto& row : panelTextRowsForEquipment(chessEquipmentMetadata(session.content(), equipment.itemId, EffectDescriptionStyle::Full)))
-        card.description += row.text + "\n";
+    card.effectRows = panelTextRowsForEquipment(chessEquipmentMetadata(session.content(), equipment.itemId, EffectDescriptionStyle::Full));
     return card;
 }
 
 ChessSelectionItem neigongCard(const ChessGameSession& session, const NeigongDef& neigong)
 {
-    return {
+    ChessSelectionItem card{
         .title = neigong.name,
         .subtitle = session.state().obtainedNeigongIds.contains(neigong.magicId) ? "已獲得" : "",
         .badge = chessRewardTierLabel(neigong.tier),
@@ -377,8 +377,10 @@ ChessSelectionItem neigongCard(const ChessGameSession& session, const NeigongDef
         .accent = chessRewardTierColor(neigong.tier),
         .category = chessRewardTierLabel(neigong.tier),
         .summary = joinEffectDescriptionRows(describeGameplayEffects(neigong.effects, EffectDescriptionStyle::Compact), " · "),
-        .description = joinEffectDescriptionRows(describeGameplayEffects(neigong.effects, EffectDescriptionStyle::Full)),
     };
+    card.effectRows = panelTextRowsForEffectDescription(describeGameplayEffects(neigong.effects, EffectDescriptionStyle::Full));
+    for (auto& row : card.effectRows) row.tone = PanelTextTone::Effect;
+    return card;
 }
 
 ChessSelectionItem comboCard(const ChessGameSession& session, const ComboDef& combo)
@@ -451,6 +453,7 @@ int runSelection(
     if (data.overviewMode) menu->setOverviewMode();
     menu->setActionLabel(data.actionLabel);
     menu->setHeaderNote(data.headerNote);
+    if (data.selectedItem >= 0) menu->setSelectedItem(data.selectedItem);
     menu->setExitable(exitable);
     menu->setSearchEnabled(showSearch || data.labels.size() > 12);
     menu->setExitConfirmation(std::move(exitConfirmation));
@@ -473,6 +476,7 @@ std::optional<ChessContextMenuAction> runContextActionMenu(
         {
         case ChessContextMenuAction::ShowPositionSwap: icon = Icon::Formation; break;
         case ChessContextMenuAction::RerollBattleSeed: icon = Icon::Refresh; break;
+        case ChessContextMenuAction::ManageBans: icon = Icon::Ban; break;
         case ChessContextMenuAction::ViewCombos: icon = Icon::Link; break;
         case ChessContextMenuAction::ViewChessPool: icon = Icon::Character; break;
         case ChessContextMenuAction::ViewNeigong: icon = Icon::Cultivation; break;
@@ -1406,18 +1410,13 @@ ChessActionResult ChessGuiSessionAdapter::submitGuiAction(const ChessAction& act
 void ChessGuiSessionAdapter::showBanManagement()
 {
     const int maximum = ChessManagementRules::maximumBanCount(session_.state(), session_.content());
-    if (maximum <= 0)
-    {
-        showChessMessage("禁棋功能尚未開放");
-        return;
-    }
-
+    int selectedRole = -1;
     for (;;)
     {
         const auto observation = session_.observe();
         if (observation.seenRoles.empty())
         {
-            showChessMessage("尚未遇到可禁棋子");
+            showChessMessage("尚未遇到可封禁的棋子；商店出現的角色會收錄到封禁清單。");
             return;
         }
 
@@ -1440,33 +1439,31 @@ void ChessGuiSessionAdapter::showBanManagement()
         }
         data.labels = alignedMenuLabels(labelRows);
         data.cards = roleCards(session_, roleIds);
-        data.actionLabel = "封棋";
+        data.actionLabel = "封禁";
+        data.headerNote = std::format("已禁 {}/{} · 剩餘 {} · 本局永久；保留持有棋子與當輪商店",
+            observation.bans.size(), maximum, std::max(0, maximum - static_cast<int>(observation.bans.size())));
         for (int i = 0; i < static_cast<int>(rows.size()); ++i)
-            data.cards[i].subtitle = rows[i].banned ? "已封棋" : "可封棋";
+        {
+            data.cards[i].subtitle = rows[i].banned ? "已封禁 · 本局永久"
+                : static_cast<int>(observation.bans.size()) >= maximum ? "封禁名額已滿" : "可封禁";
+            data.cards[i].character->context = data.cards[i].subtitle;
+            data.cards[i].actionEnabled = !rows[i].banned && static_cast<int>(observation.bans.size()) < maximum;
+            if (rows[i].roleId == selectedRole) data.selectedItem = i;
+        }
 
         const int bannedCount = static_cast<int>(observation.bans.size());
-        const int choice = runSelection(std::format(
-                "禁棋管理　已禁{}/{}　剩餘{}",
-                bannedCount,
-                maximum,
-                std::max(0, maximum - bannedCount)), data, {}, false);
+        const int choice = runSelection("封禁管理", data, {}, false);
         if (choice < 0)
         {
             return;
         }
-        if (rows[choice].banned)
-        {
-            continue;
-        }
-        if (bannedCount >= maximum)
-        {
-            showChessMessage(std::format("禁棋已滿 {}/{}", bannedCount, maximum));
-            continue;
-        }
+        assert(!rows[choice].banned && bannedCount < maximum);
+        selectedRole = rows[choice].roleId;
 
         ChessAction action;
         action.type = ChessActionType::AddBan;
         action.roleId = rows[choice].roleId;
+        if (!confirmChessBan(session_.content().role(action.roleId)->Name)) continue;
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
@@ -1475,7 +1472,7 @@ void ChessGuiSessionAdapter::showBanManagement()
         }
         const auto* role = session_.content().role(action.roleId);
         assert(role);
-        showChessMessage(std::format("禁棋：{}", role->Name));
+        showChessMessage(std::format("已封禁：{}", role->Name));
     }
 }
 
@@ -1502,7 +1499,7 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
     }
     data.labels = alignedMenuLabels(labelRows);
     data.cards = roleCards(session_, roleIds);
-    data.actionLabel = "封棋";
+    data.actionLabel = "封禁";
     const std::string title = forced
         ? std::format(
             "禁棋選擇 (≤{}費)　剩餘{}/{}",
@@ -1533,6 +1530,7 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
     ChessAction action;
     action.type = ChessActionType::AddBan;
     action.roleId = descriptor.candidateIds[choice];
+    if (!confirmChessBan(session_.content().role(action.roleId)->Name)) return true;
     const auto result = submitGuiAction(action);
     if (!result.accepted)
     {
