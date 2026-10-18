@@ -451,6 +451,23 @@ TEST_CASE("combo configuration requires explicit nonnegative icon IDs", "[chess]
     else CHECK(combos.empty());
 }
 
+TEST_CASE("content without NPC-only combos preserves the 0.2.19 fingerprint", "[chess][content][fingerprint][version]")
+{
+    // 由 0.2.19 的指紋實作對此測試自有樣本計算，避免僅驗證新版彼此相等。
+    const ChessGameContent content(syntheticContentData(Difficulty::Normal), "0.2.20");
+    CHECK(chessSha256Hex(content.contentFingerprint())
+        == "6e8b667e21616e4125706752e15cb3233f220b639026e68ac69ce0259481e4ab");
+}
+
+TEST_CASE("0.2.20 only adds a forward compatibility exception for 0.2.19", "[chess][content][version]")
+{
+    CHECK(chessGameVersionsCompatible("0.2.19", "0.2.20"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.20", "0.2.19"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.18", "0.2.20"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.17", "0.2.20"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.19", "0.2.21"));
+}
+
 TEST_CASE("cosmetic combo icons do not change the gameplay content fingerprint", "[chess][content][combo][fingerprint]")
 {
     auto data = syntheticContentData(Difficulty::Normal);

@@ -3,8 +3,10 @@
 #include "ChessReplayVerifier.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <string_view>
+#include <tuple>
 #include <utility>
 
 using namespace KysChess;
@@ -152,17 +154,26 @@ TEST_CASE("replay prefix reconstruction preserves compatible cross-version evide
     {
         verifyPrefix("0.2.17", "0.2.18");
     }
+    SECTION("0.2.19 replay under the compatible 0.2.20 release")
+    {
+        verifyPrefix("0.2.19", "0.2.20");
+    }
 }
 
-TEST_CASE("0.2.18 verifies original 0.2.17 evidence without weakening integrity checks", "[chess][replay][verify][version]")
+TEST_CASE("compatible releases verify original evidence without weakening integrity checks", "[chess][replay][verify][version]")
 {
-    auto replay = shortReplay("0.2.17");
-    const auto content = managementContent(100, Difficulty::Normal, "0.2.18");
+    const auto [previousVersion, currentVersion, nextVersion] = GENERATE(
+        std::tuple{"0.2.17", "0.2.18", "0.2.19"},
+        std::tuple{"0.2.19", "0.2.20", "0.2.21"});
+    auto replay = shortReplay(previousVersion);
+    const auto content = managementContent(100, Difficulty::Normal, currentVersion);
     CHECK(ChessReplayVerifier::verify(content, replay).valid);
     CHECK_FALSE(ChessReplayVerifier::verify(
         managementContent(100, Difficulty::Normal, "0.2.16"), replay).valid);
     CHECK_FALSE(ChessReplayVerifier::verify(
-        managementContent(100, Difficulty::Normal, "0.2.19"), replay).valid);
+        managementContent(100, Difficulty::Normal, nextVersion), replay).valid);
+    CHECK_FALSE(ChessReplayVerifier::verify(
+        managementContent(100, Difficulty::Normal, previousVersion), shortReplay(currentVersion)).valid);
 
     SECTION("changed content")
     {

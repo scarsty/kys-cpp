@@ -4,9 +4,11 @@
 #include "ChessReplayVerifier.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <chrono>
 #include <filesystem>
+#include <utility>
 
 using namespace KysChess;
 using namespace KysChess::Test;
@@ -149,10 +151,13 @@ TEST_CASE("direct restore accepts dev versions and rejects incompatible release 
     CHECK(session.state() == originalState);
 }
 
-TEST_CASE("0.2.18 loads and continues 0.2.17 saves with the original replay header", "[chess][checkpoint][save][version]")
+TEST_CASE("compatible releases load and continue saves with the original replay header", "[chess][checkpoint][save][version]")
 {
-    const auto previousContent = managementContent(100, Difficulty::Normal, "0.2.17");
-    const auto currentContent = managementContent(100, Difficulty::Normal, "0.2.18");
+    const auto [previousVersion, currentVersion] = GENERATE(
+        std::pair{"0.2.17", "0.2.18"},
+        std::pair{"0.2.19", "0.2.20"});
+    const auto previousContent = managementContent(100, Difficulty::Normal, previousVersion);
+    const auto currentContent = managementContent(100, Difficulty::Normal, currentVersion);
     ChessGameSession previous(previousContent, 77);
     REQUIRE(previous.submitAndDrain(lockAction(true)).accepted);
     const auto checkpoint = ChessSessionCheckpoint::capture(previous, 1);
@@ -164,10 +169,10 @@ TEST_CASE("0.2.18 loads and continues 0.2.17 saves with the original replay head
     REQUIRE(saves.load("previous", current, replacement) == ChessCheckpointError::None);
     CHECK(current.state() == previous.state());
     CHECK(current.random().state() == previous.random().state());
-    CHECK(current.journal().header().gameVersion == "0.2.17");
+    CHECK(current.journal().header().gameVersion == previousVersion);
     REQUIRE(current.submitAndDrain(lockAction(false)).accepted);
     const auto continued = ChessSessionCheckpoint::capture(current, 2);
-    CHECK(continued.gameVersion() == "0.2.17");
+    CHECK(continued.gameVersion() == previousVersion);
     CHECK(ChessReplayVerifier::verify(currentContent, continued.replay).valid);
 
     auto incompatible = checkpoint;

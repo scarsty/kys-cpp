@@ -601,7 +601,6 @@ auto comboContentViews(const std::vector<ComboDef>& definitions)
         std::vector<int>,
         std::vector<ThresholdView>,
         bool,
-        bool,
         bool>;
     std::vector<DefinitionView> result;
     result.reserve(definitions.size());
@@ -623,8 +622,7 @@ auto comboContentViews(const std::vector<ComboDef>& definitions)
             definition.memberRoleIds,
             std::move(thresholds),
             definition.isAntiCombo,
-            definition.starSynergyBonus,
-            definition.isNpcOnly);
+            definition.starSynergyBonus);
     }
     return result;
 }
@@ -722,7 +720,7 @@ ChessSha256 chessContentFingerprint(const ChessGameContentData& data)
         data.equipmentSynergies);
     const auto neigong = neigongContentViews(data.neigong);
     const auto magicEffects = magicEffectContentViews(data.magicEffects);
-    return chessBeveSha256(
+    const auto fingerprint = chessBeveSha256(
         "KYS_CHESS_CONTENT",
         data.difficulty,
         data.balance,
@@ -738,6 +736,16 @@ ChessSha256 chessContentFingerprint(const ChessGameContentData& data)
         magicEffects,
         data.battleMaps,
         data.battlefields);
+
+    // 未使用 NPC 專用羈絆時維持 0.2.19 的規則指紋；啟用時仍須納入可選性差異。
+    std::vector<int> npcOnlyComboIds;
+    for (const auto& combo : data.combos)
+    {
+        if (combo.isNpcOnly) npcOnlyComboIds.push_back(combo.id);
+    }
+    return npcOnlyComboIds.empty()
+        ? fingerprint
+        : chessBeveSha256("KYS_CHESS_NPC_CONTENT", fingerprint, npcOnlyComboIds);
 }
 
 }

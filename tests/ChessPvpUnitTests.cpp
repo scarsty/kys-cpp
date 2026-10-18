@@ -7,6 +7,7 @@
 #include "ChessStandaloneBattle.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <glaze/json.hpp>
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 
 using namespace KysChess;
 
@@ -89,15 +91,18 @@ TEST_CASE("offline PvP verifier accepts direct checkpoints and full slot envelop
     CHECK(full.composition == direct.composition);
 }
 
-TEST_CASE("0.2.18 offline PvP verifies unchanged 0.2.17 saves", "[chess][pvp][save][version]")
+TEST_CASE("compatible releases verify unchanged offline PvP saves", "[chess][pvp][save][version]")
 {
-    const auto previous = checkpointFixture(Difficulty::Hard, "0.2.17");
-    const auto currentContent = previous.content->withGameVersion("0.2.18");
+    const auto [previousVersion, currentVersion] = GENERATE(
+        std::pair{"0.2.17", "0.2.18"},
+        std::pair{"0.2.19", "0.2.20"});
+    const auto previous = checkpointFixture(Difficulty::Hard, previousVersion);
+    const auto currentContent = previous.content->withGameVersion(currentVersion);
     for (const auto& payload : {previous.checkpoint.serializeJson(), fullSlotPayload(previous.checkpoint)})
     {
         const auto result = ChessPvpSaveVerifier::verify(currentContent, payload);
         REQUIRE(result.valid);
-        CHECK(result.gameVersion == "0.2.17");
+        CHECK(result.gameVersion == previousVersion);
         CHECK(result.sequence == previous.checkpoint.replay.decisions.size());
     }
     auto altered = previous.checkpoint;
