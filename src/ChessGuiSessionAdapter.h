@@ -22,10 +22,6 @@ public:
 private:
     bool openPreparationCommand(ChessContextMenuAction command);
     ChessActionResult submitGuiAction(const ChessAction& action);
-    ChessGuiFlowResult chooseAndSubmit(const ChessLegalActionDescriptor& descriptor);
-    void showShop();
-    void chooseChess(ChessActionType actionType);
-    void chooseDeployment();
     void showBanManagement();
     bool chooseBan(const ChessLegalActionDescriptor& descriptor);
     void showEquipmentMenu();
@@ -46,7 +42,6 @@ private:
     ChessGuiFlowResult chooseChallenge(const ChessLegalActionDescriptor& descriptor);
     ChessGuiFlowResult chooseReward(const ChessLegalActionDescriptor& descriptor);
     void chooseMap(const ChessLegalActionDescriptor& descriptor);
-    void chooseSwap(const ChessLegalActionDescriptor& descriptor);
     ChessGuiFlowResult drainPreparedBattle();
     ChessGuiFlowResult drainRewards(bool stopBeforeForcedBan = false);
     void showBattlePreview() const;

@@ -249,7 +249,6 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/ChessBattleEffectParserUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessBattleEffectValidationUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessEffectDescriptionUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessMagicEffectDisplayUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessEffectSchemaRendererUnitTests.cpp"
     "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp"
     "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaWriter.cpp"

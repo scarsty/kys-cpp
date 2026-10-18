@@ -243,7 +243,6 @@
       <Filter>mlcc</Filter>
     </ClCompile>
     <ClCompile Include="ChessUiCommon.cpp" />
-    <ClCompile Include="ChessMagicEffectDisplay.cpp" />
     <ClCompile Include="UIRoleStatusMenu.cpp" />
     <ClCompile Include="TempStore.cpp" />
     <ClCompile Include="SystemSettings.cpp">
@@ -527,7 +526,6 @@
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
       <Filter>mlcc</Filter>
     </ClInclude>
-    <ClInclude Include="ChessMagicEffectDisplay.h" />
     <ClInclude Include="ChessContextMenu.h">
       <Filter>ui</Filter>
     </ClInclude>
@@ -538,6 +536,9 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="ChessMenuFormatting.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ChessGameGuide.h">
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="ChessTalentUi.h">

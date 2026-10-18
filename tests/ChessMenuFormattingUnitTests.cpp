@@ -1,4 +1,5 @@
 #include "ChessMenuFormatting.h"
+#include "ChessGameGuide.h"
 #include "ChessGameSession.h"
 #include "ChessTalentUi.h"
 #include "ChessUiCommon.h"
@@ -65,31 +66,6 @@ TEST_CASE("save rows align legacy timestamps and full-width separators", "[chess
     }
 }
 
-TEST_CASE("panel text fitting chooses the largest complete readable layout",
-          "[chess][menu-formatting][panel-text]")
-{
-    const std::vector<PanelTextSourceRow> rows{
-        { .text = "第一段文字需要換行", .spacingAfter = 2 },
-        { .text = "第二段", .fontSizeDelta = 2, .indentUnits = 2,
-          .spacingBefore = 3, .spacingAfter = 1 },
-    };
-    const auto fitted = fitPanelText(rows, 80, 68, 20, 12);
-    CHECK(fitted.baseFontSize == 16);
-    CHECK(fitted.height <= 68);
-    REQUIRE_FALSE(fitted.lines.empty());
-    CHECK(fitted.lines.front().sourceRow == 0);
-    CHECK(fitted.lines.back().sourceRow == 1);
-    for (const auto& line : fitted.lines)
-    {
-        CHECK(line.y + line.fontSize <= fitted.height);
-        CHECK(line.indentPixels
-            + displayTextWidth(line.text) * line.fontSize / 2 <= 80);
-    }
-
-    const auto tooLarge = layoutPanelText(rows, 80, fitted.baseFontSize + 1);
-    CHECK(tooLarge.height > 68);
-}
-
 TEST_CASE("card prose wrapping preserves punctuation and avoids orphaned introductions",
           "[chess][menu-formatting][panel-text][player-card]")
 {
@@ -117,79 +93,6 @@ TEST_CASE("card prose wrapping preserves punctuation and avoids orphaned introdu
     };
     const auto layout = layoutPanelText(rows, 168, 14);
     CHECK(layout.lines.front().text == wrapDisplayText(text, 24, true, DisplayTextWrapping::Prose).front());
-}
-
-TEST_CASE("dense synergy previews fit the modern panel by reducing the font",
-          "[chess][menu-formatting][panel-text][combo]")
-{
-    // 保留錯誤回報中的原始文案，確保字級修正不依賴配置或文案縮短。
-    const auto block = [](std::string header, std::initializer_list<std::string> effects) {
-        std::vector<PanelTextSourceRow> rows{
-            {.text = std::move(header), .fontSizeDelta = 1, .spacingAfter = 2},
-        };
-        for (const auto& effect : effects)
-        {
-            rows.push_back({
-                .text = effect,
-                .indentUnits = 2,
-                .spacingBefore = rows.size() > 1 ? 1 : 0,
-                .spacingAfter = 1,
-                .wrapping = DisplayTextWrapping::Prose,
-            });
-        }
-        return rows;
-    };
-    std::vector<std::vector<PanelTextSourceRow>> blocks{
-        block("武林外道 (4/4 ✓)", {
-            "+35%防", "技能傷害+25%", "擊殺：+150攻", "命中：25%機率封內55幀",
-        }),
-        block("踏雪無痕 (4/4 ✓)", {
-            "速度+30%", "近戰滑步：沿途攻擊，再追加1次武功", "滑步機率+15%",
-            "閃避+5%", "受擊：對該敵閃避+5%，上限7層",
-        }),
-        block("反叛者 (5/7 ✓)", {
-            "技能加傷=攻×失血比例×35%", "隨失血比例，技能承傷最多減少20點",
-            "隨失血比例，技能承傷最多減少14%",
-        }),
-        block("宗師 (1/4)", {}),
-    };
-    constexpr int availableWidth = 620;
-    constexpr int availableHeight = 158;
-    for (const bool expanded : {false, true})
-    {
-        INFO("expanded=" << expanded);
-        if (expanded)
-            blocks.back() = block("宗師 (1/4)", {
-                "出招：瞬移攻擊，隨機、脆弱敵人交替", "命中：回20內",
-            });
-        CHECK_FALSE(fitPanelTextBlocks(blocks, availableWidth, availableHeight, 19, 12, 8));
-        const auto fitted = fitPanelTextBlocks(blocks, availableWidth, availableHeight,
-            19, ChessScreenLayout::kComboPanelMinimumFontSize, 8);
-        REQUIRE(fitted);
-        CHECK(fitted->baseFontSize == 11);
-        REQUIRE(fitted->columns.size() == 2);
-        std::size_t nextBlock{};
-        for (const auto& column : fitted->columns)
-        {
-            CHECK(column.firstBlock == nextBlock);
-            CHECK(column.layout.height <= availableHeight);
-            std::vector<std::string> expected;
-            for (auto index = column.firstBlock; index < column.lastBlock; ++index)
-                for (const auto& row : blocks[index]) expected.push_back(row.text);
-            std::vector<std::string> actual(expected.size());
-            for (const auto& line : column.layout.lines)
-            {
-                REQUIRE(line.sourceRow < actual.size());
-                actual[line.sourceRow] += line.text;
-                CHECK(line.y + line.fontSize <= availableHeight);
-                CHECK(line.indentPixels + displayTextWidth(line.text) * line.fontSize / 2
-                    <= fitted->columnWidth);
-            }
-            CHECK(actual == expected);
-            nextBlock = column.lastBlock;
-        }
-        CHECK(nextBlock == blocks.size());
-    }
 }
 
 TEST_CASE("talent presentation exposes an equipment reward table and descriptive mechanics",
@@ -389,43 +292,6 @@ TEST_CASE("equipment reward alignment does not reserve unused global columns",
     CHECK(width < ChessScreenLayout::kDefaultMenuItemUnits);
 }
 
-TEST_CASE("legacy browse menu typography and reward overrides stay explicit", "[chess][menu-formatting][legacy]")
-{
-    CHECK((kChessBrowseMenuPresentation == ChessMenuPresentation{36, 10}));
-    CHECK((kChessCompactMenuPresentation == ChessMenuPresentation{32, 12}));
-    CHECK((kChessChallengeMenuPresentation == ChessMenuPresentation{36, 9}));
-    CHECK((kChessPositionSwapMenuPresentation == ChessMenuPresentation{36, 2}));
-
-    ChessPendingReward campaignEquipment;
-    campaignEquipment.kind = ChessRewardKind::Equipment;
-    CHECK((chessRewardMenuPresentation(campaignEquipment, 4) == ChessMenuPresentation{36, 4}));
-
-    auto challengeEquipment = campaignEquipment;
-    challengeEquipment.challengeName = "遠征";
-    CHECK((chessRewardMenuPresentation(challengeEquipment, 7) == ChessMenuPresentation{36, 10}));
-
-    ChessPendingReward campaignNeigong;
-    campaignNeigong.kind = ChessRewardKind::InternalSkill;
-    CHECK((chessRewardMenuPresentation(campaignNeigong, 5) == ChessMenuPresentation{36, 5}));
-
-    auto challengeNeigong = campaignNeigong;
-    challengeNeigong.challengeName = "遠征";
-    CHECK((chessRewardMenuPresentation(challengeNeigong, 7) == ChessMenuPresentation{36, 16}));
-
-    ChessPendingReward challengeReward;
-    challengeReward.kind = ChessRewardKind::ChallengeReward;
-    challengeReward.challengeName = "遠征";
-    CHECK((chessRewardMenuPresentation(challengeReward, 3) == ChessMenuPresentation{36, 3}));
-
-    ChessPendingReward pieceReward;
-    pieceReward.kind = ChessRewardKind::Piece;
-    CHECK((chessRewardMenuPresentation(pieceReward, 20) == ChessMenuPresentation{32, 12}));
-
-    ChessPendingReward starReward;
-    starReward.kind = ChessRewardKind::StarUpgrade;
-    CHECK((chessRewardMenuPresentation(starReward, 20) == ChessMenuPresentation{32, 12}));
-}
-
 TEST_CASE("menu state prefixes retain their visible legacy separators", "[chess][menu-formatting][legacy]")
 {
     CHECK(chessMenuPrefixWithSeparator("").empty());
@@ -540,52 +406,53 @@ TEST_CASE("game guide derives economy equipment and reward details from content"
 
     const auto sections = buildChessGameGuideSections(content);
 
-    REQUIRE(sections.size() == 6);
-    const auto& basic = guideSection(sections, "基本流程");
-    CHECK(basic.lines[1].text == "· 戰鬥全自動進行，共17回；每3回有一位強敵");
-    CHECK(basic.lines[2].text == "· 勝利得6經驗，強敵勝利得11經驗");
-    const auto& pieces = guideSection(sections, "棋子與升星");
-    CHECK(pieces.lines[1].text == "· 1費2金、2費4金、3費7金、4費11金、5費16金；星級價格按4倍計");
-    CHECK(pieces.lines[3].text == "· 主線勝利或首次通關遠征時，所有出戰棋子勝場+1；合成取三枚中的最高勝場，不會相加");
-    CHECK(pieces.lines[4].text == "· 每個勝場提供生命+12、攻擊+1、防禦+1、各項兵器熟練度+0.5、輕功+0.25；小數按總勝場累計後取整");
-    CHECK(pieces.lines[4].tone == ChessGameGuideLineTone::Information);
-    const auto& economy = guideSection(sections, "經濟與等級");
-    CHECK(economy.lines[0].text == "· 初始23金，刷新商店5金，購買經驗7金換9點");
-    CHECK(economy.lines[1].text == "· 存款按15%生利息，上限6金；強敵獎勵另加8金");
-    CHECK(economy.lines[2].text == "· 最高8級，背包12格，最低3人出戰");
-    const auto& equipment = guideSection(sections, "裝備與內功");
-    CHECK(equipment.lines[1].text == "· 固定裝備獎勵共2次，最早第4回，最高4階");
-    CHECK(equipment.lines[2].text == "· 神兵商店第13回後開放，每件37金");
-    CHECK(equipment.lines[3].text == "· 強敵戰後提供5本免費與額外候選；選擇額外候選加收6金");
-    CHECK(guideSection(sections, "遠征挑戰").lines[0].text == "· 遠征挑戰共3關，不佔主線回合，勝後獎勵各領一次");
+    REQUIRE(sections.size() == 8);
+    const auto contains = [&](const std::string& title, const std::string& expected) {
+        return std::ranges::any_of(guideSection(sections, title).lines,
+            [&](const auto& line) { return line.text.contains(expected); });
+    };
+    CHECK(contains("基本流程", "共 17 關，每 3 關"));
+    CHECK(contains("基本流程", "6 經驗；強敵勝利獲得 11 經驗"));
+    CHECK(contains("棋子與升星", "1費 2金、2費 4金、3費 7金、4費 11金、5費 16金"));
+    CHECK(contains("棋子與升星", "每增加一星乘 4"));
+    CHECK(contains("棋子與升星", "生命 +12、攻擊 +1、防禦 +1、兵器熟練度 +0.5、輕功 +0.25"));
+    CHECK(contains("金幣與等級", "開局 23 金；刷新商店 5 金；購買經驗 7 金換 9 點"));
+    CHECK(contains("金幣與等級", "15%，小數捨去，上限 6 金"));
+    CHECK(contains("金幣與等級", "最高 9 級；出戰容量隨等級增加，最多 9 人；候補可放 12 人"));
+    CHECK(contains("裝備與內功", "共 2 次，最早第 4 關，最高 4 階"));
+    CHECK(contains("裝備與內功", "通過第 13 關後"));
+    CHECK(contains("裝備與內功", "每件 37 金"));
+    CHECK(contains("裝備與內功", "最多 5 本免費候選中選一本"));
+    CHECK(contains("裝備與內功", "額外候選需 6 金"));
+    CHECK(contains("遠征與對戰", "遠征共 3 關"));
 }
 
-TEST_CASE("game guide inserts the configured ban mode with legacy emphasis", "[chess][menu-formatting]")
+TEST_CASE("game guide follows selected talent and disabled rule branches", "[chess][menu-formatting][guide]")
 {
     ChessGameContentData data;
     data.difficulty = Difficulty::Hard;
-    data.balance.shopSlotCount = 6;
-    data.balance.maxLevel = 10;
+    data.balance.bossInterval = 0;
+    data.balance.interestPercent = 0;
     data.balance.banBaseCount = 2;
     data.balance.banCountPerLevel = 1;
     data.balance.banUnlocks = {{8, 1, 3}, {3, 2, 2}};
+    data.balance.talents[ChessTalentId::Gambler].openingBans = 4;
+    data.balance.talentEquipmentRewards[ChessTalentId::Gambler] = {{5, 3, 1, 0}};
     const ChessGameContent content(std::move(data));
-
-    const auto sections = buildChessGameGuideSections(content);
-
-    REQUIRE(sections.size() == 7);
-    REQUIRE(sections[3].title == "困難棋局");
-    REQUIRE(sections[3].lines.size() == 3);
-    CHECK(sections[3].lines[0].text == "· 本難度商店每回合6格可選，最高10級");
-    CHECK(sections[3].lines[0].tone == ChessGameGuideLineTone::Information);
-    CHECK(sections[3].lines[1].text == "· 開局可禁2名棋子；每升1級，再增1名禁位");
-    CHECK(sections[3].lines[1].tone == ChessGameGuideLineTone::Highlight);
-    CHECK(sections[3].lines[2].text == "· 額外禁棋共2段，最早第3回後解鎖，最高可禁3費");
-    CHECK(sections[3].lines[2].tone == ChessGameGuideLineTone::Standard);
-    const auto& equipment = guideSection(sections, "裝備與內功");
-    CHECK(equipment.lines[1].text == "· 本難度沒有固定裝備獎勵，主要從遠征挑戰與商店取得裝備");
-    CHECK(equipment.lines[2].text == "· 神兵商店未開放，可從獎勵與挑戰取得裝備");
-    CHECK(guideSection(sections, "遠征挑戰").lines[0].text == "· 目前沒有遠征挑戰配置");
+    const auto sections = buildChessGameGuideSections(content, ChessTalentId::Gambler);
+    const auto contains = [&](const std::string& title, const std::string& expected) {
+        return std::ranges::any_of(guideSection(sections, title).lines,
+            [&](const auto& line) { return line.text.contains(expected); });
+    };
+    REQUIRE(sections.size() == 8);
+    CHECK(contains("基本流程", "不設固定強敵戰"));
+    CHECK(contains("金幣與等級", "不計存款利息"));
+    CHECK(contains("羈絆與禁棋", "開局 2 個名額，每升級增加 1 個"));
+    CHECK(contains("羈絆與禁棋", "關卡獎勵共 2 段；本天賦開局另提供 4 個"));
+    CHECK(contains("裝備與內功", "共 1 次，最早第 5 關，最高 3 階"));
+    CHECK(contains("裝備與內功", "此天賦沒有神兵商店"));
+    CHECK(contains("裝備與內功", "沒有固定強敵內功獎勵"));
+    CHECK(contains("遠征與對戰", "本局沒有遠征挑戰"));
 }
 
 TEST_CASE("shop emphasis ignores a lone completed three-star", "[chess][menu-formatting][shop]")
@@ -641,14 +508,6 @@ TEST_CASE("buy experience preview uses config-driven deployment capacity", "[che
     REQUIRE(increase.next);
     CHECK(*increase.next == 5);
 
-    const auto text = buildChessBuyExpPreviewText(state, content);
-    CHECK(text.header == "等級 4    經驗 7/14    金幣 $23");
-    CHECK(text.costLine == "花費 $5  獲得 5 經驗");
-    CHECK(text.deploymentLine == "出戰人數: 4");
-    CHECK(text.deploymentNext == "  → 5");
-    CHECK(text.currentWeights == "  1費50% 2費35% 3費15% 4費0% 5費0%");
-    CHECK(text.nextWeights == "  1費40% 2費35% 3費23% 4費2% 5費0%");
-    CHECK(formatChessShopWeightLine(content.balance(), 10) == "已滿級");
 }
 
 TEST_CASE("chess pool browse order preserves config order within each tier", "[chess][menu-formatting][pool]")
@@ -666,14 +525,6 @@ TEST_CASE("chess pool browse order preserves config order within each tier", "[c
     const ChessGameContent content(std::move(data));
 
     CHECK(buildChessPoolBrowseOrder(content) == std::vector<int>{11, 10, 30, 20, 40});
-}
-
-TEST_CASE("position swap preview follows the highlighted row", "[chess][menu-formatting][position-swap]")
-{
-    CHECK_FALSE(chessPositionSwapPreviewEnabled(false, -1));
-    CHECK(chessPositionSwapPreviewEnabled(true, -1));
-    CHECK_FALSE(chessPositionSwapPreviewEnabled(true, 0));
-    CHECK(chessPositionSwapPreviewEnabled(false, 1));
 }
 
 TEST_CASE("ban management rows retain banned roles and legacy status", "[chess][menu-formatting][ban]")
@@ -703,18 +554,6 @@ TEST_CASE("ban management rows retain banned roles and legacy status", "[chess][
     CHECK(rows[3].roleId == 30);
     CHECK(rows[3].banned);
 
-    const auto available = chessBanManagementRowOutlineStyle(false);
-    CHECK(available.color.a == 0);
-    CHECK_FALSE(available.animated);
-    CHECK(available.thickness == 1);
-
-    const auto banned = chessBanManagementRowOutlineStyle(true);
-    CHECK(banned.color.r == 255);
-    CHECK(banned.color.g == 80);
-    CHECK(banned.color.b == 80);
-    CHECK(banned.color.a == 255);
-    CHECK_FALSE(banned.animated);
-    CHECK(banned.thickness == 2);
 
     observation.bans = observation.seenRoles;
     const auto fullRows = buildChessBanManagementRows(observation, content);
@@ -831,79 +670,4 @@ TEST_CASE("victory combo bonus uses the configured source combo name", "[chess][
 
     gold.stableId.clear();
     CHECK(chessVictoryComboBonusText(content, gold, 6) == "(羈絆+$6)");
-}
-
-TEST_CASE("piece and star rewards provide full role preview inputs", "[chess][menu-formatting][reward]")
-{
-    ChessSessionState state;
-    state.roster.emplace(42, ChessSessionPiece{42, 9, 2});
-
-    const auto piece = chessRewardRolePreview(
-        state,
-        {"piece:7", ChessRewardKind::Piece, 7});
-    REQUIRE(piece);
-    const ChessRewardRolePreview expectedPiece{7, 1, -1};
-    CHECK(*piece == expectedPiece);
-
-    const auto upgrade = chessRewardRolePreview(
-        state,
-        {"star:42", ChessRewardKind::StarUpgrade, 42, 3});
-    REQUIRE(upgrade);
-    const ChessRewardRolePreview expectedUpgrade{9, 3, 42};
-    CHECK(*upgrade == expectedUpgrade);
-
-    CHECK_FALSE(chessRewardRolePreview(
-        state,
-        {"equipment:99", ChessRewardKind::Equipment, 99}));
-}
-
-TEST_CASE("management role preview starts with zero current MP", "[chess][menu-formatting][role-preview]")
-{
-    CHECK(formatChessRolePreviewMp(999) == "0/999");
-}
-
-TEST_CASE("synergy group gaps do not change wrapped effect line spacing",
-          "[chess][menu-formatting][panel-text]")
-{
-    const std::vector<std::vector<PanelTextSourceRow>> blocks{
-        {{.text = "紅顏", .spacingAfter = 2},
-         {.text = "受擊時有30%機率，使攻擊者的出招冷卻延長50%", .spacingAfter = 2}},
-        {{.text = "明教", .spacingAfter = 2},
-         {.text = "自身死亡時，其他羈絆成員回復各自最大生命的8%，最低1點", .spacingAfter = 2}},
-    };
-    const auto normal = fitPanelTextBlocks(blocks, 200, 1000, 18, 18);
-    const auto spaced = fitPanelTextBlocks(blocks, 200, 1000, 18, 18, 8);
-    REQUIRE(normal);
-    REQUIRE(spaced);
-    REQUIRE(spaced->columns.size() == 1);
-    const auto& before = normal->columns.front().layout;
-    const auto& after = spaced->columns.front().layout;
-    REQUIRE(after.lines.size() == before.lines.size());
-    CHECK(after.height == before.height + 8);
-    int wrappedContinuations{};
-    for (std::size_t i = 0; i < after.lines.size(); ++i)
-    {
-        CHECK(after.lines[i].text == before.lines[i].text);
-        CHECK(after.lines[i].y == before.lines[i].y + (after.lines[i].sourceRow >= 2 ? 8 : 0));
-        if (i > 0 && after.lines[i].sourceRow == after.lines[i - 1].sourceRow)
-        {
-            ++wrappedContinuations;
-            CHECK(after.lines[i].y - after.lines[i - 1].y == 20);
-        }
-    }
-    CHECK(wrappedContinuations >= 2);
-    const auto columns = fitPanelTextBlocks(blocks, 400, 100, 18, 18, 8);
-    REQUIRE(columns);
-    REQUIRE(columns->columns.size() == 2);
-    for (const auto& column : columns->columns)
-    {
-        CHECK(column.layout.lines.front().y == 0);
-        for (std::size_t i = 1; i < column.layout.lines.size(); ++i)
-        {
-            const auto& line = column.layout.lines[i];
-            const auto& previous = column.layout.lines[i - 1];
-            if (line.sourceRow == previous.sourceRow)
-                CHECK(line.y - previous.y == 20);
-        }
-    }
 }

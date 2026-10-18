@@ -5,7 +5,7 @@
 namespace KysChess
 {
 
-enum class ChessSelectionLayout { Catalogue, ShortChoice, Talent, Overview, Command, Dialog };
+enum class ChessSelectionLayout { Catalogue, ShortChoice, Talent, Overview, Tabbed, Command, Dialog };
 
 inline bool chessSelectionCompact(int presentedWidth, int presentedHeight)
 {
@@ -14,7 +14,7 @@ inline bool chessSelectionCompact(int presentedWidth, int presentedHeight)
 
 inline int chessSelectionColumns(ChessSelectionLayout layout, bool compact)
 {
-    if (layout == ChessSelectionLayout::Talent || layout == ChessSelectionLayout::Overview) return 1;
+    if (layout == ChessSelectionLayout::Talent || layout == ChessSelectionLayout::Overview || layout == ChessSelectionLayout::Tabbed) return 1;
     if (layout == ChessSelectionLayout::ShortChoice) return compact ? 1 : 3;
     if (layout == ChessSelectionLayout::Command || layout == ChessSelectionLayout::Dialog) return compact ? 1 : 2;
     return compact ? 1 : 4;

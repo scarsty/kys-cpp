@@ -87,20 +87,6 @@ struct PanelTextLayout
     std::vector<PanelTextPhysicalLine> lines;
 };
 
-struct PanelTextColumnLayout
-{
-    std::size_t firstBlock{};
-    std::size_t lastBlock{};
-    PanelTextLayout layout;
-};
-
-struct PanelTextColumnsLayout
-{
-    int baseFontSize{};
-    int columnWidth{};
-    std::vector<PanelTextColumnLayout> columns;
-};
-
 inline std::vector<PanelTextSourceRow> panelTextRowsForEffectDescription(
     const RenderedEffectDescription& rendered,
     int fontSizeDelta = 0,
@@ -198,36 +184,6 @@ inline PanelTextLayout layoutPanelText(
     int pixelWidth,
     int baseFontSize);
 
-inline PanelTextLayout fitPanelText(
-    std::span<const PanelTextSourceRow> rows,
-    int pixelWidth,
-    int pixelHeight,
-    int preferredFontSize,
-    int minimumFontSize);
-
-inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
-    const std::vector<std::vector<PanelTextSourceRow>>& blocks,
-    int pixelWidth,
-    int pixelHeight,
-    int preferredFontSize,
-    int minimumFontSize,
-    int blockGap = 0);
-
-struct LabelValueColumn
-{
-    Font* font;
-    int fontSize;
-    int labelX;
-    int valueX;
-    Color labelColor;
-
-    void line(int rowY, const char* label, const std::string& value, Color valueColor) const
-    {
-        font->draw(label, fontSize, labelX, rowY, labelColor);
-        font->draw(value, fontSize, valueX, rowY, valueColor);
-    }
-};
-
 void showChessMessage(const std::string& text, int fontSize = 32);
 enum class ChessChoiceStyle { Options, Confirmation, DestructiveConfirmation };
 int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
@@ -283,108 +239,6 @@ inline PanelTextLayout layoutPanelText(
         }
     }
     return result;
-}
-
-inline PanelTextLayout fitPanelText(
-    std::span<const PanelTextSourceRow> rows,
-    int pixelWidth,
-    int pixelHeight,
-    int preferredFontSize,
-    int minimumFontSize)
-{
-    assert(pixelHeight > 0);
-    assert(preferredFontSize >= minimumFontSize);
-    assert(minimumFontSize > 0);
-    for (int fontSize = preferredFontSize; fontSize >= minimumFontSize; --fontSize)
-    {
-        auto layout = layoutPanelText(rows, pixelWidth, fontSize);
-        if (layout.height <= pixelHeight)
-        {
-            return layout;
-        }
-    }
-    assert(false && "panel text does not fit at the minimum readable font size");
-    return layoutPanelText(rows, pixelWidth, minimumFontSize);
-}
-
-inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
-    const std::vector<std::vector<PanelTextSourceRow>>& blocks,
-    int pixelWidth,
-    int pixelHeight,
-    int preferredFontSize,
-    int minimumFontSize,
-    int blockGap)
-{
-    assert(!blocks.empty());
-    assert(pixelWidth > 0);
-    assert(pixelHeight > 0);
-    assert(preferredFontSize >= minimumFontSize);
-    assert(minimumFontSize > 0);
-    const auto combineBlocks = [&](std::size_t first, std::size_t last)
-    {
-        std::vector<PanelTextSourceRow> result;
-        for (std::size_t index = first; index < last; ++index)
-        {
-            const auto firstRow = result.size();
-            result.insert(result.end(), blocks[index].begin(), blocks[index].end());
-            if (index > first)
-                result[firstRow].spacingBefore += blockGap;
-        }
-        return result;
-    };
-
-    std::optional<PanelTextColumnsLayout> chosen;
-    int chosenTallestColumn{};
-    const int columnLimit = std::min(2, static_cast<int>(blocks.size()));
-    for (int columns = 1; columns <= columnLimit; ++columns)
-    {
-        const int columnWidth = pixelWidth / columns;
-        const std::size_t firstSplit = columns == 1 ? blocks.size() : 1;
-        const std::size_t lastSplit = columns == 1 ? blocks.size() : blocks.size() - 1;
-        for (std::size_t split = firstSplit; split <= lastSplit; ++split)
-        {
-            std::vector<std::pair<std::size_t, std::size_t>> ranges{
-                {0, split},
-            };
-            if (columns == 2) ranges.push_back({split, blocks.size()});
-            for (int fontSize = preferredFontSize; fontSize >= minimumFontSize; --fontSize)
-            {
-                std::vector<PanelTextColumnLayout> columnLayouts;
-                int tallest{};
-                bool fits = true;
-                for (const auto [first, last] : ranges)
-                {
-                    const auto rows = combineBlocks(first, last);
-                    auto layout = layoutPanelText(rows, columnWidth, fontSize);
-                    tallest = std::max(tallest, layout.height);
-                    fits = fits && layout.height <= pixelHeight;
-                    columnLayouts.push_back({
-                        .firstBlock = first,
-                        .lastBlock = last,
-                        .layout = std::move(layout),
-                    });
-                }
-                if (!fits) continue;
-                if (!chosen
-                    || fontSize > chosen->baseFontSize
-                    || (fontSize == chosen->baseFontSize
-                        && columns < static_cast<int>(chosen->columns.size()))
-                    || (fontSize == chosen->baseFontSize
-                        && columns == static_cast<int>(chosen->columns.size())
-                        && tallest < chosenTallestColumn))
-                {
-                    chosen = PanelTextColumnsLayout{
-                        .baseFontSize = fontSize,
-                        .columnWidth = columnWidth,
-                        .columns = std::move(columnLayouts),
-                    };
-                    chosenTallestColumn = tallest;
-                }
-                break;
-            }
-        }
-    }
-    return chosen;
 }
 
 }    // namespace KysChess

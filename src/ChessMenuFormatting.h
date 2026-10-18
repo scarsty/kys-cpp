@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Color.h"
 #include "ChessCatalogQueries.h"
 #include "ChessGameContent.h"
 #include "ChessManagementRules.h"
@@ -32,19 +33,6 @@ struct ChessMenuColumnMinimumWidths
     int right = ChessScreenLayout::kMenuCostUnits;
 };
 
-struct ChessMenuPresentation
-{
-    int fontSize{};
-    int itemsPerPage{};
-
-    bool operator==(const ChessMenuPresentation&) const = default;
-};
-
-inline constexpr ChessMenuPresentation kChessBrowseMenuPresentation{36, 10};
-inline constexpr ChessMenuPresentation kChessCompactMenuPresentation{32, 12};
-inline constexpr ChessMenuPresentation kChessChallengeMenuPresentation{36, 9};
-inline constexpr ChessMenuPresentation kChessPositionSwapMenuPresentation{36, 2};
-
 inline std::string chessMenuPrefixWithSeparator(std::string prefix)
 {
     if (!prefix.empty() && prefix.back() != ' ')
@@ -62,31 +50,6 @@ inline std::string chessEquipmentAssignmentColumn(bool assigned)
 inline std::string chessRewardOptionCostColumn(const ChessRewardOption& option)
 {
     return option.goldCost > 0 ? std::format("+${}", option.goldCost) : std::string{};
-}
-
-inline ChessMenuPresentation chessRewardMenuPresentation(
-    const ChessPendingReward& pending,
-    int displayedRows)
-{
-    assert(displayedRows > 0);
-    if (pending.kind == ChessRewardKind::Piece
-        || pending.kind == ChessRewardKind::StarUpgrade
-        || pending.kind == ChessRewardKind::Synergy)
-    {
-        return kChessCompactMenuPresentation;
-    }
-    if (!pending.challengeName.empty())
-    {
-        if (pending.kind == ChessRewardKind::InternalSkill)
-        {
-            return {36, 16};
-        }
-        if (pending.kind == ChessRewardKind::Equipment)
-        {
-            return kChessBrowseMenuPresentation;
-        }
-    }
-    return {36, displayedRows};
 }
 
 inline std::string chessStarUpgradeRewardTitle(
@@ -182,58 +145,6 @@ inline ChessBuyExpDeploymentPreview buildChessBuyExpDeploymentPreview(
     return preview;
 }
 
-inline std::string formatChessShopWeightLine(const BalanceConfig& balance, int level)
-{
-    assert(level >= 0);
-    if (level >= static_cast<int>(balance.shopWeights.size()))
-    {
-        return "已滿級";
-    }
-
-    const auto& weights = balance.shopWeights[level];
-    return std::format(
-        "1費{}% 2費{}% 3費{}% 4費{}% 5費{}%",
-        weights[0],
-        weights[1],
-        weights[2],
-        weights[3],
-        weights[4]);
-}
-
-struct ChessBuyExpPreviewText
-{
-    std::string header;
-    std::string costLine;
-    std::string deploymentLine;
-    std::string deploymentNext;
-    std::string currentWeights;
-    std::string nextWeights;
-};
-
-inline ChessBuyExpPreviewText buildChessBuyExpPreviewText(
-    const ChessSessionState& state,
-    const ChessGameContent& content)
-{
-    const auto& balance = content.balance();
-    const auto deployment = buildChessBuyExpDeploymentPreview(state, content);
-    ChessBuyExpPreviewText text;
-    text.header = std::format(
-        "等級 {}    經驗 {}/{}    金幣 ${}",
-        state.level + 1,
-        state.experience,
-        ChessManagementRules::experienceForNextLevel(state, content),
-        state.money);
-    text.costLine = std::format("花費 ${}  獲得 {} 經驗", balance.buyExpCost, balance.buyExpAmount);
-    text.deploymentLine = std::format("出戰人數: {}", deployment.current);
-    if (deployment.next)
-    {
-        text.deploymentNext = std::format("  → {}", *deployment.next);
-    }
-    text.currentWeights = "  " + formatChessShopWeightLine(balance, state.level);
-    text.nextWeights = "  " + formatChessShopWeightLine(balance, state.level + 1);
-    return text;
-}
-
 inline std::vector<int> buildChessPoolBrowseOrder(const ChessGameContent& content)
 {
     std::vector<int> roleIds = content.poolRoleIds();
@@ -244,12 +155,6 @@ inline std::vector<int> buildChessPoolBrowseOrder(const ChessGameContent& conten
         return left->Cost < right->Cost;
     });
     return roleIds;
-}
-
-inline bool chessPositionSwapPreviewEnabled(bool currentEnabled, int selectedRow)
-{
-    assert(selectedRow >= -1 && selectedRow <= 1);
-    return selectedRow >= 0 ? selectedRow == 1 : currentEnabled;
 }
 
 struct ChessBanManagementRow
@@ -282,13 +187,6 @@ inline std::vector<ChessBanManagementRow> buildChessBanManagementRows(
     return rows;
 }
 
-inline ChessMenuOutlineStyle chessBanManagementRowOutlineStyle(bool banned)
-{
-    return banned
-        ? ChessMenuOutlineStyle{{255, 80, 80, 255}, false, 2}
-        : ChessMenuOutlineStyle{};
-}
-
 struct ChessEquipmentMenuOrder
 {
     bool owned{};
@@ -311,220 +209,6 @@ inline bool chessEquipmentMenuOrderLess(
         return left.tier < right.tier;
     }
     return left.itemId < right.itemId;
-}
-
-enum class ChessGameGuideLineTone
-{
-    Standard,
-    Information,
-    Highlight,
-};
-
-struct ChessGameGuideLine
-{
-    std::string text;
-    ChessGameGuideLineTone tone = ChessGameGuideLineTone::Standard;
-};
-
-struct ChessGameGuideSection
-{
-    std::string title;
-    std::vector<ChessGameGuideLine> lines;
-};
-
-inline std::string chessFightWinGrowthGuideLine(const BalanceConfig& balance)
-{
-    return std::format(
-        "· 每個勝場提供生命+{}、攻擊+{}、防禦+{}、各項兵器熟練度+{}、輕功+{}；小數按總勝場累計後取整",
-        balance.fightWinGrowthHP,
-        balance.fightWinGrowthAtk,
-        balance.fightWinGrowthDef,
-        balance.fightWinGrowthWeapon,
-        balance.fightWinGrowthSpeed);
-}
-
-inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const ChessGameContent& content, std::optional<ChessTalentId> selectedTalent = std::nullopt)
-{
-    const auto& balance = content.balance();
-    const auto& neigong = content.neigongConfig();
-    const auto talentId = selectedTalent.value_or(balance.defaultTalent);
-    auto equipmentRewards = balance.playerEquipmentRewards;
-    if (const auto extra = balance.talentEquipmentRewards.find(talentId); extra != balance.talentEquipmentRewards.end())
-        equipmentRewards.insert(equipmentRewards.end(), extra->second.begin(), extra->second.end());
-
-    const auto formatTierPrices = [&balance]() {
-        std::string result;
-        for (int tier = 0; tier < static_cast<int>(balance.tierPrices.size()); ++tier)
-        {
-            if (!result.empty())
-            {
-                result += "、";
-            }
-            result += std::format("{}費{}金", tier + 1, balance.tierPrices[tier]);
-        }
-        return result;
-    };
-
-    const auto formatEquipmentRewardLine = [&equipmentRewards]() {
-        if (equipmentRewards.empty())
-        {
-            return std::string("· 本難度沒有固定裝備獎勵，主要從遠征挑戰與商店取得裝備");
-        }
-
-        int firstFight = equipmentRewards.front().fight;
-        int maxTier = equipmentRewards.front().maxTier;
-        for (const auto& reward : equipmentRewards)
-        {
-            firstFight = std::min(firstFight, reward.fight);
-            maxTier = std::max(maxTier, reward.maxTier);
-        }
-        return std::format(
-            "· 固定裝備獎勵共{}次，最早第{}回，最高{}階",
-            equipmentRewards.size(),
-            firstFight,
-            maxTier);
-    };
-
-    const auto formatLegendaryShopLine = [&balance, talentId]() {
-        if (!balance.talent(talentId).legendaryShop) return std::string("· 此天賦無神兵商店");
-        if (balance.legendaryShop.unlockFight <= 0)
-        {
-            return std::string("· 神兵商店未開放，可從獎勵與挑戰取得裝備");
-        }
-        return std::format(
-            "· 神兵商店第{}回後開放，每件{}金",
-            balance.legendaryShop.unlockFight,
-            balance.legendaryShop.price);
-    };
-
-    const auto formatChallengeLine = [&balance]() {
-        if (balance.challenges.empty())
-        {
-            return std::string("· 目前沒有遠征挑戰配置");
-        }
-        return std::format(
-            "· 遠征挑戰共{}關，不佔主線回合，勝後獎勵各領一次",
-            balance.challenges.size());
-    };
-
-    const auto formatBanUnlockLine = [&balance]() {
-        if (balance.banUnlocks.empty())
-        {
-            return std::string("· 禁棋會把已見過的角色逐出棋池，助你收束門路");
-        }
-
-        int firstAfterFight = balance.banUnlocks.front().afterFight;
-        int maxTier = balance.banUnlocks.front().maxTier;
-        for (const auto& unlock : balance.banUnlocks)
-        {
-            firstAfterFight = std::min(firstAfterFight, unlock.afterFight);
-            maxTier = std::max(maxTier, unlock.maxTier);
-        }
-        return std::format(
-            "· 額外禁棋共{}段，最早第{}回後解鎖，最高可禁{}費",
-            balance.banUnlocks.size(),
-            firstAfterFight,
-            maxTier);
-    };
-
-    std::vector<ChessGameGuideSection> sections{
-        {
-            "基本流程",
-            {
-                {"· 每回合先在商店招募棋子、整隊佈陣，再入局交鋒"},
-                {std::format("· 戰鬥全自動進行，共{}回；每{}回有一位強敵", balance.totalFights, balance.bossInterval)},
-                {std::format("· 勝利得{}經驗，強敵勝利得{}經驗", balance.battleExp, balance.bossBattleExp)},
-            },
-        },
-        {
-            "棋子與升星",
-            {
-                {std::format("· 商店每回合{}格可選，棋子分一至五費，越高費越難遇見", balance.shopSlotCount)},
-                {std::format("· {}；星級價格按{}倍計", formatTierPrices(), balance.starCostMult)},
-                {"· 三枚相同合成二星，三枚二星再成三星，升星後屬性大增"},
-                {"· 主線勝利或首次通關遠征時，所有出戰棋子勝場+1；合成取三枚中的最高勝場，不會相加"},
-                {chessFightWinGrowthGuideLine(balance), ChessGameGuideLineTone::Information},
-            },
-        },
-        {
-            "經濟與等級",
-            {
-                {std::format(
-                    "· 初始{}金，刷新商店{}金，購買經驗{}金換{}點",
-                    balance.initialMoney,
-                    balance.refreshCost,
-                    balance.buyExpCost,
-                    balance.buyExpAmount)},
-                {std::format(
-                    "· 存款按{}%生利息，上限{}金；強敵獎勵另加{}金",
-                    balance.interestPercent,
-                    balance.interestMax,
-                    balance.bossRewardBonus)},
-                {std::format(
-                    "· 最高{}級，背包{}格，最低{}人出戰",
-                    balance.maxLevel,
-                    balance.benchSize,
-                    balance.minBattleSize)},
-            },
-        },
-        {
-            "羈絆",
-            {
-                {"· 同門同路的棋子同時上陣，可啟動羈絆效果"},
-                {"· 羈絆人數、反向羈絆、星級加成與效果皆以羈絆一覽為準"},
-            },
-        },
-        {
-            "裝備與內功",
-            {
-                {"· 裝備管理可將武器、防具授予棋子，補強前排或成全主力"},
-                {formatEquipmentRewardLine()},
-                {formatLegendaryShopLine()},
-                {std::format(
-                    "· 強敵戰後提供{}本免費與額外候選；選擇額外候選加收{}金",
-                    neigong.choiceCount,
-                    neigong.additionalOptionCost)},
-            },
-        },
-        {
-            "遠征挑戰",
-            {
-                {formatChallengeLine()},
-                {"· 獎勵可能包含金幣、棋子、升星、內功或裝備"},
-            },
-        },
-    };
-
-    const bool hasBanSystem = balance.banBaseCount > 0
-        || balance.banCountPerLevel > 0
-        || !balance.banUnlocks.empty();
-    if (hasBanSystem)
-    {
-        sections.insert(
-            sections.begin() + 3,
-            {
-                std::format("{}棋局", ChessBalance::difficultyDisplayNameTraditional(content.difficulty())),
-                {
-                    {
-                        std::format(
-                            "· 本難度商店每回合{}格可選，最高{}級",
-                            balance.shopSlotCount,
-                            balance.maxLevel),
-                        ChessGameGuideLineTone::Information,
-                    },
-                    {
-                        std::format(
-                            "· 開局可禁{}名棋子；每升1級，再增{}名禁位",
-                            balance.banBaseCount,
-                            balance.banCountPerLevel),
-                        ChessGameGuideLineTone::Highlight,
-                    },
-                    {formatBanUnlockLine()},
-                },
-            });
-    }
-
-    return sections;
 }
 
 template <typename DisplayWidth>
@@ -624,12 +308,6 @@ std::vector<std::string> buildAlignedComboCatalogLabels(
     return labels;
 }
 
-inline std::string formatChessRolePreviewMp(int maximumMp)
-{
-    // 管理與獎勵預覽代表剛進入戰鬥的單位，當前內力一律從零開始。
-    return std::format("0/{}", maximumMp);
-}
-
 inline std::string chessStars(int star)
 {
     std::string result;
@@ -696,33 +374,6 @@ inline std::string chessChallengeEnemyDescription(
         description += std::format("{}{}", enemy.weaponId >= 0 ? "／" : "　", chessItemDisplayName(content, enemy.armorId));
     }
     return description;
-}
-
-struct ChessRewardRolePreview
-{
-    int roleId = -1;
-    int star = 1;
-    int instanceId = -1;
-
-    bool operator==(const ChessRewardRolePreview&) const = default;
-};
-
-inline std::optional<ChessRewardRolePreview> chessRewardRolePreview(
-    const ChessSessionState& state,
-    const ChessRewardOption& option)
-{
-    if (option.kind == ChessRewardKind::Piece)
-    {
-        return ChessRewardRolePreview{option.value, 1, -1};
-    }
-    if (option.kind != ChessRewardKind::StarUpgrade)
-    {
-        return std::nullopt;
-    }
-
-    const auto piece = state.roster.find(option.value);
-    assert(piece != state.roster.end());
-    return ChessRewardRolePreview{piece->second.roleId, option.value2, option.value};
 }
 
 }    // namespace KysChess

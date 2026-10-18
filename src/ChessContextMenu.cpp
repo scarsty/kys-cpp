@@ -1,35 +1,7 @@
 #include "ChessContextMenu.h"
 
-#include <algorithm>
-#include <assert.h>
-
 namespace KysChess
 {
-
-std::vector<ChessContextMenuItem> buildChessContextMenu(bool banEnabled)
-{
-    std::vector<ChessContextMenuItem> items{
-        {"購買棋子", ChessContextMenuAction::BuyChess},
-        {"出售棋子", ChessContextMenuAction::SellChess},
-        {"選擇出戰", ChessContextMenuAction::SelectForBattle},
-        {"進入戰鬥", ChessContextMenuAction::EnterBattle},
-        {"離線對戰", ChessContextMenuAction::OpenOfflineBattle},
-        {"購買經驗", ChessContextMenuAction::BuyExp},
-    };
-    if (banEnabled)
-    {
-        items.push_back({"禁棋管理", ChessContextMenuAction::ManageBans});
-    }
-    items.insert(
-        items.end(),
-        {
-            {"裝備管理", ChessContextMenuAction::OpenEquipmentMenu},
-            {"棋局總覽", ChessContextMenuAction::OpenOverviewMenu},
-            {"遠征挑戰", ChessContextMenuAction::ShowExpeditionChallenge},
-            {"系統選單", ChessContextMenuAction::OpenSystemMenu},
-        });
-    return items;
-}
 
 std::vector<ChessContextMenuItem> buildChessOverviewMenu()
 {
@@ -75,15 +47,6 @@ std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMe
         labels.push_back(item.label);
     }
     return labels;
-}
-
-int centerChessContextMenuY(std::size_t itemCount, int contentY, int contentHeight, int rowSpacing)
-{
-    assert(contentHeight > 0);
-    assert(rowSpacing > 0);
-
-    const int menuHeight = static_cast<int>(itemCount) * rowSpacing;
-    return std::max(contentY, contentY + (contentHeight - menuHeight) / 2);
 }
 
 }    // namespace KysChess

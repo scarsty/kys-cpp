@@ -5,7 +5,7 @@
 #include "ChessCombo.h"
 #include "ChessGuiBattleFlow.h"
 #include "ChessBattleOverviewLayout.h"
-#include "ChessMagicEffectDisplay.h"
+#include "ChessCatalogQueries.h"
 #include "HeadlessBattleRunner.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -333,19 +333,10 @@ TEST_CASE("equal-power magic tie uses the same highest-ID ultimate in runtime an
     CHECK(input.units.front().actionPlan->normalSkill.id == 101);
     CHECK(input.units.front().actionPlan->ultimateSkill.id == 102);
 
-    std::vector<const MagicSave*> magics;
-    for (const auto& selection : selected)
-    {
-        magics.push_back(selection.first);
-    }
-    const auto rows = buildChessMagicEffectDisplayRows(
-        magics,
-        {},
-        selected.back().first->ID);
-    REQUIRE(rows.size() == 2);
-    CHECK_FALSE(rows.front().ultimate);
-    CHECK(rows.back().ultimate);
-    CHECK(rows.back().magic->ID == input.units.front().actionPlan->ultimateSkill.id);
+    const auto abilities = chessAbilitiesForRoleStar(content, *content.role(10), 1);
+    REQUIRE(abilities.size() == 2);
+    CHECK(abilities.front().magicId == input.units.front().actionPlan->normalSkill.id);
+    CHECK(abilities.back().magicId == input.units.front().actionPlan->ultimateSkill.id);
 }
 
 TEST_CASE("incremental GUI drain and headless runner consume identical shared input", "[chess][battle][gui][parity][determinism]")

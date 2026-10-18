@@ -18,6 +18,7 @@
 #include "ChessGuiSavePolicy.h"
 #include "ChessManagementRules.h"
 #include "ChessMenuFormatting.h"
+#include "ChessGameGuide.h"
 #include "ChessPresentationHelpers.h"
 #include "ChessPreparationScreen.h"
 #include "ChessPreparedBattleAnalysis.h"
@@ -84,11 +85,6 @@ struct SessionMenuData
 };
 
 
-bool isPanelRowInRange(int row, int rowCount)
-{
-    return row >= 0 && row < rowCount;
-}
-
 int menuDisplayWidth(const std::string& text)
 {
     return Font::getTextDrawSize(text);
@@ -125,18 +121,6 @@ Color effectCatalogSourceColor(ChessEffectCatalogSource source)
     std::unreachable();
 }
 
-int deployedCount(const ChessSessionState& state)
-{
-    return static_cast<int>(std::ranges::count_if(state.roster, [](const auto& entry) {
-        return entry.second.deployed;
-    }));
-}
-
-int benchCount(const ChessSessionState& state)
-{
-    return static_cast<int>(state.roster.size()) - deployedCount(state);
-}
-
 std::optional<ChessLegalActionDescriptor> legalAction(
     const ChessGameSession& session,
     ChessActionType type)
@@ -144,30 +128,6 @@ std::optional<ChessLegalActionDescriptor> legalAction(
     const auto legal = session.legalActions();
     const auto found = std::ranges::find(legal, type, &ChessLegalActionDescriptor::type);
     return found == legal.end() ? std::nullopt : std::optional(*found);
-}
-
-void showShopPurchaseFeedback(
-    const ChessGameSession& session,
-    const ChessActionResult& result)
-{
-    const auto purchased = std::ranges::find(
-        result.events,
-        ChessSemanticEventType::ChessPurchased,
-        &ChessSemanticEvent::type);
-    assert(purchased != result.events.end());
-    const auto* role = session.content().role(purchased->secondaryId);
-    assert(role);
-    const bool merged = std::ranges::contains(
-        result.events,
-        ChessSemanticEventType::ChessMerged,
-        &ChessSemanticEvent::type);
-    showChessMessage(merged
-        ? std::format("消費{}，{}升星！", purchased->value, role->Name)
-        : std::format("消費{}，獲取{}", purchased->value, role->Name));
-    if (merged)
-    {
-        playChessUpgradeSound();
-    }
 }
 
 void showCampaignVictoryFeedback(
@@ -480,8 +440,7 @@ std::optional<ChessContextMenuAction> runContextActionMenu(
         Icon icon = Icon::Book;
         switch (item.action)
         {
-        case ChessContextMenuAction::ShowPositionSwap:
-        case ChessContextMenuAction::SelectForBattle: icon = Icon::Formation; break;
+        case ChessContextMenuAction::ShowPositionSwap: icon = Icon::Formation; break;
         case ChessContextMenuAction::RerollBattleSeed: icon = Icon::Refresh; break;
         case ChessContextMenuAction::ViewCombos: icon = Icon::Link; break;
         case ChessContextMenuAction::ViewChessPool: icon = Icon::Character; break;
@@ -1412,249 +1371,6 @@ ChessActionResult ChessGuiSessionAdapter::submitGuiAction(const ChessAction& act
     return result;
 }
 
-void ChessGuiSessionAdapter::showShop()
-{
-    for (;;)
-    {
-        const auto observation = session_.observe();
-        SessionMenuData data;
-        data.shopMode = true;
-        std::vector<ChessMenuColumnRow> labelRows;
-        std::vector<int> roleIds{-1, -1};
-        std::vector<int> starRows{1, 1};
-        std::vector<int> instanceRows{-1, -1};
-        std::vector<int> shopSlots{-1, -1};
-
-        const bool freeRefresh = observation.freeShopRefreshAvailable;
-        data.cards.push_back({.title = "刷新", .badge = freeRefresh ? "免費" : std::format("{} 金", session_.content().balance().refreshCost),
-            .image = chessSelectionIcon(ChessUiStyle::Icon::Refresh)});
-        data.cards.push_back({.title = observation.shopLocked ? "解除鎖定" : "鎖定商店", .image = chessSelectionIcon(ChessUiStyle::Icon::Lock)});
-        labelRows.push_back({
-            {},
-            "刷新",
-            freeRefresh ? "免費" : "",
-            freeRefresh
-                ? std::format("(${})", session_.content().balance().refreshCost)
-                : std::format("${}", session_.content().balance().refreshCost),
-        });
-        data.colors.push_back(freeRefresh
-            ? Color{255, 235, 120, 255}
-            : Color{255, 204, 229, 255});
-        labelRows.push_back({{}, observation.shopLocked ? "[已鎖定] 點擊解鎖" : "[未鎖定] 點擊鎖定", {}, {}});
-        data.colors.push_back(observation.shopLocked ? ChessUiStyle::negative : Color{128, 128, 128, 255});
-
-        for (int shopSlot = 0; shopSlot < static_cast<int>(observation.shop.size()); ++shopSlot)
-        {
-            const auto& slot = observation.shop[shopSlot];
-            if (slot.roleId < 0)
-            {
-                continue;
-            }
-            const auto* role = session_.content().role(slot.roleId);
-            assert(role);
-            const int price = session_.content().balance().tierPrices[slot.tier - 1];
-            labelRows.push_back({{}, role->Name, chessStars(1), std::format("${}", price)});
-            data.colors.push_back(chessPieceTierColor(slot.tier));
-            roleIds.push_back(slot.roleId);
-            starRows.push_back(1);
-            instanceRows.push_back(-1);
-            shopSlots.push_back(shopSlot);
-            auto card = roleCard(session_, slot.roleId);
-            card.character->context = "商店預覽";
-            card.subtitle = std::format("{} 金", price);
-            data.cards.push_back(std::move(card));
-        }
-        data.labels = alignedMenuLabels(labelRows);
-
-        const int selected = runSelection(std::format(
-                "購買棋子　等級{}　${}　背包{}/{}",
-                observation.level + 1,
-                observation.money,
-                benchCount(session_.state()),
-                session_.content().balance().benchSize), data, {}, false);
-        if (selected < 0)
-        {
-            return;
-        }
-
-        ChessAction action;
-        if (selected == 0)
-        {
-            action.type = ChessActionType::RefreshShop;
-        }
-        else if (selected == 1)
-        {
-            action.type = ChessActionType::SetShopLocked;
-            action.value = !session_.state().shopLocked;
-        }
-        else
-        {
-            action.type = ChessActionType::BuyShopSlot;
-            action.shopSlot = shopSlots[selected];
-        }
-        const auto result = submitGuiAction(action);
-        if (!result.accepted)
-        {
-            showChessMessage(result.description);
-        }
-        else if (action.type == ChessActionType::BuyShopSlot)
-        {
-            showShopPurchaseFeedback(session_, result);
-        }
-    }
-}
-
-void ChessGuiSessionAdapter::chooseChess(ChessActionType actionType)
-{
-    for (;;)
-    {
-        const auto observation = session_.observe();
-        if (observation.roster.empty())
-        {
-            showChessMessage("目前沒有棋子");
-            return;
-        }
-        SessionMenuData data;
-        std::vector<ChessMenuColumnRow> labelRows;
-        std::vector<int> roleIds;
-        std::vector<int> starRows;
-        std::vector<int> instanceIds;
-        for (const auto& piece : observation.roster)
-        {
-            const auto* role = session_.content().role(piece.roleId);
-            assert(role);
-            labelRows.push_back({
-                piece.deployed ? "[戰]" : "",
-                role->Name,
-                chessStars(piece.star),
-                std::format("${}", ChessManagementRules::pieceValue(session_.content(), piece.roleId, piece.star)),
-            });
-            data.colors.push_back(chessPieceTierColor(role->Cost));
-            roleIds.push_back(piece.roleId);
-            starRows.push_back(piece.star);
-            instanceIds.push_back(piece.instanceId);
-        }
-        data.labels = alignedMenuLabels(labelRows);
-        data.cards = roleCards(session_, roleIds, starRows, instanceIds);
-        data.actionLabel = actionType == ChessActionType::SellChess ? "出售" : "選擇";
-        const int selected = runSelection(actionType == ChessActionType::SellChess
-                ? std::format("出售棋子　背包{}/{}", benchCount(session_.state()), session_.content().balance().benchSize)
-                : "選擇棋子", data, {}, false);
-        if (selected < 0)
-        {
-            return;
-        }
-        ChessAction action;
-        action.type = actionType;
-        action.chessInstanceId = observation.roster[selected].instanceId;
-        const auto result = submitGuiAction(action);
-        if (!result.accepted)
-        {
-            showChessMessage(result.description);
-        }
-        else if (actionType == ChessActionType::SellChess)
-        {
-            const auto sold = std::ranges::find(
-                result.events,
-                ChessSemanticEventType::ChessSold,
-                &ChessSemanticEvent::type);
-            assert(sold != result.events.end());
-            const auto* role = session_.content().role(sold->secondaryId);
-            assert(role);
-            showChessMessage(std::format("售出棋子{}，獲得${}", role->Name, sold->value));
-        }
-        if (actionType != ChessActionType::SellChess)
-        {
-            return;
-        }
-    }
-}
-
-void ChessGuiSessionAdapter::chooseDeployment()
-{
-    if (session_.state().roster.empty())
-    {
-        showChessMessage("目前沒有棋子");
-        return;
-    }
-    for (;;)
-    {
-        const auto observation = session_.observe();
-        std::set<int> selectedIds;
-        for (const auto& piece : observation.roster)
-        {
-            if (piece.deployed)
-            {
-                selectedIds.insert(piece.instanceId);
-            }
-        }
-
-        SessionMenuData data;
-        std::vector<ChessMenuColumnRow> labelRows;
-        std::vector<int> roleIds;
-        std::vector<int> starRows;
-        std::vector<int> instanceIds;
-        std::vector<const ChessSessionPiece*> displayPieces;
-        displayPieces.reserve(observation.roster.size());
-        for (const auto& piece : observation.roster)
-        {
-            displayPieces.push_back(&piece);
-        }
-        std::ranges::sort(displayPieces, [&](const auto* lhs, const auto* rhs) {
-            return std::pair{selectedIds.contains(lhs->instanceId) ? 0 : 1, lhs->instanceId}
-                < std::pair{selectedIds.contains(rhs->instanceId) ? 0 : 1, rhs->instanceId};
-        });
-        for (const auto* piece : displayPieces)
-        {
-            const auto* role = session_.content().role(piece->roleId);
-            assert(role);
-            const bool deployed = selectedIds.contains(piece->instanceId);
-            labelRows.push_back({
-                deployed ? "[戰]" : "",
-                role->Name,
-                chessStars(piece->star),
-                std::format("${}", ChessManagementRules::pieceValue(session_.content(), piece->roleId, piece->star)),
-            });
-            data.colors.push_back(deployed ? ChessUiStyle::gold : chessPieceTierColor(role->Cost));
-            roleIds.push_back(piece->roleId);
-            starRows.push_back(piece->star);
-            instanceIds.push_back(piece->instanceId);
-        }
-        data.labels = alignedMenuLabels(labelRows);
-        data.cards = roleCards(session_, roleIds, starRows, instanceIds);
-        data.actionLabel = "切換出戰";
-
-        const int selected = runSelection(std::format(
-                "選擇出戰棋子 {}/{} 背包{}/{}",
-                selectedIds.size(),
-                observation.maximumDeployment,
-                observation.roster.size() - selectedIds.size(),
-                session_.content().balance().benchSize), data, {}, false);
-        if (selected < 0)
-        {
-            return;
-        }
-        const int instanceId = displayPieces[selected]->instanceId;
-        if (!selectedIds.erase(instanceId))
-        {
-            if (selectedIds.size() >= static_cast<std::size_t>(observation.maximumDeployment))
-            {
-                showChessMessage(std::format("最多只能出戰 {} 名棋子", observation.maximumDeployment));
-                continue;
-            }
-            selectedIds.insert(instanceId);
-        }
-        ChessAction action;
-        action.type = ChessActionType::SetDeployment;
-        action.chessInstanceIds.assign(selectedIds.begin(), selectedIds.end());
-        const auto result = submitGuiAction(action);
-        if (!result.accepted)
-        {
-            showChessMessage(result.description);
-        }
-    }
-}
-
 void ChessGuiSessionAdapter::showBanManagement()
 {
     const int maximum = ChessManagementRules::maximumBanCount(session_.state(), session_.content());
@@ -2374,16 +2090,22 @@ void ChessGuiSessionAdapter::viewEffects()
 void ChessGuiSessionAdapter::showGameGuide()
 {
     const auto sections = buildChessGameGuideSections(session_.content(), session_.state().talent);
-    SessionMenuData data;
-    data.browseOnly = true;
+    std::vector<ChessSelectionItem> items;
     for (const auto& section : sections)
     {
-        data.labels.push_back(section.title);
-        data.cards.push_back({.title = section.title, .image = chessSelectionIcon(ChessUiStyle::Icon::Book),
-            .summary = section.lines.empty() ? std::string{} : section.lines.front().text});
-        for (const auto& line : section.lines) data.cards.back().description += line.text + "\n\n";
+        ChessSelectionItem item{.title = section.title,
+            .subtitle = std::format("本局規則 · {} · {}", chessDifficultyDisplayName(session_.content().difficulty()),
+                chessTalentName(session_.state().talent))};
+        ChessOverviewColumn column{.width = 1200};
+        for (const auto& line : section.lines)
+            column.rows.push_back({line.text, line.tone == ChessGameGuideLineTone::Highlight ? ChessUiStyle::gold
+                : line.tone == ChessGameGuideLineTone::Information ? ChessUiStyle::context : ChessUiStyle::ink});
+        item.overview.push_back(std::move(column));
+        items.push_back(std::move(item));
     }
-    runSelection("遊戲說明", data);
+    auto screen = std::make_shared<ChessSelectionScreen>("遊戲說明", std::move(items));
+    screen->setTabbedMode();
+    screen->run();
 }
 
 void ChessGuiSessionAdapter::showSystemSettings()
@@ -2726,40 +2448,6 @@ void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descrip
     }
 }
 
-void ChessGuiSessionAdapter::chooseSwap(const ChessLegalActionDescriptor& descriptor)
-{
-    SessionMenuData data;
-    std::vector<ChessMenuColumnRow> labelRows;
-    std::vector<int> roleIds;
-    std::vector<int> starRows;
-    for (const int unitId : descriptor.candidateIds)
-    {
-        const auto& prepared = *session_.state().preparedBattle;
-        const auto found = std::ranges::find(prepared.units, unitId, &PreparedChessBattleUnit::unitId);
-        assert(found != prepared.units.end());
-        const auto* role = session_.content().role(found->roleId);
-        labelRows.push_back({{}, role->Name, chessStars(found->star), {}});
-        data.colors.push_back(chessPieceTierColor(role->Cost));
-        roleIds.push_back(found->roleId);
-        starRows.push_back(found->star);
-    }
-    data.labels = alignedMenuLabels(labelRows);
-    data.cards = roleCards(session_, roleIds, starRows);
-    const int first = runSelection("第一個位置", data);
-    if (first < 0) return;
-    const int second = runSelection("第二個位置", data);
-    if (second < 0) return;
-    ChessAction action;
-    action.type = ChessActionType::SwapPositions;
-    action.chessInstanceId = descriptor.candidateIds[first];
-    action.targetChessInstanceId = descriptor.candidateIds[second];
-    const auto result = submitGuiAction(action);
-    if (!result.accepted)
-    {
-        showChessMessage(result.description);
-    }
-}
-
 void ChessGuiSessionAdapter::showBattlePreview() const
 {
     if (!session_.state().preparedBattle) return;
@@ -2950,47 +2638,16 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainRewards(bool stopBeforeForcedBan
     return currentChessGuiFlowResult();
 }
 
-ChessGuiFlowResult ChessGuiSessionAdapter::chooseAndSubmit(const ChessLegalActionDescriptor& descriptor)
-{
-    ChessAction action;
-    action.type = descriptor.type;
-    switch (descriptor.type)
-    {
-    case ChessActionType::BuyShopSlot: showShop(); return currentChessGuiFlowResult();
-    case ChessActionType::SellChess: chooseChess(descriptor.type); return currentChessGuiFlowResult();
-    case ChessActionType::SetDeployment: chooseDeployment(); return currentChessGuiFlowResult();
-    case ChessActionType::AddBan: chooseBan(descriptor); return currentChessGuiFlowResult();
-    case ChessActionType::Equip: chooseEquipment(descriptor); return currentChessGuiFlowResult();
-    case ChessActionType::BuyLegendaryEquipment: chooseLegendary(descriptor); return currentChessGuiFlowResult();
-    case ChessActionType::StartChallenge: return chooseChallenge(descriptor);
-    case ChessActionType::ChooseReward: return chooseReward(descriptor);
-    case ChessActionType::ChooseMap: chooseMap(descriptor); return currentChessGuiFlowResult();
-    case ChessActionType::SwapPositions: chooseSwap(descriptor); return currentChessGuiFlowResult();
-    case ChessActionType::SetShopLocked: action.value = !session_.state().shopLocked; break;
-    case ChessActionType::SetPositionSwapEnabled: action.value = !session_.state().options.positionSwapEnabled; break;
-    default: break;
-    }
-    const auto result = submitGuiAction(action);
-    if (!result.accepted)
-    {
-        showChessMessage(result.description);
-        return currentChessGuiFlowResult();
-    }
-    if (descriptor.type == ChessActionType::PrepareBattle)
-    {
-        return drainPreparedBattle();
-    }
-    return currentChessGuiFlowResult();
-}
-
 bool ChessGuiSessionAdapter::openPreparationCommand(ChessContextMenuAction command)
 {
     switch (command)
     {
     case ChessContextMenuAction::EnterBattle:
-        if (const auto descriptor = legalAction(session_, ChessActionType::PrepareBattle))
+        if (legalAction(session_, ChessActionType::PrepareBattle))
         {
-            if (chooseAndSubmit(*descriptor) == ChessGuiFlowResult::Aborted) return true;
+            const auto result = submitGuiAction({ChessActionType::PrepareBattle});
+            assert(result.accepted);
+            if (drainPreparedBattle() == ChessGuiFlowResult::Aborted) return true;
         }
         else showChessMessage("出戰棋子不足，請先選擇出戰陣容");
         break;

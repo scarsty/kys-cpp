@@ -67,6 +67,7 @@ public:
     void setCompactChoices(bool value) { if (value) layout_ = ChessSelectionLayout::Dialog; }
     void setShortChoiceMode() { layout_ = ChessSelectionLayout::ShortChoice; }
     void setOverviewMode() { layout_ = ChessSelectionLayout::Overview; }
+    void setTabbedMode() { layout_ = ChessSelectionLayout::Tabbed; browseOnly_ = true; }
     void setTalentMode() { layout_ = ChessSelectionLayout::Talent; }
     void setConfirmation(bool destructive = false) { dialogPrimary_ = 0; dialogDestructive_ = destructive ? 0 : -1; }
     void setActionLabel(std::string label) { actionLabel_ = std::move(label); }
@@ -138,6 +139,8 @@ private:
     void drawChoice();
     void drawTalent();
     void drawOverview();
+    void drawTabbed();
+    void drawOverviewBody(SDL_Rect frame, int fontSize);
     void drawCompactCatalogue();
     std::string confirmationLabel() const;
 };

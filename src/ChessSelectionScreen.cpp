@@ -52,6 +52,7 @@ void ChessSelectionScreen::updateCompact()
 {
     const auto* engine = Engine::getInstance();
     const bool compact = layout_ != ChessSelectionLayout::Talent && layout_ != ChessSelectionLayout::Overview
+        && layout_ != ChessSelectionLayout::Tabbed
         && chessSelectionCompact(engine->getPresentWidth(), engine->getPresentHeight());
     if (compact == compact_) return;
     compact_ = compact;
@@ -296,6 +297,11 @@ void ChessSelectionScreen::draw()
         drawOverview();
         return;
     }
+    if (layout_ == ChessSelectionLayout::Tabbed)
+    {
+        drawTabbed();
+        return;
+    }
     if (layout_ == ChessSelectionLayout::Talent)
     {
         drawTalent();
@@ -409,7 +415,28 @@ void ChessSelectionScreen::drawOverview()
     image(item.image, {324, 96, 48, 48});
     label(item.title, 28, 388, 104, gold, 480);
     label(item.badge + " · " + item.subtitle, 20, 900, 110, item.accent, 336);
-    constexpr int bodyY = 174, bodyHeight = 454, lineHeight = 26;
+    drawOverviewBody({324, 174, 920, 454}, 20);
+}
+
+void ChessSelectionScreen::drawTabbed()
+{
+    const int count = static_cast<int>(items_.size());
+    const int width = (1232 - (count - 1) * 6) / count;
+    for (int i = 0; i < count; ++i)
+        button({24 + i * (width + 6), 84, width, 52}, items_[i].title,
+            [this, i] { select(i); }, false, std::nullopt, selected_ == i);
+
+    panel(16, 148, 1248, 556);
+    const auto& item = items_[selected_];
+    label(item.title, 28, 40, 169, gold, 320);
+    label(item.subtitle, 18, 384, 177, muted, 840);
+    drawOverviewBody({40, 222, 1200, 410}, 22);
+}
+
+void ChessSelectionScreen::drawOverviewBody(SDL_Rect frame, int fontSize)
+{
+    const auto& item = items_[selected_];
+    const int bodyY = frame.y, bodyHeight = frame.h, lineHeight = fontSize + 6;
     struct Line { std::string text; Color color; int y{}; };
     std::vector<std::vector<std::vector<Line>>> columns;
     detailScrollMax_ = 0;
@@ -419,7 +446,7 @@ void ChessSelectionScreen::drawOverview()
         int y{};
         for (const auto& row : column.rows)
         {
-            const auto lines = wrapLines(row.text, (column.width - 16) * 2 / 20);
+            const auto lines = wrapDisplayText(row.text, (column.width - 16) * 2 / fontSize, true, DisplayTextWrapping::Prose);
             if (row.heading && y > 0) y += 8;
             // 標題至少與下一行一起留在同頁。
             if (y + lineHeight * (row.heading ? 2 : 1) > bodyHeight) { pages.emplace_back(); y = 0; }
@@ -435,12 +462,12 @@ void ChessSelectionScreen::drawOverview()
         columns.push_back(std::move(pages));
     }
     detailScroll_ = std::clamp(detailScroll_, 0, detailScrollMax_);
-    int x = 324;
+    int x = frame.x;
     for (int i = 0; i < static_cast<int>(columns.size()); ++i)
     {
         const auto& pages = columns[i];
         const auto& lines = pages[std::min(detailScroll_, static_cast<int>(pages.size()) - 1)];
-        for (const auto& line : lines) label(line.text, 20, x, bodyY + line.y, line.color, item.overview[i].width - 16);
+        for (const auto& line : lines) label(line.text, fontSize, x, bodyY + line.y, line.color, item.overview[i].width - 16);
         x += item.overview[i].width;
     }
     if (detailScrollMax_ > 0)
@@ -559,7 +586,8 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
 {
     if (event.phase == PointerPhase::Wheel)
     {
-        if (layout_ == ChessSelectionLayout::Overview && event.uiPosition.x >= 304)
+        if ((layout_ == ChessSelectionLayout::Overview && event.uiPosition.x >= 304)
+            || layout_ == ChessSelectionLayout::Tabbed)
         {
             detailScroll_ = std::clamp(detailScroll_ + (event.wheel.y > 0 ? -1 : 1), 0, detailScrollMax_);
             return PointerResult::Handled;
@@ -600,7 +628,7 @@ void ChessSelectionScreen::dealEvent(EngineEvent& event)
         focused_ = nextChessSelectionFocus(focused_, static_cast<int>(controls_.size()));
         return;
     }
-    if (expanded_)
+    if (expanded_ || layout_ == ChessSelectionLayout::Overview || layout_ == ChessSelectionLayout::Tabbed)
     {
         if (event.type == EVENT_KEY_DOWN && !event.key.repeat)
         {
@@ -613,7 +641,8 @@ void ChessSelectionScreen::dealEvent(EngineEvent& event)
             if (event.key.key == SDLK_PAGEUP) detailScroll_ = std::max(0, detailScroll_ - 1);
             if (event.key.key == SDLK_PAGEDOWN) detailScroll_ = std::min(detailScrollMax_, detailScroll_ + 1);
         }
-        return;
+        if (expanded_ || (event.type == EVENT_KEY_DOWN
+            && (event.key.key == SDLK_PAGEUP || event.key.key == SDLK_PAGEDOWN))) return;
     }
     int dx{}, dy{};
     if (event.type == EVENT_GAMEPAD_BUTTON_UP)
@@ -665,7 +694,7 @@ void ChessSelectionScreen::onPressedOK()
         const auto activate = controls_[focused_].activate;
         activate();
     }
-    else if (expanded_) return;
+    else if (expanded_ || layout_ == ChessSelectionLayout::Tabbed) return;
     else if (!visible_.empty())
     {
         if (compact_ && layout_ == ChessSelectionLayout::Catalogue) expand(true);

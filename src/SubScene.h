@@ -17,33 +17,6 @@ class SubScene : public Scene
 private:
     SubScene();
 
-    enum class ChessHeaderSegmentKind
-    {
-        Standard,
-        Talent,
-    };
-
-    struct ChessHeaderDetail
-    {
-        std::string label;
-        std::string value;
-        Color valueColor{235, 226, 208, 255};
-    };
-
-    struct ChessHeaderSegment
-    {
-        int x{};
-        int end{};
-        std::string title;
-        Color color{};
-        std::vector<ChessHeaderDetail> details;
-        ChessHeaderSegmentKind kind{};
-    };
-
-    std::vector<ChessHeaderSegment> chess_header_segments_;
-
-    void drawChessHeaderTooltip();
-
 public:
     SubScene(int id);
     virtual ~SubScene();
@@ -65,8 +38,7 @@ public:
     std::unique_ptr<KysChess::ChessMod> chess_mod_;
     std::shared_ptr<CloudGroup> cloud_group_;
 
-    // Chess quick-access button bounds (for click detection)
-    int chess_btn_x_ = 0, chess_btn_y_ = 0, chess_btn_w_ = 0, chess_btn_h_ = 0;
+    SDL_Rect preparation_button_{1032, 20, 216, 60};
 
 public:
     SubMapInfo* getMapInfo() { return submap_info_; }
@@ -80,7 +52,6 @@ public:
     void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
     virtual void draw() override;
-    virtual void drawTopmostOverlay() override;
     virtual void dealEvent(EngineEvent& e) override;
     PointerResult onPointerEvent(const PointerEvent& event) override;
     virtual void backRun() override;

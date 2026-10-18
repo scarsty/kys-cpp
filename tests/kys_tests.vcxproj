@@ -127,7 +127,6 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="ChessBattleEffectParserUnitTests.cpp" />
     <ClCompile Include="ChessBattleEffectValidationUnitTests.cpp" />
     <ClCompile Include="ChessEffectDescriptionUnitTests.cpp" />
-    <ClCompile Include="ChessMagicEffectDisplayUnitTests.cpp" />
     <ClCompile Include="ChessEffectSchemaRendererUnitTests.cpp" />
     <ClCompile Include="..\tools\kys_effect_schema_codegen\ChessEffectSchemaRenderer.cpp" />
     <ClCompile Include="..\tools\kys_effect_schema_codegen\ChessEffectSchemaWriter.cpp" />
@@ -207,7 +206,6 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="..\src\BattleScenePauseControl.cpp" />
     <ClCompile Include="..\src\BattleSceneUnitStore.cpp" />
     <ClCompile Include="..\src\BattleLogPresenter.cpp" />
-    <ClCompile Include="..\src\ChessMagicEffectDisplay.cpp" />
     <ClCompile Include="..\src\ChessContextMenu.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -234,7 +232,6 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClInclude Include="..\src\battle\BattleRuntimeUnitSpawn.h" />
     <ClInclude Include="..\src\battle\BattleStatusSystem.h" />
     <ClInclude Include="..\src\battle\BattleTypes.h" />
-    <ClInclude Include="..\src\ChessMagicEffectDisplay.h" />
     <ClInclude Include="BattleMovementTestHelpers.h" />
     <ClInclude Include="BattleCoreTestHelpers.h" />
     <ClInclude Include="BattleRuntimeStateTestHelpers.h" />
