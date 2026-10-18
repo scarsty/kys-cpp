@@ -2,8 +2,9 @@
 """建構《金群自走棋》宣傳單 + 玩法指南單頁（簡體 / 繁體切換）。
 
 從 tools/promo/page_template.html 生成自包含的 HTML 頁面：
-- %%SHOT:key%%      → tools/promo/shots/key.jpg 的 base64 內嵌（建構時可重新壓縮）
+- %%SHOT:key%%      → tools/promo/shots/key.webp 的 base64 內嵌（保留已壓縮內容）
 - %%ICON%%          → assets/app_icon.png 的遊戲圖示
+- %%ICON_URI%%      → 共用圖示的 WebP data URI（頁籤圖示）
 - %%HEAD:id%%       → <game-dir>/resource/head/id.webp 角色頭像（壓縮至 120px webp）
 - %%TIP:id%%        → game.db 角色四圍/武功 + chess_combos.yaml 羈絆的 hover 懸浮卡片
 - %%Y:eb|nb|hb:路徑%% → config/chess_balance_{easy,normal,hard}.yaml 中的純量
@@ -40,7 +41,6 @@ TEMPLATE = ROOT / "tools/promo/page_template.html"
 SHOTS_DIR = ROOT / "tools/promo/shots"
 APP_ICON = ROOT / "assets/app_icon.png"
 
-SHOT_WIDTH, SHOT_QUALITY = 960, 72
 ICON_SIZE, ICON_QUALITY = 180, 88
 HEAD_SIZE, HEAD_QUALITY = 120, 82
 
@@ -56,22 +56,27 @@ def data_uri(mime: str, raw: bytes) -> str:
     return "data:" + mime + ";base64," + base64.b64encode(raw).decode()
 
 
-def render_shot(key: str) -> str:
-    path = SHOTS_DIR / f"{key}.jpg"
-    im = Image.open(path).convert("RGB")
-    if im.width > SHOT_WIDTH:
-        im = im.resize((SHOT_WIDTH, im.height * SHOT_WIDTH // im.width), Image.LANCZOS)
-    buf = io.BytesIO()
-    im.save(buf, "JPEG", quality=SHOT_QUALITY, optimize=True)
-    return f'<img src="{data_uri("image/jpeg", buf.getvalue())}" alt="{key}" loading="lazy">'
+def render_shot(key: str, convert_ui_text) -> str:
+    path = SHOTS_DIR / f"{key}.webp"
+    with Image.open(path) as im:
+        width, height = im.size
+    return (
+        f'<button type="button" class="shot-zoom" aria-label="{convert_ui_text("放大遊戲截圖")}">'
+        f'<img src="{data_uri("image/webp", path.read_bytes())}" alt="{convert_ui_text("遊戲實機畫面")}" '
+        f'width="{width}" height="{height}" loading="lazy"></button>'
+    )
 
 
-def render_icon(convert_ui_text) -> str:
+def render_icon_uri() -> str:
     im = Image.open(APP_ICON).convert("RGBA")
     im.thumbnail((ICON_SIZE, ICON_SIZE), Image.LANCZOS)
     buf = io.BytesIO()
     im.save(buf, "WEBP", quality=ICON_QUALITY)
-    return f'<img src="{data_uri("image/webp", buf.getvalue())}" alt="{convert_ui_text("遊戲圖示")}">'
+    return data_uri("image/webp", buf.getvalue())
+
+
+def render_icon(icon_uri: str, convert_ui_text) -> str:
+    return f'<img src="{icon_uri}" alt="{convert_ui_text("遊戲圖示")}">'
 
 
 def render_head(role_id: str, heads_dir: Path, convert_ui_text) -> str:
@@ -411,6 +416,8 @@ def main() -> None:
 
     html = TEMPLATE.read_text(encoding="utf-8")
     roles, magics = load_role_table(game_db)
+    icon_uri = render_icon_uri()
+    html = html.replace("%%ICON_URI%%", icon_uri)
     simplified = OpenCC("t2s")
     traditional = OpenCC("s2t")
     id2combo = {}
@@ -432,8 +439,8 @@ def main() -> None:
             for num, label in stats_data
         )
         body = convert_preserving_placeholders(source, convert_ui_text)
-        body = body.replace("%%ICON%%", render_icon(convert_ui_text))
-        body = re.sub(r"%%SHOT:([\w-]+)%%", lambda match: render_shot(match.group(1)), body)
+        body = body.replace("%%ICON%%", render_icon(icon_uri, convert_ui_text))
+        body = re.sub(r"%%SHOT:([\w-]+)%%", lambda match: render_shot(match.group(1), convert_ui_text), body)
         body = re.sub(
             r"%%HEAD:(\d+)%%",
             lambda match: render_head(match.group(1), heads_dir, convert_ui_text),
