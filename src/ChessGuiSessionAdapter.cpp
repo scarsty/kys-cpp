@@ -552,6 +552,7 @@ std::string pvpSlotLabel(
     return std::format("{:02} {}★{}", slot + 1, role->Name, piece->star);
 }
 
+constexpr int kPvpFormationTop = 158;
 constexpr int kPvpFormationPanelWidth = 535;
 constexpr int kPvpFormationPanelHeight = 252;
 constexpr int kPvpFormationSlotWidth = 145;
@@ -688,15 +689,15 @@ void drawOfflineBattlePresentation(
     auto* font = Font::getInstance();
     font->draw("我的陣形", 24, 240, 80, ChessUiStyle::context);
     font->draw("對手陣形", 24, 875, 80, ChessUiStyle::negative);
-    drawPvpFormationFrame(45, 125, false);
+    drawPvpFormationFrame(45, kPvpFormationTop, false);
     if (opponent)
     {
-        drawPvpFormation(*opponent, content, 700, 125, true, {64, 45, 39, 200});
-        font->draw("已驗證", 22, 925, 405, ChessUiStyle::positive);
+        drawPvpFormation(*opponent, content, 700, kPvpFormationTop, true, {64, 45, 39, 200});
+        font->draw("已驗證", 20, 925, 418, ChessUiStyle::positive);
     }
     else
     {
-        drawPvpFormationFrame(700, 125, true);
+        drawPvpFormationFrame(700, kPvpFormationTop, true);
         font->draw("尚未匯入對手存檔", 24, 835, 225, {210, 210, 200, 255});
     }
     font->draw("VS", 28, 618, 230, ChessUiStyle::gold);
@@ -747,7 +748,7 @@ public:
                     kPvpFormationSlotHeight,
                     18),
                 45 + offset.x,
-                125 + offset.y);
+                kPvpFormationTop + offset.y);
         }
         constexpr int seedActionWidth = 140;
         constexpr int seedActionGap = 14;
@@ -810,7 +811,7 @@ public:
                 : "點選兩格交換陣位",
             20,
             195,
-            405,
+            418,
             selectedSlot_
                 ? Color{255, 225, 130, 255}
                 : Color{190, 205, 210, 255});
@@ -1894,7 +1895,7 @@ void ChessGuiSessionAdapter::showOfflineBattle()
             const auto campaignRandom = session_.random().state();
             const auto campaignReplaySize = session_.journal().decisions().size();
             auto battleSession = std::move(*build).createSession();
-            if (ChessGuiSessionAdapter(*battleSession).runPreparedBattle()
+            if (ChessGuiSessionAdapter(*battleSession, {local.talent, opponent->talent}).runPreparedBattle()
                 == ChessGuiFlowResult::Aborted)
             {
                 return;
@@ -2482,6 +2483,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         const bool repeatedChallenge = prepared.kind == PreparedChessBattleKind::Challenge
             && session_.state().completedChallengeNames.contains(prepared.stableBattleId);
         const int oldLevel = session_.state().level;
+        const int battleFight = session_.state().fight;
         auto battle = std::make_shared<BattleSceneHades>(session_);
         battle->setNoExp();
         battle->run();
@@ -2493,10 +2495,18 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         }
         assert(!session_.transitionPending());
         auto stats = std::make_shared<BattleStatsView>();
+        auto talents = teamTalents_;
+        if (prepared.kind != PreparedChessBattleKind::Standalone) talents[0] = session_.state().talent;
+        const auto context = prepared.layout == PreparedChessBattleLayout::PvpArena ? std::string("演武")
+            : prepared.kind == PreparedChessBattleKind::Challenge ? std::format("挑戰 · {}", prepared.stableBattleId)
+            : prepared.kind == PreparedChessBattleKind::Standalone ? std::string("獨立戰鬥")
+            : std::format("第 {} 關", battleFight + 1);
         stats->setupPostBattle(
             battle->makePostBattleSummary(),
             battle->getBattleReport(),
-            session_.content());
+            session_.content(), prepared, talents,
+            std::format("{} · {} · {}", context, chessDifficultyDisplayName(session_.content().difficulty()),
+                chessBattleMapDisplayName(session_.content(), prepared.chosenMapId)));
         stats->run();
         if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
         {

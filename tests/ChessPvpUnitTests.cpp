@@ -80,6 +80,7 @@ TEST_CASE("offline PvP verifier accepts direct checkpoints and full slot envelop
     REQUIRE(direct.composition.pieces.size() == 1);
     CHECK(direct.composition.pieces.front().chessInstanceId == 1);
     CHECK(direct.composition.formationSlots.front() == 1);
+    CHECK(direct.composition.talent == fixture.checkpoint.state.talent);
 
     const auto full = ChessPvpSaveVerifier::verify(
         fixture.content,

@@ -47,6 +47,7 @@ ChessPvpComposition extractChessPvpComposition(const ChessGameSession& session)
     assert(ChessManagementRules::formationIsValid(state, state.formationSlots));
 
     ChessPvpComposition result;
+    result.talent = state.talent;
     result.formationSlots = state.formationSlots;
     result.obtainedNeigongIds = state.obtainedNeigongIds;
     const auto itemId = [&](int equipmentInstanceId) {

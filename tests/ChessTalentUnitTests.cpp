@@ -284,6 +284,7 @@ TEST_CASE("alliance campaign challenge and PvP battles preserve team scoped syne
         }
     }
     const auto composition = extractChessPvpComposition(session);
+    CHECK(composition.talent == session.state().talent);
     CHECK(composition.comboModifiers == (ChessComboModifiers{0, 1, 6, 1}));
     const auto team = chessStandaloneBattleTeam(composition);
     CHECK(team.comboModifiers == composition.comboModifiers);
@@ -682,6 +683,7 @@ TEST_CASE("PvP extraction preserves backbone opening strengthening", "[chess][ta
     REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
 
     const auto composition = extractChessPvpComposition(session);
+    CHECK(composition.talent == session.state().talent);
     REQUIRE(composition.pieces.size() == 2);
     const auto team = chessStandaloneBattleTeam(composition);
     REQUIRE(team.pieces.size() == 2);

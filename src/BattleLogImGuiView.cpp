@@ -374,7 +374,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
 
         ImGui::PushFont(nullptr, fsBase * 1.04f);
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        textLocalized(state.model.live ? (state.model.finished ? "戰鬥已結束" : state.model.paused ? "戰鬥已暫停" : "即時更新 · 戰鬥繼續中") : "點擊「繼續」關閉日誌");
+        textLocalized(state.model.live ? (state.model.finished ? "戰鬥已結束" : state.model.paused ? "戰鬥已暫停" : "即時更新 · 戰鬥繼續中") : "關閉日誌後返回戰後總覽");
         ImGui::PopStyleColor();
         ImGui::SameLine();
         if (state.model.live)
@@ -396,7 +396,7 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, allow_close ? colorU8(67, 78, 39, 230) : chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, allow_close ? colorU8(88, 98, 50, 230) : chip_bg);
         ImGui::PushFont(nullptr, fsBase * 1.14f);
-        if (buttonLocalized(state.model.live ? "關閉日誌" : "繼續", ImVec2(button_w, button_h)) && allow_close)
+        if (buttonLocalized(state.model.live ? "關閉日誌" : "返回總覽", ImVec2(button_w, button_h)) && allow_close)
         {
             state.model.open = false;
             state.dragging = false;

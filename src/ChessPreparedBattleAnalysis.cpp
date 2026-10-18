@@ -90,6 +90,17 @@ void appendSkillAssets(
 
 }  // namespace
 
+std::array<std::vector<ChessComboMetadata>, 2> preparedChessBattleSynergies(
+    const PreparedChessBattle& prepared,
+    const ChessGameContent& content)
+{
+    const auto input = BattleSetupFactory::build(prepared, content, kChessBattleFrameLimit);
+    return {
+        activeTeamSynergies(content, input.setup.allyRoster, input.setup, std::nullopt),
+        activeTeamSynergies(content, input.setup.enemyRoster, input.setup, std::nullopt),
+    };
+}
+
 ChessPreparedBattleAnalysis projectPreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content)

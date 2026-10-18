@@ -33,6 +33,7 @@ struct ChessPvpPiece
 
 struct ChessPvpComposition
 {
+    ChessTalentId talent{};
     std::vector<ChessPvpPiece> pieces;
     std::vector<int> formationSlots;
     std::set<int> obtainedNeigongIds;

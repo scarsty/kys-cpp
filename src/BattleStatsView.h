@@ -1,74 +1,43 @@
 #pragma once
 
-#include "BattlePostBattleSummary.h"
-#include "BattleReport.h"
+#include "ChessBattleResultModel.h"
 #include "RunNode.h"
-#include "battle/BattleOutcome.h"
-
-#include <string>
-#include <vector>
-
-namespace KysChess
-{
-class ChessGameContent;
-}
 
 class BattleStatsView : public RunNode
 {
 public:
     ~BattleStatsView() override;
-
     void setupPostBattle(
         const BattlePostBattleSummary& summary,
         const BattleReport& report,
-        const KysChess::ChessGameContent& content);
+        const KysChess::ChessGameContent& content,
+        const KysChess::PreparedChessBattle& prepared,
+        const std::array<std::optional<KysChess::ChessTalentId>, 2>& talents,
+        std::string context);
 
     void draw() override;
     void dealEvent(EngineEvent& event) override;
     PointerResult onPointerEvent(const PointerEvent& event) override;
+    void onPointerInputReset() override;
     void backRun() override;
 
 private:
-    struct RoleEntry
-    {
-        BattleUnitIdentity identity;
-        std::string displayName;
-        int team{};
-        int damageDealt{};
-        int damageTaken{};
-        int kills{};
-        int dps{};
-        int cancelDmg{};
-        int weaponId = -1;
-        int armorId = -1;
-        std::string weaponName;
-        std::string armorName;
-        std::string skill1;
-        std::string skill2;
-        int skill1Dmg{};
-        int skill2Dmg{};
-    };
-
-    void clearBackground();
-    void queueBattleLogOpen();
-    void showBattleLog();
-    void drawTeamTable(
-        const std::vector<RoleEntry>& team,
-        int x,
-        int y,
-        const std::string& title);
+    void activate(int action);
+    int hit(SDL_FPoint position) const;
+    SDL_Rect actionRect(int action) const;
+    void drawTeam(int side, SDL_Rect frame);
+    void drawTeamSummary(int side, SDL_Rect frame);
 
     BattlePostBattleSummary summary_;
     const BattleReport* report_{};
-    std::vector<RoleEntry> allies_;
-    std::vector<RoleEntry> enemies_;
+    const KysChess::ChessGameContent* content_{};
+    std::array<KysChess::ChessBattleResultTeam, 2> teams_;
+    std::string context_;
     Texture* background_{};
-    KysChess::Battle::BattleOutcome outcome_ = KysChess::Battle::BattleOutcome::InProgress;
-    int battleResult_ = -1;
-    int totalFrames_{};
     int battleLogOpenFrame_ = -1;
     bool battleLogShown_ = false;
-    bool pointerReleaseArmed_ = false;
+    int pressed_ = -1;
+    int focused_{};
     bool keyboardReleaseArmed_ = false;
     bool gamepadReleaseArmed_ = false;
 };

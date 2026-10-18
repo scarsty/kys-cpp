@@ -12,7 +12,9 @@ class ChessPreparationScreen;
 class ChessGuiSessionAdapter
 {
 public:
-    explicit ChessGuiSessionAdapter(ChessGameSession& session) : session_(session) {}
+    explicit ChessGuiSessionAdapter(ChessGameSession& session,
+        std::array<std::optional<ChessTalentId>, 2> teamTalents = {})
+        : session_(session), teamTalents_(teamTalents) {}
 
     ChessActionResult submitAction(const ChessAction& action) { return session_.submitAndDrain(action); }
     ChessGuiFlowResult runPreparedBattle() { return drainPreparedBattle(); }
@@ -47,6 +49,7 @@ private:
     void showBattlePreview() const;
 
     ChessGameSession& session_;
+    std::array<std::optional<ChessTalentId>, 2> teamTalents_;
     std::shared_ptr<ChessPreparationScreen> preparation_;
 };
 

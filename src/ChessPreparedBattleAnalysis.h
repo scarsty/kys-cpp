@@ -69,6 +69,10 @@ struct ChessPreparedBattleAnalysis
     std::string initializedStatsNote;
 };
 
+std::array<std::vector<ChessComboMetadata>, 2> preparedChessBattleSynergies(
+    const PreparedChessBattle& prepared,
+    const ChessGameContent& content);
+
 ChessPreparedBattleAnalysis projectPreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content);
