@@ -67,17 +67,25 @@ public:
         drawTeam(0);
         drawTeam(1);
         drawDetails();
+        panel(16, 652, 1248, 60);
+        // 左下角留給網頁與手機的平台按鈕。
+        constexpr int statusX = 96;
+        constexpr int statusWidth = 876;
         if (!flow_.assetsLoaded())
         {
             const auto& stage = loads_[loadIndex_];
-            label("載入中 · " + stage.label, 18, 32, 662, gold, 850);
-            label(std::format("資源階段 {} / {} · 完成後開放檢視與繼續", loadIndex_ + 1, loads_.size()),
-                16, 32, 686, muted, 900);
+            label("正在載入戰鬥 · 請稍候", Type::pageTitle, statusX, 657, context, statusWidth);
+            label(std::format("{} · 資源階段 {} / {}", stage.label, loadIndex_ + 1, loads_.size()),
+                Type::metadata, statusX, 685, ink, statusWidth);
+            Engine::getInstance()->fillColor(activeFill, statusX, 705, statusWidth, 3);
+            Engine::getInstance()->fillColor(context, statusX, 705,
+                static_cast<int>(statusWidth * loadIndex_ / loads_.size()), 3);
         }
-        else label("懸停預覽 · 點擊棋子固定／羈絆展開 · Enter 繼續", 17, 32, 675, muted, 940);
+        else label("懸停預覽 · 點擊棋子固定／羈絆展開 · Enter 繼續", 17, statusX, 675, muted, statusWidth);
         controlSurface(Layout::proceed, {.disabled = !flow_.assetsLoaded(), .primary = flow_.assetsLoaded()});
-        label(flow_.assetsLoaded() ? (session_.state().options.positionSwapEnabled ? "進入佈陣" : "開始戰鬥") : "正在載入…",
-            20, 1060, 670, flow_.assetsLoaded() ? darkLabel : muted, 180);
+        controlLabel(Layout::proceed,
+            flow_.assetsLoaded() ? (session_.state().options.positionSwapEnabled ? "進入佈陣" : "開始戰鬥") : "準備中…",
+            Type::sectionTitle, flow_.assetsLoaded() ? darkLabel : context);
         controls_.push_back({Layout::proceed, {}, [this] { setExit(true); }});
         flow_.markFramePresented();
     }
@@ -394,7 +402,9 @@ private:
         if (!flow_.assetsLoaded() || !selected_)
         {
             label(flow_.assetsLoaded() ? "檢視器" : "正在準備戰鬥資源", 22, 32, 563, gold, 280);
-            label("選取棋子查看武學；選取裝備或羈絆圖示查看效果。雙方陣容始終保留在上方。", 18, 32, 604, muted, 1190);
+            label(flow_.assetsLoaded() ? "選取棋子查看武學；選取裝備或羈絆圖示查看效果。雙方陣容始終保留在上方。"
+                : "正在載入地圖、棋子與武學特效，完成後即可檢視陣容並繼續。", 18, 32, 604,
+                flow_.assetsLoaded() ? muted : ink, 1190);
             return;
         }
         label(detailTitle_, 20, 32, 560, gold, 250);

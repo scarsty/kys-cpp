@@ -1,5 +1,6 @@
-"""把新增的六個操作剪影併入整備圖示包。"""
+"""把操作剪影、封禁與導覽圖示併入整備圖示包。"""
 
+import argparse
 from io import BytesIO
 from pathlib import Path
 import zipfile
@@ -8,17 +9,30 @@ from PIL import Image, ImageOps
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ATLAS = ROOT / "tmp/asset-sources/preparation-icons/utility-atlas.png"
+SOURCES = ROOT / "tmp/asset-sources/preparation-icons"
+ATLAS = SOURCES / "utility-atlas.png"
 ARCHIVE = ROOT / "work/game-dev/resource/chess-preparation.zip"
 PREVIEW = ROOT / "output/preparation-icons/utility-preview.png"
 NAMES = ("character", "formation", "load", "save", "search", "transfer")
+SOURCE_ICONS = {39: "ban", 40: "catalog", 41: "expedition", 42: "duel"}
+
+
+def encode_icon(glyph: Image.Image) -> bytes:
+    output = BytesIO()
+    glyph.save(output, format="WEBP", lossless=True, method=6)
+    return output.getvalue()
 
 
 def main() -> None:
-    atlas = Image.open(ATLAS).convert("RGB")
-    preview = Image.new("RGBA", (len(NAMES) * 112, 112), (25, 23, 22, 255))
+    parser = argparse.ArgumentParser(description=__doc__)
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--ban-only", action="store_true", help="只更新封禁圖示，保留現有操作圖示")
+    selection.add_argument("--navigation-only", action="store_true", help="只更新圖簽、遠征與離線對戰圖示")
+    args = parser.parse_args()
+    source_only = args.ban_only or args.navigation_only
+    atlas = None if source_only else Image.open(ATLAS).convert("RGB")
     new_icons = {}
-    for index, name in enumerate(NAMES):
+    for index, name in enumerate(() if source_only else NAMES):
         column, row = index % 3, index // 3
         left = round(column * atlas.width / 3) + 9
         top = round(row * atlas.height / 3) + 9
@@ -34,12 +48,17 @@ def main() -> None:
         alpha = Image.new("L", glyph.size)
         alpha.paste(mask, ((96 - mask.width) // 2, (96 - mask.height) // 2))
         glyph.putalpha(alpha)
-        output = BytesIO()
-        glyph.save(output, format="WEBP", lossless=True, method=6)
-        new_icons[f"{22 + index}.webp"] = output.getvalue()
-        tinted = Image.new("RGBA", glyph.size, (221, 200, 141, 255))
-        tinted.putalpha(glyph.getchannel("A"))
-        preview.alpha_composite(tinted, (index * 112 + 8, 8))
+        new_icons[f"{22 + index}.webp"] = encode_icon(glyph)
+
+    # 與既有圖示共用 96 像素畫布；保留生成來源的透明度及留白。
+    for icon_id, name in SOURCE_ICONS.items():
+        if args.ban_only and name != "ban" or args.navigation_only and name == "ban":
+            continue
+        glyph = Image.open(SOURCES / f"chess-{name}.webp").convert("RGBA")
+        glyph = ImageOps.contain(glyph, (96, 96), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (96, 96))
+        canvas.alpha_composite(glyph, ((96 - glyph.width) // 2, (96 - glyph.height) // 2))
+        new_icons[f"{icon_id}.webp"] = encode_icon(canvas)
 
     with zipfile.ZipFile(ARCHIVE) as source:
         existing = {entry.filename: source.read(entry) for entry in source.infolist()
@@ -47,6 +66,14 @@ def main() -> None:
     with zipfile.ZipFile(ARCHIVE, "w", compression=zipfile.ZIP_STORED) as destination:
         for name, content in (*existing.items(), *new_icons.items()):
             destination.writestr(name, content)
+    packed = existing | new_icons
+    preview_ids = [icon_id for icon_id in (*range(22, 28), *SOURCE_ICONS) if f"{icon_id}.webp" in packed]
+    preview = Image.new("RGBA", (len(preview_ids) * 112, 112), (25, 23, 22, 255))
+    for index, icon_id in enumerate(preview_ids):
+        glyph = Image.open(BytesIO(packed[f"{icon_id}.webp"])).convert("RGBA")
+        tinted = Image.new("RGBA", glyph.size, (221, 200, 141, 255))
+        tinted.putalpha(glyph.getchannel("A"))
+        preview.alpha_composite(tinted, (index * 112 + 8, 8))
     PREVIEW.parent.mkdir(parents=True, exist_ok=True)
     preview.save(PREVIEW)
     print(f"Packed {len(new_icons)} icons into {ARCHIVE}")

@@ -53,7 +53,7 @@ enum class Icon : int
     Collapse, Sword, More, Sliders, Mountain, Spark, Book, Cultivation, Close, Ultimate,
     Character, Formation, Load, Save, Search, Transfer, Home,
     Play, Pause, Speed, CameraFollow, CameraFree, View2D, View3D, Flag, List, Map, Ban,
-    Dice,
+    Catalog, Expedition, Duel, Dice,
 };
 
 inline int iconId(Icon icon) { return static_cast<int>(icon); }
@@ -99,6 +99,14 @@ inline void attentionOutline(SDL_Rect frame, Color color, int thickness = 3)
         Engine::getInstance()->drawAnimatedRoundedRect(color, frame.x + inset, frame.y + inset,
             frame.w - inset * 2, frame.h - inset * 2, std::max(0, 4 - inset),
             std::fmod(Engine::getTicks() * 0.0005, 1.0));
+}
+
+inline void bannedOutline(SDL_Rect frame)
+{
+    // 內縮常亮紅框，保留外緣的鍵盤焦點與底部選取標記。
+    constexpr int inset = 5;
+    Engine::getInstance()->drawRoundedRect(negative, frame.x + inset, frame.y + inset,
+        frame.w - inset * 2, frame.h - inset * 2, Spacing::controlCorner);
 }
 
 inline void panel(int x, int y, int w, int h, Color fill = panelFill)
@@ -173,10 +181,6 @@ inline void drawUtilityIcon(Icon symbol, SDL_Rect frame, Color color)
     case Icon::Map:
         for (int i = 0; i < 4; ++i) { line(3 + i * 6, 3, 3 + i * 6, 21); line(3, 3 + i * 6, 21, 3 + i * 6); }
         box(10, 10, 4, 4); break;
-    case Icon::Ban:
-        line(8, 3, 16, 3); line(16, 3, 21, 8); line(21, 8, 21, 16);
-        line(21, 16, 16, 21); line(16, 21, 8, 21); line(8, 21, 3, 16);
-        line(3, 16, 3, 8); line(3, 8, 8, 3); line(5, 5, 19, 19); break;
     case Icon::CameraFollow:
         line(7, 7, 17, 7); line(17, 7, 17, 17); line(17, 17, 7, 17); line(7, 17, 7, 7);
         box(11, 2, 2, 7); box(11, 15, 2, 7); box(2, 11, 7, 2); box(15, 11, 7, 2); break;
@@ -197,7 +201,8 @@ inline void asset(const std::string& group, int id, SDL_Rect frame, bool bottomA
 {
     if (id < 0) return;
     const Color tint = tintOverride.value_or(group == "chess-preparation" || group == "chess-synergies" ? gold : Color{255, 255, 255, 255});
-    if (group == "chess-preparation" && id >= iconId(Icon::Play))
+    if (group == "chess-preparation"
+        && ((id >= iconId(Icon::Play) && id <= iconId(Icon::Map)) || id == iconId(Icon::Dice)))
     {
         drawUtilityIcon(static_cast<Icon>(id), frame, tint);
         return;

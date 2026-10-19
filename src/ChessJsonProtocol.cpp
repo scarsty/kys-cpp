@@ -387,9 +387,9 @@ std::expected<void, std::string> ChessJsonProtocol::persistAutosave()
     return {};
 }
 
-void ChessJsonProtocol::updateAutosave()
+void ChessJsonProtocol::updateAutosave(ChessSessionPhase previousPhase)
 {
-    if (autosaveFile_.empty())
+    if (autosaveFile_.empty() || !session_->isPostBattleAutosavePoint(previousPhase))
     {
         return;
     }
@@ -456,7 +456,6 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             options.positionSwapEnabled = *params->position_swap_enabled;
         }
         session_ = std::make_unique<ChessGameSession>(std::move(content), *seed, options);
-        updateAutosave();
         return response(request->id, true, writeJson(sessionObservationDto(*session_, saves_, *detail)));
     }
 
@@ -497,7 +496,6 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             return response(request->id, false, {}, checkpointErrorId(error), "無法接續存檔");
         }
         session_ = std::move(resumed);
-        updateAutosave();
         return response(
             request->id,
             true,
@@ -909,6 +907,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         for (int index = 0; index < static_cast<int>(actions.size()); ++index)
         {
             const auto& action = actions[index];
+            const auto previousPhase = target.state().phase;
             const auto result = target.submitAndDrain(action);
             batch.actions.push_back({index, chessActionTypeId(action.type), result.accepted,
                 result.accepted ? std::nullopt : std::optional(ruleErrorId(result.error)), result.description});
@@ -924,7 +923,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             lastType = action.type;
             battleOccurred = battleOccurred || action.type == ChessActionType::StartBattle;
             combined.events.insert(combined.events.end(), result.events.begin(), result.events.end());
-            if (!preview) updateAutosave();
+            if (!preview) updateAutosave(previousPhase);
         }
         batch.changes = summaryActionResultDto(target, before, combined,
             battleOccurred ? ChessActionType::StartBattle : lastType);
@@ -976,7 +975,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         const auto result = session_->submitAndDrain(*action);
         if (result.accepted)
         {
-            updateAutosave();
+            updateAutosave(before.phase);
         }
         if (*requestedDetail == ActionResponseDetail::Summary)
         {
@@ -1046,7 +1045,6 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         {
             return response(request->id, false, {}, checkpointErrorId(error), "無法載入存檔");
         }
-        updateAutosave();
         return response(request->id, true, writeJson(TimelineReplacementDto{
             replacement.loadedSlot,
             replacement.previousSequence,

@@ -150,6 +150,20 @@ bool ChessGameSession::isStableDecisionBoundary() const
     return pendingTransition_ == nullptr;
 }
 
+bool ChessGameSession::isPostBattleAutosavePoint(ChessSessionPhase previousPhase) const
+{
+    if (!isStableDecisionBoundary()
+        || state_.phase != ChessSessionPhase::Management
+        || state_.lastBattleOutcome == Battle::BattleOutcome::InProgress
+        || (lastBattlePrepared_ && lastBattlePrepared_->kind == PreparedChessBattleKind::Standalone))
+    {
+        return false;
+    }
+    // 開局天賦也有獎勵選擇；只有戰後獎勵回到整備時才自動存檔。
+    return previousPhase == ChessSessionPhase::BattlePreparation
+        || previousPhase == ChessSessionPhase::RewardChoice;
+}
+
 const Battle::BattleInitializationResult* ChessGameSession::pendingBattleInitialization() const
 {
     return pendingTransition_ ? &pendingTransition_->initialization : nullptr;

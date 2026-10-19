@@ -262,8 +262,13 @@ void ChessSelectionScreen::inspector()
             if (hasDetails) button({x, actionY, width, actionHeight}, "詳細資料", [this] { expand(true); }, false, Icon::Right);
         }
     }
-    if (!browseOnly_) button(compact_ ? SDL_Rect{584, 612, 664, 84} : SDL_Rect{920, 588, 328, 52},
-        confirmationLabel(), [this] { exitWithResult(selected_); }, true, std::nullopt, false, false, item.actionEnabled);
+    if (!browseOnly_)
+    {
+        const SDL_Rect action = compact_ ? SDL_Rect{584, 612, 664, 84} : SDL_Rect{920, 588, 328, 52};
+        panel(frame.x, action.y - 4, frame.w, action.h + 12);
+        button(action, confirmationLabel(), [this] { exitWithResult(selected_); },
+            true, std::nullopt, false, false, item.actionEnabled);
+    }
 }
 
 void ChessSelectionScreen::drawTopmostOverlay()
@@ -370,8 +375,12 @@ void ChessSelectionScreen::draw()
             control(frame, [this, i] { exitWithResult(i); });
         }
         const int pages = std::max(1, (static_cast<int>(items_.size()) + pageSize() - 1) / pageSize());
-        if (pages > 1) label(std::format("{} / {} · 共 {} 項", page_ + 1, pages, items_.size()),
-            compact_ ? 26 : 18, 488, compact_ ? 640 : 666, muted, 320);
+        if (pages > 1)
+        {
+            panel(left - 16, compact_ ? 604 : 644, width + 32, compact_ ? 100 : 60);
+            label(std::format("{} / {} · 共 {} 項", page_ + 1, pages, items_.size()),
+                compact_ ? 26 : 18, 488, compact_ ? 640 : 666, muted, 320);
+        }
         if (page_ > 0) button(compact_ ? SDL_Rect{368, 612, 88, 84} : SDL_Rect{368, 652, 64, 44},
             {}, [this] { changePage(-1); }, false, Icon::Left);
         if (first + count < static_cast<int>(items_.size()))
@@ -407,9 +416,12 @@ void ChessSelectionScreen::draw()
         controlSurface(frame, {.hovered = hovered, .selected = selected,
             .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
         image(item.image, {frame.x + 12, frame.y + 8, 60, 64});
+        const bool banned = item.character && item.character->banned;
+        if (banned) bannedOutline(frame);
         label(item.badge, 15, frame.x + 84, frame.y + 16, item.accent, 108, 2);
         label(item.title, 19, frame.x + 12, frame.y + 80, ink, frame.w - 24);
-        label(item.subtitle, 14, frame.x + 12, frame.y + 106, shopMode_ ? gold : muted, frame.w - 24);
+        label(banned ? "已封禁 · 本局永久" : item.subtitle, 14, frame.x + 12, frame.y + 106,
+            banned ? negative : shopMode_ ? gold : muted, frame.w - 24);
         control(frame, [this, index] { select(index); });
         controls_.back().itemIndex = index;
     }
@@ -482,6 +494,7 @@ void ChessSelectionScreen::drawOverview()
 
 void ChessSelectionScreen::drawTabbed()
 {
+    panel(16, 76, 1248, 64);
     const int count = static_cast<int>(items_.size());
     const int width = (1232 - (count - 1) * 6) / count;
     for (int i = 0; i < count; ++i)
@@ -646,6 +659,7 @@ void ChessSelectionScreen::drawTalent()
     if (!item.talent->facts.empty())
         drawChessTalentFactTable(*item.talent, 336, 256, 908, 368, 20, 20);
 
+    panel(16, 648, 1248, 64);
     label("上下切換天賦 · 確認開始棋局 · 返回選擇難度", 18, 112, 674, muted, 740);
     button({936, 652, 312, 52}, confirmationLabel(), [this] { exitWithResult(selected_); }, true);
 }
@@ -699,8 +713,11 @@ void ChessSelectionScreen::drawCompactCatalogue()
         controlSurface(frame, {.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
             .selected = selected_ == index, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
         image(item.image, {frame.x + 12, frame.y + 12, 96, 96});
+        const bool banned = item.character && item.character->banned;
+        if (banned) bannedOutline(frame);
         label(item.title, 30, frame.x + 124, frame.y + 22, ink, frame.w - 140);
         label(item.badge, 24, frame.x + 124, frame.y + 66, item.accent, frame.w - 140);
+        if (banned) label("已封禁", 24, frame.x + 300, frame.y + 66, negative, frame.w - 316);
         control(frame, [this, index] { select(index); });
         controls_.back().itemIndex = index;
     }

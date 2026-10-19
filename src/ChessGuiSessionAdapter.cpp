@@ -15,7 +15,6 @@
 #include "ChessEftIds.h"
 #include "ChessEffectDescription.h"
 #include "ChessGuiBattleFlow.h"
-#include "ChessGuiSavePolicy.h"
 #include "ChessManagementRules.h"
 #include "ChessMenuFormatting.h"
 #include "ChessGameGuide.h"
@@ -1386,9 +1385,9 @@ ChessGuiFlowResult currentChessGuiFlowResult()
     return chessGuiFlowResult(RunNode::runOwnerExitRequested());
 }
 
-void autoSavePersistableGuiState(const ChessGameSession& session)
+void autoSavePostBattleGuiState(const ChessGameSession& session, ChessSessionPhase previousPhase)
 {
-    if (canPersistChessGuiState(session))
+    if (session.isPostBattleAutosavePoint(previousPhase))
     {
         UISave::autoSave();
     }
@@ -1398,10 +1397,11 @@ void autoSavePersistableGuiState(const ChessGameSession& session)
 
 ChessActionResult ChessGuiSessionAdapter::submitGuiAction(const ChessAction& action)
 {
+    const auto previousPhase = session_.state().phase;
     auto result = session_.submitAndDrain(action);
     if (result.accepted)
     {
-        autoSavePersistableGuiState(session_);
+        autoSavePostBattleGuiState(session_, previousPhase);
     }
     return result;
 }
@@ -1796,7 +1796,7 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
 void ChessGuiSessionAdapter::showOverviewMenu()
 {
     const auto items = buildChessOverviewMenu();
-    const auto action = runContextActionMenu("棋局圖鑑", items);
+    const auto action = runContextActionMenu("圖簽", items);
     if (!action)
     {
         return;
@@ -2545,6 +2545,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         const auto actionResult = *battle->completedActionResult();
         stats.reset();
         battle.reset();
+        autoSavePostBattleGuiState(session_, ChessSessionPhase::BattlePreparation);
         if (prepared.kind == PreparedChessBattleKind::Standalone)
         {
             continue;
@@ -2626,7 +2627,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
                 return ChessGuiFlowResult::Aborted;
             }
         }
-        autoSavePersistableGuiState(session_);
     }
     return drainRewards();
 }

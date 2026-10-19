@@ -4,11 +4,14 @@
 #include "ChessReplayJson.h"
 #include "ChessRewardRules.h"
 #include "ChessSessionCheckpoint.h"
+#include "ChessSaveFile.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <glaze/json.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <ranges>
@@ -121,6 +124,137 @@ const LegalActionCardinalityView& requireLegalAction(
 }
 
 using namespace TestProtocolDetail;
+
+TEST_CASE("autosave records only completed campaign and challenge reward flows",
+          "[chess][protocol][autosave]")
+{
+    const bool challenge = GENERATE(false, true);
+    const bool batch = GENERATE(false, true);
+    ChessGameContentData data;
+    data.difficulty = Difficulty::Normal;
+    data.balance.initialMoney = 100;
+    data.balance.shopSlotCount = 1;
+    data.balance.minBattleSize = 1;
+    data.balance.totalFights = 2;
+    data.balance.enemyTable = {{{2, 1}}};
+    data.balance.playerEquipmentRewards = {{1, 1, 1}};
+    data.balance.banUnlocks = {{.afterFight = 1, .slots = 1, .maxTier = 1}};
+    for (auto& row : data.balance.shopWeights) row = {100, 0, 0, 0, 0};
+    ChessRoleDefinition ally;
+    ally.ID = 10;
+    ally.Name = "存檔測試棋子";
+    ally.Cost = 1;
+    ally.MaxHP = 10000;
+    ally.Attack = 10000;
+    enableFastTestBattle(data, ally);
+    data.roles.emplace(ally.ID, ally);
+    auto enemy = ally;
+    enemy.ID = 20;
+    enemy.Cost = 2;
+    enemy.MaxHP = 1;
+    enemy.Attack = 1;
+    data.roles.emplace(enemy.ID, enemy);
+    data.poolRoleIds = {ally.ID, enemy.ID};
+    data.items.emplace(500, ChessItemDefinition{.id = 500, .equipType = 0, .name = "存檔測試裝備"});
+    data.equipment.push_back({500, 1, 0});
+    BalanceConfig::ChallengeDef expedition;
+    expedition.name = "存檔測試遠征";
+    expedition.enemies = {{enemy.ID, 1}};
+    expedition.rewards = {{BalanceConfig::ChallengeRewardType::GetPiece, 1}};
+    data.balance.challenges.push_back(std::move(expedition));
+    const auto content = std::make_shared<const ChessGameContent>(std::move(data));
+
+    struct AutosaveFile
+    {
+        std::filesystem::path path = std::filesystem::temp_directory_path()
+            / std::format("kys-autosave-{}.json",
+                std::chrono::steady_clock::now().time_since_epoch().count());
+        ~AutosaveFile()
+        {
+            std::error_code ignored;
+            std::filesystem::remove(path, ignored);
+        }
+    } file;
+    ChessJsonProtocol protocol(content, {.autosaveFile = file.path});
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000021"}})")).ok);
+    CHECK_FALSE(std::filesystem::exists(file.path));
+    auto submit = [&](const ChessAction& action) {
+        const auto json = serializeChessActionJson(action);
+        const auto request = batch
+            ? std::format(R"({{"id":2,"method":"act_batch","params":{{"actions":[{}]}}}})", json)
+            : std::format(R"({{"id":2,"method":"act","params":{{"action":{}}}}})", json);
+        const auto response = protocol.handleLine(request);
+        INFO(response);
+        REQUIRE(parseResponse(response).ok);
+        REQUIRE(response.contains(R"("accepted":true)"));
+    };
+    submit(buySlot(0));
+    ChessAction deploy;
+    deploy.type = ChessActionType::SetDeployment;
+    deploy.chessInstanceIds = {protocol.session()->state().roster.begin()->first};
+    submit(deploy);
+    CHECK_FALSE(std::filesystem::exists(file.path));
+    ChessAction prepare;
+    prepare.type = challenge ? ChessActionType::StartChallenge : ChessActionType::PrepareBattle;
+    prepare.challengeName = "存檔測試遠征";
+    submit(prepare);
+    CHECK_FALSE(std::filesystem::exists(file.path));
+    ChessAction start;
+    start.type = ChessActionType::StartBattle;
+    submit(start);
+    REQUIRE(protocol.session()->state().lastBattleOutcome == Battle::BattleOutcome::PlayerVictory);
+    REQUIRE(protocol.session()->state().phase == ChessSessionPhase::RewardChoice);
+    CHECK_FALSE(std::filesystem::exists(file.path));
+    int rewardCount{};
+    while (protocol.session()->state().phase == ChessSessionPhase::RewardChoice)
+    {
+        CHECK_FALSE(std::filesystem::exists(file.path));
+        const auto& pending = protocol.session()->state().pendingRewards.front();
+        ChessAction reward;
+        reward.type = pending.kind == ChessRewardKind::ForcedBan
+            ? ChessActionType::SkipForcedBans : ChessActionType::ChooseReward;
+        if (reward.type == ChessActionType::ChooseReward) reward.rewardId = pending.options.front().id;
+        submit(reward);
+        ++rewardCount;
+    }
+    CHECK(rewardCount == 2);
+    REQUIRE(protocol.session()->state().phase == ChessSessionPhase::Management);
+    auto saved = readChessCheckpointFile(file.path);
+    REQUIRE(saved);
+    CHECK(saved->state == protocol.session()->state());
+    const auto revision = saved->saveRevision;
+    ChessAction lock;
+    lock.type = ChessActionType::SetShopLocked;
+    lock.value = true;
+    submit(lock);
+    saved = readChessCheckpointFile(file.path);
+    REQUIRE(saved);
+    CHECK(saved->saveRevision == revision);
+    CHECK_FALSE(saved->state.shopLocked);
+
+    ChessJsonProtocol resumed(content, {.autosaveFile = file.path});
+    REQUIRE(parseResponse(resumed.handleLine(
+        R"({"id":3,"method":"resume_game","params":{}})")).ok);
+    CHECK(resumed.session()->state() == saved->state);
+    REQUIRE(parseResponse(resumed.handleLine(
+        R"({"id":4,"method":"save_game","params":{"slot":"manual"}})")).ok);
+    REQUIRE(parseResponse(resumed.handleLine(
+        R"({"id":5,"method":"load_game","params":{"slot":"manual"}})")).ok);
+    saved = readChessCheckpointFile(file.path);
+    REQUIRE(saved);
+    CHECK(saved->saveRevision == revision);
+
+    // 重複遠征及投降沒有待領獎勵，戰鬥結束便可存檔。
+    submit(prepare);
+    if (!challenge) start.surrenderFrame = 0;
+    submit(start);
+    REQUIRE(protocol.session()->state().phase == ChessSessionPhase::Management);
+    saved = readChessCheckpointFile(file.path);
+    REQUIRE(saved);
+    CHECK(saved->saveRevision > revision);
+    CHECK(saved->state == protocol.session()->state());
+}
 
 TEST_CASE("JSON protocol preserves request identifiers and session state", "[chess][protocol]")
 {

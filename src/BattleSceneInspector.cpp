@@ -169,7 +169,7 @@ void BattleSceneHades::drawPieceInspector()
     {
         control(BattleControlId::InspectorPrevious, PreviousFrame, Ui::Icon::Up, inspector_scroll_ == 0);
         control(BattleControlId::InspectorNext, NextFrame, Ui::Icon::Down, inspector_scroll_ == inspector_max_scroll_);
-        Ui::label(std::format("{}–{} / {}", inspector_scroll_ + 1, inspector_scroll_ + visible, effects.size()),
+        Ui::label(std::format("效果 {}–{}，共 {} 項", inspector_scroll_ + 1, inspector_scroll_ + visible, effects.size()),
             16, 1000, 662, Ui::muted, 164);
     }
 }

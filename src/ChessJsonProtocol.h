@@ -40,7 +40,7 @@ private:
     std::shared_ptr<const ChessGameContent> loadContent(Difficulty difficulty);
     void loadAutosave();
     std::expected<void, std::string> persistAutosave();
-    void updateAutosave();
+    void updateAutosave(ChessSessionPhase previousPhase);
 
     ContentProvider contentProvider_;
     std::shared_ptr<const ChessGameContent> fixedContent_;

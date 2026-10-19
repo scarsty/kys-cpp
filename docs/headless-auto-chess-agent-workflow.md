@@ -42,7 +42,7 @@ summary 的 `changes` 會直接攜帶變更後的商店欄位、`roster_upserts`
 
 ## 批次、規劃及聚焦診斷
 
-MCP `take_actions` 對應 JSONL `act_batch`，接受 `actions` 陣列及 summary／compact／full。一批最多六十四筆，語法先全部驗證，再依序提交；遇規則拒絕立即停止。`accepted_count`、零起算的 `failed_index` 及各筆狀態明示已執行前綴，`changes` 是整批的合併差異。每筆接受操作仍獨立寫入權威重播並更新自動存檔；已執行前綴不會回滾。
+MCP `take_actions` 對應 JSONL `act_batch`，接受 `actions` 陣列及 summary／compact／full。一批最多六十四筆，語法先全部驗證，再依序提交；遇規則拒絕立即停止。`accepted_count`、零起算的 `failed_index` 及各筆狀態明示已執行前綴，`changes` 是整批的合併差異。每筆接受操作仍獨立寫入權威重播；只有主線或遠征戰鬥及其所有獎勵結束、回到整備時才更新自動存檔，已執行前綴不會回滾。
 
 `preview_actions` 使用獨立檢查點預覽 set_deployment、set_formation、equip、swap_positions、choose_map；操作仍需符合目前階段的規則。預覽回傳同樣的合併差異及 `projected_units` 的開戰屬性與 `stat_delta`，不改變原棋局、亂數、重播或存檔。已有戰場時使用該場敵人與地圖；管理階段使用無敵方的開戰初始化，`projected_stats_context` 會說明對手／地形條件的限制。未選圖時僅列基礎屬性。
 
@@ -152,7 +152,7 @@ MCP 不再公開 `verify_replay`；完整重播驗證耗時且不參與即時決
 
 MCP 會持續緩衝 CLI 的標準錯誤。CLI 異常結束、沒有回應或回傳損壞的 JSONL 時，原工具回應會包含 `error_code: "cli_process_exited"`、`exit_code`、`diagnostics`、`restarted` 與 `session_lost`；服務會自動重啟子程序，但不會假裝原本的記憶體棋局仍存在。`get_diagnostics` 可隨時查看子程序狀態、自動存檔檔案及最近的原生診斷。
 
-GUI 與 CLI 共用原生 `ChessSaveFile` 讀寫實作及同一份檢查點格式。MCP launcher 以 `--autosave-file` 把 `%LOCALAPPDATA%\kys_chess_mcp\saves\autosave.json` 交給 C++ CLI，也可用 `KYS_CHESS_MCP_SAVE_DIR` 指定其父目錄。原生程序啟動時載入這一個 `autosave`；建立棋局、每次接受的行動及成功載入後都會更新它。直接使用 JSONL CLI 時可傳入 `--autosave-file` 取得相同行為。其他命名存檔只存在目前程序；需要可攜或長期存檔時使用 `export_save_file` 與 `import_save_file`。
+GUI 與 CLI 共用原生 `ChessSaveFile` 讀寫實作及同一份檢查點格式。MCP launcher 以 `--autosave-file` 把 `%LOCALAPPDATA%\kys_chess_mcp\saves\autosave.json` 交給 C++ CLI，也可用 `KYS_CHESS_MCP_SAVE_DIR` 指定其父目錄。原生程序啟動時載入這一個 `autosave`；只有主線或遠征戰鬥結束、領完所有獎勵（含強制封禁）並回到整備時才會更新它。沒有獎勵的戰敗、投降或重複遠征，會在戰鬥結束回到整備時更新；建立棋局、整備操作及讀檔不會觸發自動存檔。直接使用 JSONL CLI 時可傳入 `--autosave-file` 取得相同行為。其他命名存檔只存在目前程序；需要可攜或長期存檔時使用 `export_save_file` 與 `import_save_file`。
 
 Python MCP 程序不再逐一宣告遊戲工具。原生程序提供唯一的工具名稱、說明、輸入結構及 JSONL 方法對應；Python 只把原生工具目錄轉成 MCP `tools/list`、泛型轉送 `tools/call`，並保留執行期監督、熱更新與回復。Python bridge 與 `kys_chess_cli --mcp` 都只在 `structuredContent` 提供一次結果，`content` 為空，避免把同一份 JSON 再複製成文字。客戶端需讀取結構化結果；原生要求錯誤也會設置 `isError`。`kys_chess_cli --mcp` 可不經 Python，直接作為 stdio MCP 伺服器使用。
 

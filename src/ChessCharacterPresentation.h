@@ -57,6 +57,7 @@ struct ChessCharacterPresentation
     int star{};
     bool showCost = true;
     bool equipmentEditable{};
+    bool banned{};
     std::string name;
     std::string context;
     std::string growth;
@@ -95,24 +96,21 @@ inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameCont
         {
         case Battle::BattleOperationType::Melee:
             entry.combatStyle = "輕擊";
-            entry.tooltip = entry.ultimate ? "輕擊：本次必定強化，並追加一記延遲的近身濺射。"
-                : "輕擊：連續普通近戰打到第三下，會變成強化追擊。";
+            entry.tooltip = entry.ultimate ? "輕擊：強化攻擊，追加近身濺射。"
+                : "輕擊：每第三下近戰強化追擊。";
             break;
         case Battle::BattleOperationType::TrackingProjectile:
             entry.combatStyle = "重擊";
-            entry.tooltip = entry.ultimate ? "重擊：基礎發射兩枚追蹤彈，可追擊目標或附近的備選敵人。"
-                : "重擊：基礎發射一枚追蹤彈，可追擊目標或附近的備選敵人。";
+            entry.tooltip = entry.ultimate ? "重擊：發射兩枚追蹤彈。"
+                : "重擊：發射一枚追蹤彈。";
             break;
         case Battle::BattleOperationType::RangedProjectile:
             entry.combatStyle = "遠程";
-            entry.tooltip = entry.ultimate ? "遠程：直線穿透，另帶三枚35%威力的扇形側彈。"
-                : "遠程：直線穿透，另帶兩枚20%威力的扇形側彈。";
+            entry.tooltip = entry.ultimate ? "遠程：穿透，附三枚35%側彈。"
+                : "遠程：穿透，附兩枚20%側彈。";
             break;
         default: assert(false); break;
         }
-        if (operation == Battle::BattleOperationType::RangedProjectile
-            || operation == Battle::BattleOperationType::TrackingProjectile)
-            entry.tooltip += "投射物飛行越久威力略減，側背命中有傷害加成；可被彈反，也可能與敵方投射物互相抵消或削弱。";
         if (entry.ultimate)
         {
             const auto effects = panelTextRowsForEffectDescription(ability.effects);
@@ -164,6 +162,7 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
                 equipmentItemIds[slot] = equipment->itemId;
     auto result = buildChessCharacterContent(content, roleId, star, equipmentItemIds);
     result.equipmentEditable = piece && context == ChessCharacterContext::Owned;
+    result.banned = state.bannedRoleIds.contains(roleId);
     result.context = piece ? (piece->star != star ? "升星預覽" : piece->deployed ? "出戰中" : "候補")
         : context == ChessCharacterContext::Shop ? "商店預覽" : "圖鑑預覽";
     result.growth = piece ? std::format("勝場 {} · 含裝備基礎加成", piece->fightsWon) : "無勝場成長 · 未裝備";

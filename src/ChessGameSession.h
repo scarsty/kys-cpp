@@ -53,6 +53,7 @@ public:
     const std::optional<PreparedChessBattle>& lastBattlePrepared() const { return lastBattlePrepared_; }
     bool transitionPending() const { return pendingTransition_ != nullptr; }
     bool isStableDecisionBoundary() const;
+    bool isPostBattleAutosavePoint(ChessSessionPhase previousPhase) const;
     const Battle::BattleInitializationResult* pendingBattleInitialization() const;
     const Battle::BattleRuntimeSession* pendingBattleRuntime() const;
     const Battle::BattleRuntimeSession* presentationBattleRuntime() const;

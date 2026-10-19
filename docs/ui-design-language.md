@@ -18,6 +18,9 @@ Apply when adding or changing chess screens, layouts, or interactions. Use prepa
 - Pair shared icons with short labels. Distinguish Back from Return to Start; show hover, selection, focus, and disabled states clearly.
 - Expose frequent actions directly, using the bottom action bar for discoverable save/load controls. Avoid nested “More → menu → menu” flows. List/map formation returns to the main pre-battle formation menu.
 - Show static content and a meaningful loading notice first; block dependent actions until ready. Do not assume background threads are available.
+- Use 24 px cyan waiting text, a readable current stage, and stage progress for pre-battle loading. Keep the proceed action visibly unavailable until loading completes.
+- Action sections over scenery use one shallow translucent panel behind the whole group: hints, navigation and confirmation actions. This includes selection footers, tab rows, formation headers, and pre-/post-battle footers. Reuse an existing enclosing panel where present; do not add backgrounds or change colors on individual buttons.
+- Reserve space for action bars in the content layout. Keep a 12 px gap from adjacent panels, center controls vertically, and leave padding between their focus outlines and the bar edges.
 - Write in-game copy in Traditional Chinese and describe actual chess rules. Remove unused fields, empty-effect explanations, and redundant labels. Group related stats and keep values close to their names.
 
 ## Battle Overviews

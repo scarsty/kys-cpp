@@ -447,7 +447,7 @@ TEST_CASE("character inspector uses chess attacks and limits effects to the ulti
             CHECK(character.abilities[0].details.back().text.contains("兩枚20%"));
             CHECK(character.abilities[1].details.back().text.contains("三枚35%"));
             CHECK(character.abilities[1].details.back().text.contains("穿透"));
-            CHECK(character.abilities[1].details.back().text.contains("抵消或削弱"));
+            CHECK_FALSE(character.abilities[1].details.back().text.contains("抵消或削弱"));
         }
         for (const auto& ability : character.abilities)
             for (const auto& row : ability.details)

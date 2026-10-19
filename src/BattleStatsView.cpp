@@ -18,6 +18,11 @@ constexpr std::array<int, 12> columns{0, 112, 140, 204, 252, 316, 352, 416, 514,
 constexpr int teamHeaderHeight = 20;
 constexpr int summaryWidth = 240;
 
+SDL_Rect resultsFooter(int width, int height)
+{
+    return {Spacing::gutter, height - 68, width - Spacing::gutter * 2, 60};
+}
+
 int textWidth(const std::string& text, int size)
 {
     return Font::getTextDrawSize(text) * size / 2;
@@ -69,7 +74,11 @@ void BattleStatsView::setupPostBattle(
 SDL_Rect BattleStatsView::actionRect(int action) const
 {
     auto* engine = Engine::getInstance();
-    return {engine->getUIWidth() - 232 + action * 116, engine->getUIHeight() - 48, 100, 34};
+    const auto footer = resultsFooter(engine->getUIWidth(), engine->getUIHeight());
+    constexpr int buttonWidth = 100, buttonHeight = 34;
+    const int startX = footer.x + footer.w - Spacing::gutter - buttonWidth * 2 - Spacing::gap;
+    return {startX + action * (buttonWidth + Spacing::gap),
+        footer.y + (footer.h - buttonHeight) / 2, buttonWidth, buttonHeight};
 }
 
 int BattleStatsView::hit(SDL_FPoint position) const
@@ -246,15 +255,18 @@ void BattleStatsView::draw()
     const std::array<std::string, 11> headings{"棋子", "星", "輸出", "DPS", "承傷", "擊殺", "抵消", "剩餘生命", "裝備", "武學 · 傷害", "武學 · 傷害"};
     for (std::size_t col = 0; col < headings.size(); ++col)
         fittedText(headings[col], 14, 26 + columns[col], 44, columns[col + 1] - columns[col] - 10, muted, col >= 2 && col <= 7);
-    const int teamHeight = (height - 120) / 2;
+    const auto footer = resultsFooter(width, height);
+    constexpr int teamsTop = 62, teamGap = 6;
+    const int teamHeight = (footer.y - Spacing::gap - teamsTop - teamGap) / 2;
     for (int side = 0; side < 2; ++side)
     {
-        const int y = 62 + side * (teamHeight + 6);
+        const int y = teamsTop + side * (teamHeight + teamGap);
         drawTeam(side, {16, y, tableWidth, teamHeight});
         drawTeamSummary(side, {summaryX, y, summaryWidth, teamHeight});
     }
-    font->draw("戰後總覽", 18, 64, height - 43, gold);
-    font->draw("依輸出排序 · 羈絆為開戰陣容", 14, 168, height - 40, muted);
+    panel(footer.x, footer.y, footer.w, footer.h);
+    font->draw("戰後總覽", 18, 96, footer.y + (footer.h - 18) / 2, gold);
+    font->draw("依輸出排序 · 羈絆為開戰陣容", 14, 200, footer.y + (footer.h - 14) / 2, muted);
     const int hovered = hit(PointerInput::instance().logicalPointerUiPosition());
     for (int action = 0; action < 2; ++action)
     {
@@ -262,8 +274,8 @@ void BattleStatsView::draw()
         const ControlState state{.hovered = hovered == action, .focused = focused_ == action, .primary = action == 1};
         controlSurface(rect, state);
         asset("chess-preparation", iconId(action == 0 ? Icon::Book : Icon::Right),
-            {rect.x + 12, rect.y + 7, 20, 20}, false, controlText(state));
-        font->draw(action == 0 ? "日誌" : "繼續", 18, rect.x + 40, rect.y + 6, controlText(state));
+            {rect.x + 12, rect.y + (rect.h - 20) / 2, 20, 20}, false, controlText(state));
+        font->draw(action == 0 ? "日誌" : "繼續", 18, rect.x + 40, rect.y + (rect.h - 18) / 2, controlText(state));
     }
 }
 

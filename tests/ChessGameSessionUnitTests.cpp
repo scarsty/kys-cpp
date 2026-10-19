@@ -65,6 +65,7 @@ TEST_CASE("mid-battle surrender settles defeat and replays at the same simulatio
     CHECK(session.state().fight == before.fight);
     CHECK(session.state().roster == before.roster);
     CHECK(session.state().pendingRewards.empty());
+    CHECK(session.isPostBattleAutosavePoint(ChessSessionPhase::BattlePreparation));
     CHECK(session.state().completedChallengeNames.empty());
     REQUIRE(session.lastBattleResult());
     CHECK(session.lastBattleResult()->summary.outcome == Battle::BattleOutcome::PlayerDefeat);
@@ -288,6 +289,36 @@ TEST_CASE("forced-ban reward choice rejects management actions absent from legal
     CHECK_FALSE(rejected.accepted);
     CHECK(rejected.error == ChessRuleErrorCode::WrongPhase);
     CHECK(session.observe().stateHash == before);
+
+    ChessAction skip;
+    skip.type = ChessActionType::SkipForcedBans;
+    REQUIRE(session.submitAndDrain(skip).accepted);
+    CHECK(session.state().phase == ChessSessionPhase::Management);
+    CHECK_FALSE(session.isPostBattleAutosavePoint(ChessSessionPhase::RewardChoice));
+}
+
+TEST_CASE("standalone battles do not create campaign autosave points", "[chess][session][autosave]")
+{
+    const auto content = configuredMapChoiceContent();
+    ChessGameSession campaign(content, 31);
+    REQUIRE(campaign.submitAndDrain(buySlot(0)).accepted);
+    ChessAction deploy;
+    deploy.type = ChessActionType::SetDeployment;
+    deploy.chessInstanceIds = {campaign.state().roster.begin()->first};
+    REQUIRE(campaign.submitAndDrain(deploy).accepted);
+    ChessAction prepare;
+    prepare.type = ChessActionType::PrepareBattle;
+    REQUIRE(campaign.submitAndDrain(prepare).accepted);
+    auto prepared = *campaign.state().preparedBattle;
+    prepared.kind = PreparedChessBattleKind::Standalone;
+    prepared.chosenMapId = content->battleMaps().begin()->first;
+    auto standalone = ChessGameSession::createStandaloneBattle(content, 31, std::move(prepared));
+    ChessAction start;
+    start.type = ChessActionType::StartBattle;
+    start.surrenderFrame = 0;
+    REQUIRE(standalone->submitAndDrain(start).accepted);
+    CHECK(standalone->state().phase == ChessSessionPhase::Management);
+    CHECK_FALSE(standalone->isPostBattleAutosavePoint(ChessSessionPhase::BattlePreparation));
 }
 
 TEST_CASE("shop purchases merge deterministically and stale slots reject", "[chess][session][management]")

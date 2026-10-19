@@ -2900,7 +2900,7 @@ public:
 
     void draw() override
     {
-        KysChess::ChessUiStyle::panel(16, 16, 670, 48);
+        KysChess::ChessUiStyle::panel(16, 16, 1248, 48);
         KysChess::ChessUiStyle::label("地圖佈陣 · 點選兩枚友軍交換位置", 20, 32, 30, KysChess::ChessUiStyle::ink, 620);
     }
 

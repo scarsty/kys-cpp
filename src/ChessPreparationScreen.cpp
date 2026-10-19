@@ -450,6 +450,7 @@ void ChessPreparationScreen::shop()
         const auto analysis = queryChessShopSlot(session_.state(), session_.content(), slot);
         const auto emphasis = chessShopRowEmphasis(session_.state(), role->ID);
         const auto emphasisStyle = chessShopRowOutlineStyle(emphasis);
+        const bool banned = session_.state().bannedRoleIds.contains(offer.roleId);
         const Color tier = chessPieceTierColor(role->Cost);
         button(std::format("offer:{}", slot), {frame.x, frame.y, frame.w, frame.h - 40}, {},
             [this, slot] { selectShop(slot); },
@@ -480,6 +481,7 @@ void ChessPreparationScreen::shop()
             if (emphasisStyle.animated)
                 attentionOutline({frame.x, frame.y, frame.w, frame.h}, emphasisStyle.color, emphasisStyle.thickness);
             fill({frame.x + 1, frame.y + 3, 3, frame.h - 6}, tier);
+            if (banned) bannedOutline({frame.x, frame.y, frame.w, frame.h});
         });
     }
 }
@@ -931,9 +933,9 @@ void ChessPreparationScreen::footer()
     const int y = footer_.y + (footer_.h - 52) / 2;
     panel(footer_);
     iconButton("equipment", {112, y + 4, 100, 44}, Icon::Bag, "裝備", [this] { navigate(View::Equipment); });
-    button("overview", {220, y + 4, 100, 44}, "棋局圖鑑", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
-    button("expedition", {328, y + 4, 72, 44}, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
-    button("offline", {408, y + 4, 108, 44}, "離線對戰", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
+    iconButton("overview", {220, y + 4, 100, 44}, Icon::Catalog, "圖簽", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
+    iconButton("expedition", {328, y + 4, 100, 44}, Icon::Expedition, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
+    iconButton("offline", {436, y + 4, 132, 44}, Icon::Duel, "離線對戰", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
     iconButton("reroll-enemy", {576, y + 4, 132, 44}, Icon::Dice, "逆天改命",
         [this] { open(ChessContextMenuAction::RerollBattleSeed); }, "重抽下場敵軍，地圖可能不變");
     iconButton("save", {716, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });

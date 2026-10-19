@@ -10,6 +10,7 @@ inline void drawChessCharacterIdentity(const ChessCharacterPresentation& charact
     using namespace ChessUiStyle;
     const int portrait = frame.h;
     asset("head", character.headId, {frame.x, frame.y, portrait, portrait});
+    if (character.banned) bannedOutline({frame.x, frame.y, portrait, portrait});
     const int x = frame.x + portrait + 12, width = frame.w - portrait - 12;
     label(character.name, size, x, frame.y + 2, ink, width);
     const bool showContext = character.context != "商店預覽" && character.context != "圖鑑預覽";
@@ -18,7 +19,8 @@ inline void drawChessCharacterIdentity(const ChessCharacterPresentation& charact
         + (frame.h < 78 && showContext ? " · " + character.context : ""), size * 3 / 4,
         x, frame.y + size + 10, chessPieceTierColor(character.cost), width);
     if (showContext && frame.h >= 78)
-        label(character.context, size * 3 / 4, x, frame.y + size * 2 + 10, muted, width);
+        label(character.context, size * 3 / 4, x, frame.y + size * 2 + 10,
+            character.banned ? negative : muted, width);
 }
 
 inline void drawChessCharacterStats(const ChessCharacterPresentation& character, SDL_Rect frame,
