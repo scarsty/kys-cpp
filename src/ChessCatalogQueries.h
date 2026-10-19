@@ -42,6 +42,12 @@ struct ChessCalculatedStats
     auto operator<=>(const ChessCalculatedStats&) const = default;
 };
 
+struct ChessPieceStatBreakdown
+{
+    ChessCalculatedStats total;
+    ChessCalculatedStats fightWinGrowth;
+};
+
 struct ChessAbilityStarPower
 {
     int star{};
@@ -185,11 +191,16 @@ ChessCalculatedStats chessRoleStats(
     const BalanceConfig& balance,
     int star,
     int fightsWon,
-    int amplifiedGrowthPercent = 0);
+    int amplifiedGrowthPercent = 0,
+    const FightWinGrowthRule& extraGrowth = {});
 ChessCalculatedStats chessPieceStats(
     const ChessGameContent& content,
     const ChessSessionPiece& piece,
     int amplifiedGrowthPercent = 0);
+ChessPieceStatBreakdown chessPieceStatBreakdown(
+    const ChessGameContent& content,
+    const ChessSessionState& state,
+    const ChessSessionPiece& piece);
 ChessCalculatedStats chessPreparedUnitBaselineStats(
     const ChessGameContent& content,
     const PreparedChessBattleUnit& unit);

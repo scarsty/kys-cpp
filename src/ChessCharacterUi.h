@@ -11,7 +11,8 @@ inline void drawChessCharacterIdentity(const ChessCharacterPresentation& charact
     const int portrait = frame.h;
     asset("head", character.headId, {frame.x, frame.y, portrait, portrait});
     if (character.banned) bannedOutline({frame.x, frame.y, portrait, portrait});
-    const int x = frame.x + portrait + 12, width = frame.w - portrait - 12;
+    const int x = frame.x + portrait + 12;
+    const int width = frame.w - portrait - 12 - (character.growthSummary ? 68 : 0);
     label(character.name, size, x, frame.y + 2, ink, width);
     const bool showContext = character.context != "商店預覽" && character.context != "圖鑑預覽";
     label((character.showCost ? std::format("{}費 · {}星", character.cost, character.star)
@@ -52,13 +53,22 @@ inline void drawChessCharacterEntry(const ChessCharacterEntry& entry, SDL_Rect f
     }
     const auto color = entry.ultimate ? gold : entry.active ? positive : ink;
     const auto title = entry.title + (entry.ultimate && stacked ? " · 絕招" : "");
-    const auto value = entry.combatStyle.empty() ? entry.value : entry.combatStyle + " · " + entry.value;
-    const int valueWidth = Font::getTextDrawSize(value) * (size - 2) / 2 + 12;
+    const auto& value = entry.value;
+    const int styleSize = std::max(24, size);
+    const int styleWidth = entry.combatOperation ? styleSize + 4 : 0;
+    const int valueWidth = Font::getTextDrawSize(value) * (size - 2) / 2 + 12 + styleWidth;
     label(title, size, x, frame.y + 6, color,
         frame.x + frame.w - x - (stacked ? 8 : valueWidth));
-    label(value, size - 2,
-        stacked ? x : frame.x + frame.w - valueWidth,
-        frame.y + (stacked ? size + 12 : 6), muted, stacked ? frame.x + frame.w - x : valueWidth);
+    const int valueX = stacked ? x : frame.x + frame.w - valueWidth;
+    const int valueY = frame.y + (stacked ? size + 12 : 6);
+    if (entry.combatOperation)
+    {
+        const auto symbol = *entry.combatOperation == Battle::BattleOperationType::Melee ? Icon::LightStrike
+            : *entry.combatOperation == Battle::BattleOperationType::TrackingProjectile ? Icon::HeavyStrike : Icon::RangedStrike;
+        asset("chess-preparation", iconId(symbol), {valueX, valueY + (size - 2 - styleSize) / 2, styleSize, styleSize}, false, muted);
+    }
+    label(value, size - 2, valueX + styleWidth, valueY, muted,
+        (stacked ? frame.x + frame.w - x : valueWidth) - styleWidth);
 }
 struct ChessInspectorControl
 {
@@ -110,6 +120,23 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     content.drawings.push_back([=] {
         drawChessCharacterIdentity(character, {x, y, width, identityHeight}, size);
     });
+    if (character.growthSummary)
+    {
+        const auto growth = *character.growthSummary;
+        for (int i = 0; i < 2; ++i)
+        {
+            const SDL_Rect area{x + width - 64, y + i * 32, 64, 30};
+            const auto symbol = i == 0 ? Icon::Victory : Icon::Luck;
+            const auto value = std::to_string(i == 0 ? growth.fightsWon : growth.luckStacks);
+            content.drawings.push_back([=] {
+                asset("chess-preparation", iconId(symbol), {area.x, area.y + 3, 24, 24}, false, gold);
+                label(value, 16, area.x + 28, area.y + 7, ink, area.w - 28);
+            });
+            content.controls.push_back({.frame = area, .section = 0,
+                .tooltip = i == 0 ? std::format("勝場 {} · 已計入屬性成長", growth.fightsWon)
+                    : std::format("賭運 {} 層 · 致命傷害時免死機率 {}%", growth.luckStacks, growth.luckChance)});
+        }
+    }
     if (!state.expanded)
     {
         const int statsY = y + identityHeight + 6;
@@ -131,10 +158,15 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             const SDL_Rect area{x + slot * (width + 8) / 2, top, (width - 8) / 2, compact ? 62 : 54};
             auto equipment = character.equipment[slot];
             const bool pick = character.equipmentEditable && equipment.id < 0;
-            if (pick) equipment.title = "選擇裝備";
-            entry(equipment, area, compact ? 24 : 16, true);
+            if (equipment.id < 0)
+                content.drawings.push_back([=] {
+                    controlLabel(area, character.equipmentEditable ? equipment.title : "—", compact ? 24 : 16,
+                        muted, slot == 0 ? Icon::Sword : Icon::Armor, muted);
+                });
+            else entry(equipment, area, compact ? 24 : 16, true);
             content.controls.push_back({.frame = area, .section = 2, .entry = slot,
-                .tooltip = pick ? "從行囊選擇裝備" : "查看裝備效果",
+                .tooltip = pick ? (slot == 0 ? "選擇武器" : "選擇防具")
+                    : equipment.id < 0 ? (slot == 0 ? "未裝備武器" : "未裝備防具") : "查看裝備效果",
                 .equipmentSlot = pick ? std::optional(slot) : std::nullopt});
         }
         top += compact ? 66 : 58;
@@ -144,7 +176,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             const SDL_Rect area{x + i % synergyColumns * (width + 8) / synergyColumns,
                 top + i / synergyColumns * 52, (width + 8) / synergyColumns - 8, 50};
             entry(character.synergies[i], area, tight ? 22 : compact ? 24 : 16, true);
-            content.controls.push_back({.frame = area, .comboId = character.synergies[i].id});
+            content.controls.push_back({.frame = area, .section = 3, .entry = i});
         }
         const int actionHeight = compact ? 84 : 44;
         const int actionY = frame.y + frame.h - actionHeight - 12;
@@ -157,16 +189,23 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     constexpr std::array names{"屬性", "武學", "裝備", "羈絆"};
     for (int i = 0; i < 4; ++i)
         content.controls.push_back({.frame = {x + i * width / 4, tabY, width / 4 - 4, tabHeight},
-            .label = names[i], .selected = state.section == i, .section = i,
-            .comboId = i == 3 ? std::optional(character.synergies.empty() ? -1 : character.synergies.front().id) : std::nullopt});
+            .label = names[i], .selected = state.section == i, .section = i});
     const int bodyY = tabY + tabHeight + 16;
     const int footerY = frame.y + frame.h - (tight ? 76 : compact ? 96 : 56);
     int pageCount = 1;
     if (state.section == 0)
     {
-        const int statsHeight = compact ? 156 : 156;
+        const int statsHeight = compact ? 156 : 132;
         const int contextY = bodyY + statsHeight + 12;
-        const bool contextPage = contextY + 68 > footerY;
+        std::vector<std::pair<std::string, int>> gains;
+        if (character.growthSummary)
+            for (const auto& stat : chessCharacterStats(character.growthSummary->stats))
+                if (stat.second != 0) gains.push_back(stat);
+        const int growthRowHeight = compact ? 54 : 34;
+        const int contextHeight = character.growthSummary
+            ? 28 + std::max(1, (static_cast<int>(gains.size()) + 3) / 4) * growthRowHeight
+            : character.statsNote.empty() ? 0 : 48;
+        const bool contextPage = contextY + contextHeight > footerY;
         pageCount = contextPage ? 2 : 1;
         state.page = std::clamp(state.page, 0, pageCount - 1);
         if (!contextPage || state.page == 0)
@@ -176,15 +215,25 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
         if (!contextPage || state.page == 1)
         {
             const int top = contextPage ? bodyY : contextY;
-            text(character.growth, x, top, compact ? 23 : 15, muted, width, 2);
-            if (!character.owned.empty())
-                text("擁有：" + character.owned, x, top + (compact ? 52 : 40), compact ? 23 : 15, muted, width);
+            if (character.growthSummary)
+            {
+                text("勝場加成", x, top, compact ? 23 : 18, gold, width);
+                if (gains.empty()) text("尚無加成", x, top + 28, compact ? 23 : 16, muted, width);
+                for (int i = 0; i < static_cast<int>(gains.size()); ++i)
+                {
+                    const int px = x + (i % 4) * width / 4, py = top + 28 + (i / 4) * growthRowHeight;
+                    text(gains[i].first, px, py, compact ? 18 : 14, muted, width / 4 - 8);
+                    text(std::format("{:+}", gains[i].second), px, py + (compact ? 23 : 16),
+                        compact ? 23 : 16, positive, width / 4 - 8);
+                }
+            }
+            else text(character.statsNote, x, top, compact ? 23 : 15, muted, width, 2);
         }
     }
     else
     {
         const std::span<const ChessCharacterEntry> entries = state.section == 1 ? std::span(character.abilities)
-            : std::span<const ChessCharacterEntry>(character.equipment);
+            : state.section == 3 ? std::span(character.synergies) : std::span<const ChessCharacterEntry>(character.equipment);
         const int textSize = compact ? 26 : 17;
         state.entry = std::clamp(state.entry, 0, std::max(0, static_cast<int>(entries.size()) - 1));
         if (entries.empty()) text("無", x, bodyY, textSize, muted, width);
@@ -202,7 +251,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             int textY = bodyY + headingHeight + 8;
             auto rows = selected.details;
             const int availableHeight = footerY - textY - 8
-                - (state.section == 2 && character.equipmentEditable ? 52 : 0);
+                - ((state.section == 2 && character.equipmentEditable) || state.section == 3 ? 52 : 0);
             const auto pages = paginatePanelText(rows, width - 8, textSize, availableHeight);
             pageCount = static_cast<int>(pages.size());
             state.page = std::clamp(state.page, 0, pageCount - 1);
@@ -213,6 +262,9 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
                 content.controls.push_back({.frame = {x, footerY - 52, width, 44},
                     .label = selected.id < 0 ? "選擇裝備" : "更換裝備", .icon = Icon::Bag,
                     .action = true, .equipmentSlot = state.entry});
+            if (state.section == 3)
+                content.controls.push_back({.frame = {x, footerY - 52, width, 44},
+                    .label = "羈絆一覽", .icon = Icon::Link, .action = true, .comboId = selected.id});
         }
     }
     if (pageCount > 1)

@@ -22,6 +22,7 @@ inline constexpr Color actionHoverFill{132, 111, 69, 235};
 inline constexpr Color disabledFill{69, 62, 49, 190};
 inline constexpr Color positive{184, 204, 164, 255};
 inline constexpr Color negative{218, 159, 146, 255};
+inline constexpr Color destructiveFill{112, 48, 39, 230};
 inline constexpr Color context{158, 201, 213, 255};
 inline constexpr Color exclusive{210, 182, 229, 255};
 inline constexpr Color canvasScrim{18, 17, 16, 48};
@@ -53,7 +54,7 @@ enum class Icon : int
     Collapse, Sword, More, Sliders, Mountain, Spark, Book, Cultivation, Close, Ultimate,
     Character, Formation, Load, Save, Search, Transfer, Home,
     Play, Pause, Speed, CameraFollow, CameraFree, View2D, View3D, Flag, List, Map, Ban,
-    Catalog, Expedition, Duel, Dice,
+    Catalog, Expedition, Duel, Dice, Luck, Victory, LightStrike, HeavyStrike, RangedStrike,
 };
 
 inline int iconId(Icon icon) { return static_cast<int>(icon); }
@@ -72,7 +73,7 @@ struct ControlState
 inline void controlSurface(SDL_Rect frame, ControlState state)
 {
     auto* engine = Engine::getInstance();
-    const Color fill = state.disabled ? disabledFill : state.primary ? gold
+    const Color fill = state.disabled ? disabledFill : state.destructive ? destructiveFill : state.primary ? gold
         : state.action ? (state.hovered || state.selected ? actionHoverFill : actionFill)
         : state.selected || state.hovered ? activeFill : quietFill;
     engine->fillRoundedRect(fill, frame.x, frame.y, frame.w, frame.h, Spacing::controlCorner);
@@ -245,7 +246,7 @@ inline void asset(const std::string& group, int id, SDL_Rect frame, bool bottomA
     const int height = static_cast<int>(texture->h * scale);
     TextureManager::getInstance()->renderTexture(texture,
         frame.x + (frame.w - width) / 2 + texture->dx,
-        frame.y + (frame.h - height) / (bottomAligned ? 1 : 2) + texture->dy, {tint, 255}, width, height);
+        frame.y + (frame.h - height) / (bottomAligned ? 1 : 2) + texture->dy, {tint, tint.a}, width, height);
 }
 
 inline void controlLabel(SDL_Rect frame, const std::string& text, int size, Color color,

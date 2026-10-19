@@ -51,9 +51,9 @@ struct ChessPreparationSelection
     }
 };
 
-// 與舊行動版選單相同：第一次點選提供預覽，第二次才執行花費。
+// 第一次點選鎖定操作，第二次才執行。觸控花費與出售／封禁共用。
 // 不設時間限制，讓玩家能讀完資訊；切換操作、取消或開啟模態時解除。
-struct ChessPreparationTouchConfirmation
+struct ChessPreparationConfirmation
 {
     std::string armedKey;
 
@@ -64,6 +64,7 @@ struct ChessPreparationTouchConfirmation
         return false;
     }
     void reset() { armedKey.clear(); }
+    void cancelUnless(const std::string& key) { if (armedKey != key) reset(); }
 };
 
 // SDL 的滑鼠雙擊計數搭配穩定控制項身分；觸控沿用相同的 500ms 點擊間隔。
@@ -87,7 +88,7 @@ struct ChessPreparationPortraitClicks
     void reset() { *this = {}; }
 };
 
-enum class ChessPreparationView { Piece, Equipment, Information, Replacement, Sell, Attributes, Ability, Neigongs, Neigong };
+enum class ChessPreparationView { Piece, Equipment, Information, Replacement, Attributes, Ability, Neigongs, Neigong };
 
 // 滑過只預覽；釘選後移動游標不會換物品，捲動亦不影響裝備選取。
 struct ChessPreparationEquipmentPopover
@@ -111,7 +112,7 @@ inline void reconcileChessPreparationView(ChessPreparationSelection& selection,
     selection.reconcile(state);
     if (selection.instanceId < 0 && selection.shopRoleId < 0
         && (view == ChessPreparationView::Attributes || view == ChessPreparationView::Ability
-            || view == ChessPreparationView::Replacement || view == ChessPreparationView::Sell))
+            || view == ChessPreparationView::Replacement))
         view = ChessPreparationView::Piece;
 }
 

@@ -47,6 +47,8 @@ ChessGameContent catalogContent(int attackAreaType = 3, bool twoAbilities = fals
     data.balance.fightWinGrowthDef = 3;
     data.balance.fightWinGrowthWeapon = 4;
     data.balance.fightWinGrowthSpeed = 5;
+    data.balance.talents.emplace(ChessTalentId::Gambler,
+        ChessTalentDefinition{.luckChancePerStack = 15, .luckStackCap = 8});
 
     ChessRoleDefinition role;
     role.ID = 10;
@@ -382,8 +384,10 @@ TEST_CASE("character presentation preserves owned equipment growth and preview c
     piece.roleId = 10;
     piece.star = 2;
     piece.fightsWon = 3;
+    piece.luckStacks = 4;
     piece.weaponInstanceId = 2;
     piece.deployed = true;
+    state.talent = ChessTalentId::Gambler;
     state.roster.emplace(piece.instanceId, piece);
     ChessEquipmentInstance equipment;
     equipment.instanceId = 2;
@@ -395,14 +399,19 @@ TEST_CASE("character presentation preserves owned equipment growth and preview c
     CHECK(owned.stats.maxHp == 530);
     CHECK(owned.stats.attack == 71);
     CHECK(owned.context == "出戰中");
-    CHECK(owned.growth.contains("勝場 3"));
+    REQUIRE(owned.growthSummary);
+    CHECK(owned.growthSummary->fightsWon == 3);
+    CHECK(owned.growthSummary->luckStacks == 4);
+    CHECK(owned.growthSummary->luckChance == 60);
+    CHECK(owned.growthSummary->stats.maxHp == 30);
+    CHECK(owned.growthSummary->stats.attack == 6);
     CHECK(owned.equipment[0].title == "共用寶劍");
     CHECK(owned.equipment[0].imageId == 500);
-    CHECK(owned.equipment[1].value == "防具");
-    CHECK(owned.equipment[1].title == "未裝備");
+    CHECK(owned.equipment[1].value.empty());
+    CHECK(owned.equipment[1].title == "防具");
     REQUIRE(owned.abilities.size() == 1);
     CHECK(owned.abilities.front().ultimate);
-    CHECK(owned.abilities.front().value == "威力 60");
+    CHECK(owned.abilities.front().value == "60");
     REQUIRE(owned.synergies.size() == 1);
     CHECK(owned.synergies.front().title == "共用羈絆");
 
@@ -410,6 +419,8 @@ TEST_CASE("character presentation preserves owned equipment growth and preview c
     const auto catalogue = buildChessCharacterPresentation(content, state, 10);
     CHECK(shop.stats == catalogue.stats);
     CHECK(shop.context == "商店預覽");
+    CHECK_FALSE(shop.growthSummary);
+    CHECK_FALSE(catalogue.growthSummary);
     CHECK(catalogue.context == "圖鑑預覽");
     CHECK(shop.stats == chessRoleStats(*content.role(10), content.balance(), 1, 0));
     CHECK(shop.equipment[0].id == -1);
@@ -426,13 +437,14 @@ TEST_CASE("character presentation preserves owned equipment growth and preview c
 
 TEST_CASE("character inspector uses chess attacks and limits effects to the ultimate", "[chess][ui][catalog]")
 {
-    for (const auto& [area, style] : std::array<std::pair<int, std::string>, 4>{{
-        {0, "輕擊"}, {1, "遠程"}, {2, "遠程"}, {3, "重擊"}}})
+    for (const auto& [area, style] : std::array<std::pair<int, Battle::BattleOperationType>, 4>{{
+        {0, Battle::BattleOperationType::Melee}, {1, Battle::BattleOperationType::RangedProjectile},
+        {2, Battle::BattleOperationType::RangedProjectile}, {3, Battle::BattleOperationType::TrackingProjectile}}})
     {
         const auto content = catalogContent(area, true);
         const auto character = buildChessCharacterPresentation(content, {}, 10);
         REQUIRE(character.abilities.size() == 2);
-        CHECK(character.abilities[0].combatStyle == style);
+        CHECK(character.abilities[0].combatOperation == style);
         CHECK_FALSE(character.abilities[0].ultimate);
         CHECK(character.abilities[0].details.size() == 1);
         CHECK(character.abilities[1].ultimate);
@@ -507,9 +519,9 @@ TEST_CASE("enemy character inspector shares equipment and skills while using ene
     CHECK(enemy.stats != owned.stats);
     CHECK_FALSE(enemy.showCost);
     CHECK(owned.showCost);
-    CHECK(enemy.owned.empty());
+    CHECK_FALSE(enemy.growthSummary);
     CHECK(enemy.equipment[0].imageId == 500);
-    CHECK(enemy.equipment[1].title == "未裝備");
+    CHECK(enemy.equipment[1].title == "防具");
     REQUIRE(enemy.equipment[0].details.size() == owned.equipment[0].details.size());
     for (int i = 0; i < static_cast<int>(enemy.equipment[0].details.size()); ++i)
         CHECK(enemy.equipment[0].details[i].text == owned.equipment[0].details[i].text);
@@ -517,7 +529,7 @@ TEST_CASE("enemy character inspector shares equipment and skills while using ene
     for (int i = 0; i < static_cast<int>(enemy.abilities.size()); ++i)
     {
         CHECK(enemy.abilities[i].value == owned.abilities[i].value);
-        CHECK(enemy.abilities[i].combatStyle == owned.abilities[i].combatStyle);
+        CHECK(enemy.abilities[i].combatOperation == owned.abilities[i].combatOperation);
         REQUIRE(enemy.abilities[i].details.size() == owned.abilities[i].details.size());
         for (int j = 0; j < static_cast<int>(enemy.abilities[i].details.size()); ++j)
             CHECK(enemy.abilities[i].details[j].text == owned.abilities[i].details[j].text);
@@ -528,13 +540,99 @@ TEST_CASE("enemy character inspector shares equipment and skills while using ene
         const auto metadata = std::ranges::find(analysis.enemySynergies, entry.id, &ChessComboMetadata::comboId);
         REQUIRE(metadata != analysis.enemySynergies.end());
         CHECK(entry.active);
-        CHECK(entry.value + " ✓" == metadata->progressCount);
+        CHECK(entry.value == metadata->progressCount);
         CHECK(entry.tooltip.empty());
         CHECK(entry.imageGroup == "chess-synergies");
         CHECK(entry.imageId == (entry.id == 3 ? 13 : 14));
     }
     CHECK(std::ranges::any_of(enemy.synergies, [](const auto& entry) { return entry.id == 4; }));
     CHECK_FALSE(owned.synergies.front().active);
+}
+
+TEST_CASE("win growth breakdown includes talent and the current contributing synergy", "[chess][ui][catalog]")
+{
+    ChessGameContentData data;
+    data.balance.starHPMult = 0.8;
+    data.balance.starAtkMult = 0.5;
+    data.balance.starDefMult = 0.25;
+    data.balance.fightWinGrowthHP = 2.5;
+    data.balance.fightWinGrowthAtk = 1;
+    data.balance.fightWinGrowthDef = 1;
+    data.balance.talents.emplace(ChessTalentId::LateBloomer,
+        ChessTalentDefinition{.amplifiedGrowthPercent = 120});
+    for (int id : {10, 20, 30})
+    {
+        ChessRoleDefinition role;
+        role.ID = id;
+        role.MaxHP = 101;
+        role.Attack = 20;
+        role.Defence = 10;
+        data.roles.emplace(id, role);
+    }
+    ComboDef combo{.id = 1, .name = "成長羈絆", .memberRoleIds = {10}};
+    combo.thresholds = {{.count = 1, .managementRules = {FightWinGrowthRule{90, 90, 90}}},
+        {.count = 2, .managementRules = {FightWinGrowthRule{4, 2, 3}}}};
+    data.combos.push_back(combo);
+    data.equipment.push_back({.itemId = 500, .managementRules = {CountsAsComboRule{"成長羈絆"}}});
+    const ChessGameContent content(std::move(data));
+    ChessSessionState state;
+    state.talent = ChessTalentId::LateBloomer;
+    for (int id = 1; id <= 3; ++id)
+        state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = id * 10,
+            .star = 2, .deployed = true, .fightsWon = 3});
+    state.roster.at(2).weaponInstanceId = 5;
+    state.equipmentInventory.emplace(5, ChessEquipmentInstance{.instanceId = 5, .itemId = 500, .assignedChessInstanceId = 2});
+
+    const auto natural = chessPieceStatBreakdown(content, state, state.roster.at(1));
+    CHECK(natural.fightWinGrowth.maxHp == 37);
+    CHECK(natural.fightWinGrowth.attack == 14);
+    CHECK(natural.fightWinGrowth.defence == 16);
+    const auto transferred = chessPieceStatBreakdown(content, state, state.roster.at(2));
+    CHECK(transferred.fightWinGrowth == natural.fightWinGrowth);
+    const auto outsider = chessPieceStatBreakdown(content, state, state.roster.at(3));
+    CHECK(outsider.fightWinGrowth.maxHp == 14);
+    CHECK(outsider.fightWinGrowth.attack == 4);
+    CHECK(outsider.fightWinGrowth.defence == 4);
+
+    auto preview = state.roster.at(1);
+    preview.fightsWon = 0;
+    CHECK(chessPieceStatBreakdown(content, state, preview).fightWinGrowth == ChessCalculatedStats{});
+    CHECK(chessStatDelta(natural.total, chessPieceStatBreakdown(content, state, preview).total) == natural.fightWinGrowth);
+    preview = state.roster.at(1);
+    preview.deployed = false;
+    CHECK(chessPieceStatBreakdown(content, state, preview).fightWinGrowth == outsider.fightWinGrowth);
+    state.talent = ChessTalentId::DivineArms;
+    const auto ordinary = chessPieceStatBreakdown(content, state, state.roster.at(1));
+    CHECK(ordinary.fightWinGrowth.maxHp == 19);
+    CHECK(ordinary.fightWinGrowth.attack == 9);
+    CHECK(ordinary.fightWinGrowth.defence == 12);
+}
+
+TEST_CASE("character synergy detail selects one threshold and distinguishes activation", "[chess][ui][catalog]")
+{
+    const ComboDef combo{.id = 8, .name = "測試羈絆", .iconId = 17};
+    ChessComboMetadata metadata{.comboId = 8, .activeThresholdIndex = 1, .active = true, .progressCount = "4/6 ✓"};
+    for (int count : {2, 4, 6})
+    {
+        ChessComboThresholdMetadata threshold{.requiredCount = count, .name = std::format("門檻{}", count)};
+        appendStandaloneDescriptionRow(threshold.effects, std::format("效果{}", count));
+        metadata.thresholds.push_back(threshold);
+    }
+    const auto active = chessCharacterSynergyEntry(combo, metadata);
+    REQUIRE(active.details.size() == 2);
+    CHECK(active.active);
+    CHECK(active.details[0].text.contains("門檻4"));
+    CHECK(active.details[0].tone == PanelTextTone::Effect);
+    CHECK(active.details[1].text == "效果4");
+    metadata.active = false;
+    metadata.activeThresholdIndex = -1;
+    metadata.progressCount = "1/2";
+    const auto inactive = chessCharacterSynergyEntry(combo, metadata);
+    REQUIRE(inactive.details.size() == 2);
+    CHECK_FALSE(inactive.active);
+    CHECK(inactive.details[0].text.contains("未啟動"));
+    CHECK(inactive.details[1].text == "效果2");
+    CHECK(inactive.details[1].tone == PanelTextTone::Inactive);
 }
 
 TEST_CASE("talent tables paginate long cells without shrinking or dropping text", "[chess][ui][catalog]")

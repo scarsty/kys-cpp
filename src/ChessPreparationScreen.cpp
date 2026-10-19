@@ -22,7 +22,6 @@ namespace
 {
 using namespace ChessUiStyle;
 constexpr Color equipmentContext = context;
-constexpr Color synergyActive = positive;
 
 // Engine 的 UI 固定為 1280×720；畫布與觸控座標的縮放由共用呈現層處理。
 void fill(PanelFrame frame, Color color, int radius = 0)
@@ -93,7 +92,7 @@ void ChessPreparationScreen::onEntrance()
 {
     onPointerInputReset();
     touchInput_ = GameUtil::isMobileDevice();
-    touchConfirmation_.reset();
+    confirmation_.reset();
     touchHint_.clear();
     rebuild();
 }
@@ -168,18 +167,20 @@ int ChessPreparationScreen::button(std::string key, PanelFrame frame, std::strin
         const auto pointer = PointerInput::instance().logicalPointerUiPosition();
         const bool hovered = !touchInput_ && contains(frame, pointer);
         const bool focused = keyboardFocus_ && focusKey_ == control.key;
-        const bool armed = touchConfirmation_.armedKey == control.key;
+        const bool armed = confirmation_.armedKey == control.key;
+        const bool confirming = armed && !control.confirmationLabel.empty();
+        const auto& caption = confirming ? control.confirmationLabel : label;
         const bool highlighted = enabled && (hovered || armed || pressedKey_ == control.key);
         if (treatment != Treatment::Quiet || highlighted || selected || focused)
             controlSurface({frame.x, frame.y, frame.w, frame.h}, {
                 .hovered = highlighted, .selected = selected, .focused = (focused || armed) && enabled,
                 .disabled = !enabled, .primary = treatment == Treatment::Primary,
-                .action = treatment == Treatment::Action});
+                .action = treatment == Treatment::Action, .destructive = confirming});
         int size = Type::body;
-        while (size > 12 && Font::getTextDrawSize(label) * size / 2 > frame.w - 12) --size;
-        const auto labelColor = !enabled ? muted : treatment == Treatment::Primary ? darkLabel : color;
-        drawText(label, size,
-            frame.x + (treatment == Treatment::Row ? 8 : std::max(6, (frame.w - Font::getTextDrawSize(label) * size / 2) / 2)),
+        while (size > 12 && Font::getTextDrawSize(caption) * size / 2 > frame.w - 12) --size;
+        const auto labelColor = !enabled ? muted : confirming ? ink : treatment == Treatment::Primary ? darkLabel : color;
+        drawText(caption, size,
+            frame.x + (treatment == Treatment::Row ? 8 : std::max(6, (frame.w - Font::getTextDrawSize(caption) * size / 2) / 2)),
             frame.y + (frame.h - size) / 2, labelColor);
     });
     return index;
@@ -196,7 +197,6 @@ void ChessPreparationScreen::rebuild()
         || session_.state().roster.at(selection_.instanceId).deployed)) view_ = View::Piece;
     if (replacementId_ >= 0 && (!session_.state().roster.contains(replacementId_)
         || !session_.state().roster.at(replacementId_).deployed)) replacementId_ = -1;
-    if (view_ == View::Sell && selection_.instanceId < 0) view_ = View::Piece;
     observation_ = session_.observe();
     w_ = Engine::getInstance()->getUIWidth();
     h_ = Engine::getInstance()->getUIHeight();
@@ -250,11 +250,11 @@ void ChessPreparationScreen::header()
     iconButton("neigongs", {x + 236, 20, 72, 44}, Icon::Book, std::to_string(observation_.obtainedNeigongIds.size()),
         [this] { navigate(View::Neigongs); }, "已獲得內功與效果");
     const int remainingBans = std::max(0, observation_.maximumBanCount - static_cast<int>(observation_.bans.size()));
-    iconButton("bans", {x + 316, 20, 142, 44}, Icon::Ban, std::format("封禁 ({})", remainingBans),
+    iconButton("bans", {x + 316, 20, 142, 44}, Icon::Ban, std::format("({})", remainingBans),
         [this] { open(ChessContextMenuAction::ManageBans); }, "管理已見角色的永久封禁；括號內為剩餘名額");
-    iconButton("collapse", {x + 466, 20, 100, 44}, Icon::Collapse, "收起",
+    iconButton("collapse", {x + 466, 20, 100, 44}, Icon::Collapse, "",
         [this] { setExit(true); }, "收起整備，欣賞擂鼓山；Q 再次開啟");
-    iconButton("system", {x + 574, 20, 92, 44}, Icon::Sliders, "系統",
+    iconButton("system", {x + 574, 20, 92, 44}, Icon::Sliders, "",
         [this] { open(ChessContextMenuAction::OpenSystemMenu); }, "系統選單");
 }
 
@@ -317,6 +317,21 @@ void ChessPreparationScreen::pieceCard(const ChessSessionPiece& piece, PanelFram
             {itemFrame.x + 2, itemFrame.y + 2, 22, 22});
         itemX -= 28;
     }
+    drawings_.push_back([=, this] {
+        const auto feedback = std::ranges::find(luckFeedback_, piece.instanceId, &LuckFeedback::instanceId);
+        if (feedback == luckFeedback_.end() || Engine::getTicks() >= feedback->until) return;
+        const double remaining = feedback->until - Engine::getTicks();
+        const double progress = 1.0 - remaining / 1800.0;
+        const double opacity = std::min(1.0, remaining / 500.0);
+        const Color glow{gold.r, gold.g, gold.b, static_cast<uint8_t>((60 + 30 * std::sin(progress * 18)) * opacity)};
+        fill({frame.x + 2, frame.y + 2, frame.w - 4, frame.h - 4}, glow, 4);
+        const int badgeX = frame.x + (frame.w - 56) / 2;
+        const int badgeY = frame.y + std::max(0, (frame.h - 30) / 2 - static_cast<int>(progress * 16));
+        fill({badgeX, badgeY, 56, 28}, {29, 26, 23, static_cast<uint8_t>(230 * opacity)}, 4);
+        const Color color{gold.r, gold.g, gold.b, static_cast<uint8_t>(255 * opacity)};
+        drawIcon(Icon::Luck, {badgeX + 3, badgeY + 2, 24, 24}, color);
+        drawText(std::format("+{}", feedback->stacks), 16, badgeX + 29, badgeY + 6, color);
+    });
 }
 
 void ChessPreparationScreen::roster()
@@ -342,17 +357,23 @@ void ChessPreparationScreen::roster()
         }
         const auto& [definition, progress] = combos[i];
         const auto& combo = *definition;
+        const auto metadata = chessComboMetadata(session_.content(), combo, progress.physicalCount, progress.effectiveCount,
+            progress.activeThresholdIndex, progress.nextThresholdIndex, progress.contributions,
+            EffectDescriptionStyle::Compact, progress.requiredCounts);
+        const auto& threshold = metadata.thresholds[metadata.activeThresholdIndex];
         button(std::format("combo-chip:{}", combo.id), chip, {},
-            [this, id = combo.id] { showChessComboOverview(session_.content(), session_.state(), id); rebuild(); }, combo.name + " · 已啟動",
+            [this, id = combo.id] { showChessComboOverview(session_.content(), session_.state(), id); rebuild(); }, {},
             true, false, Treatment::Quiet);
-        drawings_.push_back([chip] {
-            fill({chip.x, chip.y + 3, chip.w, chip.h - 6}, {111, 132, 88, 38}, 3);
-            fill({chip.x + 29, chip.y + 29, 5, 5}, synergyActive, 2);
-        });
-        synergyIcon(combo.iconId, {chip.x, chip.y + 2, 36, 36}, synergyActive);
+        controls_.back().tooltipBelow = true;
+        auto& tooltipRows = controls_.back().tooltipRows;
+        tooltipRows.push_back({.text = combo.name + " · " + threshold.name,
+            .spacingAfter = 6, .tone = PanelTextTone::Heading});
+        const auto effects = panelTextRowsForEffectDescription(threshold.effects);
+        tooltipRows.insert(tooltipRows.end(), effects.begin(), effects.end());
+        synergyIcon(combo.iconId, {chip.x, chip.y + 2, 36, 36}, gold);
         const auto count = progress.isAntiCombo ? std::format("獨/{}", progress.displayTargetCount)
             : std::format("{}/{}", progress.effectiveCount, progress.displayTargetCount);
-        text(count, chip.x + 38, chip.y + 13, 14, synergyActive);
+        text(count, chip.x + 38, chip.y + 13, 14, muted);
     }
     iconButton("all-combos", {team_.x + 8, team_.y + 44, 150, 40}, Icon::Link,
         std::format("啟動 {} ›", combos.size()),
@@ -503,21 +524,6 @@ void ChessPreparationScreen::inspector()
     case View::Neigongs:
     case View::Neigong: expandedInspector(); break;
     case View::Replacement: replacementInspector(); break;
-    case View::Sell:
-    {
-        const auto& piece = session_.state().roster.at(selection_.instanceId);
-        const auto* role = session_.content().role(piece.roleId);
-        text("確認出售", inspector_.x + 12, inspector_.y + 20, 22, gold);
-        image("head", role->HeadID, {inspector_.x + 18, inspector_.y + 76, 96, 96});
-        text(role->Name, inspector_.x + 126, inspector_.y + 100, 22, ink, inspector_.w - 142, 2);
-        prose(paragraph(std::format("出售 {} {}，獲得 {} 金。持有的裝備會依現有規則回到行囊。",
-            role->Name, chessStars(piece.star), ChessManagementRules::pieceValue(session_.content(), piece.roleId, piece.star))),
-            {inspector_.x + 14, inspector_.y + 190, inspector_.w - 28, inspector_.h - 260});
-        button("confirm-sell", {inspector_.x + 12, inspector_.y + inspector_.h - 64, inspector_.w - 24, 52}, "確認出售",
-            [this, id = piece.instanceId] { auto action = simpleAction(ChessActionType::SellChess); action.chessInstanceId = id;
-                view_ = View::Piece; history_.clear(); submit(action, "棋子已出售，裝備已回到行囊"); }, {}, true, false, Treatment::Action);
-        break;
-    }
     }
 }
 
@@ -568,8 +574,15 @@ void ChessPreparationScreen::pieceInspector()
     const int bottom = inspector_.y + inspector_.h - 64;
     if (piece)
     {
-        button("deployment", {x, bottom, width - 102, 52}, piece->deployed ? "下陣" : "上陣／替換", [this] { deploy(); }, {}, true, false, Treatment::Action);
-        button("sell", {x + width - 90, bottom, 90, 52}, "出售", [this] { navigate(View::Sell); });
+        const int price = ChessManagementRules::pieceValue(session_.content(), piece->roleId, piece->star);
+        button("deployment", {x, bottom, width - 136, 52}, piece->deployed ? "下陣" : "上陣／替換", [this] { deploy(); }, {}, true, false, Treatment::Action);
+        button(std::format("sell:{}", piece->instanceId), {x + width - 124, bottom, 124, 52}, std::format("出售 {}金", price),
+            [this, id = piece->instanceId] {
+                auto action = simpleAction(ChessActionType::SellChess);
+                action.chessInstanceId = id;
+                submit(action, "棋子已出售，裝備已回到行囊");
+            }, "再點一次出售，裝備回到行囊", true, false, Treatment::Action);
+        controls_.back().confirmationLabel = std::format("確認 {}金", price);
     }
     else
     {
@@ -579,12 +592,13 @@ void ChessPreparationScreen::pieceInspector()
         auto action = simpleAction(ChessActionType::AddBan);
         action.roleId = roleId;
         const auto error = ChessManagementRules::validate(session_.state(), session_.content(), action);
-        iconButton("inspector-ban", {x + width - 92, bottom, 92, 52}, Icon::Ban, "封禁",
+        button(std::format("inspector-ban:{}", roleId), {x + width - 92, bottom, 92, 52}, "封禁",
             [this, roleId] { ban(roleId); },
             error == ChessRuleErrorCode::RoleAlreadyBanned ? "本局已封禁此角色"
                 : error == ChessRuleErrorCode::BanLimitReached ? "封禁名額已滿；升級可增加名額"
-                : "封禁此角色；確認後影響後續商店，本局無法解除",
-            error == ChessRuleErrorCode::None, false, negative, Treatment::Action);
+                : "再點一次封禁，本局無法解除",
+            error == ChessRuleErrorCode::None, false, Treatment::Action);
+        controls_.back().confirmationLabel = "確認封禁";
     }
 }
 
@@ -932,14 +946,16 @@ void ChessPreparationScreen::footer()
 {
     const int y = footer_.y + (footer_.h - 52) / 2;
     panel(footer_);
-    iconButton("equipment", {112, y + 4, 100, 44}, Icon::Bag, "裝備", [this] { navigate(View::Equipment); });
-    iconButton("overview", {220, y + 4, 100, 44}, Icon::Catalog, "圖簽", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
-    iconButton("expedition", {328, y + 4, 100, 44}, Icon::Expedition, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
-    iconButton("offline", {436, y + 4, 132, 44}, Icon::Duel, "離線對戰", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
-    iconButton("reroll-enemy", {576, y + 4, 132, 44}, Icon::Dice, "逆天改命",
-        [this] { open(ChessContextMenuAction::RerollBattleSeed); }, "重抽下場敵軍，地圖可能不變");
-    iconButton("save", {716, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });
-    iconButton("load", {824, y + 4, 100, 44}, Icon::Load, "讀檔", [this] { open(ChessContextMenuAction::LoadProgress); });
+    constexpr int navigationWidth = 108;
+    const auto slot = [y](int index) { return PanelFrame{112 + index * (navigationWidth + 8), y + 4, navigationWidth, 44}; };
+    iconButton("expedition", slot(0), Icon::Expedition, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); }, "遠征挑戰");
+    iconButton("equipment", slot(1), Icon::Bag, "", [this] { navigate(View::Equipment); }, "裝備行囊");
+    iconButton("overview", slot(2), Icon::Catalog, "", [this] { open(ChessContextMenuAction::OpenOverviewMenu); }, "圖簽");
+    iconButton("offline", slot(3), Icon::Duel, "", [this] { open(ChessContextMenuAction::OpenOfflineBattle); }, "離線對戰");
+    iconButton("reroll-enemy", slot(4), Icon::Dice, "",
+        [this] { open(ChessContextMenuAction::RerollBattleSeed); }, "逆天改命：重抽下場敵軍，地圖可能不變");
+    iconButton("save", slot(5), Icon::Save, "", [this] { open(ChessContextMenuAction::SaveProgress); }, "存檔");
+    iconButton("load", slot(6), Icon::Load, "", [this] { open(ChessContextMenuAction::LoadProgress); }, "讀檔");
     button("battle", {w_ - 304, y + 4, 176, 44}, observation_.campaignComplete ? "已通關 · 遠征" : "進入戰鬥",
         [this] { open(observation_.campaignComplete ? ChessContextMenuAction::ShowExpeditionChallenge : ChessContextMenuAction::EnterBattle); },
         "使用目前陣容出戰", true, false, Treatment::Primary);
@@ -1020,7 +1036,6 @@ void ChessPreparationScreen::pickEquipment(int type)
 
 void ChessPreparationScreen::ban(int roleId)
 {
-    if (!confirmChessBan(session_.content().role(roleId)->Name)) return;
     auto action = simpleAction(ChessActionType::AddBan);
     action.roleId = roleId;
     submit(action, "已封禁；後續商店不再出現，本局無法解除");
@@ -1048,10 +1063,16 @@ ChessActionResult ChessPreparationScreen::submit(const ChessAction& action, cons
     noticeUntil_ = Engine::getTicks() + (result.accepted ? 2600 : 5000);
     if (result.accepted)
     {
+        std::erase_if(luckFeedback_, [](const auto& feedback) { return Engine::getTicks() >= feedback.until; });
         arrivalIds_.clear();
         arrivalMerged_ = false;
         for (const auto& event : result.events)
         {
+            if (event.type == ChessSemanticEventType::LuckGranted)
+            {
+                std::erase_if(luckFeedback_, [&](const auto& feedback) { return feedback.instanceId == event.primaryId; });
+                luckFeedback_.push_back({event.primaryId, event.value, Engine::getTicks() + 1800});
+            }
             if (event.type == ChessSemanticEventType::ChessPurchased || event.type == ChessSemanticEventType::ChessMerged)
             {
                 arrivalIds_.push_back(event.primaryId);
@@ -1133,18 +1154,21 @@ int ChessPreparationScreen::focusIndex() const
 
 void ChessPreparationScreen::activate(std::string key, bool touch)
 {
+    confirmation_.cancelUnless(key);
+    if (confirmation_.armedKey.empty()) touchHint_.clear();
     const auto found = std::ranges::find(controls_, key, &Control::key);
     if (found == controls_.end() || !found->enabled || !found->activate) return;
     focusKey_ = key;
-    if (touch && found->touchConfirmation && !touchConfirmation_.confirm(key))
+    if (((touch && found->touchConfirmation) || !found->confirmationLabel.empty()) && !confirmation_.confirm(key))
     {
         auto preview = found->preview;
+        const bool inlineConfirmation = !found->confirmationLabel.empty();
         if (preview) preview();
-        touchHint_ = "再點一次確認";
+        touchHint_ = inlineConfirmation ? "" : "再點一次確認";
         rebuild();
         return;
     }
-    touchConfirmation_.reset();
+    confirmation_.reset();
     touchHint_.clear();
     // 操作會重建 controls_；執行前複製，避免銷毀正在執行的函式。
     auto action = found->activate;
@@ -1153,6 +1177,12 @@ void ChessPreparationScreen::activate(std::string key, bool touch)
 
 RunNode::PointerResult ChessPreparationScreen::onPointerEvent(const PointerEvent& event)
 {
+    if (event.phase == PointerPhase::ButtonDown)
+    {
+        const int target = hit(event.uiPosition);
+        confirmation_.cancelUnless(target >= 0 ? controls_[target].key : std::string{});
+        if (confirmation_.armedKey.empty()) touchHint_.clear();
+    }
     if (event.phase == PointerPhase::Cancel) { pressedKey_.clear(); popoverDragging_ = false; return PointerResult::Released; }
     touchInput_ = event.source == PointerSource::Touch || GameUtil::isMobileDevice();
     if (event.phase == PointerPhase::Motion && (event.uiDelta.x != 0 || event.uiDelta.y != 0))
@@ -1220,7 +1250,7 @@ RunNode::PointerResult ChessPreparationScreen::onPointerEvent(const PointerEvent
                 const auto identity = key + (key.starts_with("piece:")
                     && session_.state().roster.at(std::stoi(key.substr(6))).deployed ? ":deployed" : "");
                 if (portraitClicks_.release(identity, event.clicks, event.timestamp, touch))
-                { touchConfirmation_.reset(); touchHint_.clear(); shortcut(); }
+                { confirmation_.reset(); touchHint_.clear(); shortcut(); }
                 else activate(key, touch);
             }
             else { portraitClicks_.reset(); activate(key, touch); }
@@ -1237,7 +1267,7 @@ void ChessPreparationScreen::onPointerInputReset()
     pressedKey_.clear();
     hoverKey_.clear();
     portraitClicks_.reset();
-    touchConfirmation_.reset();
+    confirmation_.reset();
     touchHint_.clear();
     equipmentPopover_.dismiss();
     popoverFrame_ = {};
@@ -1335,9 +1365,9 @@ void ChessPreparationScreen::dealEvent(EngineEvent& event)
 void ChessPreparationScreen::onPressedCancel()
 {
     if (equipmentPopover_.equipmentId >= 0) { dismissEquipmentPopover(); return; }
-    if (!touchConfirmation_.armedKey.empty())
+    if (!confirmation_.armedKey.empty())
     {
-        touchConfirmation_.reset(); touchHint_.clear(); rebuild(); return;
+        confirmation_.reset(); touchHint_.clear(); rebuild(); return;
     }
     if (view_ == View::Piece && characterInspector_.expanded) back();
     else if (view_ == View::Piece) setExit(true);
@@ -1416,7 +1446,7 @@ void ChessPreparationScreen::drawActionFeedback()
     PanelFrame anchor = noticeAnchor_;
     if (confirming)
     {
-        const auto control = std::ranges::find(controls_, touchConfirmation_.armedKey, &Control::key);
+        const auto control = std::ranges::find(controls_, confirmation_.armedKey, &Control::key);
         if (control == controls_.end()) return; // 預覽重建後，原操作可能已不在這一頁。
         anchor = control->frame;
     }
@@ -1487,19 +1517,22 @@ void ChessPreparationScreen::drawTopmostOverlay()
         drawEquipmentPopover();
         return;
     }
-    if (control.tooltip.empty() || peekId >= 0) return;
+    if ((control.tooltip.empty() && control.tooltipRows.empty()) || peekId >= 0) return;
     if (Engine::getTicks() - hoverSince_ < 650) return;
-    const int width = std::clamp(Font::getTextDrawSize(control.tooltip) * 8 + 24, 80, std::min(480, w_ - 40));
-    const auto lines = wrapDisplayText(control.tooltip, (width - 24) * 2 / 16, true);
-    const int height = static_cast<int>(lines.size()) * 20 + 20;
+    const auto rows = control.tooltipRows.empty() ? std::vector<PanelTextSourceRow>{{.text = control.tooltip}} : control.tooltipRows;
+    int textWidth = 0;
+    for (const auto& row : rows) textWidth = std::max(textWidth, Font::getTextDrawSize(row.text) * 8);
+    const int width = std::clamp(textWidth + 24, 80, std::min(480, w_ - 40));
+    const auto layout = layoutProse(rows, width - 24, 16);
+    const int height = layout.height + 20;
     int x = std::clamp(control.frame.x, 20, w_ - width - 20);
-    int y = control.frame.y - height - 8;
+    int y = control.tooltipBelow ? control.frame.y + control.frame.h + 8 : control.frame.y - height - 8;
     if (y < 8) y = control.frame.y + control.frame.h + 8;
     y = std::clamp(y, 8, std::max(8, h_ - height - 8));
     fill({x, y, width, height}, {29, 26, 23, 250}, 6);
     outline({x, y, width, height}, line, 6);
-    for (int i = 0; i < static_cast<int>(lines.size()); ++i)
-        drawText(lines[i], 16, x + 12, y + 10 + i * 20, ink);
+    for (const auto& row : layout.lines)
+        drawText(row.text, row.fontSize, x + 12 + row.indentPixels, y + 10 + row.y, panelTextColor(row.tone));
 }
 
 } // namespace KysChess

@@ -188,7 +188,7 @@ TEST_CASE("preparation purchase does not bypass bench capacity for automatic dep
 
 TEST_CASE("touch spending requires a second tap on the same action", "[chess][preparation]")
 {
-    ChessPreparationTouchConfirmation confirmation;
+    ChessPreparationConfirmation confirmation;
     CHECK_FALSE(confirmation.confirm("buy:0"));
     CHECK(confirmation.confirm("buy:0"));
     CHECK_FALSE(confirmation.confirm("buy:0"));
@@ -197,6 +197,24 @@ TEST_CASE("touch spending requires a second tap on the same action", "[chess][pr
     CHECK_FALSE(confirmation.confirm("experience"));
     confirmation.reset();
     CHECK_FALSE(confirmation.confirm("experience"));
+}
+
+TEST_CASE("preparation confirmation cancels outside its exact piece action", "[chess][preparation]")
+{
+    ChessPreparationConfirmation confirmation;
+    CHECK_FALSE(confirmation.confirm("sell:1"));
+    confirmation.cancelUnless("sell:1");
+    CHECK(confirmation.confirm("sell:1"));
+    CHECK_FALSE(confirmation.confirm("sell:1"));
+    confirmation.cancelUnless("");
+    CHECK(confirmation.armedKey.empty());
+    CHECK_FALSE(confirmation.confirm("sell:1"));
+    confirmation.cancelUnless("sell:2");
+    CHECK_FALSE(confirmation.confirm("sell:2"));
+    confirmation.cancelUnless("inspector-ban:10");
+    CHECK_FALSE(confirmation.confirm("inspector-ban:10"));
+    CHECK(confirmation.confirm("inspector-ban:10"));
+    CHECK(confirmation.armedKey.empty());
 }
 
 TEST_CASE("portrait shortcuts dispatch once and survive selection rebuilds", "[chess][preparation]")

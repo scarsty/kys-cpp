@@ -52,6 +52,9 @@ private:
         std::function<void()> preview;
         std::function<void()> shortcut;
         int equipmentId = -1;
+        bool tooltipBelow{};
+        std::vector<PanelTextSourceRow> tooltipRows;
+        std::string confirmationLabel;
     };
     ChessGameSession& session_;
     ChessPreparationCallbacks callbacks_;
@@ -81,7 +84,7 @@ private:
     double hoverSince_{};
     bool keyboardFocus_ = false;
     bool touchInput_{};
-    ChessPreparationTouchConfirmation touchConfirmation_;
+    ChessPreparationConfirmation confirmation_;
     ChessPreparationPortraitClicks portraitClicks_;
     std::string touchHint_;
     std::string notice_;
@@ -90,6 +93,13 @@ private:
     std::vector<int> arrivalIds_;
     double arrivalUntil_{};
     bool arrivalMerged_{};
+    struct LuckFeedback
+    {
+        int instanceId{};
+        int stacks{};
+        double until{};
+    };
+    std::vector<LuckFeedback> luckFeedback_;
     bool automaticDeployment_ = true;
     bool benchNames_ = false;
     int benchPage_{};

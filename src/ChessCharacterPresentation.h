@@ -23,7 +23,7 @@ struct ChessCharacterEntry
     int imageId = -1;
     bool ultimate{};
     bool active{};
-    std::string combatStyle;
+    std::optional<Battle::BattleOperationType> combatOperation;
     std::string tooltip;
     std::vector<PanelTextSourceRow> details;
 };
@@ -49,6 +49,14 @@ struct ChessCharacterInspectorState
     }
 };
 
+struct ChessCharacterGrowth
+{
+    int fightsWon{};
+    int luckStacks{};
+    int luckChance{};
+    ChessCalculatedStats stats;
+};
+
 struct ChessCharacterPresentation
 {
     int roleId{};
@@ -60,8 +68,8 @@ struct ChessCharacterPresentation
     bool banned{};
     std::string name;
     std::string context;
-    std::string growth;
-    std::string owned;
+    std::string statsNote;
+    std::optional<ChessCharacterGrowth> growthSummary;
     ChessCalculatedStats stats;
     std::vector<ChessCharacterEntry> abilities;
     std::array<ChessCharacterEntry, 2> equipment;
@@ -73,6 +81,25 @@ inline std::array<std::pair<std::string, int>, 10> chessCharacterStats(const Che
     return {{{"生命", stats.maxHp}, {"攻擊", stats.attack}, {"防禦", stats.defence},
         {"輕功", stats.speed}, {"拳掌", stats.fist}, {"御劍", stats.sword},
         {"耍刀", stats.knife}, {"奇門", stats.unusual}, {"內力", stats.maxMp}, {"暗器", stats.hiddenWeapon}}};
+}
+
+inline ChessCharacterEntry chessCharacterSynergyEntry(const ComboDef& combo, const ChessComboMetadata& metadata)
+{
+    ChessCharacterEntry entry{.id = combo.id, .title = combo.name,
+        .value = chessComboCountWithoutStatus(metadata) + (metadata.active ? " ✓" : ""),
+        .imageGroup = "chess-synergies", .imageId = combo.iconId, .active = metadata.active};
+    if (!metadata.thresholds.empty())
+    {
+        const auto& threshold = metadata.thresholds[metadata.active ? metadata.activeThresholdIndex : 0];
+        entry.details.push_back({.text = std::format("{}點 · {} {}", threshold.requiredCount, threshold.name,
+                metadata.active ? "✓" : "未啟動"),
+            .spacingAfter = 8, .tone = metadata.active ? PanelTextTone::Effect : PanelTextTone::Inactive});
+        auto effects = panelTextRowsForEffectDescription(threshold.effects);
+        if (!metadata.active)
+            for (auto& row : effects) row.tone = PanelTextTone::Inactive;
+        entry.details.insert(entry.details.end(), effects.begin(), effects.end());
+    }
+    return entry;
 }
 
 inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameContent& content,
@@ -87,25 +114,23 @@ inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameCont
     for (const auto& ability : abilities)
     {
         ChessCharacterEntry entry{.id = ability.magicId, .title = ability.name,
-            .value = std::format("威力 {}", ability.powerByStar.front().power),
+            .value = std::to_string(ability.powerByStar.front().power),
             .ultimate = &ability == &abilities.back()};
         const auto* magic = content.magic(ability.magicId);
         assert(magic);
         const auto operation = Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(magic->AttackAreaType);
+        entry.combatOperation = operation;
         switch (operation)
         {
         case Battle::BattleOperationType::Melee:
-            entry.combatStyle = "輕擊";
             entry.tooltip = entry.ultimate ? "輕擊：強化攻擊，追加近身濺射。"
                 : "輕擊：每第三下近戰強化追擊。";
             break;
         case Battle::BattleOperationType::TrackingProjectile:
-            entry.combatStyle = "重擊";
             entry.tooltip = entry.ultimate ? "重擊：發射兩枚追蹤彈。"
                 : "重擊：發射一枚追蹤彈。";
             break;
         case Battle::BattleOperationType::RangedProjectile:
-            entry.combatStyle = "遠程";
             entry.tooltip = entry.ultimate ? "遠程：穿透，附三枚35%側彈。"
                 : "遠程：穿透，附兩枚20%側彈。";
             break;
@@ -125,7 +150,7 @@ inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameCont
         auto& entry = result.equipment[slot];
         entry.value = slot == 0 ? "武器" : "防具";
         entry.id = equipmentItemIds[slot];
-        if (entry.id < 0) { entry.title = "未裝備"; continue; }
+        if (entry.id < 0) { entry.title = entry.value; entry.value.clear(); continue; }
         const auto* item = content.item(entry.id);
         assert(item);
         entry.title = item->name;
@@ -165,27 +190,27 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
     result.banned = state.bannedRoleIds.contains(roleId);
     result.context = piece ? (piece->star != star ? "升星預覽" : piece->deployed ? "出戰中" : "候補")
         : context == ChessCharacterContext::Shop ? "商店預覽" : "圖鑑預覽";
-    result.growth = piece ? std::format("勝場 {} · 含裝備基礎加成", piece->fightsWon) : "無勝場成長 · 未裝備";
-    result.stats = piece ? chessPieceStats(content, preview, growthPercent)
-        : chessRoleStats(*role, content.balance(), star, 0, growthPercent);
-    if (piece && piece->luckStacks > 0)
-        result.growth += std::format(" · 賭運 {} 層 / {}%", piece->luckStacks,
-            content.balance().talent(state.talent).luckChance(piece->luckStacks));
-    std::map<int, int> owned;
-    for (const auto& [id, member] : state.roster)
-        if (member.roleId == roleId) ++owned[member.star];
-    for (const auto& [ownedStar, count] : owned)
-        result.owned += std::format("{}星 ×{}  ", ownedStar, count);
-    if (result.owned.empty()) result.owned = "尚未擁有";
+    if (piece)
+    {
+        const auto breakdown = chessPieceStatBreakdown(content, state, preview);
+        result.growthSummary = {piece->fightsWon, piece->luckStacks,
+            content.balance().talent(state.talent).luckChance(piece->luckStacks), breakdown.fightWinGrowth};
+        result.stats = breakdown.total;
+    }
+    else result.stats = chessRoleStats(*role, content.balance(), star, 0, growthPercent);
 
     for (const auto& combo : content.combos())
     {
-        if (combo.isNpcOnly || !std::ranges::contains(combo.memberRoleIds, roleId)) continue;
+        if (combo.isNpcOnly) continue;
         const auto progress = evaluateChessComboProgress(state, content, combo);
-        const auto count = formatChessComboProgressCount(progress);
-        ChessCharacterEntry entry{.id = combo.id, .title = combo.name, .value = count,
-            .imageGroup = "chess-synergies", .imageId = combo.iconId, .active = progress.active};
-        result.synergies.push_back(std::move(entry));
+        const bool contributes = piece && std::ranges::any_of(progress.contributions, [&](const auto& contribution) {
+            return std::ranges::contains(contribution.unitIds, piece->instanceId);
+        });
+        if (!contributes && !std::ranges::contains(combo.memberRoleIds, roleId)) continue;
+        const auto metadata = chessComboMetadata(content, combo, progress.physicalCount, progress.effectiveCount,
+            progress.activeThresholdIndex, progress.nextThresholdIndex, progress.contributions,
+            EffectDescriptionStyle::Compact, progress.requiredCounts);
+        result.synergies.push_back(chessCharacterSynergyEntry(combo, metadata));
     }
     return result;
 }
@@ -198,7 +223,7 @@ inline ChessCharacterPresentation buildChessBattleCharacterPresentation(const Ch
     auto result = buildChessCharacterContent(content, unit.roleId, unit.star, {unit.weaponItemId, unit.armorItemId});
     result.showCost = false;
     result.context = unit.team == 0 ? "我方陣容" : "敵方陣容";
-    result.growth = "含星級、裝備及陣容羈絆的開戰數值；戰中觸發效果另計。";
+    result.statsNote = "開戰屬性，含星級、裝備與陣容加成";
     result.stats = *unit.initializedCombatStats;
     for (const auto& synergy : synergies)
     {
@@ -208,8 +233,7 @@ inline ChessCharacterPresentation buildChessBattleCharacterPresentation(const Ch
             return std::ranges::contains(contribution.unitIds, unit.unitId);
         });
         if (!contributes && !std::ranges::contains(combo->memberRoleIds, unit.roleId)) continue;
-        result.synergies.push_back({.id = combo->id, .title = combo->name, .value = chessComboCountWithoutStatus(synergy),
-            .imageGroup = "chess-synergies", .imageId = combo->iconId, .active = synergy.active});
+        result.synergies.push_back(chessCharacterSynergyEntry(*combo, synergy));
     }
     return result;
 }

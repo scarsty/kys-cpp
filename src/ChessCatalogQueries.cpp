@@ -138,7 +138,8 @@ ChessCalculatedStats chessRoleStats(
     const BalanceConfig& balance,
     int star,
     int fightsWon,
-    int amplifiedGrowthPercent)
+    int amplifiedGrowthPercent,
+    const FightWinGrowthRule& extraGrowth)
 {
     const auto stats = computeStarBoostedStats(
         {
@@ -168,7 +169,7 @@ ChessCalculatedStats chessRoleStats(
             balance.fightWinGrowthSpeed,
         },
         star,
-        fightsWon, 0, 0, 0, amplifiedGrowthPercent);
+        fightsWon, extraGrowth.maxHp, extraGrowth.attack, extraGrowth.defence, amplifiedGrowthPercent);
     return {
         stats.hp,
         role.MaxMP,
@@ -191,6 +192,37 @@ ChessCalculatedStats chessPieceStats(
     const auto* role = content.role(piece.roleId);
     assert(role);
     return chessRoleStats(*role, content.balance(), piece.star, piece.fightsWon, amplifiedGrowthPercent);
+}
+
+ChessPieceStatBreakdown chessPieceStatBreakdown(
+    const ChessGameContent& content,
+    const ChessSessionState& state,
+    const ChessSessionPiece& piece)
+{
+    FightWinGrowthRule extraGrowth;
+    if (piece.deployed)
+    {
+        const auto progresses = evaluateChessComboProgresses(state, content);
+        for (std::size_t i = 0; i < progresses.size(); ++i)
+        {
+            const auto& progress = progresses[i];
+            if (!progress.active || !std::ranges::any_of(progress.contributions, [&](const auto& contribution) {
+                    return std::ranges::contains(contribution.unitIds, piece.instanceId);
+                })) continue;
+            // 與戰鬥初始化相同，只取目前門檻，裝備轉職也沿用羈絆貢獻者判定。
+            const auto growth = sumFightWinGrowth(content.combos()[i].thresholds[progress.activeThresholdIndex].managementRules);
+            extraGrowth.maxHp += growth.maxHp;
+            extraGrowth.attack += growth.attack;
+            extraGrowth.defence += growth.defence;
+        }
+    }
+    const auto* role = content.role(piece.roleId);
+    assert(role);
+    const auto& balance = content.balance();
+    const int amplified = balance.talent(state.talent).amplifiedGrowthPercent;
+    const auto total = chessRoleStats(*role, balance, piece.star, piece.fightsWon, amplified, extraGrowth);
+    const auto withoutWins = chessRoleStats(*role, balance, piece.star, 0, amplified, extraGrowth);
+    return {total, chessStatDelta(total, withoutWins)};
 }
 
 ChessCalculatedStats chessPreparedUnitBaselineStats(
