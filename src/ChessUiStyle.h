@@ -54,7 +54,7 @@ enum class Icon : int
     Collapse, Sword, More, Sliders, Mountain, Spark, Book, Cultivation, Close, Ultimate,
     Character, Formation, Load, Save, Search, Transfer, Home,
     Play, Pause, Speed, CameraFollow, CameraFree, View2D, View3D, Flag, List, Map, Ban,
-    Catalog, Expedition, Duel, Dice, Luck, Victory, LightStrike, HeavyStrike, RangedStrike,
+    Catalog, Expedition, Duel, Dice, Luck, Victory, LightStrike, HeavyStrike, RangedStrike, Help,
 };
 
 inline int iconId(Icon icon) { return static_cast<int>(icon); }
@@ -176,8 +176,7 @@ inline void asset(const std::string& group, int id, SDL_Rect frame, bool bottomA
 {
     if (id < 0) return;
     const Color tint = tintOverride.value_or(group == "chess-preparation" || group == "chess-synergies" ? gold : Color{255, 255, 255, 255});
-    if (group == "chess-preparation"
-        && id == iconId(Icon::Dice))
+    if (group == "chess-preparation" && id == iconId(Icon::Dice))
     {
         drawUtilityIcon(static_cast<Icon>(id), frame, tint);
         return;
@@ -224,13 +223,13 @@ inline void asset(const std::string& group, int id, SDL_Rect frame, bool bottomA
 }
 
 inline void controlLabel(SDL_Rect frame, const std::string& text, int size, Color color,
-    std::optional<Icon> symbol = std::nullopt, Color iconColor = gold)
+    std::optional<Icon> symbol = std::nullopt, Color iconColor = gold, int iconSize = 0)
 {
-    const int iconSize = size >= 28 ? 36 : 24;
+    if (iconSize == 0) iconSize = size >= 28 ? 36 : 24;
     const int inset = symbol && !text.empty() ? iconSize + 8 : 0;
     const int labelWidth = Font::getTextDrawSize(text) * size / 2;
     const int contentWidth = text.empty() && symbol ? iconSize : inset + labelWidth;
-    const int x = frame.x + std::max(8, (frame.w - contentWidth) / 2);
+    const int x = frame.x + std::max(text.empty() ? 0 : 8, (frame.w - contentWidth) / 2);
     if (symbol) asset("chess-preparation", iconId(*symbol),
         {x, frame.y + (frame.h - iconSize) / 2, iconSize, iconSize}, false, iconColor);
     if (!text.empty()) label(text, size, x + inset, frame.y + (frame.h - size) / 2,

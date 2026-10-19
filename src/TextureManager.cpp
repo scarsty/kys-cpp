@@ -157,41 +157,49 @@ void TextureWarpper::setTex(Texture* t)
     Engine::getInstance()->getTextureSize(t, w, h);
 }
 
+static bool trimIconGroup(const std::string& path)
+{
+    return path.ends_with("chess-preparation") || path.ends_with("chess-synergies");
+}
+
 // Try loading an image by base name, preferring .webp over .png.
 static Texture* loadFromZip(GroupInfo* gi, const std::string& base, int as_white = 0)
 {
+    const bool trim = trimIconGroup(gi->path);
     auto content = gi->zip.readFile(base + ".webp");
     if (!content.empty())
     {
-        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
+        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white, trim))
             return t;
     }
     content = gi->zip.readFile(base + ".png");
     if (!content.empty())
-        return Engine::getInstance()->loadImageFromMemory(content, as_white);
+        return Engine::getInstance()->loadImageFromMemory(content, as_white, trim);
     return nullptr;
 }
 
 static Texture* loadFromAtlas(GroupInfo* gi, const std::string& base, int as_white = 0)
 {
+    const bool trim = trimIconGroup(gi->path);
     auto content = gi->atlas.readFile(base + ".webp");
     if (!content.empty())
     {
-        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
+        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white, trim))
             return t;
     }
     content = gi->atlas.readFile(base + ".png");
     if (!content.empty())
-        return Engine::getInstance()->loadImageFromMemory(content, as_white);
+        return Engine::getInstance()->loadImageFromMemory(content, as_white, trim);
     return nullptr;
 }
 
 static Texture* loadFromDisk(const std::string& dir, const std::string& base, int as_white = 0)
 {
     auto path = dir + "/" + base;
-    if (auto t = Engine::getInstance()->loadImage(path + ".webp", as_white))
+    const bool trim = trimIconGroup(dir);
+    if (auto t = Engine::getInstance()->loadImage(path + ".webp", as_white, trim))
         return t;
-    return Engine::getInstance()->loadImage(path + ".png", as_white);
+    return Engine::getInstance()->loadImage(path + ".png", as_white, trim);
 }
 
 void TextureWarpper::load()

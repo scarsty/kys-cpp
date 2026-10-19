@@ -5,6 +5,7 @@
 #include "DisplayText.h"
 #include "InputBox.h"
 #include "Button.h"
+#include "GameUtil.h"
 #include "TextureManager.h"
 #include "ChessCharacterUi.h"
 #include <algorithm>
@@ -57,6 +58,7 @@ void ChessSelectionScreen::setSelectedItem(int index)
 
 void ChessSelectionScreen::filter()
 {
+    portraitClicks_.reset();
     visible_.clear();
     const auto query = Font::getInstance()->T2S(query_);
     for (int i = 0; i < static_cast<int>(items_.size()); ++i)
@@ -85,6 +87,7 @@ void ChessSelectionScreen::select(int index)
 
 void ChessSelectionScreen::changePage(int step)
 {
+    portraitClicks_.reset();
     const int pages = std::max(1, (static_cast<int>(visible_.size()) + pageSize() - 1) / pageSize());
     page_ = std::clamp(page_ + step, 0, pages - 1);
     focused_ = 0;
@@ -716,9 +719,21 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
         if (index >= 0 && index == pressed)
         {
             focused_ = index;
+            const int item = controls_[index].itemIndex;
+            if (doubleClickConfirms_ && item >= 0 && items_[item].actionEnabled)
+            {
+                if (portraitClicks_.release(std::to_string(item), event.clicks, event.timestamp,
+                    event.source == PointerSource::Touch || GameUtil::isMobileDevice()))
+                {
+                    exitWithResult(item);
+                    return PointerResult::Handled;
+                }
+            }
+            else portraitClicks_.reset();
             const auto activate = controls_[index].activate;
             activate();
         }
+        else portraitClicks_.reset();
     }
     return PointerResult::Handled;
 }

@@ -842,7 +842,39 @@ void Engine::toggleFullscreen()
     }
 }
 
-Texture* Engine::loadImage(const std::string& filename, int as_white)
+namespace
+{
+// 圖示以可見內容決定尺寸；只在載入時掃描，不放大按鈕或改變命中範圍。
+Surface* trimIconSurface(Surface* surface)
+{
+    int left = surface->w, top = surface->h, right = -1, bottom = -1;
+    for (int y = 0; y < surface->h; ++y)
+        for (int x = 0; x < surface->w; ++x)
+        {
+            uint8_t r{}, g{}, b{}, a{};
+            if (SDL_ReadSurfacePixel(surface, x, y, &r, &g, &b, &a) && a >= 16)
+            {
+                left = std::min(left, x); top = std::min(top, y);
+                right = std::max(right, x); bottom = std::max(bottom, y);
+            }
+        }
+    if (right < left || (left == 0 && top == 0 && right == surface->w - 1 && bottom == surface->h - 1))
+        return surface;
+    SDL_Rect bounds{left, top, right - left + 1, bottom - top + 1};
+    auto* trimmed = SDL_CreateSurface(bounds.w, bounds.h, SDL_PIXELFORMAT_RGBA32);
+    if (!trimmed) return surface;
+    SDL_SetSurfaceBlendMode(surface, SDL_BLENDMODE_NONE);
+    if (!SDL_BlitSurface(surface, &bounds, trimmed, nullptr))
+    {
+        SDL_DestroySurface(trimmed);
+        return surface;
+    }
+    SDL_DestroySurface(surface);
+    return trimmed;
+}
+}
+
+Texture* Engine::loadImage(const std::string& filename, int as_white, bool trimTransparent)
 {
     //std::print("%s", filename.c_str());
     //屏蔽libpng的错误输出
@@ -853,6 +885,7 @@ Texture* Engine::loadImage(const std::string& filename, int as_white)
         LOG("IMG_Load failed: {} ({})\n", filename, SDL_GetError());
         return nullptr;
     }
+    if (trimTransparent) sur = trimIconSurface(sur);
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
     if (!tex)
@@ -863,7 +896,7 @@ Texture* Engine::loadImage(const std::string& filename, int as_white)
     return tex;
 }
 
-Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) const
+Texture* Engine::loadImageFromMemory(const std::string& content, int as_white, bool trimTransparent) const
 {
     auto rw = SDL_IOFromConstMem(content.data(), content.size());
     auto sur = IMG_Load_IO(rw, 1);
@@ -872,6 +905,7 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) c
         LOG("IMG_Load_IO failed: {} bytes ({})\n", content.size(), SDL_GetError());
         return nullptr;
     }
+    if (trimTransparent) sur = trimIconSurface(sur);
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
     if (!tex)

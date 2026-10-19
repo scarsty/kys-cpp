@@ -66,6 +66,16 @@ private:
     ChessPreparationHistory history_;
     std::vector<Control> controls_;
     std::vector<std::function<void()>> drawings_;
+    std::size_t guideDrawingStart_{};
+    struct PieceCard
+    {
+        ChessSessionPiece piece;
+        PanelFrame frame{};
+        bool compact{};
+    };
+    ChessPreparationRosterOrder rosterOrder_;
+    std::vector<PieceCard> pieceCards_;
+    std::map<int, ChessPreparationCardMotion> cardMotions_;
     ChessPreparationEquipmentPopover equipmentPopover_;
     PanelFrame popoverFrame_{};
     PanelFrame popoverClose_{};
@@ -85,7 +95,8 @@ private:
     bool keyboardFocus_ = false;
     bool touchInput_{};
     ChessPreparationConfirmation confirmation_;
-    ChessPreparationPortraitClicks portraitClicks_;
+    ChessPortraitClicks portraitClicks_;
+    ChessPressPreview pressPreview_;
     std::string touchHint_;
     std::string notice_;
     PanelFrame noticeAnchor_{};
@@ -100,7 +111,8 @@ private:
         double until{};
     };
     std::vector<LuckFeedback> luckFeedback_;
-    bool automaticDeployment_ = true;
+    bool singleClickMovement_{};
+    int guideStep_ = -1;
     bool benchNames_ = false;
     int benchPage_{};
     int shopPage_{};
@@ -108,7 +120,6 @@ private:
     int textPage_{};
     int equipmentId_ = -1;
     int equipmentType_{};
-    int replacementId_ = -1;
     int abilityId_ = -1;
     int neigongId_ = -1;
     std::string information_;
@@ -123,8 +134,10 @@ private:
     void equipmentInspector();
     void informationInspector();
     void expandedInspector();
-    void replacementInspector();
     void footer();
+    void guide();
+    void finishGuide();
+    bool guideAllows(const std::string& key) const;
     void navigate(View view, int detailId = -1, std::string information = {});
     void back();
     void selectPiece(int id);
@@ -156,6 +169,10 @@ private:
         std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false,
         Color color = ChessUiStyle::ink, Treatment treatment = Treatment::Quiet);
     void pieceCard(const ChessSessionPiece& piece, PanelFrame frame, bool compact);
+    void drawPieceCard(const PieceCard& card, PanelFrame frame);
+    std::vector<std::pair<int, PanelFrame>> pieceEquipmentFrames(const PieceCard& card, PanelFrame frame) const;
+    std::map<int, PanelFrame> cardFrames() const;
+    void animateCardsFrom(const std::map<int, PanelFrame>& previous);
     void prose(const std::vector<PanelTextSourceRow>& rows, PanelFrame frame);
     void drawEquipmentPopover();
     void drawActionFeedback();

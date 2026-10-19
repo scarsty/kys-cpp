@@ -520,6 +520,10 @@ ChessRuleErrorCode ChessManagementRules::validate(
                 return ChessRuleErrorCode::UnknownChessInstance;
             }
         }
+        if (state.roster.size() - ids.size() > static_cast<std::size_t>(balance.benchSize))
+        {
+            return ChessRuleErrorCode::BenchFull;
+        }
         return ChessRuleErrorCode::None;
     }
     case ChessActionType::SetFormation:

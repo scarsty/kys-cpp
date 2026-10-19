@@ -55,6 +55,7 @@ struct ChessCharacterGrowth
     int luckStacks{};
     int luckChance{};
     ChessCalculatedStats stats;
+    bool showLuck{};
 };
 
 struct ChessCharacterPresentation
@@ -194,7 +195,8 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
     {
         const auto breakdown = chessPieceStatBreakdown(content, state, preview);
         result.growthSummary = {piece->fightsWon, piece->luckStacks,
-            content.balance().talent(state.talent).luckChance(piece->luckStacks), breakdown.fightWinGrowth};
+            content.balance().talent(state.talent).luckChance(piece->luckStacks), breakdown.fightWinGrowth,
+            state.talent == ChessTalentId::Gambler};
         result.stats = breakdown.total;
     }
     else result.stats = chessRoleStats(*role, content.balance(), star, 0, growthPercent);

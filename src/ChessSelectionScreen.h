@@ -3,6 +3,7 @@
 #include "RunNode.h"
 #include "ChessUiStyle.h"
 #include "ChessSelectionLayout.h"
+#include "ChessPointerGestures.h"
 #include "ChessCharacterPresentation.h"
 #include <functional>
 #include <optional>
@@ -66,6 +67,7 @@ class ChessSelectionScreen : public RunNode
 {
 public:
     ChessSelectionScreen(std::string title, std::vector<ChessSelectionItem> items);
+    void setDoubleClickConfirms(bool value) { doubleClickConfirms_ = value; }
     void setShopMode(bool value) { shopMode_ = value; }
     void setBrowseOnly(bool value) { browseOnly_ = value; }
     void setCommandMode(bool value) { if (value) layout_ = ChessSelectionLayout::Command; }
@@ -87,7 +89,7 @@ public:
     void drawTopmostOverlay() override;
     void dealEvent(EngineEvent& event) override;
     PointerResult onPointerEvent(const PointerEvent& event) override;
-    void onPointerInputReset() override { pressed_ = -1; }
+    void onPointerInputReset() override { pressed_ = -1; portraitClicks_.reset(); }
     void onPressedOK() override;
     void onPressedCancel() override;
     uint64_t controlLayoutRevision() const override { return revision_; }
@@ -127,6 +129,8 @@ private:
     bool keyboard_{};
     bool browseOnly_{};
     bool shopMode_{};
+    bool doubleClickConfirms_{};
+    ChessPortraitClicks portraitClicks_;
     ChessSelectionLayout layout_ = ChessSelectionLayout::Catalogue;
     bool exitable_ = true;
     bool expanded_{};

@@ -14,6 +14,8 @@ struct SystemSettingsData
     bool paperBattleView = false;
     bool debugLatencyLog = false;
     bool borderlessFullscreen = false;
+    bool preparationGuideSeen = false;
+    bool preparationSingleClick = false;
 };
 
 class SystemSettings

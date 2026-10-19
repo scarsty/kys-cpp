@@ -54,9 +54,10 @@ inline void drawChessCharacterEntry(const ChessCharacterEntry& entry, SDL_Rect f
     const auto color = entry.ultimate ? gold : entry.active ? positive : ink;
     const auto title = entry.title + (entry.ultimate && stacked ? " · 絕招" : "");
     const auto& value = entry.value;
+    const int valueSize = entry.imageGroup == "chess-synergies" ? size + 2 : size - 2;
     const int styleSize = std::max(24, size);
     const int styleWidth = entry.combatOperation ? styleSize + 4 : 0;
-    const int valueWidth = Font::getTextDrawSize(value) * (size - 2) / 2 + 12 + styleWidth;
+    const int valueWidth = Font::getTextDrawSize(value) * valueSize / 2 + 12 + styleWidth;
     label(title, size, x, frame.y + 6, color,
         frame.x + frame.w - x - (stacked ? 8 : valueWidth));
     const int valueX = stacked ? x : frame.x + frame.w - valueWidth;
@@ -65,9 +66,9 @@ inline void drawChessCharacterEntry(const ChessCharacterEntry& entry, SDL_Rect f
     {
         const auto symbol = *entry.combatOperation == Battle::BattleOperationType::Melee ? Icon::LightStrike
             : *entry.combatOperation == Battle::BattleOperationType::TrackingProjectile ? Icon::HeavyStrike : Icon::RangedStrike;
-        asset("chess-preparation", iconId(symbol), {valueX, valueY + (size - 2 - styleSize) / 2, styleSize, styleSize}, false, muted);
+        asset("chess-preparation", iconId(symbol), {valueX, valueY + (valueSize - styleSize) / 2, styleSize, styleSize}, false, muted);
     }
-    label(value, size - 2, valueX + styleWidth, valueY, muted,
+    label(value, valueSize, valueX + styleWidth, valueY, muted,
         (stacked ? frame.x + frame.w - x : valueWidth) - styleWidth);
 }
 struct ChessInspectorControl
@@ -108,7 +109,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     using namespace ChessUiStyle;
     ChessInspectorContent content;
     const int x = frame.x + 12, y = frame.y + 12, width = frame.w - 24;
-    const int size = 22;
+    const int size = 24;
     const int identityHeight = 78;
     const auto text = [&](std::string value, int px, int py, int fontSize, Color color, int w, int lines = 1) {
         content.drawings.push_back([=] { label(value, fontSize, px, py, color, w, lines); });
@@ -122,7 +123,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     if (character.growthSummary)
     {
         const auto growth = *character.growthSummary;
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < (growth.showLuck ? 2 : 1); ++i)
         {
             const SDL_Rect area{x + width - 64, y + i * 32, 64, 30};
             const auto symbol = i == 0 ? Icon::Victory : Icon::Luck;
@@ -147,7 +148,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
         {
             const int index = i == 1 ? static_cast<int>(character.abilities.size()) - 1 : 0;
             const SDL_Rect area{x, top + i * 44, width, 42};
-            entry(character.abilities[index], area, 18, false);
+            entry(character.abilities[index], area, 20, false);
             content.controls.push_back({.frame = area, .section = 1, .entry = index,
                 .tooltip = character.abilities[index].tooltip});
         }
@@ -162,7 +163,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
                     controlLabel(area, character.equipmentEditable ? equipment.title : "—", 16,
                         muted, slot == 0 ? Icon::Sword : Icon::Armor, muted);
                 });
-            else entry(equipment, area, 16, true);
+            else entry(equipment, area, 18, true);
             content.controls.push_back({.frame = area, .section = 2, .entry = slot,
                 .tooltip = pick ? (slot == 0 ? "選擇武器" : "選擇防具")
                     : equipment.id < 0 ? (slot == 0 ? "未裝備武器" : "未裝備防具") : "查看裝備效果",
@@ -174,7 +175,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
         {
             const SDL_Rect area{x + i % synergyColumns * (width + 8) / synergyColumns,
                 top + i / synergyColumns * 52, (width + 8) / synergyColumns - 8, 50};
-            entry(character.synergies[i], area, 16, true);
+            entry(character.synergies[i], area, 18, true);
             content.controls.push_back({.frame = area, .section = 3, .entry = i});
         }
         const int actionHeight = 44;
@@ -233,7 +234,7 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     {
         const std::span<const ChessCharacterEntry> entries = state.section == 1 ? std::span(character.abilities)
             : state.section == 3 ? std::span(character.synergies) : std::span<const ChessCharacterEntry>(character.equipment);
-        const int textSize = 17;
+        const int textSize = 19;
         state.entry = std::clamp(state.entry, 0, std::max(0, static_cast<int>(entries.size()) - 1));
         if (entries.empty()) text("無", x, bodyY, textSize, muted, width);
         else

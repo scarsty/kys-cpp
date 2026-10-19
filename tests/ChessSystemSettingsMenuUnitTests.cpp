@@ -78,6 +78,23 @@ TEST_CASE("SystemSettings_FullscreenPreferenceDefaultsOffAndRoundTrips", "[chess
     }
 }
 
+TEST_CASE("preparation guide and movement preferences persist without changing other settings", "[chess][settings]")
+{
+    SystemSettingsData settings;
+    CHECK_FALSE(settings.preparationGuideSeen);
+    CHECK_FALSE(settings.preparationSingleClick);
+    settings.preparationGuideSeen = true;
+    settings.preparationSingleClick = true;
+    settings.musicVolume = 37;
+    std::string payload;
+    REQUIRE_FALSE(glz::write_json(settings, payload));
+    SystemSettingsData restored;
+    REQUIRE_FALSE(glz::read_json(restored, payload));
+    CHECK(restored.preparationGuideSeen);
+    CHECK(restored.preparationSingleClick);
+    CHECK(restored.musicVolume == 37);
+}
+
 TEST_CASE("FullscreenHotkey_ConsumesBothEdgesAndIgnoresModifiedKeys", "[ui][fullscreen]")
 {
     EngineEvent event{};

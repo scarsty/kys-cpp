@@ -403,6 +403,7 @@ TEST_CASE("character presentation preserves owned equipment growth and preview c
     CHECK(owned.growthSummary->fightsWon == 3);
     CHECK(owned.growthSummary->luckStacks == 4);
     CHECK(owned.growthSummary->luckChance == 60);
+    CHECK(owned.growthSummary->showLuck);
     CHECK(owned.growthSummary->stats.maxHp == 30);
     CHECK(owned.growthSummary->stats.attack == 6);
     CHECK(owned.equipment[0].title == "共用寶劍");
@@ -426,6 +427,12 @@ TEST_CASE("character presentation preserves owned equipment growth and preview c
     CHECK(shop.equipment[0].id == -1);
     CHECK(shop.star == 1);
     CHECK(owned.star == 2);
+    state.talent = ChessTalentId::DivineArms;
+    state.roster.at(1).luckStacks = 0;
+    const auto ordinary = buildChessCharacterPresentation(content, state, 10, 2, 1);
+    REQUIRE(ordinary.growthSummary);
+    CHECK_FALSE(ordinary.growthSummary->showLuck);
+    CHECK(ordinary.growthSummary->fightsWon == 3);
 
     auto upgradedPiece = piece;
     upgradedPiece.star = 3;

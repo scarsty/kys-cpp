@@ -470,8 +470,8 @@ public:
     bool isFullScreen() const;
     bool setFullscreen(bool enabled);
     void toggleFullscreen();
-    Texture* loadImage(const std::string& filename, int as_white = 0);
-    Texture* loadImageFromMemory(const std::string& content, int as_white = 0) const;
+    Texture* loadImage(const std::string& filename, int as_white = 0, bool trimTransparent = false);
+    Texture* loadImageFromMemory(const std::string& content, int as_white = 0, bool trimTransparent = false) const;
     static void toWhite(Surface* sur);
     bool setKeepRatio(bool b);
     Texture* transRGBABitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;

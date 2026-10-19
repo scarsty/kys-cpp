@@ -148,30 +148,6 @@ TEST_CASE("expanded inspector recovers when refresh purchase or merge removes it
     CHECK(selection.instanceId == -1);
 }
 
-TEST_CASE("replacement previews use real equipment and star synergy without mutating state", "[chess][preparation]")
-{
-    const auto content = configuredMapChoiceContent();
-    ChessSessionState state;
-    state.money = 37;
-    state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = 10, .star = 2, .deployed = true});
-    state.roster.emplace(2, ChessSessionPiece{.instanceId = 2, .roleId = 30, .weaponInstanceId = 1});
-    state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 500, 2});
-    ChessManagementRules::maintainFormation(state);
-    const auto original = state;
-    const auto changes = chessPreparationReplacementPreview(state, *content, 2, 1);
-    CHECK(state == original);
-    REQUIRE(changes.size() == 1);
-    CHECK(changes.front().name == "配置選圖羈絆");
-    CHECK(changes.front().before.effectiveCount == 2);
-    CHECK(changes.front().after.effectiveCount == 1);
-    CHECK(changes.front().before.active);
-    CHECK_FALSE(changes.front().after.active);
-    const auto action = chessPreparationDeployment(state, 2, 1);
-    CHECK(action.chessInstanceIds == std::vector<int>{2});
-    CHECK(ChessManagementRules::validate(state, *content, action) == ChessRuleErrorCode::None);
-    CHECK(state == original);
-}
-
 TEST_CASE("preparation purchase does not bypass bench capacity for automatic deployment", "[chess][preparation]")
 {
     const auto content = managementContent();
@@ -184,6 +160,68 @@ TEST_CASE("preparation purchase does not bypass bench capacity for automatic dep
     action.type = ChessActionType::BuyShopSlot;
     CHECK(ChessManagementRules::maximumDeployment(state, *content) > 0);
     CHECK(ChessManagementRules::validate(state, *content, action) == ChessRuleErrorCode::BenchFull);
+}
+
+TEST_CASE("preparation rejects movement into a full destination without changing the session", "[chess][preparation][session]")
+{
+    const auto content = managementContent();
+    ChessGameSession session(content, 42);
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    const int deployment = ChessManagementRules::maximumDeployment(checkpoint.state, *content);
+    const int total = deployment + content->balance().benchSize;
+    for (int id = 1; id <= total; ++id)
+        checkpoint.state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = 10, .star = 3, .deployed = id <= deployment});
+    checkpoint.state.nextChessInstanceId = total + 1;
+    ChessManagementRules::maintainFormation(checkpoint.state);
+    REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+    const auto before = session.state();
+    const auto journalSize = session.journal().decisions().size();
+
+    const auto withdrawal = session.submitAndDrain(chessPreparationDeployment(session.state(), 1));
+    CHECK_FALSE(withdrawal.accepted);
+    CHECK(withdrawal.error == ChessRuleErrorCode::BenchFull);
+    CHECK(session.state() == before);
+    CHECK(session.journal().decisions().size() == journalSize);
+    const auto deploymentAttempt = session.submitAndDrain(chessPreparationDeployment(session.state(), total));
+    CHECK_FALSE(deploymentAttempt.accepted);
+    CHECK(deploymentAttempt.error == ChessRuleErrorCode::DeploymentLimitExceeded);
+    CHECK(session.state() == before);
+    CHECK(session.journal().decisions().size() == journalSize);
+
+    ChessAction clear;
+    clear.type = ChessActionType::SetDeployment;
+    CHECK(session.submitAndDrain(clear).error == ChessRuleErrorCode::BenchFull);
+}
+
+TEST_CASE("withdrawal uses a free bench slot and deployment repairs an overflowing bench", "[chess][preparation]")
+{
+    const auto content = managementContent();
+    ChessSessionState state;
+    state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = 10, .deployed = true});
+    CHECK(ChessManagementRules::validate(state, *content, chessPreparationDeployment(state, 1)) == ChessRuleErrorCode::None);
+    for (int id = 2; id <= content->balance().benchSize + 2; ++id)
+        state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = 10, .star = 3});
+    CHECK(ChessManagementRules::validate(state, *content, chessPreparationDeployment(state, 2)) == ChessRuleErrorCode::None);
+}
+
+TEST_CASE("preparation moves one piece down and back up when slots are available", "[chess][preparation][session]")
+{
+    const auto content = managementContent();
+    ChessGameSession session(content, 42);
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    for (int id = 1; id <= 3; ++id)
+        checkpoint.state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = 10, .star = 3, .deployed = id < 3});
+    checkpoint.state.nextChessInstanceId = 4;
+    ChessManagementRules::maintainFormation(checkpoint.state);
+    REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+    const auto before = session.state();
+    REQUIRE(session.submitAndDrain(chessPreparationDeployment(session.state(), 1)).accepted);
+    CHECK_FALSE(session.state().roster.at(1).deployed);
+    CHECK(session.state().roster.at(2) == before.roster.at(2));
+    CHECK(session.state().roster.at(3) == before.roster.at(3));
+    REQUIRE(session.submitAndDrain(chessPreparationDeployment(session.state(), 1)).accepted);
+    CHECK(session.state().roster == before.roster);
+    CHECK(session.state().money == before.money);
 }
 
 TEST_CASE("touch spending requires a second tap on the same action", "[chess][preparation]")
@@ -211,15 +249,15 @@ TEST_CASE("preparation confirmation cancels outside its exact piece action", "[c
     CHECK_FALSE(confirmation.confirm("sell:1"));
     confirmation.cancelUnless("sell:2");
     CHECK_FALSE(confirmation.confirm("sell:2"));
-    confirmation.cancelUnless("inspector-ban:10");
-    CHECK_FALSE(confirmation.confirm("inspector-ban:10"));
-    CHECK(confirmation.confirm("inspector-ban:10"));
+    confirmation.cancelUnless("sell:10");
+    CHECK_FALSE(confirmation.confirm("sell:10"));
+    CHECK(confirmation.confirm("sell:10"));
     CHECK(confirmation.armedKey.empty());
 }
 
 TEST_CASE("portrait shortcuts dispatch once and survive selection rebuilds", "[chess][preparation]")
 {
-    ChessPreparationPortraitClicks clicks;
+    ChessPortraitClicks clicks;
     CHECK_FALSE(clicks.release("offer:0:10", 1, 1000000000, false));
     // 單擊重建選取不清除序列；第二擊只派送一次。
     CHECK(clicks.release("offer:0:10", 2, 1100000000, false));
@@ -231,9 +269,24 @@ TEST_CASE("portrait shortcuts dispatch once and survive selection rebuilds", "[c
     CHECK_FALSE(clicks.release("piece:5", 2, 2400000000, false));
 }
 
+TEST_CASE("single click movement consumes rapid repeats even after pieces change slots", "[chess][preparation]")
+{
+    for (const bool touch : {false, true})
+    {
+        ChessPortraitClicks clicks;
+        CHECK(clicks.release("piece:4", 1, 1000000000, touch, true));
+        CHECK_FALSE(clicks.release("piece:4:deployed", 2, 1100000000, touch, true));
+        CHECK_FALSE(clicks.release("piece:5", 3, 1200000000, touch, true));
+        CHECK(clicks.release("piece:4:deployed", 1, 2000000000, touch, true));
+        clicks.reset();
+        CHECK_FALSE(clicks.release("offer:0:10", 1, 3000000000, touch));
+        CHECK(clicks.release("offer:0:10", 2, 3100000000, touch));
+    }
+}
+
 TEST_CASE("slow clicks and different portrait identities only inspect", "[chess][preparation]")
 {
-    ChessPreparationPortraitClicks clicks;
+    ChessPortraitClicks clicks;
     CHECK_FALSE(clicks.release("piece:4", 1, 1000000000, false));
     CHECK_FALSE(clicks.release("piece:4", 1, 1800000000, false));
     CHECK_FALSE(clicks.release("piece:5", 2, 1900000000, false));
@@ -244,6 +297,58 @@ TEST_CASE("slow clicks and different portrait identities only inspect", "[chess]
     CHECK(clicks.release("piece:4", 0, 3100000000, true));
     CHECK_FALSE(clicks.release("piece:4:deployed", 0, 3200000000, true));
     CHECK_FALSE(clicks.release("piece:5", 0, 3300000000, true));
+}
+
+TEST_CASE("ban portraits require two releases on the same character", "[chess][preparation]")
+{
+    for (const bool touch : {false, true})
+    {
+        ChessPortraitClicks clicks;
+        CHECK_FALSE(clicks.release("role:10", 1, 1000000000, touch));
+        CHECK_FALSE(clicks.release("role:11", 2, 1100000000, touch));
+        CHECK(clicks.release("role:11", touch ? 0 : 2, 1200000000, touch));
+        CHECK_FALSE(clicks.release("role:12", 3, 1300000000, touch));
+        clicks.reset(); // 換頁、篩選或取消不能沿用上一個角色的點擊。
+        CHECK_FALSE(clicks.release("role:11", 2, 1400000000, touch));
+    }
+}
+
+TEST_CASE("touch preview consumes long presses but preserves quick actions", "[chess][preparation]")
+{
+    ChessPressPreview preview;
+    CHECK_FALSE(preview.visible(1000));
+    CHECK_FALSE(preview.release(1000));
+    preview.start("buy:0", 1000);
+    CHECK_FALSE(preview.visible(1349));
+    CHECK_FALSE(preview.release(1349));
+    preview.start("equipment", 2000);
+    CHECK(preview.visible(2350));
+    CHECK(preview.release(2350));
+    CHECK_FALSE(preview.visible(2400));
+    preview.start("refresh", 3000);
+    // 沒有繪製說明的影格也不能讓長按誤觸付費操作。
+    CHECK(preview.release(4000));
+    preview.start("save", 5000);
+    preview.reset();
+    CHECK_FALSE(preview.visible(6000));
+}
+
+TEST_CASE("sliding away cancels touch preview and activation even on reentry", "[chess][preparation]")
+{
+    ChessPressPreview preview;
+    preview.start("load", 1000);
+    preview.move("load");
+    CHECK(preview.visible(1350));
+    preview.move("");
+    CHECK_FALSE(preview.visible(1400));
+    preview.move("load");
+    CHECK_FALSE(preview.visible(1450));
+    CHECK(preview.release(1450));
+    preview.start("load", 2000);
+    preview.move("save");
+    CHECK(preview.release(2010));
+    preview.start("save", 3000);
+    CHECK_FALSE(preview.release(3100));
 }
 
 TEST_CASE("inspector history restores original piece and nested detail context", "[chess][preparation]")
@@ -290,12 +395,63 @@ TEST_CASE("inspector history restores original piece and nested detail context",
 
 TEST_CASE("compact formation includes pieces moved beyond the visible capacity", "[chess][preparation]")
 {
-    std::array<int, kChessFormationSlotCount> formation;
-    formation.fill(-1);
-    formation[0] = 4;
-    formation[8] = 9;
-    formation[9] = 12;
-    CHECK(chessPreparationVisibleFormation(formation, 4) == std::vector<int>{4, 9, 12, -1});
-    CHECK(formation[8] == 9);
-    CHECK(formation[9] == 12);
+    ChessSessionState state;
+    state.formationSlots.assign(kChessFormationSlotCount, -1);
+    state.formationSlots[0] = 4;
+    state.formationSlots[8] = 9;
+    state.formationSlots[9] = 12;
+    for (int id : {4, 9, 12}) state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .deployed = true});
+    ChessPreparationRosterOrder order;
+    order.reconcile(state);
+    CHECK(order.deployed == std::vector<int>{4, 9, 12});
+    CHECK(state.formationSlots[8] == 9);
+    CHECK(state.formationSlots[9] == 12);
+}
+
+TEST_CASE("moving pieces append to the destination without reordering existing pieces", "[chess][preparation]")
+{
+    ChessSessionState state;
+    for (int id : {1, 2, 3, 4}) state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .deployed = id <= 2});
+    ChessManagementRules::maintainFormation(state);
+    ChessPreparationRosterOrder order;
+    order.reconcile(state);
+    CHECK(order.deployed == std::vector<int>{1, 2});
+    CHECK(order.bench == std::vector<int>{3, 4});
+    state.roster.at(1).deployed = false;
+    ChessManagementRules::maintainFormation(state);
+    order.reconcile(state);
+    CHECK(order.deployed == std::vector<int>{2});
+    CHECK(order.bench == std::vector<int>{3, 4, 1});
+    state.roster.at(3).deployed = true;
+    ChessManagementRules::maintainFormation(state);
+    order.reconcile(state);
+    CHECK(order.deployed == std::vector<int>{2, 3}); // 戰場空格填回前方，不影響整備的抵達順序。
+    CHECK(order.bench == std::vector<int>{4, 1});
+    order.reconcile(state); // 選取／檢視器重建不會重排。
+    CHECK(order.deployed == std::vector<int>{2, 3});
+    CHECK(order.bench == std::vector<int>{4, 1});
+    state.roster.erase(4);
+    state.roster.emplace(5, ChessSessionPiece{.instanceId = 5});
+    order.reconcile(state);
+    CHECK(order.bench == std::vector<int>{1, 5});
+}
+
+TEST_CASE("preparation card motion settles quickly without overshooting", "[chess][preparation]")
+{
+    ChessPreparationCardMotion motion{{28, 168, 166, 70}, {372, 384, 78, 60}, 1000};
+    const auto start = motion.frame(1000);
+    CHECK(start.x == 28);
+    CHECK(start.y == 168);
+    const auto middle = motion.frame(1110);
+    CHECK(middle.x > start.x);
+    CHECK(middle.x < 372);
+    CHECK(middle.y > start.y);
+    CHECK(middle.y < 384);
+    CHECK(motion.active(1219));
+    CHECK_FALSE(motion.active(1220));
+    const auto end = motion.frame(2000);
+    CHECK(end.x == 372);
+    CHECK(end.y == 384);
+    CHECK(end.w == 78);
+    CHECK(end.h == 60);
 }

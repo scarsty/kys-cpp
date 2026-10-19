@@ -81,6 +81,7 @@ struct SessionMenuData
     bool shortChoice{};
     bool shopMode{};
     bool overviewMode{};
+    bool doubleClickConfirms{};
     std::string actionLabel = "選擇";
     std::string headerNote;
     int selectedItem = -1;
@@ -447,6 +448,7 @@ int runSelection(
     auto menu = std::make_shared<ChessSelectionScreen>(title, std::move(cards));
     menu->setBrowseOnly(data.browseOnly);
     menu->setShopMode(data.shopMode);
+    menu->setDoubleClickConfirms(data.doubleClickConfirms);
     menu->setCommandMode(data.commandMode || (!detailRenderer && data.cards.empty()));
     if (data.shortChoice) menu->setShortChoiceMode();
     if (data.overviewMode) menu->setOverviewMode();
@@ -1439,7 +1441,8 @@ void ChessGuiSessionAdapter::showBanManagement()
         data.labels = alignedMenuLabels(labelRows);
         data.cards = roleCards(session_, roleIds);
         data.actionLabel = "封禁";
-        data.headerNote = std::format("已禁 {}/{} · 剩餘 {} · 本局永久；保留持有棋子與當輪商店",
+        data.doubleClickConfirms = true;
+        data.headerNote = std::format("已禁 {}/{} · 剩餘 {} · 雙擊棋子或選取後按封禁 · 本局永久",
             observation.bans.size(), maximum, std::max(0, maximum - static_cast<int>(observation.bans.size())));
         for (int i = 0; i < static_cast<int>(rows.size()); ++i)
         {
@@ -1462,16 +1465,12 @@ void ChessGuiSessionAdapter::showBanManagement()
         ChessAction action;
         action.type = ChessActionType::AddBan;
         action.roleId = rows[choice].roleId;
-        if (!confirmChessBan(session_.content().role(action.roleId)->Name)) continue;
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
             showChessMessage(result.description);
             continue;
         }
-        const auto* role = session_.content().role(action.roleId);
-        assert(role);
-        showChessMessage(std::format("已封禁：{}", role->Name));
     }
 }
 
@@ -1499,14 +1498,16 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
     data.labels = alignedMenuLabels(labelRows);
     data.cards = roleCards(session_, roleIds);
     data.actionLabel = "封禁";
-    const std::string title = forced
+    data.doubleClickConfirms = true;
+    const std::string title = forced ? "禁棋選擇" : "禁棋管理";
+    data.headerNote = forced
         ? std::format(
-            "禁棋選擇 (≤{}費)　剩餘{}/{}",
+            "≤{}費 · 剩餘 {}/{} · 雙擊棋子或選取後按封禁 · 本局永久",
             session_.state().pendingRewards.front().eligibleTiers.front(),
             session_.state().pendingRewards.front().parameter,
             session_.state().pendingRewards.front().choiceCount)
         : std::format(
-            "禁棋管理　已禁{}/{}　剩餘{}",
+            "已禁 {}/{} · 剩餘 {} · 雙擊棋子或選取後按封禁 · 本局永久",
             session_.state().bannedRoleIds.size(),
             ChessManagementRules::maximumBanCount(session_.state(), session_.content()),
             std::max(0, ChessManagementRules::maximumBanCount(session_.state(), session_.content())
@@ -1529,17 +1530,10 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
     ChessAction action;
     action.type = ChessActionType::AddBan;
     action.roleId = descriptor.candidateIds[choice];
-    if (!confirmChessBan(session_.content().role(action.roleId)->Name)) return true;
     const auto result = submitGuiAction(action);
     if (!result.accepted)
     {
         showChessMessage(result.description);
-    }
-    else
-    {
-        const auto* role = session_.content().role(action.roleId);
-        assert(role);
-        showChessMessage(std::format("禁棋：{}", role->Name));
     }
     return true;
 }

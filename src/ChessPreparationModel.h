@@ -2,12 +2,13 @@
 
 #include "ChessCombo.h"
 #include "ChessManagementRules.h"
+#include "ChessPointerGestures.h"
+#include "ChessScreenLayout.h"
 
 #include <algorithm>
 #include <cassert>
 #include <optional>
 #include <string>
-#include <span>
 
 namespace KysChess
 {
@@ -51,7 +52,7 @@ struct ChessPreparationSelection
     }
 };
 
-// 第一次點選鎖定操作，第二次才執行。觸控花費與出售／封禁共用。
+// 第一次點選鎖定操作，第二次才執行。觸控花費與出售共用。
 // 不設時間限制，讓玩家能讀完資訊；切換操作、取消或開啟模態時解除。
 struct ChessPreparationConfirmation
 {
@@ -67,28 +68,51 @@ struct ChessPreparationConfirmation
     void cancelUnless(const std::string& key) { if (armedKey != key) reset(); }
 };
 
-// SDL 的滑鼠雙擊計數搭配穩定控制項身分；觸控沿用相同的 500ms 點擊間隔。
-// 成功派送後吞掉同一串連點，避免移位後誤操作鄰格或把剛上陣的棋子撤回。
-struct ChessPreparationPortraitClicks
-{
-    std::string key;
-    uint64_t lastTimestamp{};
-    bool consumed{};
+enum class ChessPreparationView { Piece, Equipment, Information, Attributes, Ability, Neigongs, Neigong };
 
-    bool release(const std::string& target, uint8_t clicks, uint64_t timestamp, bool touch)
+// 整備的顯示順序保留原有位置，新上／下陣的棋子排在目的地末尾。
+// 戰場站位仍由 formationSlots 管理，不因整備動畫而改動。
+struct ChessPreparationRosterOrder
+{
+    std::vector<int> deployed;
+    std::vector<int> bench;
+
+    void reconcile(const ChessSessionState& state)
     {
-        const bool close = timestamp >= lastTimestamp && timestamp - lastTimestamp <= 500000000;
-        if (consumed && close) { lastTimestamp = timestamp; return false; }
-        const bool doubleClick = key == target && close && (touch || clicks == 2);
-        key = target;
-        lastTimestamp = timestamp;
-        consumed = doubleClick;
-        return doubleClick;
+        const auto keep = [&](std::vector<int>& ids, bool isDeployed) {
+            std::erase_if(ids, [&](int id) {
+                const auto found = state.roster.find(id);
+                return found == state.roster.end() || found->second.deployed != isDeployed;
+            });
+        };
+        keep(deployed, true);
+        keep(bench, false);
+        for (int id : state.formationSlots)
+            if (id >= 0 && !std::ranges::contains(deployed, id)) deployed.push_back(id);
+        for (const auto& [id, piece] : state.roster)
+            if (!piece.deployed && !std::ranges::contains(bench, id)) bench.push_back(id);
     }
-    void reset() { *this = {}; }
 };
 
-enum class ChessPreparationView { Piece, Equipment, Information, Replacement, Attributes, Ability, Neigongs, Neigong };
+struct ChessPreparationCardMotion
+{
+    PanelFrame from{};
+    PanelFrame to{};
+    double startedAt{};
+    static constexpr double duration = 220;
+
+    bool active(double now) const { return now < startedAt + duration; }
+    PanelFrame frame(double now) const
+    {
+        const double t = std::clamp((now - startedAt) / duration, 0.0, 1.0);
+        const double eased = 1 - (1 - t) * (1 - t) * (1 - t);
+        const auto interpolate = [eased](int start, int end) {
+            return static_cast<int>(start + (end - start) * eased + 0.5);
+        };
+        return {interpolate(from.x, to.x), interpolate(from.y, to.y),
+            interpolate(from.w, to.w), interpolate(from.h, to.h)};
+    }
+};
 
 // 滑過只預覽；釘選後移動游標不會換物品，捲動亦不影響裝備選取。
 struct ChessPreparationEquipmentPopover
@@ -111,20 +135,8 @@ inline void reconcileChessPreparationView(ChessPreparationSelection& selection,
 {
     selection.reconcile(state);
     if (selection.instanceId < 0 && selection.shopRoleId < 0
-        && (view == ChessPreparationView::Attributes || view == ChessPreparationView::Ability
-            || view == ChessPreparationView::Replacement))
+        && (view == ChessPreparationView::Attributes || view == ChessPreparationView::Ability))
         view = ChessPreparationView::Piece;
-}
-
-inline std::vector<int> chessPreparationVisibleFormation(
-    std::span<const int> formation, int capacity)
-{
-    assert(formation.size() == kChessFormationSlotCount);
-    std::vector<int> slots;
-    for (int id : formation) if (id >= 0) slots.push_back(id);
-    assert(static_cast<int>(slots.size()) <= capacity);
-    slots.resize(capacity, -1);
-    return slots;
 }
 
 struct ChessPreparationNavigationContext
@@ -170,47 +182,14 @@ inline std::optional<int> chessPreparationPurchaseDestination(
     return std::nullopt;
 }
 
-inline ChessAction chessPreparationDeployment(
-    const ChessSessionState& state, int incomingId, int outgoingId = -1)
+inline ChessAction chessPreparationDeployment(const ChessSessionState& state, int instanceId)
 {
     ChessAction action;
     action.type = ChessActionType::SetDeployment;
     for (const auto& [id, piece] : state.roster)
-        if (piece.deployed && id != outgoingId) action.chessInstanceIds.push_back(id);
-    if (incomingId >= 0)
-    {
-        assert(state.roster.contains(incomingId) && !state.roster.at(incomingId).deployed);
-        action.chessInstanceIds.push_back(incomingId);
-    }
+        if (piece.deployed && id != instanceId) action.chessInstanceIds.push_back(id);
+    if (!state.roster.at(instanceId).deployed) action.chessInstanceIds.push_back(instanceId);
     return action;
-}
-
-struct ChessPreparationComboChange
-{
-    std::string name;
-    ChessComboProgress before;
-    ChessComboProgress after;
-};
-
-inline std::vector<ChessPreparationComboChange> chessPreparationReplacementPreview(
-    const ChessSessionState& state, const ChessGameContent& content, int incomingId, int outgoingId)
-{
-    assert(state.roster.contains(incomingId) && !state.roster.at(incomingId).deployed);
-    assert(state.roster.contains(outgoingId) && state.roster.at(outgoingId).deployed);
-    auto projected = state;
-    projected.roster.at(incomingId).deployed = true;
-    projected.roster.at(outgoingId).deployed = false;
-    std::vector<ChessPreparationComboChange> changes;
-    for (const auto& combo : content.combos())
-    {
-        auto before = evaluateChessComboProgress(state, content, combo);
-        auto after = evaluateChessComboProgress(projected, content, combo);
-        if (before.effectiveCount != after.effectiveCount
-            || before.activeThresholdIndex != after.activeThresholdIndex
-            || before.requiredCounts != after.requiredCounts)
-            changes.push_back({combo.name, std::move(before), std::move(after)});
-    }
-    return changes;
 }
 
 } // namespace KysChess

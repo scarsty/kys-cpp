@@ -207,7 +207,6 @@ void showChessMessage(const std::string& text, int fontSize = 32);
 enum class ChessChoiceStyle { Options, Confirmation, DestructiveConfirmation };
 int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
     ChessChoiceStyle style = ChessChoiceStyle::Options);
-bool confirmChessBan(const std::string& roleName);
 void playChessUpgradeSound();
 int getRandomChessMusic();
 int getRandomBattleMusic();
