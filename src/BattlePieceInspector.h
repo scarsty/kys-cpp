@@ -4,6 +4,7 @@
 #include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeEffects.h"
 
+#include <algorithm>
 #include <format>
 
 namespace KysChess
@@ -17,6 +18,9 @@ enum class BattleEffectIcon
     Berserk, Shield, Health, Attack, Defence, Speed,
 };
 
+// 顯示優先序：有時限的效果、可消耗的護盾／次數、持續修正。
+enum class BattleEffectLifetime { Timed, Consumable, Ongoing };
+
 struct BattlePieceEffectRow
 {
     std::string name;
@@ -27,6 +31,7 @@ struct BattlePieceEffectRow
     std::string detail;
     BattleEffectIcon icon{};
     bool negative{};
+    BattleEffectLifetime lifetime{};
 };
 
 inline BattleEffectIcon battleInspectorStatusIcon(BattleStatusKind status)
@@ -157,7 +162,8 @@ inline std::vector<BattlePieceEffectRow> battlePieceEffectRows(
     {
         if (amount > 0) rows.push_back({.name = std::string(name),
             .value = timed ? "" : std::to_string(amount),
-            .duration = timed ? battleInspectorDuration(amount) : "", .icon = icon});
+            .duration = timed ? battleInspectorDuration(amount) : "", .icon = icon,
+            .lifetime = timed ? BattleEffectLifetime::Timed : BattleEffectLifetime::Consumable});
     };
     protection("護盾", unit.shield, false, BattleEffectIcon::Shield);
     protection("無敵", unit.invincible, true, BattleEffectIcon::DamageBlock);
@@ -176,7 +182,9 @@ inline std::vector<BattlePieceEffectRow> battlePieceEffectRows(
             .duration = battleInspectorDuration(status.remainingFrames > 0
                 ? std::optional<std::int64_t>(status.remainingFrames) : std::nullopt),
             .source = source(status.sourceUnitId), .icon = battleInspectorStatusIcon(status.kind),
-            .negative = catalog.negative});
+            .negative = catalog.negative,
+            .lifetime = status.remainingFrames > 0 ? BattleEffectLifetime::Timed
+                : charges ? BattleEffectLifetime::Consumable : BattleEffectLifetime::Ongoing});
     }
     const auto remaining = [&](const auto& modifier) -> std::optional<std::int64_t>
     {
@@ -197,7 +205,8 @@ inline std::vector<BattlePieceEffectRow> battlePieceEffectRows(
             .quantity = std::format("{}層", modifier.stackCount),
             .duration = battleInspectorDuration(remaining(modifier)), .source = source(modifier.binding.ownerUnitId),
             .detail = modifier.eventSourceUnitId >= 0 ? "限定對象：" + runtime.units.requireCore(modifier.eventSourceUnitId).name : "",
-            .icon = battleInspectorAttributeIcon(modifier.attribute), .negative = modifier.negative});
+            .icon = battleInspectorAttributeIcon(modifier.attribute), .negative = modifier.negative,
+            .lifetime = modifier.expiresFrameExclusive ? BattleEffectLifetime::Timed : BattleEffectLifetime::Ongoing});
     }
     for (const auto& modifier : runtime.effectCommands.damageModifiers)
     {
@@ -223,7 +232,8 @@ inline std::vector<BattlePieceEffectRow> battlePieceEffectRows(
             channel), .value = amount, .quantity = std::format("{}層", modifier.stackCount),
             .duration = battleInspectorDuration(remaining(modifier)), .source = source(modifier.binding.ownerUnitId),
             .detail = stage, .icon = modifier.perspective == DamageModifierPerspective::Outgoing
-                ? BattleEffectIcon::Attack : BattleEffectIcon::Defence, .negative = modifier.negative});
+                ? BattleEffectIcon::Attack : BattleEffectIcon::Defence, .negative = modifier.negative,
+            .lifetime = modifier.expiresFrameExclusive ? BattleEffectLifetime::Timed : BattleEffectLifetime::Ongoing});
     }
     for (const auto& absorption : runtime.effectCommands.damageAbsorptions)
     {
@@ -231,8 +241,12 @@ inline std::vector<BattlePieceEffectRow> battlePieceEffectRows(
         rows.push_back({.name = "傷害吸收", .value = std::format("{}%", absorption.absorbedPct),
             .duration = battleInspectorDuration(absorption.expiresFrameExclusive - runtime.movement.frame),
             .source = source(absorption.binding.ownerUnitId), .detail = std::format("已吸收 {}", absorption.accumulatedDamage),
-            .icon = BattleEffectIcon::Shield});
+            .icon = BattleEffectIcon::Shield, .lifetime = BattleEffectLifetime::Timed});
     }
+    std::stable_sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) {
+        if (a.lifetime != b.lifetime) return a.lifetime < b.lifetime;
+        return a.negative < b.negative;
+    });
     return rows;
 }
 }

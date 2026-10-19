@@ -78,6 +78,7 @@ protected:
     BattleControlLayout battleControlLayout() const;
     int pieceAtPoint(SDL_FPoint point) const;
     void selectPieceAtPoint(SDL_FPoint point);
+    void dismissPieceInspector();
     bool canToggleBattlePause() const;
     void toggleBattlePause();
     void setBattlePaused(bool paused);
@@ -171,8 +172,7 @@ protected:
     std::vector<PieceHitTarget> piece_hit_targets_;
     int inspected_unit_id_ = -1;
     bool inspector_pinned_{};
-    int inspector_scroll_{};
-    int inspector_max_scroll_{};
+    BattleInspectorLayout inspector_layout_{};
     std::optional<PointerIdentity> piece_pointer_;
     SDL_FPoint piece_press_position_{};
     int pressed_unit_id_ = -1;

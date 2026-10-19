@@ -82,10 +82,6 @@ private:
 
     struct Layout
     {
-        bool compact{};
-        int rowsPerColumn{};
-        int columnW{};
-        int columnGap{};
         int panelX{};
         int panelY{};
         int panelW{};
@@ -111,10 +107,6 @@ private:
     int rowIndex(Row row) const;
     Row rowFromIndex(int index) const;
     int rowTop(const Layout& layout, Row row) const;
-    int rowLeft(const Layout& layout, Row row) const;
-    int rowWidth(const Layout& layout, Row row) const;
-    int valueLeft(const Layout& layout, Row row) const;
-    int sliderLeft(const Layout& layout, Row row) const;
     std::optional<Row> rowAt(const Layout& layout, int x, int y) const;
     bool isActionRow(Row row) const;
     int actionX(const Layout& layout, Row row) const;

@@ -1,6 +1,7 @@
 #include "BattleSceneControls.h"
 
 #include <cassert>
+#include <algorithm>
 
 namespace
 {
@@ -47,6 +48,43 @@ BattleControlLayout makeBattleControlLayout(int uiWidth)
     layout.set(BattleControlId::CameraMode, button(1, 1));
     layout.set(BattleControlId::PaperView, button(2, 1));
     return layout;
+}
+
+BattleInspectorLayout makeBattleInspectorLayout(std::span<const int> cardHeights, int page)
+{
+    BattleInspectorLayout layout;
+    layout.pages.emplace_back();
+    for (int row = 0; row < int(cardHeights.size()); ++row)
+    {
+        const int height = cardHeights[row];
+        assert(height > 0 && height <= BattleInspectorLayout::effectCapacity);
+        auto* current = &layout.pages.back();
+        const int gap = current->rowCount > 0 ? BattleInspectorLayout::effectGap : 0;
+        if (current->height + gap + height > BattleInspectorLayout::effectCapacity)
+        {
+            layout.pages.push_back({.firstRow = row});
+            current = &layout.pages.back();
+        }
+        current->height += (current->rowCount > 0 ? BattleInspectorLayout::effectGap : 0) + height;
+        ++current->rowCount;
+    }
+    layout.page = std::clamp(page, 0, int(layout.pages.size()) - 1);
+    // 多頁時保持欄高，換頁不會讓游標下的控制位置跳動。
+    const int height = layout.pages.size() > 1 ? 688
+        : BattleInspectorLayout::effectHeader + std::max(28, layout.pages.front().height) + 12;
+    layout.effects = {16, 704 - height, 276, height};
+    return layout;
+}
+
+void addBattleInspectorControls(BattleControlLayout& controls, const BattleInspectorLayout& inspector)
+{
+    controls.set(BattleControlId::InspectorBody, BattleInspectorLayout::summary);
+    controls.set(BattleControlId::InspectorEffects, inspector.effects);
+    if (inspector.pages.size() > 1)
+    {
+        controls.set(BattleControlId::InspectorPrevious, BattleInspectorLayout::previous);
+        controls.set(BattleControlId::InspectorNext, BattleInspectorLayout::next);
+    }
 }
 
 BattleControlId BattleControlCapture::onDown(PointerIdentity pointer, SDL_FPoint point, const BattleControlLayout& layout)

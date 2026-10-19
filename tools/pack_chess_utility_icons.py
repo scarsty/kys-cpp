@@ -17,6 +17,9 @@ NAMES = ("character", "formation", "load", "save", "search", "transfer")
 SOURCE_ICONS = {39: "ban", 40: "catalog", 41: "expedition", 42: "duel"}
 CHARACTER_NAMES = ("luck", "victory", "light-strike", "heavy-strike", "ranged-strike")
 CHARACTER_SOURCES = ROOT.parent / "asset-sources/chess-character-icons"
+BATTLE_SOURCES = ROOT / "tmp/asset-sources/battle-controls"
+BATTLE_NAMES = ("play", "pause", "speed", "camera-follow", "camera-free",
+                "view-2d", "view-3d", "flag", "list", "map")
 
 
 def encode_icon(glyph: Image.Image) -> bytes:
@@ -25,26 +28,16 @@ def encode_icon(glyph: Image.Image) -> bytes:
     return output.getvalue()
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--ban-only", action="store_true", help="只更新封禁圖示，保留現有操作圖示")
-    selection.add_argument("--navigation-only", action="store_true", help="只更新圖簽、遠征與離線對戰圖示")
-    selection.add_argument("--character-only", action="store_true", help="只更新賭運、勝場與武學類型圖示")
-    parser.add_argument("--character-sources", type=Path, default=CHARACTER_SOURCES,
-                        help="角色圖示來源目錄，預設使用儲存庫外的 asset-sources/chess-character-icons")
-    args = parser.parse_args()
-    source_only = args.ban_only or args.navigation_only or args.character_only
-    atlas = None if source_only else Image.open(ATLAS).convert("RGB")
-    new_icons = {}
-    for index, name in enumerate(() if source_only else NAMES):
-        column, row = index % 3, index // 3
-        left = round(column * atlas.width / 3) + 9
-        top = round(row * atlas.height / 3) + 9
-        right = round((column + 1) * atlas.width / 3) - 9
-        bottom = round((row + 1) * atlas.height / 3) - 9
-        mask = ImageOps.grayscale(atlas.crop((left, top, right, bottom)))
-        mask = mask.point(lambda value: 255 if value >= 128 else 0)
+def mask_atlas_icons(atlas: Image.Image, names: tuple[str, ...], columns: int,
+                     rows: int, first_id: int) -> dict[str, bytes]:
+    icons = {}
+    for index, name in enumerate(names):
+        column, row = index % columns, index // columns
+        bounds = (round(column * atlas.width / columns) + 9,
+                  round(row * atlas.height / rows) + 9,
+                  round((column + 1) * atlas.width / columns) - 9,
+                  round((row + 1) * atlas.height / rows) - 9)
+        mask = ImageOps.grayscale(atlas.crop(bounds)).point(lambda value: 255 if value >= 128 else 0)
         bounds = mask.getbbox()
         assert bounds, name
         mask = mask.crop(bounds)
@@ -53,10 +46,29 @@ def main() -> None:
         alpha = Image.new("L", glyph.size)
         alpha.paste(mask, ((96 - mask.width) // 2, (96 - mask.height) // 2))
         glyph.putalpha(alpha)
-        new_icons[f"{22 + index}.webp"] = encode_icon(glyph)
+        icons[f"{first_id + index}.webp"] = encode_icon(glyph)
+    return icons
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--ban-only", action="store_true", help="只更新封禁圖示，保留現有操作圖示")
+    selection.add_argument("--navigation-only", action="store_true", help="只更新圖簽、遠征與離線對戰圖示")
+    selection.add_argument("--character-only", action="store_true", help="只更新賭運、勝場與武學類型圖示")
+    selection.add_argument("--battle-only", action="store_true", help="只更新戰鬥控制圖示（29–38）")
+    parser.add_argument("--character-sources", type=Path, default=CHARACTER_SOURCES,
+                        help="角色圖示來源目錄，預設使用儲存庫外的 asset-sources/chess-character-icons")
+    args = parser.parse_args()
+    source_only = args.ban_only or args.navigation_only or args.character_only or args.battle_only
+    atlas = None if source_only else Image.open(ATLAS).convert("RGB")
+    new_icons = {} if source_only else mask_atlas_icons(atlas, NAMES, 3, 2, 22)
+    if args.battle_only or not source_only:
+        battle_atlas = Image.open(BATTLE_SOURCES / "atlas.png").convert("RGB")
+        new_icons.update(mask_atlas_icons(battle_atlas, BATTLE_NAMES, 5, 2, 29))
 
     # 與既有圖示共用 96 像素畫布；保留生成來源的透明度及留白。
-    for icon_id, name in (() if args.character_only else SOURCE_ICONS.items()):
+    for icon_id, name in (() if args.character_only or args.battle_only else SOURCE_ICONS.items()):
         if args.ban_only and name != "ban" or args.navigation_only and name == "ban":
             continue
         glyph = Image.open(SOURCES / f"chess-{name}.webp").convert("RGBA")
@@ -85,7 +97,7 @@ def main() -> None:
         for name, content in (*existing.items(), *new_icons.items()):
             destination.writestr(name, content)
     packed = existing | new_icons
-    preview_ids = [icon_id for icon_id in (*range(22, 28), *SOURCE_ICONS, *range(44, 49)) if f"{icon_id}.webp" in packed]
+    preview_ids = [icon_id for icon_id in (*range(22, 28), *range(29, 39), *SOURCE_ICONS, *range(44, 49)) if f"{icon_id}.webp" in packed]
     preview = Image.new("RGBA", (len(preview_ids) * 112, 112), (25, 23, 22, 255))
     for index, icon_id in enumerate(preview_ids):
         glyph = Image.open(BytesIO(packed[f"{icon_id}.webp"])).convert("RGBA")

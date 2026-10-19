@@ -44,21 +44,7 @@ ChessSelectionScreen::ChessSelectionScreen(std::string title, std::vector<ChessS
 void ChessSelectionScreen::onEntrance()
 {
     onPointerInputReset();
-    updateCompact();
     expand(expanded_);
-}
-
-void ChessSelectionScreen::updateCompact()
-{
-    const auto* engine = Engine::getInstance();
-    const bool compact = layout_ != ChessSelectionLayout::Talent && layout_ != ChessSelectionLayout::Overview
-        && layout_ != ChessSelectionLayout::Tabbed
-        && chessSelectionCompact(engine->getPresentWidth(), engine->getPresentHeight());
-    if (compact == compact_) return;
-    compact_ = compact;
-    const auto found = std::ranges::find(visible_, selected_);
-    page_ = found == visible_.end() ? 0 : static_cast<int>(found - visible_.begin()) / pageSize();
-    ++revision_;
 }
 
 void ChessSelectionScreen::setSelectedItem(int index)
@@ -129,8 +115,8 @@ void ChessSelectionScreen::button(SDL_Rect frame, const std::string& text, std::
         .selected = selected, .focused = enabled && keyboard_ && focused_ == static_cast<int>(controls_.size()),
         .disabled = !enabled, .primary = primary, .action = action};
     controlSurface(frame, state);
-    const int inset = symbol ? (compact_ ? 44 : 32) : 0;
-    const int size = std::min(compact_ ? 28 : Type::body,
+    const int inset = symbol ? 32 : 0;
+    const int size = std::min(Type::body,
         (frame.w - 20 - inset) * 2 / std::max(1, Font::getTextDrawSize(text)));
     controlLabel(frame, text, size, controlText(state), symbol);
     if (enabled) control(frame, std::move(activate));
@@ -139,7 +125,7 @@ void ChessSelectionScreen::button(SDL_Rect frame, const std::string& text, std::
 void ChessSelectionScreen::characterInspector(const ChessCharacterPresentation& character, SDL_Rect frame,
     std::optional<SDL_Rect> navigationFrame)
 {
-    auto content = composeChessCharacterInspector(character, frame, characterInspector_, compact_, navigationFrame);
+    auto content = composeChessCharacterInspector(character, frame, characterInspector_, navigationFrame);
     for (const auto& itemControl : content.controls)
     {
         button(itemControl.frame, itemControl.label, [this, itemControl] {
@@ -160,29 +146,29 @@ void ChessSelectionScreen::characterInspector(const ChessCharacterPresentation& 
 void ChessSelectionScreen::inspector()
 {
     const auto& item = items_[selected_];
-    SDL_Rect frame = compact_ ? SDL_Rect{568, 112, 696, 592} : SDL_Rect{904, 80, 360, 560};
-    if (!browseOnly_) frame.h -= compact_ ? 96 : 64;
+    SDL_Rect frame{904, 80, 360, 560};
+    if (!browseOnly_) frame.h -= 64;
     panel(frame.x, frame.y, frame.w, frame.h);
     if (item.character) characterInspector(*item.character, frame);
     else
     {
         const int x = frame.x + 12, y = frame.y + 12, width = frame.w - 24;
-        const int art = compact_ ? 100 : 78, size = compact_ ? 30 : 22;
+        const int art = 78, size = 22;
         image(item.image, {x, y, art, art});
         label(item.title, size, x + art + 12, y + 2, layout_ == ChessSelectionLayout::ShortChoice ? item.accent : ink, width - art - 12, 2);
-        label(item.badge, compact_ ? 24 : 16, x + art + 12, y + art - 24, item.accent, width - art - 12);
+        label(item.badge, 16, x + art + 12, y + art - 24, item.accent, width - art - 12);
         int bodyY = y + art + 12;
         if (!item.subtitle.empty())
         {
-            label(item.subtitle, compact_ ? 24 : 17, x, bodyY, muted, width, 2);
-            bodyY += compact_ ? 64 : 48;
+            label(item.subtitle, 17, x, bodyY, muted, width, 2);
+            bodyY += 48;
         }
-        const int actionHeight = compact_ ? 84 : 44;
+        const int actionHeight = 44;
         const int actionY = frame.y + frame.h - actionHeight - 12;
         const bool hasDetails = detailRenderer_ || !item.detailTabs.empty() || !item.description.empty();
         if (!item.effectRows.empty())
         {
-            const int fontSize = compact_ ? 26 : 18;
+            const int fontSize = 18;
             const int height = frame.y + frame.h - bodyY - 12;
             auto pages = paginatePanelText(item.effectRows, width, fontSize, height);
             if (pages.size() > 1)
@@ -193,11 +179,11 @@ void ChessSelectionScreen::inspector()
                 Font::getInstance()->draw(row.text, row.fontSize, x + row.indentPixels, bodyY + row.y, panelTextColor(row.tone));
             if (detailScrollMax_ > 0)
             {
-                const int arrow = compact_ ? 84 : 44;
+                const int arrow = 44;
                 if (detailScroll_ > 0) button({x, actionY, arrow, actionHeight}, {},
                     [this] { --detailScroll_; }, false, Icon::Up);
-                label(std::format("{} / {}", detailScroll_ + 1, detailScrollMax_ + 1), compact_ ? 26 : 16,
-                    x + arrow + 8, actionY + (compact_ ? 28 : 14), muted, 100);
+                label(std::format("{} / {}", detailScroll_ + 1, detailScrollMax_ + 1), 16,
+                    x + arrow + 8, actionY + 14, muted, 100);
                 if (detailScroll_ < detailScrollMax_) button({x + width - arrow, actionY, arrow, actionHeight}, {},
                     [this] { ++detailScroll_; }, false, Icon::Down);
             }
@@ -208,7 +194,7 @@ void ChessSelectionScreen::inspector()
             if (!tabs.empty())
             {
                 detailTab_ = std::clamp(detailTab_, 0, static_cast<int>(tabs.size()) - 1);
-                const int tabHeight = compact_ ? 64 : 44;
+                const int tabHeight = 44;
                 for (int i = 0; i < static_cast<int>(tabs.size()); ++i)
                     button({x + i * width / static_cast<int>(tabs.size()), bodyY,
                         width / static_cast<int>(tabs.size()) - 4, tabHeight}, tabs[i].first,
@@ -218,7 +204,7 @@ void ChessSelectionScreen::inspector()
             if (detailRenderer_) detailRenderer_(selected_, {x, bodyY, width, actionY - bodyY - 12});
             else
             {
-                const int fontSize = compact_ ? 26 : 18, rowHeight = fontSize + 6;
+                const int fontSize = 18, rowHeight = fontSize + 6;
                 const auto rows = wrapLines(tabs.empty() ? item.description : tabs[detailTab_].second, width * 2 / fontSize);
                 const int count = std::max(1, (actionY - bodyY - 12) / rowHeight);
                 detailScrollMax_ = std::max(0, (static_cast<int>(rows.size()) - 1) / count);
@@ -227,16 +213,16 @@ void ChessSelectionScreen::inspector()
                     label(rows[detailScroll_ * count + i], fontSize, x, bodyY + i * rowHeight, ink, width);
                 if (detailScrollMax_ > 0)
                 {
-                    const int arrow = compact_ ? 84 : 44;
+                    const int arrow = 44;
                     if (detailScroll_ > 0) button({x, actionY, arrow, actionHeight}, {},
                         [this] { --detailScroll_; }, false, Icon::Up);
                     label(std::format("{} / {}", detailScroll_ + 1, detailScrollMax_ + 1),
-                        compact_ ? 26 : 16, x + arrow + 8, actionY + (compact_ ? 28 : 14), muted, compact_ ? 100 : 68);
-                    if (detailScroll_ < detailScrollMax_) button({x + arrow + (compact_ ? 112 : 76), actionY, arrow, actionHeight}, {},
+                        16, x + arrow + 8, actionY + 14, muted, 68);
+                    if (detailScroll_ < detailScrollMax_) button({x + arrow + 76, actionY, arrow, actionHeight}, {},
                         [this] { ++detailScroll_; }, false, Icon::Down);
                 }
             }
-            button({x + width - (compact_ ? 164 : 112), actionY, compact_ ? 164 : 112, actionHeight},
+            button({x + width - 112, actionY, 112, actionHeight},
                 "收起", [this] { expand(false); }, false, Icon::Collapse);
         }
         else
@@ -244,27 +230,27 @@ void ChessSelectionScreen::inspector()
             for (int i = 0; i < static_cast<int>(item.facts.size()); ++i)
             {
                 const int columnX = x + i % 2 * width / 2;
-                const int top = bodyY + i / 2 * (compact_ ? 76 : 56);
-                label(item.facts[i].first, compact_ ? 22 : 15, columnX, top, muted, width / 2 - 8);
-                label(item.facts[i].second, size, columnX, top + (compact_ ? 28 : 21), ink, width / 2 - 8);
+                const int top = bodyY + i / 2 * 56;
+                label(item.facts[i].first, 15, columnX, top, muted, width / 2 - 8);
+                label(item.facts[i].second, size, columnX, top + 21, ink, width / 2 - 8);
             }
-            bodyY += static_cast<int>((item.facts.size() + 1) / 2) * (compact_ ? 76 : 56);
-            const int summaryEnd = item.related.empty() ? actionY : actionY - (compact_ ? 112 : 92);
-            label(item.summary, compact_ ? 28 : 18, x, bodyY + 8, ink, width,
-                std::max(1, (summaryEnd - bodyY - 16) / (compact_ ? 36 : 24)));
+            bodyY += static_cast<int>((item.facts.size() + 1) / 2) * 56;
+            const int summaryEnd = item.related.empty() ? actionY : actionY - 92;
+            label(item.summary, 18, x, bodyY + 8, ink, width,
+                std::max(1, (summaryEnd - bodyY - 16) / 24));
             if (!item.related.empty())
             {
-                const int relatedY = actionY - (compact_ ? 104 : 84);
-                label(item.relatedTitle, compact_ ? 22 : 15, x, relatedY, muted, width);
+                const int relatedY = actionY - 84;
+                label(item.relatedTitle, 15, x, relatedY, muted, width);
                 for (int i = 0; i < std::min(6, static_cast<int>(item.related.size())); ++i)
-                    image(item.related[i], {x + i * width / 6, relatedY + (compact_ ? 30 : 24), width / 6 - 8, compact_ ? 64 : 48});
+                    image(item.related[i], {x + i * width / 6, relatedY + 24, width / 6 - 8, 48});
             }
             if (hasDetails) button({x, actionY, width, actionHeight}, "詳細資料", [this] { expand(true); }, false, Icon::Right);
         }
     }
     if (!browseOnly_)
     {
-        const SDL_Rect action = compact_ ? SDL_Rect{584, 612, 664, 84} : SDL_Rect{920, 588, 328, 52};
+        const SDL_Rect action = SDL_Rect{920, 588, 328, 52};
         panel(frame.x, action.y - 4, frame.w, action.h + 12);
         button(action, confirmationLabel(), [this] { exitWithResult(selected_); },
             true, std::nullopt, false, false, item.actionEnabled);
@@ -277,7 +263,7 @@ void ChessSelectionScreen::drawTopmostOverlay()
     const int index = keyboard_ ? focused_ : hit(PointerInput::instance().logicalPointerUiPosition());
     if (index < 0 || index >= static_cast<int>(controls_.size()) || controls_[index].tooltip.empty()) return;
     const auto& item = controls_[index];
-    const int width = compact_ ? 600 : 360, size = compact_ ? 26 : 18;
+    const int width = 360, size = 18;
     const auto lines = wrapLines(item.tooltip, (width - 24) * 2 / size);
     const int height = static_cast<int>(lines.size()) * (size + 4) + 24;
     const int x = std::clamp(item.frame.x, 12, 1268 - width);
@@ -290,45 +276,43 @@ void ChessSelectionScreen::drawTopmostOverlay()
 void ChessSelectionScreen::draw()
 {
     if (!isCurrentRunOwner()) return;
-    updateCompact();
     controls_.clear();
     // 與整備共用場景底圖及一層半透明表面，避免重複疊加遮罩。
     if (layout_ == ChessSelectionLayout::Dialog)
     {
-        const int dialogColumns = items_.size() == 2 ? 2 : compact_ ? 1 : 2;
-        const int rowHeight = compact_ ? 82 : 60;
+        const int dialogColumns = 2;
+        const int rowHeight = 60;
         const int rows = (static_cast<int>(items_.size()) + dialogColumns - 1) / dialogColumns;
-        const int noteSize = compact_ ? 24 : 18;
+        const int noteSize = 18;
         const auto noteRows = wrapLines(headerNote_, 736 * 2 / noteSize);
         const int noteHeight = static_cast<int>(noteRows.size()) * (noteSize + 6);
-        const int noteOffset = compact_ && !noteRows.empty() ? 28 : 0;
-        const int height = 120 + noteOffset + noteHeight + rows * (rowHeight + 12);
+        const int height = 120 + noteHeight + rows * (rowHeight + 12);
         const int top = (720 - height) / 2;
-        modalShell({240, top, 800, height}, title_, compact_);
-        if (exitable_) button({compact_ ? 948 : 984, top + 12, compact_ ? 80 : 44, compact_ ? 80 : 44},
+        modalShell({240, top, 800, height}, title_);
+        if (exitable_) button({984, top + 12, 44, 44},
             {}, [this] { onPressedCancel(); }, false, Icon::Close);
         for (int i = 0; i < static_cast<int>(noteRows.size()); ++i)
-            label(noteRows[i], noteSize, 272, top + 84 + noteOffset + i * (noteSize + 6), muted, 736);
+            label(noteRows[i], noteSize, 272, top + 84 + i * (noteSize + 6), muted, 736);
         for (int visual = 0; visual < static_cast<int>(items_.size()); ++visual)
         {
             const int i = dialogPrimary_ == 0 && items_.size() == 2 ? 1 - visual : visual;
             SDL_Rect frame{272 + visual % dialogColumns * 376,
-                top + 96 + noteOffset + noteHeight + visual / dialogColumns * (rowHeight + 12), dialogColumns == 1 ? 736 : 360, rowHeight};
+                top + 96 + noteHeight + visual / dialogColumns * (rowHeight + 12), 360, rowHeight};
             const ControlState state{.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
                 .focused = keyboard_ && focused_ == static_cast<int>(controls_.size()),
                 .primary = dialogPrimary_ == i && dialogDestructive_ != i,
                 .destructive = dialogDestructive_ == i};
             controlSurface(frame, state);
-            label(items_[i].title, compact_ ? 28 : 18, frame.x + 16,
-                frame.y + (frame.h - (compact_ ? 28 : 18)) / 2,
+            label(items_[i].title, 18, frame.x + 16,
+                frame.y + (frame.h - 18) / 2,
                 controlText(state), frame.w - 32, 2);
             control(frame, [this, i] { exitWithResult(i); });
         }
         return;
     }
-    ChessUiStyle::page(title_, {}, compact_ ? 30 : Type::sectionTitle);
+    ChessUiStyle::page(title_, {}, Type::sectionTitle);
     if (!headerNote_.empty()) label(headerNote_, Type::metadata, 220, 34, muted, 844);
-    if (exitable_) button(compact_ ? SDL_Rect{1008, 16, 240, 84} : SDL_Rect{1080, 20, 168, 44},
+    if (exitable_) button(SDL_Rect{1080, 20, 168, 44},
         "返回", [this] {
             if (browseOnly_ && inspection_) { closeInspection(); return; }
             if (!exitConfirmation_ || exitConfirmation_()) exitWithResult(-1);
@@ -357,9 +341,9 @@ void ChessSelectionScreen::draw()
     {
         const int first = page_ * pageSize();
         const int count = std::min(pageSize(), static_cast<int>(items_.size()) - first);
-        const int rowHeight = compact_ ? 88 : 64;
-        const int top = compact_ ? 116 : (720 - count * rowHeight) / 2;
-        const int left = compact_ ? 128 : 304, width = compact_ ? 1024 : 672;
+        const int rowHeight = 64;
+        const int top = (720 - count * rowHeight) / 2;
+        const int left = 304, width = 672;
         panel(left - 16, top - 12, width + 32, count * rowHeight + 24);
         for (int local = 0; local < count; ++local)
         {
@@ -369,26 +353,25 @@ void ChessSelectionScreen::draw()
             const ControlState state{.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
                 .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())};
             controlSurface(frame, state);
-            const int iconSize = compact_ ? 36 : 24;
+            const int iconSize = 24;
             image(item.image, {frame.x + 20, frame.y + (frame.h - iconSize) / 2, iconSize, iconSize});
-            label(item.title, compact_ ? 28 : 22, frame.x + 76, frame.y + (frame.h - (compact_ ? 28 : 22)) / 2, ink, frame.w - 104, 2);
+            label(item.title, 22, frame.x + 76, frame.y + (frame.h - 22) / 2, ink, frame.w - 104, 2);
             control(frame, [this, i] { exitWithResult(i); });
         }
         const int pages = std::max(1, (static_cast<int>(items_.size()) + pageSize() - 1) / pageSize());
         if (pages > 1)
         {
-            panel(left - 16, compact_ ? 604 : 644, width + 32, compact_ ? 100 : 60);
+            panel(left - 16, 644, width + 32, 60);
             label(std::format("{} / {} · 共 {} 項", page_ + 1, pages, items_.size()),
-                compact_ ? 26 : 18, 488, compact_ ? 640 : 666, muted, 320);
+                18, 488, 666, muted, 320);
         }
-        if (page_ > 0) button(compact_ ? SDL_Rect{368, 612, 88, 84} : SDL_Rect{368, 652, 64, 44},
+        if (page_ > 0) button(SDL_Rect{368, 652, 64, 44},
             {}, [this] { changePage(-1); }, false, Icon::Left);
         if (first + count < static_cast<int>(items_.size()))
-            button(compact_ ? SDL_Rect{824, 612, 88, 84} : SDL_Rect{824, 652, 64, 44},
+            button(SDL_Rect{824, 652, 64, 44},
                 {}, [this] { changePage(1); }, false, Icon::Right);
         return;
     }
-    if (compact_) { drawCompactCatalogue(); return; }
     panel(16, 80, 872, 560);
     int tabX = 32;
     const auto tab = [&](const std::string& caption, const std::string& category) {
@@ -666,20 +649,19 @@ void ChessSelectionScreen::drawTalent()
 
 void ChessSelectionScreen::drawChoice()
 {
-    panel(16, compact_ ? 112 : 80, compact_ ? 536 : 872, compact_ ? 592 : 560);
+    panel(16, 80, 872, 560);
     for (int index = 0; index < static_cast<int>(items_.size()); ++index)
     {
         const auto& item = items_[index];
-        const SDL_Rect frame = compact_ ? SDL_Rect{32, 128 + index * 166, 504, 154}
-            : SDL_Rect{32 + index * 284, 108, 272, 488};
+        const SDL_Rect frame{32 + index * 284, 108, 272, 488};
         controlSurface(frame, {.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
             .selected = selected_ == index, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
-        const int art = compact_ ? 72 : 128;
+        const int art = 128;
         image(item.image, {frame.x + 16, frame.y + 12, art, art});
-        label(item.title, compact_ ? 32 : 24, frame.x + (compact_ ? art + 28 : 20),
-            frame.y + (compact_ ? 26 : 168), item.accent, compact_ ? 376 : 232);
-        label(item.subtitle, compact_ ? 24 : 18, frame.x + 16, frame.y + (compact_ ? 100 : 218), muted, frame.w - 32, 2);
-        if (!compact_) label(item.summary, 20, frame.x + 16, frame.y + 282, ink, frame.w - 32, 6, 6);
+        label(item.title, 24, frame.x + 20,
+            frame.y + 168, item.accent, 232);
+        label(item.subtitle, 18, frame.x + 16, frame.y + 218, muted, frame.w - 32, 2);
+        label(item.summary, 20, frame.x + 16, frame.y + 282, ink, frame.w - 32, 6, 6);
         control(frame, [this, index] { select(index); });
         controls_.back().itemIndex = index;
     }
@@ -689,47 +671,6 @@ void ChessSelectionScreen::drawChoice()
 std::string ChessSelectionScreen::confirmationLabel() const
 {
     return layout_ == ChessSelectionLayout::Talent ? actionLabel_ + " · " + items_[selected_].title : actionLabel_;
-}
-
-void ChessSelectionScreen::drawCompactCatalogue()
-{
-    panel(16, 112, 536, 592);
-    if (categories_.size() > 1)
-        button({32, 120, 304, 84}, category_.empty() ? "全部分類" : category_, [this] {
-            const auto current = std::ranges::find(categories_, category_);
-            category_ = current == categories_.end() ? categories_.front()
-                : current + 1 == categories_.end() ? std::string{} : *(current + 1);
-            filter();
-        }, false, Icon::Refresh);
-    else label(std::format("{} 項", visible_.size()), 27, 40, 148, muted, 280);
-    if (searchEnabled_) button({360, 120, 176, 84}, "搜尋", [this] { search(); }, false, Icon::Search);
-    const int first = page_ * pageSize();
-    const int count = std::min(pageSize(), static_cast<int>(visible_.size()) - first);
-    for (int local = 0; local < count; ++local)
-    {
-        const int index = visible_[first + local];
-        const auto& item = items_[index];
-        SDL_Rect frame{32, 212 + local * 130, 504, 122};
-        controlSurface(frame, {.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
-            .selected = selected_ == index, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
-        image(item.image, {frame.x + 12, frame.y + 12, 96, 96});
-        const bool banned = item.character && item.character->banned;
-        if (banned) bannedOutline(frame);
-        label(item.title, 30, frame.x + 124, frame.y + 22, ink, frame.w - 140);
-        label(item.badge, 24, frame.x + 124, frame.y + 66, item.accent, frame.w - 140);
-        if (banned) label("已封禁", 24, frame.x + 300, frame.y + 66, negative, frame.w - 316);
-        control(frame, [this, index] { select(index); });
-        controls_.back().itemIndex = index;
-    }
-    if (visible_.empty()) label("沒有符合的項目", 30, 48, 232, muted, 480);
-    const int pages = std::max(1, (static_cast<int>(visible_.size()) + pageSize() - 1) / pageSize());
-    if (pages > 1)
-    {
-        if (page_ > 0) button({80, 612, 88, 84}, {}, [this] { changePage(-1); }, false, Icon::Left);
-        label(std::format("{} / {}", page_ + 1, pages), 26, 224, 644, muted, 160);
-        if (page_ + 1 < pages) button({400, 612, 88, 84}, {}, [this] { changePage(1); }, false, Icon::Right);
-    }
-    if (!visible_.empty()) inspector();
 }
 
 int ChessSelectionScreen::hit(SDL_FPoint point) const
@@ -754,7 +695,7 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
             detailScroll_ = std::clamp(detailScroll_ + (event.wheel.y > 0 ? -1 : 1), 0, detailScrollMax_);
             return PointerResult::Handled;
         }
-        const bool overInspector = event.uiPosition.x >= (compact_ ? 568 : 904);
+        const bool overInspector = event.uiPosition.x >= 904;
         if (!overInspector || (!expanded_ && items_[selected_].effectRows.empty())) changePage(event.wheel.y > 0 ? -1 : 1);
         else if (items_[selected_].character) characterInspector_.page += event.wheel.y > 0 ? -1 : 1;
         else detailScroll_ = std::clamp(detailScroll_ + (event.wheel.y > 0 ? -1 : 1), 0, detailScrollMax_);
@@ -860,8 +801,7 @@ void ChessSelectionScreen::onPressedOK()
     else if (expanded_ || inspection_.has_value() || layout_ == ChessSelectionLayout::Tabbed) return;
     else if (!visible_.empty())
     {
-        if (compact_ && layout_ == ChessSelectionLayout::Catalogue) expand(true);
-        else if (browseOnly_) { if (items_[selected_].character || detailRenderer_ || !items_[selected_].description.empty()) expand(true); }
+        if (browseOnly_) { if (items_[selected_].character || detailRenderer_ || !items_[selected_].description.empty()) expand(true); }
         else if (items_[selected_].actionEnabled) exitWithResult(selected_);
     }
 }
@@ -911,13 +851,11 @@ void ChessSelectionScreen::search()
         }
         void draw() override
         {
-            const bool compact = chessSelectionCompact(Engine::getInstance()->getPresentWidth(), Engine::getInstance()->getPresentHeight());
-            if (compact != compact_) arrangeControls();
             Engine::getInstance()->fillColor(canvasScrim, 0, 0, 1280, 720);
-            modalShell(frame_, title_, compact_);
-            const int size = compact_ ? 32 : 24;
-            const int y = frame_.y + (compact_ ? 116 : 84);
-            controlSurface({frame_.x + 24, y - 12, frame_.w - 48, compact_ ? 88 : 56}, {.focused = true});
+            modalShell(frame_, title_);
+            const int size = 24;
+            const int y = frame_.y + 84;
+            controlSurface({frame_.x + 24, y - 12, frame_.w - 48, 56}, {.focused = true});
             label(text_ + "|", size, frame_.x + 40, y, ink, frame_.w - 80);
             Engine::getInstance()->setTextInputArea(frame_.x + 40, y, frame_.w - 80, size);
         }
@@ -930,10 +868,9 @@ void ChessSelectionScreen::search()
     private:
         void arrangeControls()
         {
-            compact_ = chessSelectionCompact(Engine::getInstance()->getPresentWidth(), Engine::getInstance()->getPresentHeight());
-            frame_ = modalFrame(compact_);
-            const auto footer = actionFooter(frame_, compact_);
-            const int size = compact_ ? 30 : 18;
+            frame_ = modalFrame();
+            const auto footer = actionFooter(frame_);
+            const int size = 18;
             for (const auto& button : {cancel_, confirm_})
             {
                 button->setFontSize(size);
@@ -945,7 +882,6 @@ void ChessSelectionScreen::search()
             confirm_->setPosition(footer.trailing.x, footer.trailing.y);
         }
         std::shared_ptr<Button> confirm_, cancel_;
-        bool compact_{};
         SDL_Rect frame_{};
     };
     auto box = std::make_shared<SearchBox>();

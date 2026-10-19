@@ -9,7 +9,6 @@
 #include "SubScene.h"
 #include "UI.h"
 #include "ChessUiStyle.h"
-#include "ChessSelectionLayout.h"
 #include "ChessUiCommon.h"
 #include "Button.h"
 #include "filefunc.h"
@@ -47,19 +46,17 @@ void UISave::refreshEntries()
     strings.push_back("自動檔");
     strings.push_back("返回");
     setStrings(strings);
-    const bool compact = KysChess::chessSelectionCompact(
-        Engine::getInstance()->getPresentWidth(), Engine::getInstance()->getPresentHeight());
-    setFontSize(compact ? 30 : 24);
-    setFlatStyle(compact ? 1184 : 928, compact ? 104 : 64);
-    setPosition(compact ? 48 : 176, compact ? 132 : 128);
+    setFontSize(24);
+    setFlatStyle(928, 64);
+    setPosition(176, 128);
     childs_[0]->setVisible(false);    //屏蔽进度0
     forceActiveChild(1);
-    arrange(0, 0, 0, compact ? 108 : 64);
+    arrange(0, 0, 0, 64);
     auto back = std::static_pointer_cast<Button>(childs_.back());
-    back->setFlatStyle(compact ? 160 : 120, compact ? 80 : 44);
-    back->setFontSize(compact ? 28 : 20);
+    back->setFlatStyle(120, 44);
+    back->setFontSize(20);
     back->setFlatIcon(KysChess::ChessUiStyle::Icon::Left);
-    back->setPosition(Engine::getInstance()->getUIWidth() - (compact ? 176 : 152), 16);
+    back->setPosition(Engine::getInstance()->getUIWidth() - 152, 16);
 }
 
 void UISave::onEntrance()
@@ -74,21 +71,19 @@ void UISave::onEntrance()
 
 void UISave::draw()
 {
-    const bool compact = KysChess::chessSelectionCompact(
-        Engine::getInstance()->getPresentWidth(), Engine::getInstance()->getPresentHeight());
     KysChess::ChessUiStyle::page(mode_ == 1 ? "儲存進度" : "載入進度", "選擇存檔",
-        compact ? 30 : KysChess::ChessUiStyle::Type::pageTitle);
-    KysChess::ChessUiStyle::panel(compact ? 16 : 160, 96, compact ? 1248 : 960, compact ? 544 : 496);
+        KysChess::ChessUiStyle::Type::pageTitle);
+    KysChess::ChessUiStyle::panel(160, 96, 960, 496);
     for (int i = 1; i <= static_cast<int>(Slot::Auto); ++i)
     {
         if (mode_ == 1 && i == static_cast<int>(Slot::Auto)) continue;
-        const int y = (compact ? 158 : 148) + (i - 1) * (compact ? 108 : 64);
-        KysChess::ChessUiStyle::label(slotDisplay_[i].status, compact ? 28 : 20,
-            compact ? 344 : 420, y,
+        const int y = 148 + (i - 1) * 64;
+        KysChess::ChessUiStyle::label(slotDisplay_[i].status, 20,
+            420, y,
             slotDisplay_[i].status == "空檔" ? KysChess::ChessUiStyle::muted : KysChess::ChessUiStyle::ink,
-            compact ? 380 : 260);
-        KysChess::ChessUiStyle::label(slotDisplay_[i].timestamp, compact ? 24 : 18,
-            compact ? 768 : 744, y + 2, KysChess::ChessUiStyle::muted, compact ? 440 : 340);
+            260);
+        KysChess::ChessUiStyle::label(slotDisplay_[i].timestamp, 18,
+            744, y + 2, KysChess::ChessUiStyle::muted, 340);
     }
 }
 

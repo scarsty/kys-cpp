@@ -5,7 +5,6 @@
 #include "Engine.h"
 #include "Font.h"
 #include "ChessUiStyle.h"
-#include "ChessSelectionLayout.h"
 #include "GameUtil.h"
 
 #include <algorithm>
@@ -77,31 +76,6 @@ ChessSystemSettingsMenu::Layout ChessSystemSettingsMenu::layout() const
     const int uiH = engine->getUIHeight();
 
     Layout out;
-    out.compact = chessSelectionCompact(engine->getPresentWidth(), engine->getPresentHeight());
-    out.rowsPerColumn = (rowIndex(Row::Done) + 1) / 2;
-    if (out.compact)
-    {
-        out.panelW = uiW - 32;
-        out.panelH = uiH - 32;
-        out.panelX = 16;
-        out.panelY = 16;
-        out.rowX = 48;
-        out.rowY = 120;
-        out.rowW = uiW - 96;
-        out.rowH = out.rowsPerColumn <= 4 ? 88 : 80;
-        out.rowGap = out.rowsPerColumn <= 4 ? 20 : 8;
-        out.columnGap = 24;
-        out.columnW = (out.rowW - out.columnGap) / 2;
-        out.sliderW = out.columnW - 320;
-        out.actionButtonGap = 24;
-        out.actionButtonW = (out.rowW - out.actionButtonGap) / 2;
-        const auto footer = ChessUiStyle::actionFooter({out.rowX - 24, out.panelY,
-            out.rowW + 48, out.panelH}, true, out.actionButtonW, out.rowH);
-        out.actionCancelX = footer.leading.x;
-        out.actionDoneX = footer.trailing.x;
-        out.actionY = footer.leading.y;
-        return out;
-    }
     out.panelW = std::min(760, uiW - 80);
     out.panelH = std::min(Engine::supportsDesktopFullscreen() ? 660 : 610, uiH - 60);
     out.panelX = (uiW - out.panelW) / 2;
@@ -118,7 +92,7 @@ ChessSystemSettingsMenu::Layout ChessSystemSettingsMenu::layout() const
     out.actionButtonGap = 24;
     out.actionButtonW = (out.rowW - out.actionButtonGap) / 2;
     const auto footer = ChessUiStyle::actionFooter({out.rowX - 16, out.panelY,
-        out.rowW + 32, out.panelH - kFooterBottomPadding + 16}, false, out.actionButtonW, out.rowH);
+        out.rowW + 32, out.panelH - kFooterBottomPadding + 16}, out.actionButtonW, out.rowH);
     out.actionCancelX = footer.leading.x;
     out.actionDoneX = footer.trailing.x;
     out.actionY = footer.leading.y;
@@ -131,30 +105,7 @@ int ChessSystemSettingsMenu::rowTop(const Layout& layout, Row row) const
     {
         return layout.actionY;
     }
-    const int index = layout.compact ? rowIndex(row) % layout.rowsPerColumn : rowIndex(row);
-    return layout.rowY + index * (layout.rowH + layout.rowGap);
-}
-
-int ChessSystemSettingsMenu::rowLeft(const Layout& layout, Row row) const
-{
-    return layout.compact && !isActionRow(row)
-        ? layout.rowX + rowIndex(row) / layout.rowsPerColumn * (layout.columnW + layout.columnGap)
-        : layout.rowX;
-}
-
-int ChessSystemSettingsMenu::rowWidth(const Layout& layout, Row row) const
-{
-    return layout.compact && !isActionRow(row) ? layout.columnW : layout.rowW;
-}
-
-int ChessSystemSettingsMenu::valueLeft(const Layout& layout, Row row) const
-{
-    return layout.compact ? rowLeft(layout, row) + layout.columnW - 96 : layout.valueX;
-}
-
-int ChessSystemSettingsMenu::sliderLeft(const Layout& layout, Row row) const
-{
-    return layout.compact ? rowLeft(layout, row) + 210 : layout.sliderX;
+    return layout.rowY + rowIndex(row) * (layout.rowH + layout.rowGap);
 }
 
 std::optional<ChessSystemSettingsMenu::Row> ChessSystemSettingsMenu::rowAt(const Layout& layout, int x, int y) const
@@ -184,8 +135,8 @@ std::optional<ChessSystemSettingsMenu::Row> ChessSystemSettingsMenu::rowAt(const
             continue;
         }
         const int top = rowTop(layout, row);
-        const int left = rowLeft(layout, row);
-        if (x >= left && x <= left + rowWidth(layout, row) && y >= top && y <= top + layout.rowH)
+        const int left = layout.rowX;
+        if (x >= left && x <= left + layout.rowW && y >= top && y <= top + layout.rowH)
         {
             return row;
         }
@@ -308,7 +259,7 @@ void ChessSystemSettingsMenu::updateSliderDrag(int pointerX)
 
     const auto currentLayout = layout();
     volumeForRow(*draggingSlider_) = settingsSliderValueFromPointer(
-        pointerX, sliderLeft(currentLayout, *draggingSlider_), currentLayout.sliderW);
+        pointerX, currentLayout.sliderX, currentLayout.sliderW);
     applyPreview();
 }
 
@@ -501,7 +452,7 @@ void ChessSystemSettingsMenu::draw()
     const Color dividerColor = line;
 
     engine->fillColor(canvasScrim, 0, 0, engine->getUIWidth(), engine->getUIHeight());
-    modalShell({currentLayout.panelX, currentLayout.panelY, currentLayout.panelW, currentLayout.panelH}, "系統設定", currentLayout.compact);
+    modalShell({currentLayout.panelX, currentLayout.panelY, currentLayout.panelW, currentLayout.panelH}, "系統設定");
     engine->fillRoundedRect(dividerColor, currentLayout.rowX, currentLayout.actionY - kFooterDividerGap, currentLayout.rowW, 2, 1);
 
     const std::array<std::string, static_cast<int>(Row::Count)> labels = {
@@ -524,8 +475,8 @@ void ChessSystemSettingsMenu::draw()
         const Row row = rowFromIndex(i);
         const int top = rowTop(currentLayout, row);
         const bool actionRow = isActionRow(row);
-        const int itemX = actionRow ? actionX(currentLayout, row) : rowLeft(currentLayout, row);
-        const int itemW = actionRow ? currentLayout.actionButtonW : rowWidth(currentLayout, row);
+        const int itemX = actionRow ? actionX(currentLayout, row) : currentLayout.rowX;
+        const int itemW = actionRow ? currentLayout.actionButtonW : currentLayout.rowW;
         const auto pointer = PointerInput::instance().logicalPointerUiPosition();
         const bool hovered = pointer.x >= itemX && pointer.x < itemX + itemW && pointer.y >= top && pointer.y < top + currentLayout.rowH;
         controlSurface({itemX, top, itemW, currentLayout.rowH}, {.hovered = hovered,
@@ -533,31 +484,31 @@ void ChessSystemSettingsMenu::draw()
 
         if (actionRow)
         {
-            const int fontSize = currentLayout.compact ? 30 : Type::sectionTitle;
+            const int fontSize = Type::sectionTitle;
             const int textW = fontSize * Font::getTextDrawSize(labels[i]) / 2;
             font->draw(labels[i], fontSize, itemX + (itemW - textW) / 2,
                 top + (currentLayout.rowH - fontSize) / 2, row == Row::Done ? darkLabel : textColor);
             continue;
         }
 
-        const int fontSize = currentLayout.compact ? 29 : Type::sectionTitle;
+        const int fontSize = Type::sectionTitle;
         const int textY = top + (currentLayout.rowH - fontSize) / 2;
         font->draw(labels[i], fontSize,
-            currentLayout.compact ? itemX + 14 : currentLayout.labelX, textY, textColor);
+            currentLayout.labelX, textY, textColor);
 
         if (isVolumeRow(row))
         {
             const int value = volumeForRow(row);
             const int trackY = top + currentLayout.rowH / 2 - 4;
             const int fillW = currentLayout.sliderW * value / 100;
-            const int knobRadius = currentLayout.compact ? 16 : 11;
-            const int trackX = sliderLeft(currentLayout, row);
+            const int knobRadius = 11;
+            const int trackX = currentLayout.sliderX;
             const int knobCenterX = trackX + fillW;
             engine->fillRoundedRect(trackBg, trackX, trackY, currentLayout.sliderW, 8, 4);
             engine->fillRoundedRect(trackFill, trackX, trackY, fillW, 8, 4);
             engine->fillRoundedRect(knobColor, knobCenterX - knobRadius, trackY - 7, knobRadius * 2, knobRadius * 2, knobRadius);
             font->draw(std::format("{}%", value), fontSize,
-                valueLeft(currentLayout, row), textY, mutedTextColor);
+                currentLayout.valueX, textY, mutedTextColor);
             continue;
         }
 
@@ -605,11 +556,11 @@ void ChessSystemSettingsMenu::draw()
         }
         if (!value.empty())
         {
-            const int controlW = currentLayout.compact ? 156 : 136;
+            const int controlW = 136;
             const int controlX = itemX + itemW - controlW - 12;
             if (row == Row::BattleSpeed || row == Row::Language)
             {
-                const int iconSize = currentLayout.compact ? 28 : 20;
+                const int iconSize = 20;
                 controlSurface({controlX, top + 4, controlW, currentLayout.rowH - 8}, {});
                 asset("chess-preparation", iconId(Icon::Refresh), {controlX + controlW - iconSize - 8, top + (currentLayout.rowH - iconSize) / 2, iconSize, iconSize});
                 font->draw(value, fontSize, controlX + 10, textY, textColor);
@@ -617,8 +568,8 @@ void ChessSystemSettingsMenu::draw()
             else
             {
                 const bool enabled = value == "開";
-                const int h = currentLayout.compact ? 44 : 28;
-                const int w = currentLayout.compact ? 80 : 56;
+                const int h = 28;
+                const int w = 56;
                 const int switchX = controlX + controlW - w;
                 const int switchY = top + (currentLayout.rowH - h) / 2;
                 engine->fillRoundedRect(enabled ? actionHoverFill : trackBg, switchX, switchY, w, h, h / 2);

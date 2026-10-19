@@ -102,15 +102,14 @@ inline void applyChessInspectorControl(ChessCharacterInspectorState& state, cons
 
 // 整備、圖鑑與遠征共用同一個檢視器；容器只負責輸入、焦點及自己的操作按鈕。
 inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacterPresentation& character,
-    SDL_Rect frame, ChessCharacterInspectorState& state, bool compact,
+    SDL_Rect frame, ChessCharacterInspectorState& state,
     std::optional<SDL_Rect> navigationFrame = std::nullopt)
 {
     using namespace ChessUiStyle;
     ChessInspectorContent content;
     const int x = frame.x + 12, y = frame.y + 12, width = frame.w - 24;
-    const bool tight = compact && frame.h < 540;
-    const int size = tight ? 26 : compact ? 30 : 22;
-    const int identityHeight = tight ? 60 : compact ? 100 : 78;
+    const int size = 22;
+    const int identityHeight = 78;
     const auto text = [&](std::string value, int px, int py, int fontSize, Color color, int w, int lines = 1) {
         content.drawings.push_back([=] { label(value, fontSize, px, py, color, w, lines); });
     };
@@ -141,67 +140,67 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     {
         const int statsY = y + identityHeight + 6;
         content.drawings.push_back([=] {
-            drawChessCharacterStats(character, {x, statsY, width, compact ? 72 : 56}, 4, 4, size);
+            drawChessCharacterStats(character, {x, statsY, width, 56}, 4, 4, size);
         });
-        int top = statsY + (compact ? 76 : 60);
+        int top = statsY + 60;
         for (int i = 0; i < std::min(2, static_cast<int>(character.abilities.size())); ++i)
         {
             const int index = i == 1 ? static_cast<int>(character.abilities.size()) - 1 : 0;
             const SDL_Rect area{x, top + i * 44, width, 42};
-            entry(character.abilities[index], area, compact ? 26 : 18, false);
+            entry(character.abilities[index], area, 18, false);
             content.controls.push_back({.frame = area, .section = 1, .entry = index,
                 .tooltip = character.abilities[index].tooltip});
         }
         top += 94;
         for (int slot = 0; slot < 2; ++slot)
         {
-            const SDL_Rect area{x + slot * (width + 8) / 2, top, (width - 8) / 2, compact ? 62 : 54};
+            const SDL_Rect area{x + slot * (width + 8) / 2, top, (width - 8) / 2, 54};
             auto equipment = character.equipment[slot];
             const bool pick = character.equipmentEditable && equipment.id < 0;
             if (equipment.id < 0)
                 content.drawings.push_back([=] {
-                    controlLabel(area, character.equipmentEditable ? equipment.title : "—", compact ? 24 : 16,
+                    controlLabel(area, character.equipmentEditable ? equipment.title : "—", 16,
                         muted, slot == 0 ? Icon::Sword : Icon::Armor, muted);
                 });
-            else entry(equipment, area, compact ? 24 : 16, true);
+            else entry(equipment, area, 16, true);
             content.controls.push_back({.frame = area, .section = 2, .entry = slot,
                 .tooltip = pick ? (slot == 0 ? "選擇武器" : "選擇防具")
                     : equipment.id < 0 ? (slot == 0 ? "未裝備武器" : "未裝備防具") : "查看裝備效果",
                 .equipmentSlot = pick ? std::optional(slot) : std::nullopt});
         }
-        top += compact ? 66 : 58;
-        const int synergyColumns = tight ? 4 : 2;
+        top += 58;
+        const int synergyColumns = 2;
         for (int i = 0; i < std::min(4, static_cast<int>(character.synergies.size())); ++i)
         {
             const SDL_Rect area{x + i % synergyColumns * (width + 8) / synergyColumns,
                 top + i / synergyColumns * 52, (width + 8) / synergyColumns - 8, 50};
-            entry(character.synergies[i], area, tight ? 22 : compact ? 24 : 16, true);
+            entry(character.synergies[i], area, 16, true);
             content.controls.push_back({.frame = area, .section = 3, .entry = i});
         }
-        const int actionHeight = compact ? 84 : 44;
+        const int actionHeight = 44;
         const int actionY = frame.y + frame.h - actionHeight - 12;
         content.controls.push_back({.frame = navigationFrame.value_or(SDL_Rect{x, actionY, width, actionHeight}),
             .label = "詳細資料", .icon = Icon::List, .action = true, .section = 0});
         return content;
     }
 
-    const int tabY = y + identityHeight + 12, tabHeight = tight ? 56 : compact ? 76 : 44;
+    const int tabY = y + identityHeight + 12, tabHeight = 44;
     constexpr std::array names{"屬性", "武學", "裝備", "羈絆"};
     for (int i = 0; i < 4; ++i)
         content.controls.push_back({.frame = {x + i * width / 4, tabY, width / 4 - 4, tabHeight},
             .label = names[i], .selected = state.section == i, .section = i});
     const int bodyY = tabY + tabHeight + 16;
-    const int footerY = frame.y + frame.h - (tight ? 76 : compact ? 96 : 56);
+    const int footerY = frame.y + frame.h - 56;
     int pageCount = 1;
     if (state.section == 0)
     {
-        const int statsHeight = compact ? 156 : 132;
+        const int statsHeight = 132;
         const int contextY = bodyY + statsHeight + 12;
         std::vector<std::pair<std::string, int>> gains;
         if (character.growthSummary)
             for (const auto& stat : chessCharacterStats(character.growthSummary->stats))
                 if (stat.second != 0) gains.push_back(stat);
-        const int growthRowHeight = compact ? 54 : 34;
+        const int growthRowHeight = 34;
         const int contextHeight = character.growthSummary
             ? 28 + std::max(1, (static_cast<int>(gains.size()) + 3) / 4) * growthRowHeight
             : character.statsNote.empty() ? 0 : 48;
@@ -217,37 +216,37 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
             const int top = contextPage ? bodyY : contextY;
             if (character.growthSummary)
             {
-                text("勝場加成", x, top, compact ? 23 : 18, gold, width);
-                if (gains.empty()) text("尚無加成", x, top + 28, compact ? 23 : 16, muted, width);
+                text("勝場加成", x, top, 18, gold, width);
+                if (gains.empty()) text("尚無加成", x, top + 28, 16, muted, width);
                 for (int i = 0; i < static_cast<int>(gains.size()); ++i)
                 {
                     const int px = x + (i % 4) * width / 4, py = top + 28 + (i / 4) * growthRowHeight;
-                    text(gains[i].first, px, py, compact ? 18 : 14, muted, width / 4 - 8);
-                    text(std::format("{:+}", gains[i].second), px, py + (compact ? 23 : 16),
-                        compact ? 23 : 16, positive, width / 4 - 8);
+                    text(gains[i].first, px, py, 14, muted, width / 4 - 8);
+                    text(std::format("{:+}", gains[i].second), px, py + 16,
+                        16, positive, width / 4 - 8);
                 }
             }
-            else text(character.statsNote, x, top, compact ? 23 : 15, muted, width, 2);
+            else text(character.statsNote, x, top, 15, muted, width, 2);
         }
     }
     else
     {
         const std::span<const ChessCharacterEntry> entries = state.section == 1 ? std::span(character.abilities)
             : state.section == 3 ? std::span(character.synergies) : std::span<const ChessCharacterEntry>(character.equipment);
-        const int textSize = compact ? 26 : 17;
+        const int textSize = 17;
         state.entry = std::clamp(state.entry, 0, std::max(0, static_cast<int>(entries.size()) - 1));
         if (entries.empty()) text("無", x, bodyY, textSize, muted, width);
         else
         {
             const auto& selected = entries[state.entry];
-            const int navWidth = compact ? 64 : 40;
-            const int headingHeight = tight ? 60 : compact ? 82 : 64;
+            const int navWidth = 40;
+            const int headingHeight = 64;
             if (state.entry > 0) content.controls.push_back({.frame = {x, bodyY, navWidth, headingHeight},
                 .icon = Icon::Left, .entryStep = -1, .tooltip = std::string("上一項") + names[state.section]});
             if (state.entry + 1 < static_cast<int>(entries.size())) content.controls.push_back({
                 .frame = {x + width - navWidth, bodyY, navWidth, headingHeight},
                 .icon = Icon::Right, .entryStep = 1, .tooltip = std::string("下一項") + names[state.section]});
-            entry(selected, {x + navWidth + 4, bodyY, width - navWidth * 2 - 8, headingHeight}, tight ? 24 : compact ? 28 : 20, true);
+            entry(selected, {x + navWidth + 4, bodyY, width - navWidth * 2 - 8, headingHeight}, 20, true);
             int textY = bodyY + headingHeight + 8;
             auto rows = selected.details;
             const int availableHeight = footerY - textY - 8
@@ -269,14 +268,14 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
     }
     if (pageCount > 1)
     {
-        const int buttonWidth = tight ? 64 : compact ? 84 : 44, height = tight ? 64 : compact ? 84 : 44;
+        const int buttonWidth = 44, height = 44;
         if (state.page > 0) content.controls.push_back({.frame = {x, footerY, buttonWidth, height}, .icon = Icon::Up, .pageStep = -1});
         text(std::format("{} / {}", state.page + 1, pageCount), x + buttonWidth + 8,
-            footerY + (compact ? 28 : 13), compact ? 26 : 16, muted, compact ? 100 : 68);
-        if (state.page + 1 < pageCount) content.controls.push_back({.frame = {x + buttonWidth + (compact ? 112 : 76), footerY, buttonWidth, height}, .icon = Icon::Down, .pageStep = 1});
+            footerY + 13, 16, muted, 68);
+        if (state.page + 1 < pageCount) content.controls.push_back({.frame = {x + buttonWidth + 76, footerY, buttonWidth, height}, .icon = Icon::Down, .pageStep = 1});
     }
     content.controls.push_back({.frame = navigationFrame.value_or(SDL_Rect{
-            x + width - (compact ? 208 : 148), footerY, compact ? 208 : 148, tight ? 64 : compact ? 84 : 44}),
+            x + width - 148, footerY, 148, 44}),
         .label = "角色摘要", .icon = Icon::Collapse, .action = true});
     return content;
 }

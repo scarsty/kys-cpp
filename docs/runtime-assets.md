@@ -31,6 +31,8 @@ python tools/pack_chess_smap_zip.py
 
 目前使用經過小尺寸檢查的生成圖示。原稿、生成提示及編號對照保存在 `tmp/asset-sources/preparation-icons/`；預覽圖放在 `output/preparation-icons/`。先前下載的外部圖示與相關工具已移除。這些來源不隨遊戲發佈，正式套件沿用既有資源複製與 WebAssembly 清單流程。
 
+戰鬥控制亦使用此套件的 `29.webp` 至 `38.webp`，依序為繼續、暫停、倍速、跟隨鏡頭、自由鏡頭、平面視角、立體視角、投降、日誌及地圖。生成原稿與提示放在已忽略的 `tmp/asset-sources/battle-controls/`；以 `python tools/pack_chess_utility_icons.py --battle-only` 將五欄兩列的遮罩圖集轉為 96×96 透明無損 WebP，保留套件中的其他圖片。執行時共用圖示著色與控制狀態，不再以引擎線條繪製這些符號。
+
 ## 羈絆圖示
 
 `resource/chess-synergies.zip` 包含 `0.webp` 至 `42.webp`，使用與整備圖示一致的生成剪影、96×96 透明無損 WebP 與執行時著色。每個 `config/chess_combos.yaml` 羈絆必須以 `圖示` 指定非負整數圖片編號，對應 ZIP 內的數字檔名；編號不隨羈絆排序改變，也不影響遊戲規則指紋。新增羈絆時，需同時指定圖示並將對應 WebP 放入套件。

@@ -545,7 +545,7 @@ void ChessPreparationScreen::pieceInspector()
         session_.content(), session_.state(), roleId, piece ? piece->star : 1,
         piece ? piece->instanceId : -1, piece ? ChessCharacterContext::Owned : ChessCharacterContext::Shop));
     auto content = composeChessCharacterInspector(*character,
-        {inspector_.x, inspector_.y, inspector_.w, inspector_.h - 64}, characterInspector_, false);
+        {inspector_.x, inspector_.y, inspector_.w, inspector_.h - 64}, characterInspector_);
     for (int i = 0; i < static_cast<int>(content.controls.size()); ++i)
     {
         const auto control = content.controls[i];

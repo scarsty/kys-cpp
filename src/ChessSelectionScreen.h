@@ -128,14 +128,12 @@ private:
     bool browseOnly_{};
     bool shopMode_{};
     ChessSelectionLayout layout_ = ChessSelectionLayout::Catalogue;
-    bool compact_{};
     bool exitable_ = true;
     bool expanded_{};
     bool searchEnabled_{};
     uint64_t revision_{};
-    int pageSize() const { return chessSelectionPageSize(layout_, compact_); }
-    int columns() const { return chessSelectionColumns(layout_, compact_); }
-    void updateCompact();
+    int pageSize() const { return chessSelectionPageSize(layout_); }
+    int columns() const { return chessSelectionColumns(layout_); }
     void filter();
     void select(int index);
     void changePage(int step);
@@ -155,7 +153,6 @@ private:
     void drawOverview();
     void drawTabbed();
     void drawOverviewBody(SDL_Rect frame, int fontSize);
-    void drawCompactCatalogue();
     std::string confirmationLabel() const;
 };
 

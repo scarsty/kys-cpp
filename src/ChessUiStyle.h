@@ -161,38 +161,12 @@ inline void drawUtilityIcon(Icon symbol, SDL_Rect frame, Color color)
             engine->drawLine(color, {float(x + x1 * unit / 24), float(y + y1 * unit / 24 + offset)},
                 {float(x + x2 * unit / 24), float(y + y2 * unit / 24 + offset)});
     };
-    const auto triangle = [&](int left, int width) {
-        line(left, 4, left + width, 12);
-        line(left + width, 12, left, 20);
-        line(left, 20, left, 4);
-    };
     switch (symbol)
     {
     case Icon::Dice:
         line(3, 3, 21, 3); line(21, 3, 21, 21); line(21, 21, 3, 21); line(3, 21, 3, 3);
         box(6, 6, 3, 3); box(15, 6, 3, 3); box(10, 10, 4, 4);
         box(6, 15, 3, 3); box(15, 15, 3, 3); break;
-    case Icon::Play: triangle(6, 14); break;
-    case Icon::Speed: triangle(3, 9); triangle(13, 9); break;
-    case Icon::Pause: box(5, 4, 5, 16); box(14, 4, 5, 16); break;
-    case Icon::Flag: box(5, 3, 2, 19); box(7, 4, 12, 8); break;
-    case Icon::List:
-        for (int row = 0; row < 3; ++row) { box(3, 4 + row * 7, 3, 3); box(9, 4 + row * 7, 12, 3); }
-        break;
-    case Icon::Map:
-        for (int i = 0; i < 4; ++i) { line(3 + i * 6, 3, 3 + i * 6, 21); line(3, 3 + i * 6, 21, 3 + i * 6); }
-        box(10, 10, 4, 4); break;
-    case Icon::CameraFollow:
-        line(7, 7, 17, 7); line(17, 7, 17, 17); line(17, 17, 7, 17); line(7, 17, 7, 7);
-        box(11, 2, 2, 7); box(11, 15, 2, 7); box(2, 11, 7, 2); box(15, 11, 7, 2); break;
-    case Icon::CameraFree:
-        for (int corner : {3, 15}) { line(corner, 3, corner + 6, 3); line(corner, 21, corner + 6, 21); }
-        line(3, 3, 3, 9); line(21, 3, 21, 9); line(3, 15, 3, 21); line(21, 15, 21, 21); break;
-    case Icon::View2D:
-        line(3, 12, 12, 5); line(12, 5, 21, 12); line(21, 12, 12, 19); line(12, 19, 3, 12); break;
-    case Icon::View3D:
-        line(3, 7, 12, 2); line(12, 2, 21, 7); line(21, 7, 12, 12); line(12, 12, 3, 7);
-        line(3, 7, 3, 17); line(21, 7, 21, 17); line(12, 12, 12, 22); line(3, 17, 12, 22); line(12, 22, 21, 17); break;
     default: assert(false); break;
     }
 }
@@ -203,7 +177,7 @@ inline void asset(const std::string& group, int id, SDL_Rect frame, bool bottomA
     if (id < 0) return;
     const Color tint = tintOverride.value_or(group == "chess-preparation" || group == "chess-synergies" ? gold : Color{255, 255, 255, 255});
     if (group == "chess-preparation"
-        && ((id >= iconId(Icon::Play) && id <= iconId(Icon::Map)) || id == iconId(Icon::Dice)))
+        && id == iconId(Icon::Dice))
     {
         drawUtilityIcon(static_cast<Icon>(id), frame, tint);
         return;
@@ -268,10 +242,9 @@ inline void page(const std::string& title, const std::string& hint = {}, int hea
     auto* engine = Engine::getInstance();
     const int width = engine->getUIWidth();
     const int height = engine->getUIHeight();
-    const bool compact = headingSize >= 30;
-    panel(16, 16, width - 32, compact ? 84 : 52);
+    panel(16, 16, width - 32, 52);
     const int titleSize = std::min(headingSize, (width - 288) * 2 / std::max(1, Font::getTextDrawSize(title)));
-    Font::getInstance()->draw(title, titleSize, 32, compact ? 38 : 30, gold);
+    Font::getInstance()->draw(title, titleSize, 32, 30, gold);
     if (!hint.empty())
         Font::getInstance()->draw(hint, 18, 96, height - 40, muted);
 }
@@ -282,24 +255,24 @@ struct ActionFooter
     SDL_Rect trailing{};
 };
 
-inline ActionFooter actionFooter(SDL_Rect frame, bool compact, int actionWidth = 0, int controlHeight = 0)
+inline ActionFooter actionFooter(SDL_Rect frame, int actionWidth = 0, int controlHeight = 0)
 {
-    const int padding = compact ? 24 : 16;
-    const int height = controlHeight > 0 ? controlHeight : compact ? 84 : 52;
-    const int width = actionWidth > 0 ? actionWidth : compact ? 304 : 224;
+    const int padding = 16;
+    const int height = controlHeight > 0 ? controlHeight : 52;
+    const int width = actionWidth > 0 ? actionWidth : 224;
     const int y = frame.y + frame.h - padding - height;
     return {{frame.x + padding, y, width, height},
         {frame.x + frame.w - padding - width, y, width, height}};
 }
 
-inline SDL_Rect modalFrame(bool compact)
+inline SDL_Rect modalFrame()
 {
-    return compact ? SDL_Rect{120, 154, 1040, 412} : SDL_Rect{328, 234, 624, 252};
+    return SDL_Rect{328, 234, 624, 252};
 }
 
-inline void modalShell(SDL_Rect frame, const std::string& title, bool compact)
+inline void modalShell(SDL_Rect frame, const std::string& title)
 {
     panel(frame.x, frame.y, frame.w, frame.h, modalFill);
-    label(title, compact ? 32 : Type::pageTitle, frame.x + 32, frame.y + 28, gold, frame.w - 64);
+    label(title, Type::pageTitle, frame.x + 32, frame.y + 28, gold, frame.w - 64);
 }
 } // namespace KysChess::ChessUiStyle

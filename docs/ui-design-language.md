@@ -4,7 +4,7 @@ Apply when adding or changing chess screens, layouts, or interactions. Use prepa
 
 ## Visuals
 
-- Keep the **1280×720 logical canvas**. The existing presentation layer handles window scaling; do not introduce responsive logical dimensions.
+- Keep the **1280×720 logical canvas**. All game UI uses this fixed coordinate system, regardless of physical window or device size. The presentation layer scales the complete canvas and maps pointer coordinates; do not add alternate layouts, font sizes, column counts, or pagination based on viewport dimensions. ImGui tooling is exempt.
 - Reuse panels, text, icons, and control states from [ChessUiStyle.h](../src/ChessUiStyle.h). Warm charcoal panels reveal the scene beneath. Current alpha values: panels 180/255, full-screen scrim 48/255; avoid arbitrary darkening per screen.
 - Use ivory for body text, muted taupe for secondary text, gold for emphasis and primary actions, cyan for contextual information, and green/red for positive/negative states. Preserve semantic colors for piece tiers, stars, gold, experience, and difficulty.
 - Default type sizes: page title 24, section title 22, body 18, metadata 16; dense tables may use 14. Simplify columns and wording before shrinking text.
@@ -25,6 +25,7 @@ Apply when adding or changing chess screens, layouts, or interactions. Use prepa
 
 ## Battle Overviews
 
+- **In battle:** hover previews and clicking pins a unit; clicking empty battlefield space or pressing Cancel dismisses it. Do not show a lock label or close button. Keep identity, equipment, skills, HP/MP bars, cooldown, shield, live attributes, and damage dealt/taken in a compact fixed bottom panel, grouped into identity/equipment, resources, and combat stats. Use slim, flat green HP and blue MP bars with labels and values above the fills; keep cooldown/shield as a quiet metadata row. Align attribute and damage labels/values on a shared grid, separated from resources and identity by the shared subtle divider. Buffs/debuffs occupy a separate lower-left panel that grows upward; prioritize timed effects, then consumable shields/charges, then ongoing modifiers. Mark each card 限時 / 可消耗 / 常駐 using runtime lifetime semantics, preserving buff/debuff colors. Combine source and duration in compact metadata rows; paginate complete effect cards when the full height is exhausted. Both panels capture input so gestures do not move the battlefield behind them. Battle controls use the generated icons in `chess-preparation.zip`.
 - **Pre-battle:** preserve both complete rosters with names, stars, HP, attack, defense, speed (輕功), equipment, and synergy thresholds. Skill mechanics and rules can live in the inspector.
 - **Post-battle:** make a shareable report with up to 13 units per side on one screen, one row per unit, including defeated units and clones. Retain damage dealt, DPS, damage taken, kills, damage canceled (抵消), remaining HP, equipment names, and the two main skills with their damage.
 - Stack teams vertically with shared column boundaries and right-aligned numbers. Place skill damage beside its name. Keep equipment names alongside icons.
@@ -35,4 +36,4 @@ Apply when adding or changing chess screens, layouts, or interactions. Use prepa
 
 - Preparation/inspector: [ChessPreparationScreen.cpp](../src/ChessPreparationScreen.cpp). Selection/tabs: [ChessSelectionScreen.cpp](../src/ChessSelectionScreen.cpp).
 - Pre-battle: [ChessBattleOverview.cpp](../src/ChessBattleOverview.cpp). Post-battle: [BattleStatsView.cpp](../src/BattleStatsView.cpp). Reuse shared styles and data formatting rather than duplicating implementations.
-- Verify actual 1280×720 rendering with dense content, long names, 13 units per side, eight inner skills, many synergies, and light/dark backgrounds. Check scaled hit targets, return navigation, and floating web controls for overlap. Follow the root AGENTS.md for builds and tests.
+- Verify actual 1280×720 rendering with dense content, long names, 13 units per side, eight inner skills, many synergies, and light/dark backgrounds. Use 1280×720 for layout screenshots and browser verification; 960×540 is not a separate supported logical layout or layout test target. Check hit targets, return navigation, and floating web controls for overlap. Follow the root AGENTS.md for builds and tests.

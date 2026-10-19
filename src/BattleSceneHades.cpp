@@ -595,7 +595,7 @@ void BattleSceneHades::initializeSceneRuntime(
 {
     inspected_unit_id_ = -1;
     inspector_pinned_ = false;
-    inspector_scroll_ = 0;
+    inspector_layout_.page = 0;
     piece_hit_targets_.clear();
     initializeScenePresentationUnits(scene_units_.initialize(runtime));
 
@@ -2366,18 +2366,19 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
             {
                 inspected_unit_id_ = pressed_unit_id_;
                 inspector_pinned_ = true;
-                inspector_scroll_ = 0;
+                inspector_layout_.page = 0;
             }
             piece_pointer_.reset();
         }
         return PointerResult::Handled;
     }
     if (event.phase == PointerPhase::Wheel && inspected_unit_id_ >= 0
-        && (controls.hitTest(event.uiPosition) == BattleControlId::InspectorBody
+        && (controls.hitTest(event.uiPosition) == BattleControlId::InspectorEffects
             || controls.hitTest(event.uiPosition) == BattleControlId::InspectorPrevious
             || controls.hitTest(event.uiPosition) == BattleControlId::InspectorNext))
     {
-        inspector_scroll_ = std::clamp(inspector_scroll_ - int(event.wheel.y), 0, inspector_max_scroll_);
+        inspector_layout_.page = std::clamp(inspector_layout_.page - int(event.wheel.y),
+            0, std::max(0, int(inspector_layout_.pages.size()) - 1));
         return PointerResult::Handled;
     }
     if (event.phase == PointerPhase::Motion && !inspector_pinned_ && !camera_.manualDragging()
@@ -2385,7 +2386,7 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
         && controls.hitTest(event.uiPosition) == BattleControlId::None)
     {
         const int hovered = event.insidePresent ? pieceAtPoint(event.uiPosition) : -1;
-        if (hovered != inspected_unit_id_) inspector_scroll_ = 0;
+        if (hovered != inspected_unit_id_) inspector_layout_.page = 0;
         inspected_unit_id_ = hovered;
     }
     if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT && event.insidePresent)
@@ -2397,7 +2398,12 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
             piece_press_position_ = event.uiPosition;
             return PointerResult::Captured;
         }
+        dismissPieceInspector();
     }
+
+    // 已在戰場開始的拖曳仍須收到放開事件，避免移入面板後卡住相機。
+    if (controls.hitTest(event.uiPosition) != BattleControlId::None && !camera_.manualDragging())
+        return PointerResult::Handled;
 
     if (active_paper_battle_view_
         && event.source == PointerSource::Mouse
@@ -2656,18 +2662,14 @@ void BattleSceneHades::activateBattleControl(BattleControlId control)
 {
     switch (control)
     {
-    case BattleControlId::InspectorClose:
-        inspected_unit_id_ = -1;
-        inspector_pinned_ = false;
-        inspector_scroll_ = 0;
-        break;
     case BattleControlId::InspectorPrevious:
-        inspector_scroll_ = std::max(0, inspector_scroll_ - 1);
+        inspector_layout_.page = std::max(0, inspector_layout_.page - 1);
         break;
     case BattleControlId::InspectorNext:
-        inspector_scroll_ = std::min(inspector_max_scroll_, inspector_scroll_ + 1);
+        inspector_layout_.page = std::min(std::max(0, int(inspector_layout_.pages.size()) - 1), inspector_layout_.page + 1);
         break;
     case BattleControlId::InspectorBody:
+    case BattleControlId::InspectorEffects:
         inspector_pinned_ = true;
         break;
     case BattleControlId::Pause:
@@ -2721,7 +2723,7 @@ void BattleSceneHades::drawBattleControls()
     drawControl(BattleControlId::Speed, speedText, Icon::Speed);
     drawControl(BattleControlId::PaperView, paperViewText, active_paper_battle_view_ ? Icon::View3D : Icon::View2D);
     drawControl(BattleControlId::CameraMode, cameraModeText, camera_auto_center_ ? Icon::CameraFollow : Icon::CameraFree);
-    drawControl(BattleControlId::Log, "日誌", Icon::Book);
+    drawControl(BattleControlId::Log, "日誌", Icon::List);
     drawControl(BattleControlId::Pause, battle_paused_ ? "繼續" : "暫停", battle_paused_ ? Icon::Play : Icon::Pause, pauseEnabled || battle_paused_);
     drawControl(BattleControlId::Surrender, "投降", Icon::Flag, result_ < 0);
 }
@@ -3196,7 +3198,7 @@ void BattleSceneHades::finishBattleIfReady()
 
 void BattleSceneHades::onPressedCancel()
 {
-    activateBattleControl(BattleControlId::InspectorClose);
+    dismissPieceInspector();
 }
 
 void BattleSceneHades::renderExtraRoleInfo(
