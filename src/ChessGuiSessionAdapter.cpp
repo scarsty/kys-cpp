@@ -474,8 +474,7 @@ std::optional<ChessContextMenuAction> runContextActionMenu(
         Icon icon = Icon::Book;
         switch (item.action)
         {
-        case ChessContextMenuAction::ShowPositionSwap: icon = Icon::Formation; break;
-        case ChessContextMenuAction::RerollBattleSeed: icon = Icon::Refresh; break;
+        case ChessContextMenuAction::RerollBattleSeed: icon = Icon::Dice; break;
         case ChessContextMenuAction::ManageBans: icon = Icon::Ban; break;
         case ChessContextMenuAction::ViewCombos: icon = Icon::Link; break;
         case ChessContextMenuAction::ViewChessPool: icon = Icon::Character; break;
@@ -1547,8 +1546,7 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
 
 void ChessGuiSessionAdapter::showEquipmentMenu()
 {
-    const auto& shop = session_.content().balance().legendaryShop;
-    const bool legendaryUnlocked = session_.content().balance().talent(session_.state().talent).legendaryShop && shop.unlockFight > 0 && session_.state().fight >= shop.unlockFight;
+    const bool legendaryUnlocked = ChessManagementRules::legendaryShopUnlocked(session_.state(), session_.content());
     if (!legendaryUnlocked)
     {
         showEquipmentInventory();
@@ -1586,19 +1584,7 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
             return;
         case ChessContextMenuAction::BuyLegendaryEquipment:
         {
-            ChessLegalActionDescriptor legendary{ChessActionType::BuyLegendaryEquipment};
-            for (const auto& equipment : session_.content().equipment())
-            {
-                if (equipment.tier == 4)
-                {
-                    legendary.candidateIds.push_back(equipment.itemId);
-                }
-            }
-            chooseLegendary(legendary);
-            if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
-            {
-                return;
-            }
+            if (openPreparationCommand(items[selected].action)) return;
             break;
         }
         default:
@@ -1817,8 +1803,6 @@ void ChessGuiSessionAdapter::showOverviewMenu()
     }
     switch (*action)
     {
-    case ChessContextMenuAction::ShowPositionSwap: showPositionSwap(); break;
-    case ChessContextMenuAction::RerollBattleSeed: showEnemyReroll(); break;
     case ChessContextMenuAction::ViewCombos: viewCombos(); break;
     case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
     case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
@@ -1979,26 +1963,6 @@ bool ChessGuiSessionAdapter::runSystemMenu()
             assert(false);
             break;
         }
-    }
-}
-
-void ChessGuiSessionAdapter::showPositionSwap()
-{
-    const bool currentEnabled = session_.state().options.positionSwapEnabled;
-    auto menu = std::make_shared<ChessSelectionScreen>(
-        std::format("戰前佈陣 · 目前{}", currentEnabled ? "開啟" : "關閉"),
-        std::vector<ChessSelectionItem>{
-            {.title = "關閉戰前佈陣", .image = chessSelectionIcon(ChessUiStyle::Icon::Close)},
-            {.title = "開啟戰前佈陣", .image = chessSelectionIcon(ChessUiStyle::Icon::Formation)},
-        });
-    menu->setCommandMode(true);
-    const int selected = menu->run();
-    if (selected == 0 || selected == 1)
-    {
-        ChessAction action;
-        action.type = ChessActionType::SetPositionSwapEnabled;
-        action.value = selected == 1;
-        submitGuiAction(action);
     }
 }
 
@@ -2636,7 +2600,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         {
             auto unlockTalk = std::make_shared<Talk>(
                 std::format(
-                    "少俠既已闖過第{}關，老夫便為你開啟神兵商店。此後可於「裝備管理」中前往「神兵商店」，花費${}購買傳說裝備。",
+                    "少俠既已闖過第{}關，老夫便為你開啟神兵商店。此後可由「神兵」天賦說明或「裝備」前往「神兵商店」，花費${}購買傳說裝備。",
                     legendaryShop.unlockFight,
                     legendaryShop.price),
                 116);
@@ -2728,6 +2692,15 @@ bool ChessGuiSessionAdapter::openPreparationCommand(ChessContextMenuAction comma
         else showChessMessage("出戰棋子不足，請先選擇出戰陣容");
         break;
     case ChessContextMenuAction::ManageBans: showBanManagement(); break;
+    case ChessContextMenuAction::RerollBattleSeed: showEnemyReroll(); break;
+    case ChessContextMenuAction::BuyLegendaryEquipment:
+    {
+        ChessLegalActionDescriptor legendary{ChessActionType::BuyLegendaryEquipment};
+        for (const auto& equipment : session_.content().equipment())
+            if (equipment.tier == 4) legendary.candidateIds.push_back(equipment.itemId);
+        chooseLegendary(legendary);
+        break;
+    }
     case ChessContextMenuAction::OpenEquipmentMenu: showEquipmentMenu(); break;
     case ChessContextMenuAction::OpenOverviewMenu: showOverviewMenu(); break;
     case ChessContextMenuAction::OpenOfflineBattle: showOfflineBattle(); break;

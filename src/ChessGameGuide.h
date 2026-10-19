@@ -53,7 +53,7 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(
         ? std::string("神兵商店：此天賦沒有神兵商店。")
         : balance.legendaryShop.unlockFight <= 0
             ? std::string("神兵商店：本局未開放。")
-            : std::format("神兵商店：通過第 {} 關後，由「裝備」進入；每件 {} 金。",
+            : std::format("神兵商店：通過第 {} 關後，由「神兵」天賦說明或「裝備」進入；每件 {} 金。",
                 balance.legendaryShop.unlockFight, balance.legendaryShop.price);
     const bool bansEnabled = balance.banBaseCount > 0 || balance.banCountPerLevel > 0
         || !balance.banUnlocks.empty() || talent.openingBans > 0;
@@ -119,7 +119,7 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(
         }},
         {"戰鬥與日誌", {
             {"佈陣預設開啟；戰前可選「地圖佈陣」或「列表佈陣」，返回後仍可切換另一種方式。", Tone::Highlight},
-            {"可在「棋局圖鑑 → 排兵佈陣」切換是否進入戰前佈陣。開戰後自動戰鬥，右上圖示可切換速度、視角、鏡頭及暫停。"},
+            {"開戰後自動戰鬥，右上圖示可切換速度、視角、鏡頭及暫停。"},
             {"日誌隨時可開啟，戰鬥會繼續，內容即時更新；需要仔細閱讀時，可在日誌內暫停戰鬥。", Tone::Information},
             {"用我方、敵方及事件類型篩選。捲動到較早內容會關閉「追蹤最新」；重新勾選即可跟隨新事件。"},
             {"關閉日誌保留當前暫停狀態。若戰鬥已結束，關閉日誌後才進入戰後總覽。"},

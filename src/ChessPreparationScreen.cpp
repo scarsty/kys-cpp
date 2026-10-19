@@ -228,30 +228,33 @@ void ChessPreparationScreen::header()
 {
     panel({16, 12, w_ - 32, 60});
     text("整備", 32, 30, 24, gold);
-    button("progress", {102, 20, 128, 44}, std::format("{} / {} 關", observation_.fight + 1, session_.content().balance().totalFights),
-        [this] { navigate(View::Information, -1, "progress"); }, "關卡進度");
-    icon(Icon::Right, {218, 36, 12, 12}, muted);
-    iconButton("economy", {242, 20, 100, 44}, Icon::Coin, std::to_string(observation_.money),
+    text(observation_.campaignComplete ? "通關"
+        : std::format("{} / {} 關", observation_.fight + 1, session_.content().balance().totalFights),
+        102, 33, 18, observation_.campaignComplete ? positive : ink);
+    iconButton("economy", {220, 20, 100, 44}, Icon::Coin, std::to_string(observation_.money),
         [this] { navigate(View::Information, -1, "economy"); }, "查看金幣、利息與勝利收入", true, false, gold);
-    icon(Icon::Right, {332, 36, 12, 12}, muted);
-    button("level", {354, 20, 288, 44}, {},
+    icon(Icon::Right, {308, 36, 12, 12}, muted);
+    button("level", {328, 20, 246, 44}, {},
         [this] { navigate(View::Information, -1, "level"); }, "查看經驗、修練與商店機率");
-    icon(Icon::Cultivation, {362, 29, 26, 26});
-    text(std::format("等級 {}", observation_.level + 1), 398, 31, 20, context);
+    icon(Icon::Cultivation, {336, 29, 26, 26});
+    text(std::format("等級 {}", observation_.level + 1), 372, 31, 20, context);
     text(observation_.level < session_.content().balance().maxLevel
         ? std::format("經驗 {} / {}", observation_.experience, observation_.experienceForNextLevel)
-        : "已滿級", 492, 34, 16, positive);
-    icon(Icon::Right, {628, 36, 12, 12}, muted);
-    const int x = w_ - 620;
-    iconButton("difficulty", {x, 20, 112, 44}, Icon::Mountain, chessDifficultyDisplayName(observation_.difficulty),
+        : "已滿級", 458, 34, 16, positive);
+    icon(Icon::Right, {560, 36, 12, 12}, muted);
+    const int x = w_ - 698;
+    iconButton("difficulty", {x, 20, 104, 44}, Icon::Mountain, chessDifficultyDisplayName(observation_.difficulty),
         [this] { navigate(View::Information, -1, "difficulty"); }, "查看本局難度", true, false, observation_.difficulty == Difficulty::Hard ? negative : observation_.difficulty == Difficulty::Easy ? positive : gold);
-    iconButton("talent", {x + 124, 20, 156, 44}, Icon::Spark, observation_.talentName,
+    iconButton("talent", {x + 112, 20, 116, 44}, Icon::Spark, observation_.talentName,
         [this] { navigate(View::Information, -1, "talent"); }, "查看天賦說明與效果");
-    iconButton("neigongs", {x + 292, 20, 84, 44}, Icon::Book, std::to_string(observation_.obtainedNeigongIds.size()),
+    iconButton("neigongs", {x + 236, 20, 72, 44}, Icon::Book, std::to_string(observation_.obtainedNeigongIds.size()),
         [this] { navigate(View::Neigongs); }, "已獲得內功與效果");
-    iconButton("collapse", {x + 388, 20, 104, 44}, Icon::Collapse, "收起",
+    const int remainingBans = std::max(0, observation_.maximumBanCount - static_cast<int>(observation_.bans.size()));
+    iconButton("bans", {x + 316, 20, 142, 44}, Icon::Ban, std::format("封禁 ({})", remainingBans),
+        [this] { open(ChessContextMenuAction::ManageBans); }, "管理已見角色的永久封禁；括號內為剩餘名額");
+    iconButton("collapse", {x + 466, 20, 100, 44}, Icon::Collapse, "收起",
         [this] { setExit(true); }, "收起整備，欣賞擂鼓山；Q 再次開啟");
-    iconButton("system", {x + 504, 20, 84, 44}, Icon::Sliders, "系統",
+    iconButton("system", {x + 574, 20, 92, 44}, Icon::Sliders, "系統",
         [this] { open(ChessContextMenuAction::OpenSystemMenu); }, "系統選單");
 }
 
@@ -786,19 +789,24 @@ void ChessPreparationScreen::informationInspector()
     {
         text("天賦 · " + observation_.talentName, x, y + 8, 22, gold, width - 88, 2);
         const auto presentation = buildChessTalentPresentation(cfg, observation_.talent);
-        const int height = inspector_.h - 150;
+        const bool shopUnlocked = ChessManagementRules::legendaryShopUnlocked(session_.state(), session_.content());
+        const int shopSpace = shopUnlocked ? 64 : 0;
+        const int height = inspector_.h - 150 - shopSpace;
         const auto pages = paginateChessTalentFacts(presentation, width, height, 18);
         textPage_ = std::clamp(textPage_, 0, static_cast<int>(pages.size()) - 1);
         drawings_.push_back([=, page = pages[textPage_]] { drawChessTalentFactTable(page, x, y + 64, width, height, 18, 18); });
-        const int bottom = inspector_.y + inspector_.h - 60;
+        const int bottom = inspector_.y + inspector_.h - 60 - shopSpace;
         iconButton("talent-prev", {x, bottom, 44, 44}, Icon::Up, "", [this] { --textPage_; rebuild(); }, {}, textPage_ > 0);
         text(std::format("{} / {}", textPage_ + 1, pages.size()), x + 64, bottom + 12, 18, muted);
         iconButton("talent-next", {x + width - 44, bottom, 44, 44}, Icon::Down, "", [this] { ++textPage_; rebuild(); }, {}, textPage_ + 1 < static_cast<int>(pages.size()));
+        if (shopUnlocked)
+            iconButton("talent-shop", {x, inspector_.y + inspector_.h - 64, width, 52}, Icon::Sword, "進入神兵商店",
+                [this] { open(ChessContextMenuAction::BuyLegendaryEquipment); }, "購買傳說裝備", true, false, gold, Treatment::Action);
         return;
     }
     else
     {
-        title = information_ == "progress" ? "關卡進度" : "難度";
+        title = "難度";
         rows = paragraph(std::format("{}\n第 {} / {} 關\n出戰上限 {} 名\n候補容量 {} 名", chessDifficultyDisplayName(observation_.difficulty),
             observation_.fight + 1, cfg.totalFights, observation_.maximumDeployment, cfg.benchSize));
     }
@@ -926,10 +934,10 @@ void ChessPreparationScreen::footer()
     button("overview", {220, y + 4, 100, 44}, "棋局圖鑑", [this] { open(ChessContextMenuAction::OpenOverviewMenu); });
     button("expedition", {328, y + 4, 72, 44}, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); });
     button("offline", {408, y + 4, 108, 44}, "離線對戰", [this] { open(ChessContextMenuAction::OpenOfflineBattle); });
-    iconButton("bans", {524, y + 4, 92, 44}, Icon::Ban, "封禁",
-        [this] { open(ChessContextMenuAction::ManageBans); }, "管理已見角色的永久封禁與剩餘名額");
-    iconButton("save", {624, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });
-    iconButton("load", {732, y + 4, 100, 44}, Icon::Load, "讀檔", [this] { open(ChessContextMenuAction::LoadProgress); });
+    iconButton("reroll-enemy", {576, y + 4, 132, 44}, Icon::Dice, "逆天改命",
+        [this] { open(ChessContextMenuAction::RerollBattleSeed); }, "重抽下場敵軍，地圖可能不變");
+    iconButton("save", {716, y + 4, 100, 44}, Icon::Save, "存檔", [this] { open(ChessContextMenuAction::SaveProgress); });
+    iconButton("load", {824, y + 4, 100, 44}, Icon::Load, "讀檔", [this] { open(ChessContextMenuAction::LoadProgress); });
     button("battle", {w_ - 304, y + 4, 176, 44}, observation_.campaignComplete ? "已通關 · 遠征" : "進入戰鬥",
         [this] { open(observation_.campaignComplete ? ChessContextMenuAction::ShowExpeditionChallenge : ChessContextMenuAction::EnterBattle); },
         "使用目前陣容出戰", true, false, Treatment::Primary);

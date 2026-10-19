@@ -33,7 +33,6 @@ private:
     void showOverviewMenu();
     void showOfflineBattle();
     bool runSystemMenu();
-    void showPositionSwap();
     void showEnemyReroll();
     void viewCombos();
     void viewChessPool();

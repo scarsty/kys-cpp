@@ -424,9 +424,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         equip.candidateIds.insert(equip.candidateIds.end(), assigned.begin(), assigned.end());
         result.push_back(std::move(equip));
     }
-    if (content_->balance().talent(state_.talent).legendaryShop
-        && content_->balance().legendaryShop.unlockFight > 0
-        && state_.fight >= content_->balance().legendaryShop.unlockFight)
+    if (ChessManagementRules::legendaryShopUnlocked(state_, *content_))
     {
         auto legendary = selectionAction(
             ChessActionType::BuyLegendaryEquipment,

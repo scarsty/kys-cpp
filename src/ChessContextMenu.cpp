@@ -6,8 +6,6 @@ namespace KysChess
 std::vector<ChessContextMenuItem> buildChessOverviewMenu()
 {
     return {
-        {"排兵佈陣", ChessContextMenuAction::ShowPositionSwap},
-        {"逆天改命", ChessContextMenuAction::RerollBattleSeed},
         {"查看羈絆", ChessContextMenuAction::ViewCombos},
         {"棋子一覽", ChessContextMenuAction::ViewChessPool},
         {"查看內功", ChessContextMenuAction::ViewNeigong},

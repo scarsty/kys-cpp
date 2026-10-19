@@ -40,25 +40,21 @@ TEST_CASE("system menu owns persistence and application commands", "[chess][cont
     CHECK(items[4].action == ChessContextMenuAction::ReturnToTitle);
 }
 
-TEST_CASE("overview menu groups strategy and reference screens", "[chess][context-menu]")
+TEST_CASE("overview menu contains only reference screens", "[chess][context-menu]")
 {
     const auto items = buildChessOverviewMenu();
 
     CHECK(labelsOf(items) == std::vector<std::string>{
-                               "排兵佈陣",
-                               "逆天改命",
                                "查看羈絆",
                                "棋子一覽",
                                "查看內功",
                                "效果全覽",
                            });
-    REQUIRE(items.size() == 6);
-    CHECK(items[0].action == ChessContextMenuAction::ShowPositionSwap);
-    CHECK(items[1].action == ChessContextMenuAction::RerollBattleSeed);
-    CHECK(items[2].action == ChessContextMenuAction::ViewCombos);
-    CHECK(items[3].action == ChessContextMenuAction::ViewChessPool);
-    CHECK(items[4].action == ChessContextMenuAction::ViewNeigong);
-    CHECK(items[5].action == ChessContextMenuAction::ViewEffects);
+    REQUIRE(items.size() == 4);
+    CHECK(items[0].action == ChessContextMenuAction::ViewCombos);
+    CHECK(items[1].action == ChessContextMenuAction::ViewChessPool);
+    CHECK(items[2].action == ChessContextMenuAction::ViewNeigong);
+    CHECK(items[3].action == ChessContextMenuAction::ViewEffects);
 }
 
 TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][context-menu]")

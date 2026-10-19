@@ -17,7 +17,6 @@ enum class ChessContextMenuAction
     LoadProgress,
     SaveProgress,
     ShowSystemSettings,
-    ShowPositionSwap,
     RerollBattleSeed,
     ManageBans,
     ViewCombos,

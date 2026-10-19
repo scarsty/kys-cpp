@@ -53,6 +53,7 @@ enum class Icon : int
     Collapse, Sword, More, Sliders, Mountain, Spark, Book, Cultivation, Close, Ultimate,
     Character, Formation, Load, Save, Search, Transfer, Home,
     Play, Pause, Speed, CameraFollow, CameraFree, View2D, View3D, Flag, List, Map, Ban,
+    Dice,
 };
 
 inline int iconId(Icon icon) { return static_cast<int>(icon); }
@@ -158,6 +159,10 @@ inline void drawUtilityIcon(Icon symbol, SDL_Rect frame, Color color)
     };
     switch (symbol)
     {
+    case Icon::Dice:
+        line(3, 3, 21, 3); line(21, 3, 21, 21); line(21, 21, 3, 21); line(3, 21, 3, 3);
+        box(6, 6, 3, 3); box(15, 6, 3, 3); box(10, 10, 4, 4);
+        box(6, 15, 3, 3); box(15, 15, 3, 3); break;
     case Icon::Play: triangle(6, 14); break;
     case Icon::Speed: triangle(3, 9); triangle(13, 9); break;
     case Icon::Pause: box(5, 4, 5, 16); box(14, 4, 5, 16); break;

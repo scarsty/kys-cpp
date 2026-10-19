@@ -327,6 +327,14 @@ bool ChessManagementRules::gainExperience(
     return state.level != oldLevel;
 }
 
+bool ChessManagementRules::legendaryShopUnlocked(const ChessSessionState& state, const ChessGameContent& content)
+{
+    const auto& balance = content.balance();
+    return balance.talent(state.talent).legendaryShop
+        && balance.legendaryShop.unlockFight > 0
+        && state.fight >= balance.legendaryShop.unlockFight;
+}
+
 int ChessManagementRules::maximumBanCount(const ChessSessionState& state, const ChessGameContent& content)
 {
     const auto& balance = content.balance();
@@ -560,9 +568,7 @@ ChessRuleErrorCode ChessManagementRules::validate(
     }
     case ChessActionType::BuyLegendaryEquipment:
     {
-        if (!balance.talent(state.talent).legendaryShop
-            || balance.legendaryShop.unlockFight <= 0
-            || state.fight < balance.legendaryShop.unlockFight)
+        if (!legendaryShopUnlocked(state, content))
         {
             return ChessRuleErrorCode::LegendaryShopLocked;
         }
