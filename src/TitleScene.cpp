@@ -34,8 +34,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <format>
+#include <initializer_list>
+#include <numbers>
 #include <sstream>
 #include <vector>
 
@@ -45,6 +48,92 @@ extern "C" void notify_fonts_loaded();
 
 namespace
 {
+
+void drawTitleEmblem(float centerX)
+{
+    using namespace KysChess::ChessUiStyle;
+    auto* engine = Engine::getInstance();
+    constexpr float centerY = 232.0f;
+    constexpr float tau = 2.0f * std::numbers::pi_v<float>;
+    constexpr double cycleMs = 18000.0;
+    const float phase = static_cast<float>(std::fmod(Engine::getTicks(), cycleMs) / cycleMs) * tau;
+
+    // 所有路徑使用邏輯座標，交由引擎統一縮放；不載入圖片或額外字形。
+    const auto stroke = [&](FPoint a, FPoint b, Color color, float width = 1.0f) {
+        const float length = std::hypot(b.x - a.x, b.y - a.y);
+        const float nx = -(b.y - a.y) / length * (width - 1.0f) * 0.5f;
+        const float ny = (b.x - a.x) / length * (width - 1.0f) * 0.5f;
+        engine->drawLine(color, {centerX + a.x + nx, centerY + a.y + ny},
+            {centerX + b.x + nx, centerY + b.y + ny});
+        if (width > 1.0f)
+            engine->drawLine(color, {centerX + a.x - nx, centerY + a.y - ny},
+                {centerX + b.x - nx, centerY + b.y - ny});
+    };
+    const auto path = [&](std::initializer_list<FPoint> points, Color color, float width = 2.0f) {
+        for (auto point = points.begin() + 1; point != points.end(); ++point)
+            stroke(*(point - 1), *point, color, width);
+    };
+    const auto curve = [&](FPoint a, FPoint b, FPoint c, FPoint d, Color color, float width = 2.0f) {
+        FPoint previous = a;
+        for (int i = 1; i <= 20; ++i)
+        {
+            const float t = i / 20.0f, u = 1.0f - t;
+            const FPoint next{u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
+                u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y};
+            stroke(previous, next, color, width);
+            previous = next;
+        }
+    };
+    const auto arc = [&](float radius, float start, float sweep, Color color, bool tapered) {
+        constexpr int segments = 72;
+        FPoint previous{radius * std::cos(start), radius * std::sin(start)};
+        for (int i = 1; i <= segments; ++i)
+        {
+            const float t = i / float(segments);
+            const float angle = start + sweep * t;
+            const FPoint next{radius * std::cos(angle), radius * std::sin(angle)};
+            auto shade = color;
+            if (tapered) shade.a = static_cast<uint8_t>(color.a * std::sin(t * std::numbers::pi_v<float>));
+            stroke(previous, next, shade);
+            previous = next;
+        }
+    };
+
+    // 月輪與緩慢流轉的劍氣；固定輪廓在動畫的每一刻都清晰可辨。
+    arc(128, 0, tau, line, false);
+    auto aura = gold;
+    aura.a = 120;
+    arc(122, phase, tau * 0.34f, aura, true);
+    arc(136, -phase + tau * 0.5f, tau * 0.24f, aura, true);
+    path({{-178, 0}, {-150, 0}}, line, 1);
+    path({{150, 0}, {178, 0}}, line, 1);
+
+    // 以劍為冠、束腰為身、雙層棋座的武俠棋子。
+    path({{0, -112}, {-9, -88}, {-7, -55}, {7, -55}, {9, -88}, {0, -112}}, gold);
+    path({{0, -96}, {0, -61}}, ink, 1);
+    path({{-26, -62}, {-20, -54}, {20, -54}, {26, -62}}, gold);
+    path({{-5, -53}, {-5, -38}, {5, -38}, {5, -53}}, gold);
+    path({{-18, -37}, {18, -37}, {23, -28}, {-23, -28}, {-18, -37}}, gold);
+    for (float side : {-1.0f, 1.0f})
+    {
+        curve({side * 23, -28}, {side * 45, -17}, {side * 28, -2}, {side * 22, 12}, gold);
+        curve({side * 22, 12}, {side * 18, 34}, {side * 32, 57}, {side * 45, 72}, gold);
+        curve({side * 16, 20}, {side * 15, 40}, {side * 22, 52}, {side * 29, 61}, line, 1);
+    }
+    path({{-22, 10}, {22, 10}}, gold);
+    path({{-22, 17}, {22, 17}}, gold);
+    path({{0, -13}, {-6, -4}, {0, 5}, {6, -4}, {0, -13}}, ink, 1);
+    path({{-45, 72}, {45, 72}, {49, 81}, {-49, 81}, {-45, 72}}, gold);
+    path({{-43, 81}, {-55, 94}, {-55, 102}, {55, 102}, {55, 94}, {43, 81}}, gold);
+    path({{-46, 94}, {46, 94}}, gold, 1);
+
+    // 劍穗隨風輕擺，使用連續曲線而非粒子或貼圖。
+    const float breeze = std::sin(phase * 4) * 5.0f;
+    auto silk = gold;
+    silk.a = 165;
+    curve({20, -54}, {45, -48}, {34 + breeze, -24}, {51 + breeze, -12}, silk, 1);
+    curve({20, -54}, {40, -40}, {29 + breeze, -19}, {46 + breeze, -5}, silk, 1);
+}
 
 int fitTextSizeToWidth(const std::string& text, int maxWidth, int maxSize)
 {
@@ -315,41 +404,13 @@ void TitleScene::draw()
         return;
     }
 
-    // Chess piece (king) in ASCII art — each char is 8px wide at size 16
-    const char* chess[] = {
-        "    +    ",
-        "   +++   ",
-        "    +    ",
-        "  +---+  ",
-        " | . . | ",
-        " |  .  | ",
-        " | . . | ",
-        "  +---+  ",
-        " /     \\ ",
-        "/       \\",
-        "+-------+",
-        "|       |",
-        "+-------+",
-        " \\_____/ ",
-        "/_______\\",
-    };
-
-    int chessSize = 16;
-    int chessW = 9 * (chessSize / 2);    // 9 chars wide, ASCII = half size
-    int chessX = (w - chessW) / 2;
-    int chessY = 120;
-    const auto gold = KysChess::ChessUiStyle::gold;
-    for (int i = 0; i < 15; i++)
-    {
-        Font::getInstance()->draw(chess[i], chessSize, chessX, chessY + i * chessSize, gold, 255);
-    }
+    drawTitleEmblem(w * 0.5f);
 
     int titleSize = 48;
     int titleW = 5 * titleSize;    // 5 CJK chars, each = titleSize width
     int titleX = (w - titleW) / 2;
     int titleY = 386;
     Font::getInstance()->draw("金群自走棋", titleSize, titleX, titleY, KysChess::ChessUiStyle::gold, 255);
-    Font::getInstance()->draw("招募群俠 · 運籌羈絆 · 問鼎武林", 20, 480, 460, KysChess::ChessUiStyle::muted);
     engine->fillColor(KysChess::ChessUiStyle::line, 120, 504, w - 240, 1);
 
     const std::string qqGroupText = "QQ群910723737";
