@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ROOT / "tools" / "kys_chess_mcp"
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from kys_chess_mcp.server import AUTO_SAVE_SLOT, CliSession, dispatch_mcp_tool, mcp_tools
+from kys_chess_mcp.server import CliSession, dispatch_mcp_tool, mcp_tools
 
 
 CLI = Path(os.environ.get("KYS_CHESS_CLI", ROOT / "x64" / "Debug" / "kys_chess_cli.exe"))
@@ -221,7 +221,7 @@ class McpAdapterTests(unittest.TestCase):
                     bought_id = bought.structuredContent["result"]["changes"]["changes"]["roster_upserts"][0]["instance_id"]
                     before = await session.call_tool("observe_game")
                     autosave = save_dir / "autosave.json"
-                    saved_bytes = autosave.read_bytes()
+                    self.assertFalse(autosave.exists())
                     preview = await session.call_tool("preview_actions", {"actions": [
                         {"type": "set_deployment", "chess_instance_ids": [bought_id]},
                     ]})
@@ -229,9 +229,7 @@ class McpAdapterTests(unittest.TestCase):
                     self.assertTrue(preview.structuredContent["result"]["projected_units"])
                     after = await session.call_tool("observe_game")
                     self.assertEqual(before.structuredContent["result"], after.structuredContent["result"])
-                    self.assertEqual(autosave.read_bytes(), saved_bytes)
-                    persisted = json.loads(saved_bytes)
-                    self.assertEqual(persisted["snapshot_hash"], before.structuredContent["result"]["game_state"]["state_hash"])
+                    self.assertFalse(autosave.exists())
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -354,10 +352,10 @@ class McpAdapterTests(unittest.TestCase):
                 self.assertTrue(discovered["ok"])
                 self.assertEqual(
                     [slot["slot"] for slot in discovered["result"]],
-                    [AUTO_SAVE_SLOT],
+                    [],
                 )
 
-    def test_accepted_actions_update_a_durable_autosave(self):
+    def test_management_actions_do_not_create_a_durable_autosave(self):
         with tempfile.TemporaryDirectory() as save_dir:
             with CliSession(CLI, save_dir=save_dir) as first:
                 self.assertTrue(first.request(
@@ -366,14 +364,13 @@ class McpAdapterTests(unittest.TestCase):
                 )["ok"])
                 accepted = first.request(
                     "act",
-                    {"action": {"type": "refresh_shop"}},
+                    {"action": {"type": "set_shop_locked", "locked": True}},
                 )
                 self.assertTrue(accepted["ok"])
                 self.assertTrue(accepted["result"]["accepted"])
-                expected = first.request("observe", {"detail": "compact"})["result"]["game_state"]
                 saves = first.request("list_saves")["result"]
-                autosave = next(slot for slot in saves if slot["slot"] == AUTO_SAVE_SLOT)
-                revision = autosave["revision"]
+                self.assertEqual(saves, [])
+                self.assertFalse((Path(save_dir) / "autosave.json").exists())
 
                 rejected = first.request(
                     "act",
@@ -381,27 +378,14 @@ class McpAdapterTests(unittest.TestCase):
                 )
                 self.assertTrue(rejected["ok"])
                 self.assertFalse(rejected["result"]["accepted"])
-                unchanged = next(
-                    slot
-                    for slot in first.request("list_saves")["result"]
-                    if slot["slot"] == AUTO_SAVE_SLOT
-                )
-                self.assertEqual(unchanged["revision"], revision)
+                self.assertEqual(first.request("list_saves")["result"], [])
+                self.assertFalse((Path(save_dir) / "autosave.json").exists())
 
             with CliSession(CLI, save_dir=save_dir) as second:
                 discovered = second.request("list_saves")
                 self.assertTrue(discovered["ok"])
-                persisted = next(
-                    slot for slot in discovered["result"] if slot["slot"] == AUTO_SAVE_SLOT
-                )
-                loaded = second.request(
-                    "resume_game",
-                    {"detail": "compact"},
-                )
-                self.assertTrue(loaded["ok"])
-                restored = second.request("observe", {"detail": "compact"})["result"]["game_state"]
-                self.assertEqual(restored["state_hash"], expected["state_hash"])
-                self.assertEqual(restored["money"], expected["money"])
+                self.assertEqual(discovered["result"], [])
+                self.assertFalse((Path(save_dir) / "autosave.json").exists())
 
 
 if __name__ == "__main__":

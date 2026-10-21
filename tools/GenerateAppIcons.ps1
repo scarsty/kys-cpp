@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidateSet('All', 'Android', 'Windows', 'Wasm')]
     [string[]]$Target = @('All'),

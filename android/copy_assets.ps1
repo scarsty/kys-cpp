@@ -12,4 +12,8 @@ $dest = Join-Path $PSScriptRoot 'app\src\main\assets\game'
 
 Write-Host "Copying Android assets from $GameDir to $dest"
 Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir $dest -Version $Version
+# HTTP compression sidecars collide with their source files in Android's asset merger.
+Get-ChildItem -LiteralPath $dest -Recurse -File |
+    Where-Object { $_.Extension -in @('.gz', '.br') } |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName }
 Write-Host 'Assets copied successfully.'

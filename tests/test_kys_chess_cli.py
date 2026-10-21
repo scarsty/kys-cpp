@@ -298,7 +298,7 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(responses[-1]["result"]["discarded_active_actions"], 1)
         self.assertEqual(responses[-1]["result"]["restored_sequence"], 1)
 
-    def test_native_durable_autosave_can_resume_in_a_new_process(self):
+    def test_native_durable_checkpoint_can_resume_in_a_new_process(self):
         with tempfile.TemporaryDirectory() as save_dir:
             autosave_file = Path(save_dir) / "autosave.json"
             first = run_jsonl(
@@ -316,17 +316,27 @@ class ChessCliTests(unittest.TestCase):
                         "id": 2,
                         "method": "act",
                         "params": {
-                            "action": {"type": "refresh_shop"},
+                            "action": {"type": "set_shop_locked", "locked": True},
                             "detail": "summary",
                         },
                     },
                     {"id": 3, "method": "observe", "params": {"detail": "compact"}},
+                    {"id": 4, "method": "list_saves", "params": {}},
+                    {"id": 5, "method": "save_game", "params": {"slot": "source"}},
+                    {
+                        "id": 6,
+                        "method": "export_save_file",
+                        "params": {"slot": "source", "path": str(autosave_file)},
+                    },
                 ],
                 extra_args=["--autosave-file", str(autosave_file)],
             )
             first_responses = [json.loads(line) for line in first.stdout.splitlines()]
-            expected = first_responses[-1]["result"]["game_state"]
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertTrue(all(response["ok"] for response in first_responses))
+            expected = first_responses[2]["result"]["game_state"]
             self.assertTrue(first_responses[1]["result"]["accepted"])
+            self.assertEqual(first_responses[3]["result"], [])
             self.assertTrue(autosave_file.is_file())
 
             second = run_jsonl(
