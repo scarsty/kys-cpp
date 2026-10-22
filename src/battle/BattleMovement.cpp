@@ -24,6 +24,8 @@ constexpr int LocalPocketDetourFrames = 12;
 constexpr int LocalPocketLeftDetourMarker = -2;
 constexpr int LocalPocketRightDetourMarker = -3;
 constexpr std::size_t CandidateDirectionCapacity = 12;
+constexpr int SkirmishCycleFrames = 72;
+constexpr int SkirmishStepFrames = 10;
 
 using FrameMovementReservationMap = std::pmr::map<int, Pointf>;
 using FrameMovementYieldRequestMap = std::pmr::map<int, BattleMovementYieldRequest>;
@@ -1002,6 +1004,53 @@ MovementDecision moveDecision(const BattleUnitState& unit,
     decision.destination = destination;
     decision.slot = unit.assignedSlot;
     return decision;
+}
+
+std::optional<MovementDecision> trySkirmishStep(
+    const BattleMovementPlanInput& world,
+    const BattleMovementTerrainLookup& terrain,
+    const BattleUnitState& unit,
+    const BattleUnitState& target,
+    const FrameMovementReservationMap& reservations)
+{
+    if (!unit.canRepositionDuringCooldown || unit.canAttack || unit.taXue
+        || unit.speed <= 0.0 || unit.position.z > 0.0f)
+    {
+        return std::nullopt;
+    }
+
+    // 短暫錯開退步，留下追上與交手的時間；同一段步法不逐幀換向。
+    const auto phase = static_cast<std::int64_t>(world.frame)
+        + static_cast<std::int64_t>(unit.id) * 23;
+    if (phase % SkirmishCycleFrames >= SkirmishStepFrames)
+    {
+        return std::nullopt;
+    }
+    const double distanceLimit = unit.style == CombatStyle::Melee
+        ? std::min(unit.reach, world.config.meleeAttackReach) + world.config.tileWidth * 0.75
+        : unit.reach;
+    if (battleDistance2d(unit.position, target.position) > distanceLimit)
+    {
+        return std::nullopt;
+    }
+
+    auto away = unit.position - target.position;
+    away.z = 0;
+    away = unitVector(away);
+    const int side = deterministicSide(unit.id, static_cast<int>(phase / SkirmishCycleFrames));
+    for (const double angle : { BattlePi / 4.0, BattlePi / 2.0, -BattlePi / 2.0 })
+    {
+        const auto direction = rotateBattlePoint(away, angle * side);
+        const auto next = unit.position + direction * unit.speed;
+        if (battleDistance2d(next, target.position) > distanceLimit
+            || !terrain.segmentClear(unit.position, next)
+            || !probeMoveInWorld(world, terrain, unit, next, false, reservations, false, false).canMove)
+        {
+            continue;
+        }
+        return moveDecision(unit, target, direction, next);
+    }
+    return std::nullopt;
 }
 
 std::optional<MovementDecision> tryFrontlineSoftSpread(const BattleMovementPlanInput& world,
@@ -2093,6 +2142,17 @@ BattleTickResult BattleMovementPlanner::tick()
     FrameMovementYieldRequestMap pendingYieldRequests(world_.frameMemoryResource);
     FrameMovementDetourRequestMap pendingDetourRequests(world_.frameMemoryResource);
 
+    std::pmr::map<int, int> livingTeamSizes(world_.frameMemoryResource);
+    for (const auto& unit : world_.units)
+    {
+        if (unit.alive)
+        {
+            ++livingTeamSizes[unit.team];
+        }
+    }
+    const bool skirmish = livingTeamSizes.size() == 2
+        && std::ranges::any_of(livingTeamSizes, [](const auto& entry) { return entry.second == 1; });
+
     for (int unitId : movementOrder(world_))
     {
         auto* unit = &requireById(world_.units, unitId);
@@ -2287,6 +2347,15 @@ BattleTickResult BattleMovementPlanner::tick()
             if (frontlineSpread)
             {
                 applyPlannedMove(world_, result, *unit, reservations, *frontlineSpread, decision);
+                recordMovementDecision(result, *unit, decision);
+                continue;
+            }
+        }
+        if (skirmish && !meleeChaosActive && !bodyConflict)
+        {
+            if (auto step = trySkirmishStep(world_, terrain, *unit, *target, reservations))
+            {
+                applyPlannedMove(world_, result, *unit, reservations, *step, decision);
                 recordMovementDecision(result, *unit, decision);
                 continue;
             }

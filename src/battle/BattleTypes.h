@@ -88,6 +88,7 @@ struct BattleUnitState
     CombatStyle style = CombatStyle::Melee;
     bool taXue = false;
     bool canAttack = true;
+    bool canRepositionDuringCooldown{};
     int targetId = -1;
     int assignedSlot = 0;
     int slotSwitchCooldownRemaining = 0;

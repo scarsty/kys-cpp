@@ -87,6 +87,8 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
             movementUnit.velocity = postPhysicsIt->state.velocity;
         }
         movementUnit.canAttack = runtimeUnit.animation.cooldown == 0;
+        movementUnit.canRepositionDuringCooldown = runtimeUnit.animation.cooldown > 0
+            && runtimeUnit.canAttack && !runtimeUnit.haveAction && !record.frozen();
         if (movementUnit.speed <= 0.0 && runtimeUnit.stats.speed > 0)
         {
             movementUnit.speed = runtimeUnit.stats.speed;

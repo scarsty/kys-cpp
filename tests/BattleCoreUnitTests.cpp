@@ -51,6 +51,49 @@ struct HasUnitIdMember<T, std::void_t<decltype(std::declval<T&>().unitId)>> : st
 static_assert(!HasUnitIdMember<BattleRescueUnitRuntime>::value);
 
 
+TEST_CASE("BattleFrameRunner_Skirmish_OnlyRepositionsIdleCooldownUnits", "[battle][core][skirmish]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 190, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    auto& mover = state.units.requireCore(0);
+    mover.reach = 137.5;
+    mover.animation.cooldown = 30;
+    state.units.requireCore(1).reach = 137.5;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(4, 1);
+    bool shouldStep = false;
+    SECTION("idle cooldown") { shouldStep = true; }
+    SECTION("attack ready") { mover.animation.cooldown = 0; }
+    SECTION("active cast")
+    {
+        mover.haveAction = true;
+        mover.operationType = BattleOperationType::Melee;
+    }
+    SECTION("attack disabled") { mover.canAttack = false; }
+    SECTION("stunned")
+    {
+        state.units.require(0).status.effects.setFrames(BattleStatusKind::Stun, 3);
+    }
+    runBattleFrame(state);
+    const auto position = state.units.requireCore(0).motion.position;
+    if (shouldStep)
+    {
+        CHECK(position.x < 100);
+        CHECK(position.y != 100);
+    }
+    else
+    {
+        CHECK(position.x == 100);
+        CHECK(position.y == 100);
+    }
+}
+
 TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
