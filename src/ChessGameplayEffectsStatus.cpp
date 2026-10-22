@@ -433,6 +433,7 @@ struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
         return {EffectRule{
             .event = EffectEvent::AttackCommitted,
             .selector = EffectSelector{.kind = EffectSelectorKind::Enemies},
+            .conditions = {TargetHasStateCondition{.state = BattleStatusKind::Poison}},
             .actions
             = {EffectAction{.value = StateMachineAction{SettleRemainingStatusDamageAction{}}},
                EffectAction{.value = RemoveStatusAction{.statuses = {BattleStatusKind::Poison}}},
@@ -461,14 +462,14 @@ struct DetonateAndPoisonEnemies final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招立即結算所有敵人剩餘中毒傷害，再施加持續{}幀的中毒。新中毒每{}幀造成目標當前生命{}%"
+                "出招立即結算所有中毒敵人的剩餘中毒傷害，僅對這些敵人再施加持續{}幀的中毒。新中毒每{}幀造成目標當前生命{}%"
                 "傷害，最低1點，共{}次；取代原有中毒。",
                 中毒次數 * CanonicalPoisonIntervalFrames,
                 CanonicalPoisonIntervalFrames,
                 生命傷害百分比,
                 中毒次數);
         }
-        return std::format("出招：結算全敵剩餘毒傷，再施毒{}幀", 中毒次數 * CanonicalPoisonIntervalFrames);
+        return std::format("出招：結算全敵剩餘毒傷，僅對中毒者再施毒{}幀", 中毒次數 * CanonicalPoisonIntervalFrames);
     }
 };
 

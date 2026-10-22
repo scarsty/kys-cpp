@@ -12,6 +12,7 @@
 #include "ChessUiStyle.h"
 #include "RunNode.h"
 #include "ScenePreloader.h"
+#include "SystemSettings.h"
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattlePresentationVisuals.h"
 
@@ -81,7 +82,10 @@ public:
             Engine::getInstance()->fillColor(context, statusX, 705,
                 static_cast<int>(statusWidth * loadIndex_ / loads_.size()), 3);
         }
-        else label("懸停預覽 · 點擊棋子固定／羈絆展開 · Enter 繼續", 17, statusX, 675, muted, statusWidth);
+        else label(tapAnywhereEnabled()
+            ? (session_.state().options.positionSwapEnabled ? "載入完成 · 點擊任意處進入佈陣 · Enter 繼續"
+                                                          : "載入完成 · 點擊任意處開始戰鬥 · Enter 繼續")
+            : "懸停預覽 · 點擊棋子固定／羈絆展開 · Enter 繼續", 17, statusX, 675, muted, statusWidth);
         controlSurface(Layout::proceed, {.disabled = !flow_.assetsLoaded(), .primary = flow_.assetsLoaded()});
         controlLabel(Layout::proceed,
             flow_.assetsLoaded() ? (session_.state().options.positionSwapEnabled ? "進入佈陣" : "開始戰鬥") : "準備中…",
@@ -132,6 +136,8 @@ public:
     PointerResult onPointerEvent(const PointerEvent& event) override
     {
         if (!flow_.interactive()) return PointerResult::Handled;
+        // 交由 RunNode 的共用按下／放開序列處理滑鼠與主觸控，避免放開舊觸控就繼續。
+        if (tapAnywhereEnabled()) return PointerResult::Ignored;
         const int target = hit(event.uiPosition);
         if (event.phase == PointerPhase::Motion)
         {
@@ -170,6 +176,11 @@ public:
     }
 
     void onPointerInputReset() override { pressed_ = -1; }
+    PointerActivationScope pointerActivationScope() const override
+    {
+        return flow_.interactive() && tapAnywhereEnabled()
+            ? PointerActivationScope::Anywhere : PointerActivationScope::HitTargetOnly;
+    }
     void onPressedOK() override { if (flow_.interactive()) setExit(true); }
     void onPressedCancel() override { pinned_.reset(); select({}); }
 
@@ -204,6 +215,8 @@ private:
     std::string detailTitle_;
     std::string detailContext_;
     std::vector<std::string> detailLines_;
+
+    bool tapAnywhereEnabled() const { return SystemSettings::getInstance()->data().preBattleTapAnywhere; }
 
     const std::vector<ChessComboMetadata>& synergies(int side) const
     {
@@ -282,7 +295,7 @@ private:
             const auto& stats = *unit.initializedCombatStats;
             const auto row = Layout::row(side, i);
             const bool selected = selected_ && selected_->kind != Kind::Combo && selected_->side == side && selected_->index == i;
-            if (selected || (flow_.interactive() && contains(row, pointer))) panel(row.x, row.y, row.w, row.h, activeFill);
+            if (selected || (flow_.interactive() && !tapAnywhereEnabled() && contains(row, pointer))) panel(row.x, row.y, row.w, row.h, activeFill);
             else if (i % 2 == 0) panel(row.x, row.y, row.w, row.h, quietFill);
             controls_.push_back({row, Target{Kind::Unit, side, i}, {}});
             if (flow_.assetsLoaded()) asset("head", unit.headId, {x, row.y + 1, 24, 24});
@@ -401,8 +414,10 @@ private:
         panel(frame.x, frame.y, frame.w, frame.h);
         if (!flow_.assetsLoaded() || !selected_)
         {
-            label(flow_.assetsLoaded() ? "檢視器" : "正在準備戰鬥資源", 22, 32, 563, gold, 280);
-            label(flow_.assetsLoaded() ? "選取棋子查看武學；選取裝備或羈絆圖示查看效果。雙方陣容始終保留在上方。"
+            label(flow_.assetsLoaded() ? (tapAnywhereEnabled() ? "快速繼續已開啟" : "檢視器") : "正在準備戰鬥資源", 22, 32, 563, gold, 280);
+            label(flow_.assetsLoaded() ? (tapAnywhereEnabled()
+                ? "點擊任意處即可繼續。若要點選棋子、裝備或羈絆查看詳情，請關閉系統設定中的「戰前點擊任意處繼續」。"
+                : "選取棋子查看武學；選取裝備或羈絆圖示查看效果。雙方陣容始終保留在上方。")
                 : "正在載入地圖、棋子與武學特效，完成後即可檢視陣容並繼續。", 18, 32, 604,
                 flow_.assetsLoaded() ? muted : ink, 1190);
             return;

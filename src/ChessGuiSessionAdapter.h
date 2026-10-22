@@ -25,7 +25,7 @@ private:
     bool openPreparationCommand(ChessContextMenuAction command);
     ChessActionResult submitGuiAction(const ChessAction& action);
     void showBanManagement();
-    bool chooseBan(const ChessLegalActionDescriptor& descriptor);
+    bool chooseForcedBans();
     void showEquipmentMenu();
     void showEquipmentInventory();
     void chooseEquipment(const ChessLegalActionDescriptor& descriptor);

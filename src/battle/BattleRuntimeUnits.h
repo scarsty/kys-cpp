@@ -388,33 +388,6 @@ public:
         unit.grid = gridTransform.toGrid(position);
     }
 
-    void setMotion(
-        int unitId,
-        Pointf position,
-        Pointf velocity,
-        Pointf acceleration,
-        const BattleGridTransform& gridTransform,
-        bool updateFacingFromVelocity)
-    {
-        auto& unit = requireCore(unitId);
-        unit.motion.position = position;
-        unit.motion.velocity = velocity;
-        unit.motion.acceleration = acceleration;
-        if (updateFacingFromVelocity)
-        {
-            const float velocityLength = velocity.norm();
-            if (velocityLength > 0.01f)
-            {
-                unit.motion.facing = velocity;
-                const float scale = 1.0f / velocityLength;
-                unit.motion.facing.x *= scale;
-                unit.motion.facing.y *= scale;
-                unit.motion.facing.z *= scale;
-            }
-        }
-        unit.grid = gridTransform.toGrid(position);
-    }
-
     std::size_t size() const { return records_.size(); }
     bool empty() const { return records_.empty(); }
 

@@ -358,7 +358,9 @@ struct LowHealthMemberTeamAttack final : GameplayEffectDefinition
     std::vector<EffectRule> buildRules() const override
     {
         return {EffectRule{.event = EffectEvent::FrameAdvanced,
-                           .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers, .team = EffectTeamFilter::Ally},
+                           .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers,
+                                                      .team = EffectTeamFilter::Ally,
+                                                      .excludeOwner = true},
                            .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
                            .maxActivations = 1,
                            .sharedCooldownFrames = 200,
@@ -373,14 +375,14 @@ struct LowHealthMemberTeamAttack final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "任一成員生命首次低於{}%時，所有成員攻擊{:+}%，持續{}"
+                "任一成員生命首次低於{}%時，其他存活的同羈絆友軍攻擊{:+}%，持續{}"
                 "幀。每名成員每場各觸發一次，同來源兩次觸發至少間隔200幀。",
                 生命門檻百分比,
                 攻擊百分比,
                 持續幀數);
         }
         return std::format(
-            "任一成員首次血量<{}%：全員{:+}%攻，{}幀", 生命門檻百分比, 攻擊百分比, 持續幀數);
+            "任一成員首次血量<{}%：其他同羈絆友軍{:+}%攻，{}幀", 生命門檻百分比, 攻擊百分比, 持續幀數);
     }
 };
 

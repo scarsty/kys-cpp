@@ -336,13 +336,9 @@ BattleTickResult commitFrameMovement(
         const Pointf syncedPosition = action == MovementAction::Hold
             ? runtimeUnit.motion.position
             : decision.destination;
-        state.units.setMotion(
-            unitId,
-            syncedPosition,
-            syncedVelocity,
-            acceleration,
-            state.gridTransform,
-            action == MovementAction::Dash);
+        // 位移保留戰鬥朝向，由出招與瞬移設定面向。
+        state.units.setPosition(unitId, syncedPosition, state.gridTransform);
+        runtimeUnit.motion.velocity = syncedVelocity;
 
         physics.position = syncedPosition;
         physics.velocity = syncedVelocity;

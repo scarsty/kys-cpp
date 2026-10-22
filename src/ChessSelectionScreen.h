@@ -62,6 +62,18 @@ struct ChessSelectionItem
     bool actionEnabled = true;
 };
 
+struct ChessSelectionPosition
+{
+    std::string category;
+    std::string query;
+    int selected{};
+    int page{};
+    int focused{};
+    bool keyboard{};
+    int detailScroll{};
+    int detailTab{};
+};
+
 // 棋局共用的卡片與檢視器；選取只更新預覽，明確操作才提交結果。
 class ChessSelectionScreen : public RunNode
 {
@@ -82,6 +94,8 @@ public:
     void setExitable(bool value) { exitable_ = value; }
     void setExitConfirmation(std::function<bool()> confirmation) { exitConfirmation_ = std::move(confirmation); }
     void setSelectedItem(int index);
+    ChessSelectionPosition position() const;
+    void restorePosition(const ChessSelectionPosition& position);
     void setSearchEnabled(bool value) { searchEnabled_ = value; }
     void setDetailRenderer(std::function<void(int, SDL_Rect)> renderer) { detailRenderer_ = std::move(renderer); }
     void onEntrance() override;

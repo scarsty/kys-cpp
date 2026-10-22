@@ -61,7 +61,7 @@ private:
         ManualCamera,
         ShowBattleLog,
         PaperBattleView,
-        DebugLatencyLog,
+        PreBattleTapAnywhere,
         MusicVolume,
         SoundVolume,
         BattleSpeed,

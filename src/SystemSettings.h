@@ -16,6 +16,7 @@ struct SystemSettingsData
     bool borderlessFullscreen = false;
     bool preparationGuideSeen = false;
     bool preparationSingleClick = false;
+    bool preBattleTapAnywhere = false;
 };
 
 class SystemSettings

@@ -68,6 +68,7 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(
             {std::format("主線勝利獲得 {} 經驗；強敵勝利獲得 {} 經驗。金幣、利息與額外羈絆收入可在整備頂列查看。", balance.battleExp, balance.bossBattleExp)},
             {"戰前總覽保留雙方名稱、星級、生命、攻擊、防禦、輕功及裝備；顯示的是已計入開戰加成的數值。"},
             {"資源載入時先顯示靜態總覽與載入階段，完成後才開放檢視及繼續；不用反覆點擊。"},
+            {"系統設定可開啟「戰前點擊任意處繼續」，載入完成後點擊任意處進入佈陣或戰鬥；關閉時可點選陣容查看詳情。"},
         }},
         {"棋子與升星", {
             {std::format("商店有 {} 個欄位；價格為 {}。", balance.shopSlotCount, prices), Tone::Highlight},

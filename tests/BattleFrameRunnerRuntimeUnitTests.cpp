@@ -1605,20 +1605,30 @@ TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runti
     CHECK(session.runtime().units.require(1).movement.physics.postDashChaosFrames == 0);
 }
 
-TEST_CASE("BattleRuntimeSession_RunFrame_PostDashRetreatDoesNotFlipFacing", "[battle][runtime_session][ownership]")
+TEST_CASE("BattleRuntimeSession_RunFrame_RetreatThenApproachDoesNotFlipFacing", "[battle][runtime_session][ownership]")
 {
     auto runtime = ownedRuntimeState();
     auto& attacker = runtime.units.requireCore(0);
     attacker.motion.position = { 17.0f * static_cast<float>(SceneTileWidth), 3.0f * static_cast<float>(SceneTileWidth), 0 };
     attacker.motion.facing = { 1, 0, 0 };
     attacker.motion.velocity = {};
-    runtime.units.requireCore(1).motion.position = { 18.0f * static_cast<float>(SceneTileWidth), 4.0f * static_cast<float>(SceneTileWidth), 0 };
+    attacker.stats.speed = 220;
+    runtime.units.requireCore(1).motion.position = { 22.0f * static_cast<float>(SceneTileWidth), 8.0f * static_cast<float>(SceneTileWidth), 0 };
 
     auto& physics = runtime.units.require(0).movement.physics;
     physics.position = attacker.motion.position;
     physics.velocity = {};
-    physics.postDashRetreatVelocity = { -4, 0, 0 };
-    physics.postDashRetreatFrames = 2;
+    physics.movementDashCooldown = 18;
+    SECTION("Post-attack retreat")
+    {
+        physics.postDashRetreatVelocity = { -4, 0, 0 };
+        physics.postDashRetreatFrames = 2;
+    }
+    SECTION("Movement retreat dash")
+    {
+        attacker.motion.velocity = { -4, 0, 0 };
+        physics.movementDashFrames = 2;
+    }
 
     BattleRuntimeSession session(std::move(runtime));
 
@@ -1626,6 +1636,14 @@ TEST_CASE("BattleRuntimeSession_RunFrame_PostDashRetreatDoesNotFlipFacing", "[ba
 
     const auto& retreated = session.runtime().units.requireCore(0);
     CHECK(retreated.motion.velocity.x < 0.0f);
+    CHECK(retreated.motion.facing.x == Catch::Approx(1.0f));
+    CHECK(retreated.motion.facing.y == Catch::Approx(0.0f));
+    const float retreatX = retreated.motion.position.x;
+
+    session.runFrame();
+
+    CHECK(retreated.motion.position.x > retreatX);
+    CHECK(retreated.motion.velocity.x == Catch::Approx(0.0f));
     CHECK(retreated.motion.facing.x == Catch::Approx(1.0f));
     CHECK(retreated.motion.facing.y == Catch::Approx(0.0f));
 }

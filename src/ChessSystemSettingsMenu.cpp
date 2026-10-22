@@ -77,7 +77,7 @@ ChessSystemSettingsMenu::Layout ChessSystemSettingsMenu::layout() const
 
     Layout out;
     out.panelW = std::min(760, uiW - 80);
-    out.panelH = std::min(Engine::supportsDesktopFullscreen() ? 660 : 610, uiH - 60);
+    out.panelH = std::min(660, uiH - 60);
     out.panelX = (uiW - out.panelW) / 2;
     out.panelY = (uiH - out.panelH) / 2;
     out.rowX = out.panelX + 36;
@@ -210,8 +210,8 @@ void ChessSystemSettingsMenu::activateSelectedRow()
         settings_.paperBattleView = !settings_.paperBattleView;
         applyPreview();
         break;
-    case Row::DebugLatencyLog:
-        settings_.debugLatencyLog = !settings_.debugLatencyLog;
+    case Row::PreBattleTapAnywhere:
+        settings_.preBattleTapAnywhere = !settings_.preBattleTapAnywhere;
         applyPreview();
         break;
     case Row::MusicVolume:
@@ -459,7 +459,7 @@ void ChessSystemSettingsMenu::draw()
         "手動鏡頭",
         "顯示戰鬥日誌",
         "紙片3D戰場",
-        "偵錯耗時日誌",
+        "戰前點擊任意處繼續",
         "音樂",
         "音效",
         "戰鬥速度",
@@ -528,9 +528,9 @@ void ChessSystemSettingsMenu::draw()
             value = boolText(settings_.paperBattleView);
             valueColor = settingsToggleValueColor(settings_.paperBattleView);
             break;
-        case Row::DebugLatencyLog:
-            value = boolText(settings_.debugLatencyLog);
-            valueColor = settingsToggleValueColor(settings_.debugLatencyLog);
+        case Row::PreBattleTapAnywhere:
+            value = boolText(settings_.preBattleTapAnywhere);
+            valueColor = settingsToggleValueColor(settings_.preBattleTapAnywhere);
             break;
         case Row::BattleSpeed:
             value = std::string(battleSpeedDisplayText(settings_.battleSpeed));

@@ -41,11 +41,11 @@ TEST_CASE("ChessSystemSettingsMenu_FooterActionRowIsPinnedToPanelBottom", "[ches
     CHECK(settingsFooterActionY(30, 660, 44, 48) == 598);
 }
 
-TEST_CASE("ChessSystemSettingsMenu_FullscreenRowFitsAboveFooter", "[chess][settings]")
+TEST_CASE("ChessSystemSettingsMenu_AllSettingsFitAboveFooter", "[chess][settings]")
 {
-    for (const int panelH : {610, 660})
+    constexpr int panelH = 660;
+    for (const int settingRows : {8, 9})
     {
-        constexpr int settingRows = 9;
         constexpr int rowGap = 8;
         constexpr int bottomPadding = 48;
         constexpr int dividerGap = 24;
@@ -56,6 +56,24 @@ TEST_CASE("ChessSystemSettingsMenu_FullscreenRowFitsAboveFooter", "[chess][setti
         CHECK(rowH >= 36);
         CHECK(rowH <= 44);
         CHECK(finalRowBottom <= footerY - dividerGap);
+    }
+}
+
+TEST_CASE("prebattle tap anywhere is opt in and persists", "[chess][settings]")
+{
+    SystemSettingsData settings;
+    CHECK_FALSE(settings.preBattleTapAnywhere);
+    REQUIRE_FALSE(glz::read_json(settings, R"({"musicVolume":37})"));
+    CHECK_FALSE(settings.preBattleTapAnywhere);
+    for (const bool enabled : {true, false})
+    {
+        settings.preBattleTapAnywhere = enabled;
+        std::string payload;
+        REQUIRE_FALSE(glz::write_json(settings, payload));
+        SystemSettingsData restored;
+        REQUIRE_FALSE(glz::read_json(restored, payload));
+        CHECK(restored.preBattleTapAnywhere == enabled);
+        CHECK(restored.musicVolume == 37);
     }
 }
 

@@ -45,7 +45,26 @@ ChessSelectionScreen::ChessSelectionScreen(std::string title, std::vector<ChessS
 void ChessSelectionScreen::onEntrance()
 {
     onPointerInputReset();
-    expand(expanded_);
+    ++revision_;
+}
+
+ChessSelectionPosition ChessSelectionScreen::position() const
+{
+    return {category_, query_, selected_, page_, focused_, keyboard_, detailScroll_, detailTab_};
+}
+
+void ChessSelectionScreen::restorePosition(const ChessSelectionPosition& position)
+{
+    category_ = position.category;
+    query_ = position.query;
+    filter();
+    if (std::ranges::contains(visible_, position.selected)) select(position.selected);
+    const int pages = std::max(1, (static_cast<int>(visible_.size()) + pageSize() - 1) / pageSize());
+    page_ = std::clamp(position.page, 0, pages - 1);
+    focused_ = position.focused;
+    keyboard_ = position.keyboard;
+    detailScroll_ = position.detailScroll;
+    detailTab_ = position.detailTab;
 }
 
 void ChessSelectionScreen::setSelectedItem(int index)
@@ -309,7 +328,7 @@ void ChessSelectionScreen::draw()
             label(items_[i].title, 18, frame.x + 16,
                 frame.y + (frame.h - 18) / 2,
                 controlText(state), frame.w - 32, 2);
-            control(frame, [this, i] { exitWithResult(i); });
+            control(frame, [this, i] { select(i); exitWithResult(i); });
         }
         return;
     }
@@ -354,12 +373,13 @@ void ChessSelectionScreen::draw()
             const auto& item = items_[i];
             SDL_Rect frame{left, top + local * rowHeight, width, rowHeight - 4};
             const ControlState state{.hovered = contains(frame, PointerInput::instance().logicalPointerUiPosition()),
+                .selected = selected_ == i,
                 .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())};
             controlSurface(frame, state);
             const int iconSize = 24;
             image(item.image, {frame.x + 20, frame.y + (frame.h - iconSize) / 2, iconSize, iconSize});
             label(item.title, 22, frame.x + 76, frame.y + (frame.h - 22) / 2, ink, frame.w - 104, 2);
-            control(frame, [this, i] { exitWithResult(i); });
+            control(frame, [this, i] { select(i); exitWithResult(i); });
         }
         const int pages = std::max(1, (static_cast<int>(items_.size()) + pageSize() - 1) / pageSize());
         if (pages > 1)
@@ -725,6 +745,7 @@ RunNode::PointerResult ChessSelectionScreen::onPointerEvent(const PointerEvent& 
                 if (portraitClicks_.release(std::to_string(item), event.clicks, event.timestamp,
                     event.source == PointerSource::Touch || GameUtil::isMobileDevice()))
                 {
+                    select(item);
                     exitWithResult(item);
                     return PointerResult::Handled;
                 }

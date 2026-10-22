@@ -3914,6 +3914,59 @@ std::vector<EffectRule> magicContractRules(int magicId)
 }
 }
 
+TEST_CASE("Xuanming settles and reapplies poison only to already poisoned enemies",
+          "[battle][effect][ultimate][poison][xuanming]")
+{
+    const auto rules = namedRules(YAML::Load(
+        "[{類型: 全體引毒再施毒, 中毒次數: 3, 生命傷害百分比: 4}]"));
+    for (const bool poisonedEnemies : {false, true})
+    {
+        CAPTURE(poisonedEnemies);
+        auto owner = makeUnit(1, 0, 100, 100);
+        owner.statusDetails.push_back({.state = BattleStatusKind::Poison, .sourceUnitId = 2});
+        auto ally = makeUnit(2, 0, 100, 100);
+        ally.statusDetails.push_back({.state = BattleStatusKind::Poison, .sourceUnitId = 1});
+        auto first = makeUnit(3, 1, 100, 100);
+        auto second = makeUnit(4, 1, 100, 100);
+        if (poisonedEnemies)
+        {
+            first.statusDetails.push_back({.state = BattleStatusKind::Poison, .sourceUnitId = 1});
+            second.statusDetails.push_back({.state = BattleStatusKind::Poison, .sourceUnitId = 2});
+        }
+        const auto clean = makeUnit(5, 1, 100, 100);
+        auto bleeding = makeUnit(6, 1, 100, 100);
+        bleeding.statusDetails.push_back({.state = BattleStatusKind::Bleed, .sourceUnitId = 1});
+        const std::vector units{owner, ally, first, second, clean, bleeding};
+        const auto source = magicBinding(21);
+        BattleEffectRuleStore store;
+        for (const auto& rule : rules) store.append(source, rule);
+        BattleRuntimeRandom random(1);
+        const auto result = BattleEffectSystem{}.dispatch(
+            store, makeContext(EffectEvent::AttackCommitted, source, owner, units,
+                CastCommitEventData{.provenance = castProvenance(21), .targetUnitId = clean.id}), random);
+        if (!poisonedEnemies)
+        {
+            CHECK(result.commands.empty());
+            continue;
+        }
+        REQUIRE(result.commands.size() == 6);
+        for (const int targetId : {first.id, second.id})
+        {
+            std::vector<const EffectCommand*> commands;
+            for (const auto& command : result.commands)
+                if (command.metadata.targetUnitId == targetId) commands.push_back(&command);
+            REQUIRE(commands.size() == 3);
+            CHECK(std::holds_alternative<SettleRemainingStatusDamageAction>(
+                std::get<StateMachineEffectCommand>(commands[0]->value).value));
+            CHECK(std::holds_alternative<RemoveStatusEffectCommand>(commands[1]->value));
+            const auto& poison = std::get<ApplyStatusEffectCommand>(commands[2]->value);
+            CHECK(poison.status == BattleStatusKind::Poison);
+            CHECK(poison.durationFrames == 90);
+            CHECK(poisonDamagePercent(poison.behavior) == 4);
+        }
+    }
+}
+
 TEST_CASE("Huanhua heals only two lowest HP allies using the caster star",
           "[battle][effect][ultimate][healing]")
 {

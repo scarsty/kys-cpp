@@ -84,7 +84,7 @@ struct SessionMenuData
     bool doubleClickConfirms{};
     std::string actionLabel = "選擇";
     std::string headerNote;
-    int selectedItem = -1;
+    ChessSelectionPosition* position{};
 };
 
 
@@ -454,19 +454,21 @@ int runSelection(
     if (data.overviewMode) menu->setOverviewMode();
     menu->setActionLabel(data.actionLabel);
     menu->setHeaderNote(data.headerNote);
-    if (data.selectedItem >= 0) menu->setSelectedItem(data.selectedItem);
+    if (data.position) menu->restorePosition(*data.position);
     menu->setExitable(exitable);
     menu->setSearchEnabled(showSearch || data.labels.size() > 12);
     menu->setExitConfirmation(std::move(exitConfirmation));
     menu->setDetailRenderer(std::move(detailRenderer));
     menu->run();
+    if (data.position) *data.position = menu->position();
     return menu->getResult();
 }
 
 std::optional<ChessContextMenuAction> runContextActionMenu(
-    const std::string& title, const std::vector<ChessContextMenuItem>& items)
+    const std::string& title, const std::vector<ChessContextMenuItem>& items, ChessSelectionPosition& position)
 {
     SessionMenuData data;
+    data.position = &position;
     data.labels = chessContextMenuLabels(items);
     data.commandMode = true;
     for (const auto& item : items)
@@ -1411,7 +1413,7 @@ ChessActionResult ChessGuiSessionAdapter::submitGuiAction(const ChessAction& act
 void ChessGuiSessionAdapter::showBanManagement()
 {
     const int maximum = ChessManagementRules::maximumBanCount(session_.state(), session_.content());
-    int selectedRole = -1;
+    ChessSelectionPosition position;
     for (;;)
     {
         const auto observation = session_.observe();
@@ -1423,6 +1425,7 @@ void ChessGuiSessionAdapter::showBanManagement()
 
         const auto rows = buildChessBanManagementRows(observation, session_.content());
         SessionMenuData data;
+        data.position = &position;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<int> roleIds;
         for (const auto& row : rows)
@@ -1450,7 +1453,6 @@ void ChessGuiSessionAdapter::showBanManagement()
                 : static_cast<int>(observation.bans.size()) >= maximum ? "封禁名額已滿" : "可封禁";
             data.cards[i].character->context = data.cards[i].subtitle;
             data.cards[i].actionEnabled = !rows[i].banned && static_cast<int>(observation.bans.size()) < maximum;
-            if (rows[i].roleId == selectedRole) data.selectedItem = i;
         }
 
         const int bannedCount = static_cast<int>(observation.bans.size());
@@ -1460,7 +1462,6 @@ void ChessGuiSessionAdapter::showBanManagement()
             return;
         }
         assert(!rows[choice].banned && bannedCount < maximum);
-        selectedRole = rows[choice].roleId;
 
         ChessAction action;
         action.type = ChessActionType::AddBan;
@@ -1474,68 +1475,44 @@ void ChessGuiSessionAdapter::showBanManagement()
     }
 }
 
-bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descriptor)
+bool ChessGuiSessionAdapter::chooseForcedBans()
 {
-    const bool forced = session_.state().phase == ChessSessionPhase::RewardChoice
-        && !session_.state().pendingRewards.empty()
-        && session_.state().pendingRewards.front().kind == ChessRewardKind::ForcedBan;
-    SessionMenuData data;
-    std::vector<ChessMenuColumnRow> labelRows;
+    const auto pending = session_.state().pendingRewards.front();
+    assert(pending.kind == ChessRewardKind::ForcedBan);
     std::vector<int> roleIds;
-    for (const int roleId : descriptor.candidateIds)
+    for (const auto& option : pending.options) roleIds.push_back(option.value);
+    ChessSelectionPosition position;
+    for (;;)
     {
-        const auto* role = session_.content().role(roleId);
-        assert(role);
-        labelRows.push_back({
-            forced ? "" : "[未禁] ",
-            role->Name,
-            {},
-            std::format("${}", ChessManagementRules::pieceValue(session_.content(), roleId, 1)),
-        });
-        data.colors.push_back(chessPieceTierColor(role->Cost));
-        roleIds.push_back(roleId);
-    }
-    data.labels = alignedMenuLabels(labelRows);
-    data.cards = roleCards(session_, roleIds);
-    data.actionLabel = "封禁";
-    data.doubleClickConfirms = true;
-    const std::string title = forced ? "禁棋選擇" : "禁棋管理";
-    data.headerNote = forced
-        ? std::format(
-            "≤{}費 · 剩餘 {}/{} · 雙擊棋子或選取後按封禁 · 本局永久",
-            session_.state().pendingRewards.front().eligibleTiers.front(),
-            session_.state().pendingRewards.front().parameter,
-            session_.state().pendingRewards.front().choiceCount)
-        : std::format(
-            "已禁 {}/{} · 剩餘 {} · 雙擊棋子或選取後按封禁 · 本局永久",
-            session_.state().bannedRoleIds.size(),
-            ChessManagementRules::maximumBanCount(session_.state(), session_.content()),
-            std::max(0, ChessManagementRules::maximumBanCount(session_.state(), session_.content())
-                - static_cast<int>(session_.state().bannedRoleIds.size())));
-    std::function<bool()> exitConfirmation;
-    if (forced)
-    {
+        SessionMenuData data;
+        data.position = &position;
+        data.cards = roleCards(session_, roleIds);
+        data.actionLabel = "封禁";
+        data.doubleClickConfirms = true;
         const int remaining = session_.state().pendingRewards.front().parameter;
-        exitConfirmation = [remaining]() {
+        data.headerNote = std::format(
+            "≤{}費 · 剩餘 {}/{} · 雙擊棋子或選取後按封禁 · 本局永久",
+            pending.eligibleTiers.front(), remaining, pending.choiceCount);
+        for (auto& card : data.cards)
+        {
+            data.labels.push_back(card.title);
+            card.actionEnabled = !card.character->banned;
+            card.subtitle = card.character->banned ? "已封禁 · 本局永久" : "可封禁";
+            card.character->context = card.subtitle;
+        }
+        const int choice = runSelection("禁棋選擇", data, {}, false, true, [remaining] {
             return runChessChoiceMenu("放棄本次禁棋機會？", {
                 std::format("確認放棄剩餘{}次（不會保留）", remaining), "繼續選擇"},
                 ChessChoiceStyle::DestructiveConfirmation) == 0;
-        };
+        });
+        if (choice < 0) return false;
+        const auto result = submitGuiAction({.type = ChessActionType::AddBan, .roleId = roleIds[choice]});
+        if (!result.accepted) showChessMessage(result.description);
+        if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted
+            || session_.state().phase != ChessSessionPhase::RewardChoice
+            || session_.state().pendingRewards.front().id != pending.id)
+            return true;
     }
-    const int choice = runSelection(title, data, {}, false, true, std::move(exitConfirmation));
-    if (choice < 0)
-    {
-        return false;
-    }
-    ChessAction action;
-    action.type = ChessActionType::AddBan;
-    action.roleId = descriptor.candidateIds[choice];
-    const auto result = submitGuiAction(action);
-    if (!result.accepted)
-    {
-        showChessMessage(result.description);
-    }
-    return true;
 }
 
 void ChessGuiSessionAdapter::showEquipmentMenu()
@@ -1546,10 +1523,12 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
         showEquipmentInventory();
         return;
     }
+    ChessSelectionPosition position;
     for (;;)
     {
         const auto items = buildChessEquipmentMenu(legendaryUnlocked);
         SessionMenuData data;
+        data.position = &position;
         std::vector<ChessMenuColumnRow> labelRows;
         for (const auto& item : items)
         {
@@ -1575,7 +1554,7 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
         {
         case ChessContextMenuAction::ShowEquipmentInventory:
             showEquipmentInventory();
-            return;
+            break;
         case ChessContextMenuAction::BuyLegendaryEquipment:
         {
             if (openPreparationCommand(items[selected].action)) return;
@@ -1596,9 +1575,11 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
         int instanceId = -1;
         bool owned{};
     };
+    ChessSelectionPosition position;
     for (;;)
     {
         SessionMenuData data;
+        data.position = &position;
         std::vector<Row> rows;
         for (const auto& definition : session_.content().equipment())
         {
@@ -1739,9 +1720,11 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
 
 void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& descriptor)
 {
+    ChessSelectionPosition position;
     for (;;)
     {
         SessionMenuData data;
+        data.position = &position;
         data.shopMode = true;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<const EquipmentDef*> definitions;
@@ -1790,18 +1773,20 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
 void ChessGuiSessionAdapter::showOverviewMenu()
 {
     const auto items = buildChessOverviewMenu();
-    const auto action = runContextActionMenu("圖簽", items);
-    if (!action)
+    ChessSelectionPosition position;
+    for (;;)
     {
-        return;
-    }
-    switch (*action)
-    {
-    case ChessContextMenuAction::ViewCombos: viewCombos(); break;
-    case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
-    case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
-    case ChessContextMenuAction::ViewEffects: viewEffects(); break;
-    default: assert(false); break;
+        const auto action = runContextActionMenu("圖簽", items, position);
+        if (!action) return;
+        switch (*action)
+        {
+        case ChessContextMenuAction::ViewCombos: viewCombos(); break;
+        case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
+        case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
+        case ChessContextMenuAction::ViewEffects: viewEffects(); break;
+        default: assert(false); break;
+        }
+        if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted) return;
     }
 }
 
@@ -1825,6 +1810,7 @@ void ChessGuiSessionAdapter::showOfflineBattle()
 
     std::optional<ChessPvpComposition> opponent;
     std::uint32_t battleSeed = nextPvpBattleSeed();
+    int activeChild{};
     for (;;)
     {
         assert(ChessManagementRules::formationIsValid(
@@ -1861,7 +1847,9 @@ void ChessGuiSessionAdapter::showOfflineBattle()
             battleSeed,
             std::move(actionIds),
             std::move(labels));
+        screen->setStartItem(activeChild);
         screen->run();
+        activeChild = screen->getActiveChildIndex();
         battleSeed = screen->battleSeed();
         const auto selected = screen->selectedAction();
         if (!selected || *selected == OfflinePvpAction::Back)
@@ -1921,9 +1909,10 @@ void ChessGuiSessionAdapter::showOfflineBattle()
 
 bool ChessGuiSessionAdapter::runSystemMenu()
 {
+    ChessSelectionPosition position;
     for (;;)
     {
-        const auto action = runContextActionMenu("系統選單", buildChessSystemMenu());
+        const auto action = runContextActionMenu("系統選單", buildChessSystemMenu(), position);
         if (!action)
         {
             return false;
@@ -2112,6 +2101,7 @@ void ChessGuiSessionAdapter::showSystemSettings()
 
 ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActionDescriptor& descriptor)
 {
+    ChessSelectionPosition position;
     for (;;)
     {
         if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
@@ -2120,6 +2110,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
         }
 
         SessionMenuData data;
+        data.position = &position;
         data.actionLabel = "挑戰";
         data.overviewMode = true;
         data.headerNote = "不推進主線 · 僅首勝領獎與累計勝場 · 獎勵依條件提供";
@@ -2642,7 +2633,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainRewards(bool stopBeforeForcedBan
         const auto ban = std::ranges::find(legal, ChessActionType::AddBan, &ChessLegalActionDescriptor::type);
         if (ban != legal.end())
         {
-            const bool selected = chooseBan(*ban);
+            const bool selected = chooseForcedBans();
             if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
             {
                 return ChessGuiFlowResult::Aborted;

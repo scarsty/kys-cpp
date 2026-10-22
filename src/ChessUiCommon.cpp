@@ -83,7 +83,7 @@ void showChessMessage(const std::string& text, int fontSize)
 }
 
 int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
-    ChessChoiceStyle style)
+    ChessChoiceStyle style, ChessSelectionPosition* position)
 {
     std::vector<ChessSelectionItem> items;
     for (const auto& choice : choices)
@@ -94,7 +94,10 @@ int runChessChoiceMenu(const std::string& title, const std::vector<std::string>&
     if (style != ChessChoiceStyle::Options)
         menu->setConfirmation(style == ChessChoiceStyle::DestructiveConfirmation);
     menu->setActionLabel("確認");
-    return menu->run();
+    if (position) menu->restorePosition(*position);
+    const int result = menu->run();
+    if (position) *position = menu->position();
+    return result;
 }
 
 namespace

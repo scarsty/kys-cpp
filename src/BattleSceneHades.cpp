@@ -667,15 +667,15 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 
     using namespace KysChess;
     using ChessUiStyle::Icon;
+    auto menu = std::make_shared<ChessSelectionScreen>("戰前佈陣", std::vector<ChessSelectionItem>{
+        {.title = "地圖佈陣", .image = chessSelectionIcon(Icon::Map)},
+        {.title = "列表佈陣", .image = chessSelectionIcon(Icon::List)},
+        {.title = "開始戰鬥", .image = chessSelectionIcon(Icon::Play)},
+    });
+    menu->setCommandMode(true);
+    menu->setExitable(false);
     for (;;)
     {
-        auto menu = std::make_shared<ChessSelectionScreen>("戰前佈陣", std::vector<ChessSelectionItem>{
-            {.title = "地圖佈陣", .image = chessSelectionIcon(Icon::Map)},
-            {.title = "列表佈陣", .image = chessSelectionIcon(Icon::List)},
-            {.title = "開始戰鬥", .image = chessSelectionIcon(Icon::Play)},
-        });
-        menu->setCommandMode(true);
-        menu->setExitable(false);
         const int choice = menu->run();
         if (RunNode::runOwnerExitRequested() || choice == 2) return;
         if (choice == 0) runPositionSwapLoop();
@@ -3053,12 +3053,15 @@ void BattleSceneHades::runListBasedSwap()
         return names;
     };
 
+    KysChess::ChessSelectionPosition firstPosition, secondPosition;
     for (;;)
     {
-        const int first = KysChess::runChessChoiceMenu("列表佈陣 · 選擇第一個陣位", buildNames());
+        const int first = KysChess::runChessChoiceMenu("列表佈陣 · 選擇第一個陣位", buildNames(),
+            KysChess::ChessChoiceStyle::Options, &firstPosition);
         if (first < 0) break;
 
-        const int second = KysChess::runChessChoiceMenu("選擇要交換的陣位", buildNames(first));
+        const int second = KysChess::runChessChoiceMenu("選擇要交換的陣位", buildNames(first),
+            KysChess::ChessChoiceStyle::Options, &secondPosition);
         if (second < 0 || second == first)
         {
             continue;

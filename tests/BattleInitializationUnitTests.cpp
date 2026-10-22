@@ -1451,45 +1451,82 @@ TEST_CASE("Alliance equipment membership excludes unequipped duplicates on eithe
     }
 }
 
-TEST_CASE("Alliance enables a solo Shendiao member low health buff without buffing the enemy partner",
+TEST_CASE("Shendiao low health buffs only other allied combo members including with Alliance",
           "[battle][initialization][alliance][member-team-attack][regression]")
 {
-    std::uint64_t nextRuleId{};
-    BattleRuntimeSessionCreationInput input;
-    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.setup.comboModifiersByTeam[0] = {7, 1, 6, 1};
-    input.setup.comboDefinitions.push_back({
-        .id = 7,
-        .name = "神雕俠侶",
-        .memberRoleIds = {1001, 1002},
-        .thresholds = {gameplayThreshold(2,
-            "[{類型: 成員低血全員增攻, 生命門檻百分比: 50, 攻擊百分比: 23, 持續幀數: 9}]", nextRuleId)},
-    });
-    addInitializedRuntimeTestUnit(input, 1, 1001, 0, 11, 10, Towards_RightDown);
-    addInitializedRuntimeTestUnit(input, 2, 2002, 0, 12, 10, Towards_RightDown);
-    addInitializedRuntimeTestUnit(input, 10, 1002, 1, 40, 30, Towards_LeftUp);
-    const auto resolved = resolveBattleSetupCombos(input.setup.allyRoster, input.setup);
-    REQUIRE(resolved.size() == 1);
-    CHECK(resolved.front().physicalMemberCount == 1);
-    CHECK(resolved.front().effectiveMemberCount == 2);
-    CHECK(resolved.front().activeThresholdIndex == 0);
-    auto created = BattleRuntimeSession::createInitialized(std::move(input));
-    auto runtime = created.session.runtime();
-    runtime.units.requireCore(1).vitals.hp = 1;
-
-    BattleEffectEventBridge bridge;
-    const auto event = bridge.makeEvent(runtime,
-        {.frame = 1, .eventOrdinal = 1, .ownerUnitId = 1},
-        EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
-    const auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
-    REQUIRE(dispatched.commands.size() == 1);
-    for (const auto& command : dispatched.commands)
+    for (const int team : {0, 1})
+    for (const int sourceRoleId : {1001, 1002})
+    for (const bool solo : {false, true})
     {
-        CHECK(command.metadata.targetUnitId == 1);
+        CAPTURE(team, sourceRoleId, solo);
+        std::uint64_t nextRuleId{};
+        BattleRuntimeSessionCreationInput input;
+        input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+        if (solo) input.setup.comboModifiersByTeam[team] = {7, 1, 6, 1};
+        input.setup.comboDefinitions.push_back({
+            .id = 7,
+            .name = "神雕俠侶",
+            .memberRoleIds = {1001, 1002},
+            .thresholds = {gameplayThreshold(2,
+                "[{類型: 成員低血全員增攻, 生命門檻百分比: 50, 攻擊百分比: 23, 持續幀數: 9}]", nextRuleId)},
+        });
+        const int partnerRoleId = sourceRoleId == 1001 ? 1002 : 1001;
+        addInitializedRuntimeTestUnit(input, 1, sourceRoleId, team, 11, 10, Towards_RightDown);
+        if (!solo) addInitializedRuntimeTestUnit(input, 2, partnerRoleId, team, 12, 10, Towards_RightDown);
+        addInitializedRuntimeTestUnit(input, 3, 2002, team, 13, 10, Towards_RightDown);
+        addInitializedRuntimeTestUnit(input, 10, partnerRoleId, 1 - team, 40, 30, Towards_LeftUp);
+        const auto resolved = resolveBattleSetupCombos(
+            team == 0 ? input.setup.allyRoster : input.setup.enemyRoster, input.setup);
+        REQUIRE(resolved.size() == 1);
+        CHECK(resolved.front().physicalMemberCount == (solo ? 1 : 2));
+        CHECK(resolved.front().effectiveMemberCount == 2);
+        CHECK(resolved.front().activeThresholdIndex == 0);
+        auto created = BattleRuntimeSession::createInitialized(std::move(input));
+        auto runtime = created.session.runtime();
+        BattleEffectEventBridge bridge;
+        const auto dispatch = [&](int frame)
+        {
+            const auto event = bridge.makeEvent(runtime,
+                {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1},
+                EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
+            return bridge.dispatchFrameAdvanced(runtime, event);
+        };
+        const auto attack = [&](int id, int frame)
+        {
+            return BattleEffectCommandSystem::queryAttribute(runtime,
+                {.unitId = id, .attribute = BattleAttribute::Attack, .baseValue = 100, .frame = frame});
+        };
+
+        runtime.units.requireCore(1).vitals.hp = 60;
+        CHECK(dispatch(1).commands.empty());
+        runtime.units.requireCore(1).vitals.hp = 59;
+        const auto first = dispatch(2);
+        REQUIRE(first.commands.size() == (solo ? 0 : 1));
+        if (!solo)
+        {
+            CHECK(first.commands.front().metadata.binding.ownerUnitId == 1);
+            CHECK(first.commands.front().metadata.targetUnitId == 2);
+        }
+        BattleEffectCommandSystem().reduce(runtime, first.commands);
+        for (int id : {1, 3, 10}) CHECK(attack(id, 2) == 100);
+        if (!solo)
+        {
+            CHECK(attack(2, 2) == 123);
+            runtime.units.requireCore(2).vitals.hp = 59;
+            const auto second = dispatch(3);
+            REQUIRE(second.commands.size() == 1);
+            CHECK(second.commands.front().metadata.binding.ownerUnitId == 2);
+            CHECK(second.commands.front().metadata.targetUnitId == 1);
+            BattleEffectCommandSystem().reduce(runtime, second.commands);
+            CHECK(attack(1, 3) == 123);
+            CHECK(attack(2, 3) == 123);
+            CHECK(attack(3, 3) == 100);
+            CHECK(attack(10, 3) == 100);
+            CHECK(attack(2, 10) == 123);
+            CHECK(attack(2, 11) == 100);
+            CHECK(attack(1, 11) == 123);
+            CHECK(attack(1, 12) == 100);
+        }
+        CHECK(dispatch(204).commands.empty());
     }
-    BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
-    for (int id : {1, 2, 10})
-        CHECK(BattleEffectCommandSystem::queryAttribute(runtime,
-            {.unitId = id, .attribute = BattleAttribute::Attack, .baseValue = 100, .frame = 1})
-            == (id == 1 ? 123 : 100));
 }

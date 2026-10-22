@@ -82,6 +82,30 @@ TEST_CASE("Afflicted hit shield descriptions retain the cap and cast limit in on
         == "命中：負面敵人→護盾+血上限5%，上限20%，每招一次");
 }
 
+TEST_CASE("Low health combo attack descriptions specify other members",
+          "[chess][effects][description][member-team-attack]")
+{
+    const auto effect = configured(
+        "[{類型: 成員低血全員增攻, 生命門檻百分比: 50, 攻擊百分比: 23, 持續幀數: 9}]").front();
+    CHECK(effect->describe(EffectDescriptionStyle::Full)
+        == "任一成員生命首次低於50%時，其他存活的同羈絆友軍攻擊+23%，持續9"
+           "幀。每名成員每場各觸發一次，同來源兩次觸發至少間隔200幀。");
+    CHECK(effect->describe(EffectDescriptionStyle::Compact)
+        == "任一成員首次血量<50%：其他同羈絆友軍+23%攻，9幀");
+}
+
+TEST_CASE("Xuanming descriptions restrict reapplied poison to poisoned enemies",
+          "[chess][effects][description][poison][xuanming]")
+{
+    const auto effect = configured(
+        "[{類型: 全體引毒再施毒, 中毒次數: 3, 生命傷害百分比: 4}]").front();
+    CHECK(effect->describe(EffectDescriptionStyle::Full)
+        == "出招立即結算所有中毒敵人的剩餘中毒傷害，僅對這些敵人再施加持續90幀的中毒。"
+           "新中毒每30幀造成目標當前生命4%傷害，最低1點，共3次；取代原有中毒。");
+    CHECK(effect->describe(EffectDescriptionStyle::Compact)
+        == "出招：結算全敵剩餘毒傷，僅對中毒者再施毒90幀");
+}
+
 TEST_CASE("Descriptions distinguish damage channels and explain debuff consequences", "[chess][effects][description]")
 {
     auto effects = configured(R"(
