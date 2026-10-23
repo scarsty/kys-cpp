@@ -1,6 +1,9 @@
 #include "battle/BattleEffectAttackCastSystem.h"
-#include "ChessBattleEffectTestHelpers.h"
 
+#include "ChessBattleEffectParser.h"
+#include "ChessGameplayEffect.h"
+
+#include <yaml-cpp/yaml.h>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -104,13 +107,13 @@ void checkVelocity(const Pointf& velocity, double x, double y)
 
 }  // namespace
 
-TEST_CASE("BattleEffectAttackCastSystem applies configured scissors projectile sweep",
+TEST_CASE("BattleEffectAttackCastSystem applies piercing projectile sweep",
           "[battle][effect][attack_cast][projectile_sweep]")
 {
-    const auto scissors = KysChess::Test::contractMagicDefinition(75);
-    REQUIRE(scissors.rules.size() == 1);
-    const auto& rule = KysChess::Test::ruleWithEvent(scissors, EffectEvent::AttackCommitted);
-    const auto& action = std::get<ModifyAttackAction>(rule.actions.front().value);
+    ModifyAttackAction action;
+    action.projectileClearRadiusPct = 150;
+    action.through = true;
+    action.strengthPct = 100;
     auto input = castInput();
     BattleCastResult cast;
     cast.attackSpawnRequests.push_back(baseAttack());

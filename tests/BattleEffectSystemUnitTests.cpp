@@ -3900,18 +3900,6 @@ std::vector<EffectRule> namedRules(const YAML::Node& configured)
     REQUIRE(parseGameplayEffects(configured, effects, rules, id, "組合效果測試"));
     return rules;
 }
-
-std::vector<EffectRule> magicContractRules(int magicId)
-{
-    const auto contracts = YAML::LoadFile("tests/data/gameplay-effect-contracts.yaml");
-    for (const auto& entry : contracts)
-    {
-        if (entry["來源"].as<std::string>() == "magic:" + std::to_string(magicId))
-            return namedRules(entry["效果"]);
-    }
-    FAIL("找不到武功契約");
-    return {};
-}
 }
 
 TEST_CASE("Xuanming settles and reapplies poison only to already poisoned enemies",
@@ -3967,10 +3955,11 @@ TEST_CASE("Xuanming settles and reapplies poison only to already poisoned enemie
     }
 }
 
-TEST_CASE("Huanhua heals only two lowest HP allies using the caster star",
+TEST_CASE("Targeted healing cleanses and heals only two lowest HP allies using the caster star",
           "[battle][effect][ultimate][healing]")
 {
-    const auto rules = magicContractRules(134);
+    const auto rules = namedRules(YAML::Load(
+        "[{類型: 治療淨化低血友軍, 友軍數: 2, 每星治療: 30, 生命治療百分比: 6, 淨化數: 1}]"));
     REQUIRE(rules.size() == 1);
     for (int star : { 1, 2, 3 })
     {
@@ -4014,10 +4003,10 @@ TEST_CASE("Huanhua heals only two lowest HP allies using the caster star",
     }
 }
 
-TEST_CASE("Yijin shield scales with the caster star", "[battle][effect][ultimate][shield]")
+TEST_CASE("Cast shield scales with the caster star", "[battle][effect][ultimate][shield]")
 {
-    const auto rules = magicContractRules(108);
-    REQUIRE(rules.size() == 2);
+    const auto rules = namedRules(YAML::Load("[{類型: 出招護盾, 每星護盾: 70}]"));
+    REQUIRE(rules.size() == 1);
     for (int star : { 1, 2, 3 })
     {
         CAPTURE(star);
@@ -4032,7 +4021,7 @@ TEST_CASE("Yijin shield scales with the caster star", "[battle][effect][ultimate
             store, makeContext(EffectEvent::AttackCommitted, source, owner, units,
                                CastCommitEventData{ .provenance = castProvenance(108), .targetUnitId = 1 }),
             random);
-        REQUIRE(result.commands.size() == 2);
+        REQUIRE(result.commands.size() == 1);
         const auto& shield = std::get<ChangeResourceEffectCommand>(result.commands.back().value);
         CHECK(result.commands.back().metadata.targetUnitId == owner.id);
         CHECK(shield.resource == BattleResource::Shield);

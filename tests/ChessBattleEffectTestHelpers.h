@@ -36,33 +36,20 @@ inline const ChessMagicEffectDefinition& definitionWithId(
     return *it;
 }
 
-// 契約資料（tests/data/gameplay-effect-contracts.yaml）是測試自有的效果快照。
-// 引擎測試一律從契約載入武功效果，避免頂層設定的平衡調整打破測試。
-inline ChessMagicEffectDefinition contractMagicDefinition(int magicId)
+// 由測試明確提供效果與參數；武功 ID 僅用於執行期綁定。
+inline ChessMagicEffectDefinition parsedMagicDefinition(int magicId, std::string_view configured)
 {
-    const auto fixtures = YAML::LoadFile("tests/data/gameplay-effect-contracts.yaml");
-    for (const auto& fixture : fixtures)
-    {
-        if (fixture["來源"].as<std::string>() != "magic:" + std::to_string(magicId))
-        {
-            continue;
-        }
-        ChessMagicEffectDefinition definition;
-        definition.magicId = magicId;
-        if (fixture["名稱"])
-        {
-            definition.name = fixture["名稱"].as<std::string>();
-        }
-        std::vector<GameplayEffect> effects;
-        std::uint64_t id{};
-        ChessDiagnosticCollector diagnostics;
-        REQUIRE(parseGameplayEffects(
-            fixture["效果"], effects, definition.rules, id, "契約樣本", diagnostics.sink()));
-        REQUIRE_FALSE(diagnostics.hasErrors());
-        return definition;
-    }
-    FAIL("契約資料缺少武功 " + std::to_string(magicId));
-    return {};
+    ChessMagicEffectDefinition definition;
+    definition.magicId = magicId;
+    definition.name = "測試效果";
+    std::vector<GameplayEffect> effects;
+    std::uint64_t id{};
+    ChessDiagnosticCollector diagnostics;
+    REQUIRE(parseGameplayEffects(
+        YAML::Load(std::string(configured)), effects, definition.rules, id,
+        "行為測試", diagnostics.sink()));
+    REQUIRE_FALSE(diagnostics.hasErrors());
+    return definition;
 }
 
 inline const EffectRule& ruleWithEvent(

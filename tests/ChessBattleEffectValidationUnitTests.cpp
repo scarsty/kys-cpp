@@ -52,9 +52,14 @@ TEST_CASE("Source shield caps require a positive limit on a combat shield grant"
 TEST_CASE("ChessBattleEffects_FullMpHealingRequiresAnHpRestoreAction",
           "[battle][effects][schema][healing]")
 {
-    auto rule = ruleWithEvent(contractMagicDefinition(133), EffectEvent::AttackCommitted);
-    auto& heal = std::get<ChangeResourceAction>(rule.actions.at(1).value);
-    CHECK(heal.healRequiresFullMp);
+    ChangeResourceAction healing;
+    healing.resource = BattleResource::Hp;
+    healing.kind = ResourceChangeKind::Restore;
+    healing.amount.flat = 20;
+    healing.healRequiresFullMp = true;
+    EffectRule rule{.id = EffectRuleId{1}, .event = EffectEvent::AttackCommitted,
+        .actions = {EffectAction{healing}}};
+    auto& heal = std::get<ChangeResourceAction>(rule.actions.front().value);
     std::string error;
     REQUIRE(validateEffectRule(rule, error));
     heal.resource = BattleResource::Mp;
@@ -67,7 +72,8 @@ TEST_CASE("ChessBattleEffects_FullMpHealingRequiresAnHpRestoreAction",
 TEST_CASE("ChessBattleEffects_ProjectileSweepRequiresAtLeastHitRadius",
           "[battle][effects][schema][projectile_sweep]")
 {
-    auto rule = ruleWithEvent(contractMagicDefinition(75), EffectEvent::AttackCommitted);
+    EffectRule rule{.id = EffectRuleId{1}, .event = EffectEvent::AttackCommitted,
+        .actions = {EffectAction{ModifyAttackAction{}}}};
     auto& action = std::get<ModifyAttackAction>(rule.actions.front().value);
     for (const int radius : { -1, 1, 99, 0, 100, 150, 200 })
     {

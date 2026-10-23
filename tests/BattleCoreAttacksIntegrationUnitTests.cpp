@@ -79,7 +79,8 @@ BattleStatusEffectOrigin addTrueQiStatus(
 
 ApplyStatusAction swordGuardApplication()
 {
-    const auto definition = KysChess::Test::contractMagicDefinition(47);
+    const auto definition = KysChess::Test::parsedMagicDefinition(47,
+        "[{類型: 御劍護身, 減傷百分比: 40, 持續幀數: 100}]");
     for (const auto& rule : definition.rules)
     {
         for (const auto& action : rule.actions)
@@ -91,7 +92,7 @@ ApplyStatusAction swordGuardApplication()
             }
         }
     }
-    FAIL("獨孤九劍契約缺少御劍護身");
+    FAIL("測試效果缺少御劍護身");
     return {};
 }
 
@@ -182,11 +183,12 @@ TEST_CASE("Sword guard reduces and consumes only on the next direct attack",
     }
 }
 
-TEST_CASE("Jiuyang producer queues exact status origin and preserves ultimate hit lineage",
+TEST_CASE("Stacking pure damage producer queues exact status origin and preserves ultimate hit lineage",
           "[battle][core][true-qi][integration][origin]")
 {
-    const auto jiuyang = KysChess::Test::contractMagicDefinition(106);
-    const auto producer = std::ranges::find_if(jiuyang.rules, [](const EffectRule& rule)
+    const auto definition = KysChess::Test::parsedMagicDefinition(106,
+        "[{類型: 出招疊加純粹傷害, 每次層數: 1, 層數上限: 10, 每層純粹傷害: 9}]");
+    const auto producer = std::ranges::find_if(definition.rules, [](const EffectRule& rule)
     {
         return rule.event == EffectEvent::AttackCommitted
             && std::ranges::any_of(rule.actions, [](const EffectAction& action)
@@ -195,13 +197,13 @@ TEST_CASE("Jiuyang producer queues exact status origin and preserves ultimate hi
                 return application && application->status == BattleStatusKind::TrueQi;
             });
     });
-    REQUIRE(producer != jiuyang.rules.end());
+    REQUIRE(producer != definition.rules.end());
 
     auto frame = hitDamageFrameState(20, 100, true);
     auto& state = frame.state;
     const EffectSourceBinding binding{
         .kind = EffectSourceKind::Magic,
-        .sourceId = jiuyang.magicId,
+        .sourceId = definition.magicId,
         .ownerUnitId = 0,
         .sourceTeam = 0,
     };
@@ -211,7 +213,7 @@ TEST_CASE("Jiuyang producer queues exact status origin and preserves ultimate hi
 
     const auto producerCast = state.castLifecycle.beginRootCast({
         .sourceUnitId = 0,
-        .magicId = jiuyang.magicId,
+        .magicId = definition.magicId,
         .ultimate = true,
         .origin = CastOriginKind::Ultimate,
     });

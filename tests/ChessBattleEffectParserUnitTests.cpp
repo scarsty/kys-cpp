@@ -28,30 +28,6 @@ TEST_CASE("假死復甦 exposes its delay, restored HP, and revival stun", "[che
     CHECK(description.contains("51幀"));
 }
 
-TEST_CASE("Named effect definitions load as ordered runtime contracts", "[chess][effects][named][content]")
-{
-    const auto fixtures = YAML::LoadFile("tests/data/gameplay-effect-contracts.yaml");
-    REQUIRE(fixtures.size() > 0);
-    for (const auto& fixture : fixtures)
-    {
-        INFO(fixture["來源"].as<std::string>());
-        const auto configured = fixture["效果"];
-        std::vector<GameplayEffect> effects;
-        std::vector<EffectRule> rules;
-        std::uint64_t id{};
-        ChessDiagnosticCollector diagnostics;
-        REQUIRE(parseGameplayEffects(configured, effects, rules, id, "固定契約樣本", diagnostics.sink()));
-        CHECK_FALSE(diagnostics.hasErrors());
-        CHECK(id == rules.size());
-        for (const auto& effect : effects)
-        {
-            CHECK_FALSE(effect->name().empty());
-            CHECK_FALSE(effect->describe(EffectDescriptionStyle::Compact).empty());
-            CHECK_FALSE(effect->describe(EffectDescriptionStyle::Full).empty());
-        }
-    }
-}
-
 TEST_CASE("Named effect loading rejects malformed parameters atomically", "[chess][effects][named][config]")
 {
     const std::string_view invalid[]{

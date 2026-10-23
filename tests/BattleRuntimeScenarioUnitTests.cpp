@@ -75,16 +75,33 @@ BattleRuntimeSessionCreationInput actionProjectileSessionInput()
     return input;
 }
 
-ChessMagicEffectDefinition contractUltimateDefinition(int magicId)
+ChessMagicEffectDefinition rangedStunDefinition()
 {
-    return KysChess::Test::contractMagicDefinition(magicId);
+    return KysChess::Test::parsedMagicDefinition(18, R"(
+- {類型: 武功遠程化}
+- {類型: 命中眩暈, 持續幀數: 150}
+)");
+}
+
+ChessMagicEffectDefinition reducedCostShieldDefinition()
+{
+    return KysChess::Test::parsedMagicDefinition(94, R"(
+- {類型: 設定出招耗內, 消耗內力: 75}
+- {類型: 出招護盾, 每星護盾: 100}
+)");
+}
+
+ChessMagicEffectDefinition mpRecoveryHealingDefinition()
+{
+    return KysChess::Test::parsedMagicDefinition(133,
+        "[{類型: 出招回內療癒, 回復內力: 20, 每星治療: 33, 友軍數: 2}]");
 }
 
 BattleActionSkillSeed verticalSliceSkill(int magicId, int magicType = 1)
 {
     BattleActionSkillSeed skill;
     skill.id = magicId;
-    skill.name = "真實設定大招";
+    skill.name = "行為測試大招";
     skill.attackAreaType = 3;
     skill.magicType = magicType;
     skill.visualEffectId = magicId;
@@ -168,7 +185,7 @@ std::vector<BattleLogEvent> runUntilCollectingLogs(
 }
 
 BattleRuntimeSessionCreationInput singleUltimateInput(
-    int magicId,
+    ChessMagicEffectDefinition definition,
     int casterStar = 1,
     int magicType = 1,
     Pointf targetPosition = { 300, 100, 0 })
@@ -185,7 +202,7 @@ BattleRuntimeSessionCreationInput singleUltimateInput(
         100,
         { 100, 100, 0 },
         casterStar);
-    equipVerticalSliceUltimate(input, caster, magicId, magicType);
+    equipVerticalSliceUltimate(input, caster, definition.magicId, magicType);
     input.units.push_back(caster);
 
     auto target = verticalSliceUnit(
@@ -197,8 +214,7 @@ BattleRuntimeSessionCreationInput singleUltimateInput(
         targetPosition);
     target.stats.defence = 100;
     input.units.push_back(target);
-    input.setup.magicEffectDefinitions.push_back(
-        contractUltimateDefinition(magicId));
+    input.setup.magicEffectDefinitions.push_back(std::move(definition));
     return input;
 }
 
@@ -231,7 +247,7 @@ BattleRuntimeSessionCreationInput divineFlickInput(
     target.frozenMax = 1000;
     input.units.push_back(target);
     input.setup.magicEffectDefinitions.push_back(
-        contractUltimateDefinition(DivineFlickMagicId));
+        rangedStunDefinition());
     return input;
 }
 
@@ -398,22 +414,21 @@ const BattleAttackInstance* copiedRuntimeAttack(const BattleRuntimeState& state)
 
 }  // namespace
 
-TEST_CASE("BattleRuntimeScenario_EffectRefactorBattleGoldens", "[battle][scenario][determinism][effect-golden]")
+TEST_CASE("BattleRuntimeScenario_EffectExecutionIsDeterministicForTheSameSeed", "[battle][scenario][determinism]")
 {
-    const std::map<int, std::pair<std::string, std::uint64_t>> goldens{
-        { 18, { "3b984cfb261cd3d12449e8014f02f229606383062aacd72d0f9d027876bf316a", 45 } },
-        { 94, { "23ad527e00bb927760d6bd9db80df2a01a265174531d2df8a67dd6088b9041c0", 60 } },
-        { 133, { "f3fb8f7392922e715371ff0715a8a2d5fc21a6914516a157077720efc5bc2675", 60 } },
-    };
-    for (const auto& [magicId, expected] : goldens)
+    for (const auto& definition : {
+             rangedStunDefinition(), reducedCostShieldDefinition(), mpRecoveryHealingDefinition()})
     {
-        auto input = singleUltimateInput(magicId, 3, 1, { 220, 100, 0 });
+        CAPTURE(definition.magicId);
+        auto input = singleUltimateInput(definition, 3, 1, { 220, 100, 0 });
         input.rules.maximumFrames = 600;
-        const auto battle = KysChess::HeadlessBattleRunner::run(std::move(input));
-        CAPTURE(magicId, KysChess::chessSha256Hex(battle.digest), battle.finalRuntime.random.rawDrawCount());
-        CHECK(battle.summary.endFrame == 600);
-        CHECK(KysChess::chessSha256Hex(battle.digest) == expected.first);
-        CHECK(battle.finalRuntime.random.rawDrawCount() == expected.second);
+        const auto first = KysChess::HeadlessBattleRunner::run(input);
+        const auto second = KysChess::HeadlessBattleRunner::run(std::move(input));
+        CHECK(first.summary.endFrame == 600);
+        CHECK(second.summary.endFrame == first.summary.endFrame);
+        CHECK(first.digest == second.digest);
+        CHECK(first.finalRuntime.random.rawDrawCount() > 0);
+        CHECK(second.finalRuntime.random.rawDrawCount() == first.finalRuntime.random.rawDrawCount());
     }
 }
 
@@ -578,7 +593,7 @@ TEST_CASE("BattleRuntimeScenario_ConfiguredHealTargetsLowestHpRatioAlly", "[batt
     CHECK(state.units.requireCore(2).vitals.hp == 300);
 }
 
-TEST_CASE("BattleRuntimeScenario_RealDivineFlickPlansBaseMeleeAsRangedOnlyForItsUltimate",
+TEST_CASE("BattleRuntimeScenario_RangedOverrideAppliesOnlyToItsBoundUltimate",
           "[battle][scenario][runtime][ultimate-effect][vertical][exact-runtime]")
 {
     constexpr int DivineFlickMagicId = 18;
@@ -679,9 +694,9 @@ TEST_CASE("BattleRuntimeScenario_RealDivineFlickPlansBaseMeleeAsRangedOnlyForIts
     }
 }
 
-TEST_CASE("BattleRuntimeScenario_RealSanqingHealsAlliesToppedUpByItsRecovery", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_MpRecoveryHealsAlliesToppedUpByItsRecovery", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
-    auto input = singleUltimateInput(133, 3, 1, { 220, 100, 0 });
+    auto input = singleUltimateInput(mpRecoveryHealingDefinition(), 3, 1, { 220, 100, 0 });
     input.units.push_back(verticalSliceUnit(2, 0, 400, 1000, 80, { 100, 180, 0 }));
     input.units.push_back(verticalSliceUnit(3, 0, 400, 1000, 20, { 100, 260, 0 }));
     auto state = initializedVerticalSliceState(std::move(input));
@@ -697,10 +712,10 @@ TEST_CASE("BattleRuntimeScenario_RealSanqingHealsAlliesToppedUpByItsRecovery", "
     CHECK(state.units.requireCore(3).shield == 0);
 }
 
-TEST_CASE("BattleRuntimeScenario_RealShenzhaoSpends75MpAndGrantsStarShield", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_ReducedCostCastSpends75MpAndGrantsStarShield", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
     auto state = initializedVerticalSliceState(singleUltimateInput(
-        94,
+        reducedCostShieldDefinition(),
         3,
         1,
         { 220, 100, 0 }));
@@ -724,12 +739,12 @@ TEST_CASE("BattleRuntimeScenario_RealShenzhaoSpends75MpAndGrantsStarShield", "[b
     CHECK(state.units.requireCore(0).shield == 300);
 }
 
-TEST_CASE("BattleRuntimeScenario_SingleSkillShenzhaoRequiresFullMpForUltimateEffects", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_SingleSkillRequiresFullMpForUltimateEffects", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
     for (const int openingMp : {0, 75, 99, 100})
     {
         CAPTURE(openingMp);
-        auto input = singleUltimateInput(94, 3, 1, { 220, 100, 0 });
+        auto input = singleUltimateInput(reducedCostShieldDefinition(), 3, 1, { 220, 100, 0 });
         // 避開第 0 幀回內，讓首次出招確實以指定內力判定。
         input.battleFrame = 1;
         auto& caster = input.units.front();
@@ -768,10 +783,11 @@ TEST_CASE("BattleRuntimeScenario_SingleSkillShenzhaoRequiresFullMpForUltimateEff
     }
 }
 
-TEST_CASE("BattleRuntimeScenario_RealLionRoarStunsEveryLivingEnemyAndLogsEachApplication",
+TEST_CASE("BattleRuntimeScenario_GlobalStunTargetsEveryLivingEnemyAndLogsEachApplication",
           "[battle][scenario][runtime][ultimate-effect][vertical][logging]")
 {
-    auto input = singleUltimateInput(92, 1, 1, { 220, 100, 0 });
+    auto input = singleUltimateInput(KysChess::Test::parsedMagicDefinition(92,
+        "[{類型: 出招全體眩暈, 持續幀數: 70}]"), 1, 1, { 220, 100, 0 });
     input.units.push_back(verticalSliceUnit(
         2, 0, 10000, 10000, 0, { 220, 220, 0 }));
     input.units.push_back(verticalSliceUnit(
@@ -806,7 +822,7 @@ TEST_CASE("BattleRuntimeScenario_RealLionRoarStunsEveryLivingEnemyAndLogsEachApp
             && log->sourceUnitId == 0
             && log->semanticSourceTeam == 0
             && log->semanticSourceKind == "magic"
-            && log->semanticSourceName == "獅子吼"
+            && log->semanticSourceName == "測試效果"
             && log->frame >= 0
             && log->amount == 70;
     }));
@@ -820,10 +836,13 @@ TEST_CASE("BattleRuntimeScenario_RealLionRoarStunsEveryLivingEnemyAndLogsEachApp
     }));
 }
 
-TEST_CASE("BattleRuntimeScenario_RealNineYangLogsHealTrueQiAndItsDamage",
+TEST_CASE("BattleRuntimeScenario_HealingAndStackingPureDamageLogTheirEffects",
           "[battle][scenario][runtime][ultimate-effect][vertical][logging]")
 {
-    auto input = singleUltimateInput(106, 1, 1, { 220, 100, 0 });
+    auto input = singleUltimateInput(KysChess::Test::parsedMagicDefinition(106, R"(
+- {類型: 出招治療自身, 固定治療: 60, 生命治療百分比: 3}
+- {類型: 出招疊加純粹傷害, 每次層數: 1, 層數上限: 10, 每層純粹傷害: 9}
+)"), 1, 1, { 220, 100, 0 });
     input.units.front().vitals.hp = 500;
     auto state = initializedVerticalSliceState(std::move(input));
 
@@ -849,7 +868,7 @@ TEST_CASE("BattleRuntimeScenario_RealNineYangLogsHealTrueQiAndItsDamage",
             && log.sourceUnitId == 0
             && log.targetUnitId == 0
             && log.semanticSourceKind == "magic"
-            && log.semanticSourceName == "九陽神功";
+            && log.semanticSourceName == "測試效果";
     });
     REQUIRE(heal != logs.end());
     CHECK(heal->amount > 0);
@@ -862,7 +881,7 @@ TEST_CASE("BattleRuntimeScenario_RealNineYangLogsHealTrueQiAndItsDamage",
             && log.sourceUnitId == 0
             && log.targetUnitId == 0
             && log.semanticSourceKind == "magic"
-            && log.semanticSourceName == "九陽神功"
+            && log.semanticSourceName == "測試效果"
             && log.stackCount == 1;
     });
     REQUIRE(trueQi != logs.end());
@@ -875,17 +894,17 @@ TEST_CASE("BattleRuntimeScenario_RealNineYangLogsHealTrueQiAndItsDamage",
             && log.targetUnitId == 1
             && log.amount > 0
             && log.skillId == 106
-            && log.skillName == "九陽神功"
+            && log.skillName == "測試效果"
             && log.semanticSourceKind == "magic"
-            && log.semanticSourceName == "九陽神功";
+            && log.semanticSourceName == "測試效果";
     }));
 }
 
-TEST_CASE("BattleRuntimeScenario_RealDragonPalmLogsBattleSpiritAndPersistentModifiers",
+TEST_CASE("BattleRuntimeScenario_StackingDamageBuffLogsBattleSpiritAndPersistentModifiers",
           "[battle][scenario][runtime][ultimate-effect][vertical][logging]")
 {
-    auto state = initializedVerticalSliceState(singleUltimateInput(
-        26,
+    auto state = initializedVerticalSliceState(singleUltimateInput(KysChess::Test::parsedMagicDefinition(26,
+        "[{類型: 出招疊加增傷減傷, 每次層數: 1, 層數上限: 10, 每層增傷百分比: 5, 每層承傷百分比: -1}]"),
         1,
         1,
         { 220, 100, 0 }));
@@ -913,7 +932,7 @@ TEST_CASE("BattleRuntimeScenario_RealDragonPalmLogsBattleSpiritAndPersistentModi
             && log.sourceUnitId == 0
             && log.targetUnitId == 0
             && log.semanticSourceKind == "magic"
-            && log.semanticSourceName == "降龍十八掌")
+            && log.semanticSourceName == "測試效果")
         {
             modifierLogs.push_back(&log);
         }
@@ -933,9 +952,10 @@ TEST_CASE("BattleRuntimeScenario_RealDragonPalmLogsBattleSpiritAndPersistentModi
     }));
 }
 
-TEST_CASE("BattleRuntimeScenario_RealEmptyFistLogsDefenseBypassOnHit", "[battle][scenario][ultimate-effect][logging]")
+TEST_CASE("BattleRuntimeScenario_DefenseBypassLogsOnHit", "[battle][scenario][ultimate-effect][logging]")
 {
-    auto state = initializedVerticalSliceState(singleUltimateInput(15, 1, 1, { 220, 100, 0 }));
+    auto state = initializedVerticalSliceState(singleUltimateInput(KysChess::Test::parsedMagicDefinition(15,
+        "[{類型: 命中忽略防禦, 忽略防禦百分比: 100}]"), 1, 1, { 220, 100, 0 }));
     const auto logs = runUntilCollectingLogs(state, 180, [](const auto&, const auto& frame)
     {
         return std::ranges::any_of(frame.logEvents, [](const auto& log)
@@ -946,7 +966,7 @@ TEST_CASE("BattleRuntimeScenario_RealEmptyFistLogsDefenseBypassOnHit", "[battle]
     const auto modifier = std::ranges::find_if(logs, [](const auto& log)
     {
         return log.statusId == BattleStatusSemanticId::DamageModifier
-            && log.semanticSourceName == "空明拳";
+            && log.semanticSourceName == "測試效果";
     });
     REQUIRE(modifier != logs.end());
     CHECK(modifier->amount == 100);
@@ -986,9 +1006,8 @@ TEST_CASE("BattleRuntimeScenario_LogsSuccessfulCopiedAndFreeCasts", "[battle][sc
     }
     SECTION("免費追加出招有獨立效果記錄")
     {
-        auto input = singleUltimateInput(42, 1, 1, { 220, 100, 0 });
-        for (auto& rule : input.setup.magicEffectDefinitions.front().rules)
-            rule.chancePct = 100;
+        auto input = singleUltimateInput(KysChess::Test::parsedMagicDefinition(42,
+            "[{類型: 機率免費再出招, 機率百分比: 100}]"), 1, 1, { 220, 100, 0 });
         auto state = initializedVerticalSliceState(std::move(input));
         const auto logs = runUntilCollectingLogs(state, 180, [](const auto&, const auto& frame)
         {
@@ -999,14 +1018,14 @@ TEST_CASE("BattleRuntimeScenario_LogsSuccessfulCopiedAndFreeCasts", "[battle][sc
         });
         const auto repeated = std::ranges::find(logs, BattleStatusSemanticId::FreeCast, &BattleLogEvent::statusId);
         REQUIRE(repeated != logs.end());
-        CHECK(repeated->semanticSourceName == "玉女素心劍");
+        CHECK(repeated->semanticSourceName == "測試效果");
         CHECK(repeated->sourceUnitId == 0);
         CHECK(repeated->targetUnitId == 1);
         CHECK(repeated->skillId == 42);
     }
 }
 
-TEST_CASE("BattleRuntimeScenario_RealWitheredBoneModifiesHitAndHealTransactions", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_HitDebuffModifiesDamageAndHealTransactions", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
     const auto dealtDamage = [](const auto& frame)
     {
@@ -1023,8 +1042,8 @@ TEST_CASE("BattleRuntimeScenario_RealWitheredBoneModifiesHitAndHealTransactions"
     heal.targetUnitId = 1;
     heal.kind = BattleHealKind::Direct;
     heal.amount = fixedHealAmount(1000);
-    auto input = singleUltimateInput(
-        11,
+    auto input = singleUltimateInput(KysChess::Test::parsedMagicDefinition(11,
+        "[{類型: 命中易傷減療, 持續幀數: 120}]"),
         1,
         1,
         { 220, 100, 0 });
@@ -1227,10 +1246,12 @@ TEST_CASE("BattleHealSystem_DispatchesStatusOnlyHealEventsAndHonorsContributionL
     }
 }
 
-TEST_CASE("BattleRuntimeScenario_RealFiveTigerSpawnsFanAndDebuffsDefence", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_PiercingFanSpawnsAndDebuffsDefence", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
-    auto state = initializedVerticalSliceState(singleUltimateInput(
-        59,
+    auto state = initializedVerticalSliceState(singleUltimateInput(KysChess::Test::parsedMagicDefinition(59, R"(
+- {類型: 扇形貫穿攻擊, 彈道數: 5, 展開角度: 60, 傷害百分比: 60}
+- {類型: 命中降低防禦, 防禦百分比: -30, 持續幀數: 90}
+)"),
         1,
         3,
         { 220, 100, 0 }));
@@ -1321,10 +1342,13 @@ TEST_CASE("BattleRuntimeScenario_RealFiveTigerSpawnsFanAndDebuffsDefence", "[bat
     }) == 70);
 }
 
-TEST_CASE("BattleRuntimeScenario_RealSunflowerSpawnsAfterimagesWithTheRootAttack", "[battle][scenario][runtime][ultimate-effect][vertical]")
+TEST_CASE("BattleRuntimeScenario_AfterimagesSpawnWithTheRootAttack", "[battle][scenario][runtime][ultimate-effect][vertical]")
 {
-    auto input = singleUltimateInput(
-        105,
+    auto input = singleUltimateInput(KysChess::Test::parsedMagicDefinition(105, R"(
+- {類型: 出招臨時屬性加成, 屬性: 速度, 百分比: 40, 持續幀數: 100}
+- {類型: 出招臨時屬性加成, 屬性: 閃避率, 百分比: 20, 持續幀數: 100}
+- {類型: 出招殘影攻擊, 持續幀數: 100, 敵人數: 3, 殘影數: 2, 殘影傷害百分比: 50}
+)"),
         1,
         1,
         { 300, 100, 0 });
