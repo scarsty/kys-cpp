@@ -988,14 +988,16 @@ struct HitHuagong final : GameplayEffectDefinition
                 .durationFrames = 持續幀數,
                 .reapplication = StatusReapplicationPolicy::RefreshDuration,
                 .behavior = std::move(behavior)}}}});
+        for (auto& rule : rules)
+            rule.conditions.push_back(IsMainProjectileCondition{});
         return rules;
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("命中：施毒{}%×{}次、化功{}幀；毒跳扣{}內，攻擊者回血（{}－目標內力）×自身星級",
+            return std::format("主彈命中：施毒{}%×{}次、化功{}幀；毒跳扣{}內，攻擊者回血（{}－目標內力）×自身星級",
                 生命傷害百分比, 中毒次數, 持續幀數, 每次扣內, 治療內力基準);
-        return std::format("命中施毒{}%×{}次，並施加化功{}幀。期間每次中毒跳傷扣{}內力；任何角色直接攻擊有效命中化功目標，回復（{}－目標內力）×攻擊者星級的生命，最低0點。化功可淨化，重複施加刷新時間、不疊加。",
+        return std::format("僅主彈命中施毒{}%×{}次，並施加化功{}幀。期間每次中毒跳傷扣{}內力；任何角色直接攻擊有效命中化功目標，回復（{}－目標內力）×攻擊者星級的生命，最低0點。化功可淨化，重複施加刷新時間、不疊加。",
             生命傷害百分比, 中毒次數, 持續幀數, 每次扣內, 治療內力基準);
     }
 };

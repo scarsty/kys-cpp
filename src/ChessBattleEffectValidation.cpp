@@ -2312,7 +2312,10 @@ bool validateEffectRule(
             error = "中毒「同事件合併」必須使用「命中目標」";
             return false;
         }
-        if (!rule.conditions.empty()
+        if (std::ranges::any_of(rule.conditions, [](const EffectCondition& condition)
+                {
+                    return !std::holds_alternative<IsMainProjectileCondition>(condition);
+                })
             || rule.chancePct != 100
             || rule.maxActivations != 0
             || rule.sharedCooldownFrames != 0
@@ -2322,7 +2325,7 @@ bool validateEffectRule(
             || rule.activationLimit
             || rule.repetitionCount)
         {
-            error = "中毒「同事件合併」是事件前置合併規則，不可設定條件、機率或觸發記帳欄位";
+            error = "中毒「同事件合併」僅允許主彈條件，不可設定其他條件、機率或觸發記帳欄位";
             return false;
         }
     }

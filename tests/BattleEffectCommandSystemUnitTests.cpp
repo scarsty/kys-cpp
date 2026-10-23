@@ -2863,6 +2863,27 @@ TEST_CASE("Chilian seeds clean enemies and respects status protection", "[battle
     CHECK(state.units.require(4).status.effects.has(BattleStatusKind::Poison) == (!primaryBlocked && !secondaryBlocked));
 }
 
+TEST_CASE("Huagong merges its poison with other hit poison only on the main projectile",
+          "[battle][effect][poison][huagong]")
+{
+    auto state = makeState();
+    const auto rules = poisonUltimateRules(
+        "[{類型: 命中施毒, 中毒次數: 3, 生命傷害百分比: 5},"
+        " {類型: 命中化功, 中毒次數: 3, 生命傷害百分比: 7, 持續幀數: 100, 每次扣內: 12, 治療內力基準: 100}]");
+    state.effectRules.append(metadata(87, 3).binding, rules);
+    bool mainProjectile{};
+    SECTION("主彈合併施毒") { mainProjectile = true; }
+    SECTION("副彈僅保留其他施毒") {}
+    auto provenance = poisonTestAttack(1, 87);
+    provenance.mainProjectile = mainProjectile;
+    dispatchPoisonTestEvent(state, 1, EffectEvent::HitBeforeDamage,
+        HitEventData{.provenance = provenance, .targetUnitId = 3});
+    const auto* poison = state.units.require(3).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(poison);
+    CHECK(poisonDamagePercent(poison->behavior) == (mainProjectile ? 12 : 5));
+    CHECK(state.units.require(3).status.effects.has(BattleStatusKind::Huagong) == mainProjectile);
+}
+
 TEST_CASE("Huagong drains poison ticks and heals the actual attacker without blocking MP",
           "[battle][effect][poison][huagong]")
 {
@@ -2873,16 +2894,26 @@ TEST_CASE("Huagong drains poison ticks and heals the actual attacker without blo
     const auto rules = poisonUltimateRules(
         "[{類型: 命中化功, 中毒次數: 3, 生命傷害百分比: 7, 持續幀數: 100, 每次扣內: 12, 治療內力基準: 100}]");
     state.effectRules.append(metadata(87, 3).binding, rules);
-    const auto apply = [&]
+    const auto apply = [&](bool mainProjectile = true)
     {
-        dispatchPoisonTestEvent(state, 1, EffectEvent::HitBeforeDamage,
-            HitEventData{.provenance = poisonTestAttack(1, 87), .targetUnitId = 3});
+        auto provenance = poisonTestAttack(1, 87);
+        provenance.mainProjectile = mainProjectile;
+        return dispatchPoisonTestEvent(state, 1, EffectEvent::HitBeforeDamage,
+            HitEventData{.provenance = provenance, .targetUnitId = 3});
     };
+    CHECK(apply(false).commands.empty());
+    CHECK_FALSE(state.units.require(3).status.effects.has(BattleStatusKind::Poison));
+    CHECK_FALSE(state.units.require(3).status.effects.has(BattleStatusKind::Huagong));
     apply();
+    REQUIRE(state.units.require(3).status.effects.has(BattleStatusKind::Poison));
     REQUIRE(state.units.require(3).status.effects.has(BattleStatusKind::Huagong));
     CHECK(state.units.require(3).status.effects.remainingFrames(BattleStatusKind::Huagong) == 100);
     CHECK_FALSE(state.units.require(3).mpBlocked());
+    state.units.require(3).status.effects.find(BattleStatusKind::Huagong)->remainingFrames = 50;
+    CHECK(apply(false).commands.empty());
+    CHECK(state.units.require(3).status.effects.remainingFrames(BattleStatusKind::Huagong) == 50);
     apply();
+    CHECK(state.units.require(3).status.effects.remainingFrames(BattleStatusKind::Huagong) == 100);
     CHECK(std::ranges::count(state.units.require(3).status.effects.statuses,
         BattleStatusKind::Huagong, &BattleStatusContribution::kind) == 1);
 
