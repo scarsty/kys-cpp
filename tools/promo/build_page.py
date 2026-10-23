@@ -283,10 +283,10 @@ def render_talents(talents, balances, convert_text):
             bonus, guarantee = definition["額外星級加成"], definition["刷新保證"]
             content = render_metrics([(f'{tier}費', "加成對象"),
                                       (f'+{bonus["每顆開場內力"] * bonus["計算上限"]}', "開場內力上限"),
-                                      (f'{bonus["每顆強化次數"] * bonus["計算上限"]}次', "強化上限")], text)
+                                      (f'{bonus["每顆強化次數"] * bonus["計算上限"]}次', "攻防各自上限")], text)
             content += render_flow([f'非{tier}費友軍的額外星級', f'{tier}費核心開場加成'], text)
-            content += render_chips([f'增傷 +{bonus["強化傷害百分比"]}%', f'減傷 {bonus["強化傷害百分比"]}%', "攻防共用次數"], text)
-            per_star = f'+{bonus["每顆開場內力"]}內力 · +{bonus["每顆強化次數"]}次'
+            content += render_chips([f'增傷 +{bonus["強化傷害百分比"]}%', f'減傷 {bonus["強化傷害百分比"]}%', "攻防次數獨立"], text)
+            per_star = f'+{bonus["每顆開場內力"]}內力 · 攻防各+{bonus["每顆強化次數"]}次'
             counting = f'已上陣 · 最多{bonus["計算上限"]}顆'
             content += f'<div class="talent-rule"><span>{text("每顆額外星")}</span><b>{text(per_star)}</b></div>'
             content += f'<div class="talent-rule"><span>{text("計算範圍")}</span><b>{text(counting)}</b></div>'

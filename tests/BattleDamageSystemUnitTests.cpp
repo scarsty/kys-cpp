@@ -12,53 +12,37 @@ using namespace KysChess::Battle;
 using namespace KysChess;
 using namespace KysChess::Battle::Test;
 
-TEST_CASE("strengthening shares a finite pool between outgoing and incoming damage", "[battle][damage][talent][backbone]")
+TEST_CASE("strengthening has independent finite pools for outgoing and incoming damage", "[battle][damage][talent][backbone]")
 {
-    BattleDamageTransactionInput input;
-    input.attacker.id = 0;
-    input.attacker.vitals = {1000, 1000, 0, 0};
-    input.attacker.strengthening = {2, 50};
-    input.defender.id = 1;
-    input.defender.vitals = {1000, 1000, 0, 0};
-    input.request = {.attackerUnitId = 0, .defenderUnitId = 1, .baseDamage = 100};
-    BattleDamageSystem system;
-
-    SECTION("attack spends a charge before defense")
+    BattleDamageUnitState strengthened;
+    strengthened.id = 0;
+    strengthened.vitals = {1000, 1000, 0, 0};
+    strengthened.strengthening = {2, 2, 50};
+    BattleDamageUnitState opponent;
+    opponent.id = 1;
+    opponent.vitals = {1000, 1000, 0, 0};
+    std::array<bool, 6> attacks{};
+    SECTION("alternating attacks and defense") { attacks = {true, false, true, false, true, false}; }
+    SECTION("exhaust attack charges before defending") { attacks = {true, true, true, false, false, false}; }
+    SECTION("exhaust defense charges before attacking") { attacks = {false, false, false, true, true, true}; }
+    int attackCharges = 2;
+    int defenseCharges = 2;
+    for (const bool outgoing : attacks)
     {
-        const auto attack = system.resolveTransaction(input);
-        CHECK(attack.finalHpDamage == 150);
-        REQUIRE(attack.attacker.strengthening.charges == 1);
-        input.attacker = attack.defender;
-        input.defender = attack.attacker;
-        input.request.attackerUnitId = 1;
-        input.request.defenderUnitId = 0;
-    }
-    SECTION("defense spends a charge before attack")
-    {
-        std::swap(input.attacker, input.defender);
-        input.request.attackerUnitId = 1;
-        input.request.defenderUnitId = 0;
-        const auto defense = system.resolveTransaction(input);
-        CHECK(defense.finalHpDamage == 50);
-        REQUIRE(defense.defender.strengthening.charges == 1);
-        input.attacker = defense.defender;
-        input.defender = defense.attacker;
-        input.request.attackerUnitId = 0;
-        input.request.defenderUnitId = 1;
-    }
-    const auto second = system.resolveTransaction(input);
-    const bool outgoing = input.attacker.id == 0;
-    CHECK(second.finalHpDamage == (outgoing ? 150 : 50));
-    const auto& strengthened = outgoing ? second.attacker : second.defender;
-    REQUIRE(strengthened.strengthening.charges == 0);
+        BattleDamageTransactionInput input;
+        input.attacker = outgoing ? strengthened : opponent;
+        input.defender = outgoing ? opponent : strengthened;
+        input.request = {.attackerUnitId = input.attacker.id, .defenderUnitId = input.defender.id, .baseDamage = 100};
+        auto& charges = outgoing ? attackCharges : defenseCharges;
+        const int expectedDamage = charges > 0 ? (outgoing ? 150 : 50) : 100;
+        if (charges > 0) --charges;
 
-    input.attacker = strengthened;
-    input.defender = outgoing ? second.defender : second.attacker;
-    input.request.attackerUnitId = 0;
-    input.request.defenderUnitId = 1;
-    const auto exhausted = system.resolveTransaction(input);
-    CHECK(exhausted.finalHpDamage == 100);
-    CHECK(exhausted.attacker.strengthening.charges == 0);
+        const auto result = BattleDamageSystem().resolveTransaction(input);
+        CHECK(result.finalHpDamage == expectedDamage);
+        strengthened = outgoing ? result.attacker : result.defender;
+        opponent = outgoing ? result.defender : result.attacker;
+        CHECK(strengthened.strengthening == (BattleStrengthening{attackCharges, defenseCharges, 50}));
+    }
 }
 
 TEST_CASE("strengthening consumes charges only for damage that reaches protection", "[battle][damage][talent][backbone]")
@@ -66,18 +50,18 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
     BattleDamageTransactionInput input;
     input.attacker.id = 0;
     input.attacker.vitals = {1000, 1000, 0, 0};
-    input.attacker.strengthening = {2, 50};
+    input.attacker.strengthening = {2, 2, 50};
     input.defender.id = 1;
     input.defender.vitals = {1000, 1000, 100, 100};
-    input.defender.strengthening = {3, 50};
+    input.defender.strengthening = {3, 3, 50};
     input.request = {.attackerUnitId = 0, .defenderUnitId = 1, .baseDamage = 100};
 
-    SECTION("both units consume from their own shared pools")
+    SECTION("both units consume only their corresponding pool")
     {
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 75);
-        CHECK(result.attacker.strengthening.charges == 1);
-        CHECK(result.defender.strengthening.charges == 2);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{1, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 2, 50}));
     }
     SECTION("ordinary shields absorb the reduced damage")
     {
@@ -86,32 +70,32 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
         CHECK(result.finalHpDamage == 0);
         CHECK(result.shieldAbsorbed == 75);
         CHECK(result.defender.shield == 25);
-        CHECK(result.attacker.strengthening.charges == 1);
-        CHECK(result.defender.strengthening.charges == 2);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{1, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 2, 50}));
     }
     SECTION("a tiny accepted hit spends both charges even when defense rounds its damage to zero")
     {
         input.request.baseDamage = 1;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 0);
-        CHECK(result.attacker.strengthening.charges == 1);
-        CHECK(result.defender.strengthening.charges == 2);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{1, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 2, 50}));
     }
     SECTION("invincibility preserves both pools")
     {
         input.defender.invincible = 10;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 0);
-        CHECK(result.attacker.strengthening.charges == 2);
-        CHECK(result.defender.strengthening.charges == 3);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 3, 50}));
     }
     SECTION("dual wield blocking preserves both pools")
     {
         input.defender.dualWieldBlocksRemaining = 1;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 0);
-        CHECK(result.attacker.strengthening.charges == 2);
-        CHECK(result.defender.strengthening.charges == 3);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 3, 50}));
     }
     SECTION("damage-block status preserves both pools")
     {
@@ -121,16 +105,16 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.blockedByDamageLayer);
         CHECK(result.finalHpDamage == 0);
-        CHECK(result.attacker.strengthening.charges == 2);
-        CHECK(result.defender.strengthening.charges == 3);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 3, 50}));
     }
     SECTION("fully negated damage preserves both pools")
     {
         input.defenderModifiers.flatDamageReduction = 150;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 0);
-        CHECK(result.attacker.strengthening.charges == 2);
-        CHECK(result.defender.strengthening.charges == 3);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 3, 50}));
     }
     SECTION("MP damage preserves both pools")
     {
@@ -138,8 +122,8 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
         input.request.mpDamage = 20;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalMpDamage == 20);
-        CHECK(result.attacker.strengthening.charges == 2);
-        CHECK(result.defender.strengthening.charges == 3);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 3, 50}));
     }
     SECTION("periodic damage uses only the defensive charge")
     {
@@ -148,8 +132,8 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
             input.request.damageKind = kind;
             const auto result = BattleDamageSystem().resolveTransaction(input);
             CHECK(result.finalHpDamage == 50);
-            CHECK(result.attacker.strengthening.charges == 2);
-            CHECK(result.defender.strengthening.charges == 2);
+            CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+            CHECK(result.defender.strengthening == (BattleStrengthening{3, 2, 50}));
         }
     }
     SECTION("redirected damage does not reuse an offensive charge")
@@ -158,20 +142,20 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
         input.request.redirected = true;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 50);
-        CHECK(result.attacker.strengthening.charges == 2);
-        CHECK(result.defender.strengthening.charges == 2);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{2, 2, 50}));
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 2, 50}));
     }
     SECTION("offensive strengthening respects the maximum hit damage")
     {
-        input.defender.strengthening.charges = 0;
+        input.defender.strengthening.defenseCharges = 0;
         input.defenderModifiers.maxHitPctMaxHp = 10;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 100);
-        CHECK(result.attacker.strengthening.charges == 1);
+        CHECK(result.attacker.strengthening == (BattleStrengthening{1, 2, 50}));
     }
     SECTION("defensive strengthening shares the total reduction cap")
     {
-        input.attacker.strengthening.charges = 0;
+        input.attacker.strengthening.attackCharges = 0;
         input.defenderModifiers.damageReductionPct = 70;
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.finalHpDamage == 20);
@@ -184,7 +168,7 @@ TEST_CASE("strengthening consumes charges only for damage that reaches protectio
         const auto result = BattleDamageSystem().resolveTransaction(input);
         CHECK(result.executed);
         CHECK(result.killed);
-        CHECK(result.defender.strengthening.charges == 3);
+        CHECK(result.defender.strengthening == (BattleStrengthening{3, 3, 50}));
     }
 }
 

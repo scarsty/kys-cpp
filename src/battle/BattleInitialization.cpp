@@ -852,15 +852,16 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 log.segments = battleLogText(std::format("晚成突破：開場狀態護盾 +{}", rosterUnit->openingStatusShield), BattleLogTextTone::Positive);
                 result_.logEvents.push_back(std::move(log));
             }
-            if (rosterUnit->openingStrengthening.charges > 0)
+            if (rosterUnit->openingStrengthening.attackCharges > 0 || rosterUnit->openingStrengthening.defenseCharges > 0)
             {
                 const auto& strengthening = rosterUnit->openingStrengthening;
                 BattleLogEvent log;
                 log.type = BattleLogEventType::Status;
                 log.sourceUnitId = log.targetUnitId = unitId;
                 log.segments = battleLogText(
-                    std::format("天賦攻防強化 {}次（增傷或減傷{}%，攻防共用）",
-                        strengthening.charges, strengthening.damagePercent),
+                    std::format("天賦攻防強化：增傷{}% {}次、減傷{}% {}次（獨立消耗）",
+                        strengthening.damagePercent, strengthening.attackCharges,
+                        strengthening.damagePercent, strengthening.defenseCharges),
                     BattleLogTextTone::Positive);
                 result_.logEvents.push_back(std::move(log));
             }

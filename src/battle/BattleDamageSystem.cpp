@@ -301,7 +301,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
     if (input.request.baseDamage > 0)
     {
         BattleFixed resolvedDamage = input.request.baseDamage;
-        const bool strengthenedAttack = result.attacker.strengthening.charges > 0
+        const bool strengthenedAttack = result.attacker.strengthening.attackCharges > 0
             && result.attacker.id >= 0
             && result.attacker.id != result.defender.id
             && !input.request.redirected
@@ -479,7 +479,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         if (strengthenedAttack && acceptedHit
             && (resolvedDamageValue > 0 || result.executed))
         {
-            --result.attacker.strengthening.charges;
+            --result.attacker.strengthening.attackCharges;
         }
         resolvedDamageValue = defense.damage;
 
@@ -945,7 +945,7 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
         return result;
     }
 
-    if (!input.executed && result.damage > 0 && result.defender.strengthening.charges > 0)
+    if (!input.executed && result.damage > 0 && result.defender.strengthening.defenseCharges > 0)
     {
         assert(result.defender.strengthening.damagePercent > 0
             && result.defender.strengthening.damagePercent <= 100);
@@ -953,7 +953,7 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
         applyBattleDamageReduction(damage, result.defender.strengthening.damagePercent,
             result.remainingDamageBasisPoints);
         result.damage = damage.toInt();
-        --result.defender.strengthening.charges;
+        --result.defender.strengthening.defenseCharges;
     }
 
     if (!input.executed && result.damage > 0 && input.guardReductionPct > 0)

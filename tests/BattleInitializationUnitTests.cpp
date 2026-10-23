@@ -1103,7 +1103,7 @@ TEST_CASE("BattleRuntimeUnit_UsesSharedUnitValueObjects", "[battle][initializati
     CHECK(unit.animation.cooldown == 7);
 }
 
-TEST_CASE("talent initialization amplifies complete growth and adds opening MP and shared strengthening", "[battle][talent][initialization]")
+TEST_CASE("talent initialization amplifies complete growth and adds opening MP and independent strengthening", "[battle][talent][initialization]")
 {
     auto spawns = runtimeSpawns({runtimeUnit(0, 0, 100, 20, 30, 40)});
     spawns[0].unit.vitals.maxMp = 100;
@@ -1111,7 +1111,7 @@ TEST_CASE("talent initialization amplifies complete growth and adds opening MP a
     BattleRuntimeSetupSeed setup;
     setup.allyRoster.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
         .fightsWon = 3, .amplifiedGrowthPercent = 100, .openingMp = 50,
-        .openingStrengthening = {3, 50},
+        .openingStrengthening = {3, 3, 50},
         .lethalRecovery = BattleLethalRecovery{70, 1, 120}, .openingStatusShield = 810});
     setup.units.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
         .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40});
@@ -1134,7 +1134,7 @@ TEST_CASE("talent initialization amplifies complete growth and adds opening MP a
     REQUIRE(output.spawns.size() == 1);
     const auto& spawn = output.spawns[0];
     CHECK(spawn.unit.vitals.mp == 100);
-    CHECK(spawn.damage.strengthening == BattleStrengthening{3, 50});
+    CHECK(spawn.damage.strengthening == BattleStrengthening{3, 3, 50});
     const auto expected = computeStarBoostedStats({100, 20, 30, 40}, setup.starGrowth, 2, 3, 2, 1, 3, 100);
     CHECK(spawn.unit.vitals.maxHp == expected.hp);
     CHECK(spawn.unit.stats.attack == expected.atk);

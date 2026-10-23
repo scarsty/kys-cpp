@@ -618,16 +618,16 @@ TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[c
         CHECK(battle.units[1].openingMp == 30);
         CHECK(battle.units[2].openingMp == 0);
         CHECK(battle.units[3].openingMp == 0);
-        CHECK(battle.units[0].openingStrengthening == (Battle::BattleStrengthening{4, 37}));
-        CHECK(battle.units[1].openingStrengthening == (Battle::BattleStrengthening{4, 37}));
-        CHECK(battle.units[2].openingStrengthening.charges == 0);
-        CHECK(battle.units[3].openingStrengthening.charges == 0);
+        CHECK(battle.units[0].openingStrengthening == (Battle::BattleStrengthening{4, 4, 37}));
+        CHECK(battle.units[1].openingStrengthening == (Battle::BattleStrengthening{4, 4, 37}));
+        CHECK(battle.units[2].openingStrengthening == Battle::BattleStrengthening{});
+        CHECK(battle.units[3].openingStrengthening == Battle::BattleStrengthening{});
     }
     state.talent = ChessTalentId::LateBloomer;
     auto battle = ChessBattlePlanner::prepareChallenge(state, *content, random, challenge);
     CHECK(battle.units[0].amplifiedGrowthPercent == 0);
     CHECK(battle.units.back().amplifiedGrowthPercent == 0);
-    CHECK(battle.units[0].openingStrengthening.charges == 0);
+    CHECK(battle.units[0].openingStrengthening == Battle::BattleStrengthening{});
     state.talent = ChessTalentId::Gambler;
     state.roster.at(1).luckStacks = 5;
     battle = ChessBattlePlanner::prepareChallenge(state, *content, random, challenge);
@@ -671,11 +671,11 @@ TEST_CASE("backbone counts only deployed extra stars and caps both opening benef
     ChessBattlePlanner::applyPlayerTalents(battle, state, *content);
 
     CHECK(battle.units[0].openingMp == stars * 15);
-    CHECK(battle.units[0].openingStrengthening == (Battle::BattleStrengthening{stars * 2, 37}));
+    CHECK(battle.units[0].openingStrengthening == (Battle::BattleStrengthening{stars * 2, stars * 2, 37}));
     for (const int index : {1, 2, 3})
     {
         CHECK(battle.units[index].openingMp == 0);
-        CHECK(battle.units[index].openingStrengthening.charges == 0);
+        CHECK(battle.units[index].openingStrengthening == Battle::BattleStrengthening{});
     }
 }
 
@@ -698,7 +698,7 @@ TEST_CASE("PvP extraction preserves backbone opening strengthening", "[chess][ta
     const auto target = std::ranges::find(composition.pieces, 300, &ChessPvpPiece::roleId);
     REQUIRE(target != composition.pieces.end());
     CHECK(target->openingMp == 30);
-    CHECK(target->openingStrengthening == (Battle::BattleStrengthening{4, 37}));
+    CHECK(target->openingStrengthening == (Battle::BattleStrengthening{4, 4, 37}));
     const auto transferred = std::ranges::find(team.pieces, 300, &ChessStandaloneBattlePiece::roleId);
     REQUIRE(transferred != team.pieces.end());
     CHECK(transferred->openingStrengthening == target->openingStrengthening);

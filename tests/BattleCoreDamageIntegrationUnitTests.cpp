@@ -61,11 +61,12 @@ BattleAreaCreateRequest auraRequest(AreaModifier modifier)
 }
 }
 
-TEST_CASE("BattleFrameRunner_PersistsOneStrengtheningPoolAcrossAttackAndDefense", "[battle][core][talent][backbone]")
+TEST_CASE("BattleFrameRunner_PersistsIndependentStrengtheningPoolsAcrossAttackAndDefense", "[battle][core][talent][backbone]")
 {
     auto state = auraBattleState();
-    state.units.require(0).damage.strengthening = {2, 50};
-    for (const auto [attacker, defender] : {std::pair{0, 2}, std::pair{2, 0}, std::pair{0, 2}})
+    state.units.require(0).damage.strengthening = {2, 2, 50};
+    for (const auto [attacker, defender] : {std::pair{0, 2}, std::pair{2, 0}, std::pair{0, 2},
+        std::pair{2, 0}, std::pair{0, 2}, std::pair{2, 0}})
     {
         state.nextFrame.queueDamage({.request = {
             .attackerUnitId = attacker, .defenderUnitId = defender, .baseDamage = 100,
@@ -74,13 +75,13 @@ TEST_CASE("BattleFrameRunner_PersistsOneStrengtheningPoolAcrossAttackAndDefense"
 
     const auto frame = runBattleFrame(state);
 
-    CHECK(state.units.requireCore(0).vitals.hp == 950);
-    CHECK(state.units.requireCore(2).vitals.hp == 750);
-    CHECK(state.units.require(0).damage.strengthening.charges == 0);
+    CHECK(state.units.requireCore(0).vitals.hp == 800);
+    CHECK(state.units.requireCore(2).vitals.hp == 600);
+    CHECK(state.units.require(0).damage.strengthening == (BattleStrengthening{0, 0, 50}));
     CHECK(std::ranges::count_if(frame.logEvents, [](const auto& log)
     {
         return BattleLogTest::textOf(log).contains("中堅強化");
-    }) == 2);
+    }) == 4);
     CHECK(std::ranges::any_of(frame.logEvents, [](const auto& log)
     {
         return BattleLogTest::textOf(log).contains("增傷50%（剩餘1次");

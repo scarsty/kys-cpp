@@ -59,15 +59,19 @@ TEST_CASE("shared runtime emits one exact timeout event", "[battle][headless][de
     CHECK(result.finalRuntime.castLifecycle.drainReadyEvents(1).empty());
 }
 
-TEST_CASE("battle digest includes the remaining shared strengthening pool", "[battle][headless][determinism][backbone]")
+TEST_CASE("battle digest includes the remaining independent strengthening pools", "[battle][headless][determinism][backbone]")
 {
     auto result = HeadlessBattleRunner::run(timeoutInput());
-    result.finalRuntime.units.require(1).damage.strengthening = {2, 50};
+    result.finalRuntime.units.require(1).damage.strengthening = {2, 2, 50};
     const auto original = HeadlessBattleRunner::digest(result);
 
-    SECTION("remaining charges affect the digest")
+    SECTION("remaining attack charges affect the digest")
     {
-        --result.finalRuntime.units.require(1).damage.strengthening.charges;
+        --result.finalRuntime.units.require(1).damage.strengthening.attackCharges;
+    }
+    SECTION("remaining defense charges affect the digest")
+    {
+        --result.finalRuntime.units.require(1).damage.strengthening.defenseCharges;
     }
     SECTION("strengthening percentage affects the digest")
     {

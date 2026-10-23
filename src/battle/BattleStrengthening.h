@@ -7,7 +7,8 @@ namespace KysChess::Battle
 
 struct BattleStrengthening
 {
-    int charges{};
+    int attackCharges{};
+    int defenseCharges{};
     int damagePercent{};
 
     auto operator<=>(const BattleStrengthening&) const = default;

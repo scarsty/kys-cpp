@@ -182,9 +182,9 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
     CHECK(fact(backbonePresentation, "開場內力", "計算方式").value
         == "非4費友軍每多1星 +12，最多計6星，最高 +72");
     CHECK(fact(backbonePresentation, "攻防強化", "開場次數").value
-        == "同開場內力的星級計算；每多1星 +2次，最多12次");
-    CHECK(fact(backbonePresentation, "攻防強化", "共用消耗").value
-        == "造成直接傷害 +37%或受到傷害 -37%，每次消耗1次；攻防共用");
+        == "同開場內力的星級計算；攻防各自每多1星 +2次，各最多12次");
+    CHECK(fact(backbonePresentation, "攻防強化", "獨立消耗").value
+        == "造成直接傷害 +37%、受到傷害 -37%，各自消耗1次");
     CHECK(fact(backbonePresentation, "定向增援", "觸發時機").value
         == "4費棋子由1星升至2星時，商店保證2枚同名棋子");
     CHECK(fact(backbonePresentation, "定向增援", "升至3星").value

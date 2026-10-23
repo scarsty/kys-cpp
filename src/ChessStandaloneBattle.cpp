@@ -128,9 +128,10 @@ bool validatePiece(
         return false;
     }
     if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > kChessMaximumGrowthAmplificationPercent || piece.openingMp < 0 || piece.openingStatusShield < 0
-        || piece.openingStrengthening.charges < 0
+        || piece.openingStrengthening.attackCharges < 0 || piece.openingStrengthening.defenseCharges < 0
         || piece.openingStrengthening.damagePercent < 0 || piece.openingStrengthening.damagePercent > 100
-        || (piece.openingStrengthening.charges > 0 && piece.openingStrengthening.damagePercent == 0)
+        || ((piece.openingStrengthening.attackCharges > 0 || piece.openingStrengthening.defenseCharges > 0)
+            && piece.openingStrengthening.damagePercent == 0)
         || (piece.lethalRecovery && (piece.lethalRecovery->chancePercent < 0
             || piece.lethalRecovery->chancePercent > 100 || piece.lethalRecovery->survivalHp < 1
             || piece.lethalRecovery->invincibleFrames < 0 || piece.lethalRecovery->used)))

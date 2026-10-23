@@ -101,7 +101,7 @@ class PromoPageTests(unittest.TestCase):
                            "神兵商店": {"通關後": 22, "價格": 71},
                            "玩家裝備獎勵": {"天賦額外": {"神兵": [{"關卡": 7}, {"關卡": 13}]}}}}
         result = promo.render_talents(talents, balances, identity)
-        for value in ("+2次", "22關後", "71金", "25%", "75%", "73幀無敵", "+52", "8次", "增傷 +37%", "保證2枚同名", "+1人", "7人以上", "-3人"):
+        for value in ("+2次", "22關後", "71金", "25%", "75%", "73幀無敵", "+52", "8次", "攻防次數獨立", "攻防各+2次", "增傷 +37%", "保證2枚同名", "+1人", "7人以上", "-3人"):
             with self.subTest(value=value):
                 self.assertIn(value, result)
         self.assertIn('四星突破', result)

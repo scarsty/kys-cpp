@@ -666,8 +666,10 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
         {
             const int contributedStars = std::min(talent.extraStarCap, extraStars);
             unit.openingMp = contributedStars * talent.mpPerExtraStar;
+            const int strengtheningCharges = contributedStars * talent.strengtheningChargesPerExtraStar;
             unit.openingStrengthening = {
-                contributedStars * talent.strengtheningChargesPerExtraStar,
+                strengtheningCharges,
+                strengtheningCharges,
                 talent.strengtheningDamagePercent,
             };
         }

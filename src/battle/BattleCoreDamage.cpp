@@ -2189,12 +2189,14 @@ void applyDamageAndLifecycle(
                                                        const BattleDamageUnitState& after,
                                                        bool outgoing)
         {
-            if (before.strengthening.charges > after.strengthening.charges)
+            const int beforeCharges = outgoing ? before.strengthening.attackCharges : before.strengthening.defenseCharges;
+            const int afterCharges = outgoing ? after.strengthening.attackCharges : after.strengthening.defenseCharges;
+            if (beforeCharges > afterCharges)
             {
                 appendStatusEventLog(frame.logEvents, after.id, after.id,
-                    std::format("中堅強化{}{}%（剩餘{}次，攻防共用）",
+                    std::format("中堅強化{}{}%（剩餘{}次）",
                         outgoing ? "增傷" : "減傷", after.strengthening.damagePercent,
-                        after.strengthening.charges));
+                        afterCharges));
             }
         };
         appendStrengtheningConsumption(transactionInput.attacker, transaction.attacker, true);

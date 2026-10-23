@@ -608,7 +608,7 @@ TEST_CASE("challenge configuration reads Traditional Chinese star and equipment 
     CHECK(result.challenges.front().enemies.front().armorId == 200);
 }
 
-TEST_CASE("talent configuration reads the shared strengthening parameters", "[chess][content][talent][backbone]")
+TEST_CASE("talent configuration reads the strengthening parameters for each pool", "[chess][content][talent][backbone]")
 {
     TemporaryConfigDirectory files;
     const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 中堅, 可選: [中堅]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
