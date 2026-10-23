@@ -101,6 +101,8 @@ class BattleRescueRepositionSystem
 {
 public:
     BattleRescueRepositionResult resolve(const BattleRescueRepositionInput& input) const;
+    BattleRescueRepositionResult resolveAdjacent(
+        const BattleRescueRepositionInput& input, int pullerUnitId) const;
 };
 
 }  // namespace KysChess::Battle

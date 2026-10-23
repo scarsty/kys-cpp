@@ -1145,6 +1145,27 @@ void reduceEffectCommandImpl(
             frame.logEvents.push_back(std::move(log));
         }
     }
+    else if (const auto* opening = std::get_if<
+                 BattleRoutedEffectCommand<OpeningRangedRepositionAction>>(&entry.value))
+    {
+        if (const auto moved = CoreDetail::applyOpeningRangedReposition(state, frame, entry.metadata.binding))
+        {
+            auto metadata = entry.metadata;
+            metadata.binding.ownerUnitId = moved->pullerUnitId;
+            metadata.targetUnitId = moved->unitId;
+            const ApplyStatusAction stun{
+                .status = BattleStatusKind::Stun,
+                .durationFrames = opening->command.stunFrames,
+                .reapplication = StatusReapplicationPolicy::KeepLongerDuration,
+            };
+            const EffectCommand status{
+                .metadata = metadata,
+                .value = prepareStatusApplication(stun, stun.durationFrames, {}),
+                .execution = context,
+            };
+            reduceEffectCommandImpl(state, frame, pendingDamage, status, nullptr);
+        }
+    }
     else if (const auto* move = std::get_if<
                  BattleRoutedEffectCommand<ForceMoveEffectCommand>>(&entry.value))
     {

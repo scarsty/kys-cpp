@@ -546,6 +546,25 @@ void commitExecuteResult(
 
 }  // namespace
 
+BattleRescueRepositionResult BattleRescueRepositionSystem::resolveAdjacent(
+    const BattleRescueRepositionInput& input, int pullerUnitId) const
+{
+    const auto& pulled = requireById(input.units, input.pulledUnitId);
+    const auto& puller = requireById(input.units, pullerUnitId);
+    assert(pulled.alive && puller.alive);
+    const BattleRescueSearchSpace searchSpace(input, pulled);
+    const auto cells = executeCellsForPuller(searchSpace, pulled, puller);
+    if (cells.empty()) return {};
+
+    const auto& destination = searchSpace.requireCell(cells.front());
+    BattleRescueRepositionResult result;
+    result.teleport = BattleRescueTeleportDelta{
+        pulled.id, puller.id, { destination.x, destination.y }, destination.position };
+    result.logEvents.push_back(statusEvent(puller.id, pulled.id, "開場挪移"));
+    result.visualEvents.push_back(floatingTextEvent(pulled.id));
+    return result;
+}
+
 BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
     const BattleRescueRepositionInput& input) const
 {

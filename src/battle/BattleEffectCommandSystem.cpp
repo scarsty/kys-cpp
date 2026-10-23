@@ -1628,6 +1628,8 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const StateMachineEffectCommand& command) -> BattleEffectReductionValue
         {
+            if (const auto* opening = std::get_if<OpeningRangedRepositionAction>(&command.value))
+                return BattleRoutedEffectCommand<OpeningRangedRepositionAction>{ *opening };
             if (const auto* spread = std::get_if<SpreadPoisonAction>(&command.value))
                 return spreadPoison(state, effectCommand.metadata, *spread, context);
             if (const auto* start = std::get_if<StartDamageAbsorptionAction>(&command.value))

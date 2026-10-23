@@ -314,6 +314,7 @@ using BattleEffectReductionValue = std::variant<
     BattleRoutedEffectCommand<MakeIncomingAttackMissEffectCommand>,
     BattleRoutedEffectCommand<ModifyAttackEffectCommand>,
     BattleRoutedEffectCommand<ForceMoveEffectCommand>,
+    BattleRoutedEffectCommand<OpeningRangedRepositionAction>,
     BattleRoutedEffectCommand<ModifyCastEffectCommand>>;
 
 struct BattleEffectReductionEntry

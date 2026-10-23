@@ -338,6 +338,8 @@ ChessSha256 stateMachineContentHash(const StateMachineAction& machine)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.count);
             else if constexpr (std::is_same_v<T, PreventDeathAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.invincibilityFrames);
+            else if constexpr (std::is_same_v<T, OpeningRangedRepositionAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.stunFrames);
             else if constexpr (std::is_same_v<T, FeignDeathAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
                     typed.delayFrames, typed.hpPercent, typed.stunWidthTiles, typed.stunFrames);
@@ -441,8 +443,8 @@ ChessSha256 actionContentHash(const EffectAction& action)
                     typed.lockFrames, static_cast<int>(typed.collision), static_cast<int>(typed.blocked));
             else if constexpr (std::is_same_v<T, CreateAreaAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
-                    static_cast<int>(typed.shape), typed.radiusTiles, typed.squareSideTiles,
-                    static_cast<int>(typed.anchor), typed.durationFrames,
+                    static_cast<int>(typed.shape), effectNumberContentHash(typed.radiusTiles), typed.squareSideTiles,
+                    static_cast<int>(typed.anchor), effectNumberContentHash(typed.durationFrames),
                     static_cast<int>(typed.sourceDeath), static_cast<int>(typed.merge),
                     areaModifierContentHashes(typed.modifiers));
             else if constexpr (std::is_same_v<T, ModifyCastAction>)
@@ -481,6 +483,7 @@ using RuleContentView = std::tuple<
     int,
     int,
     bool,
+    bool,
     std::optional<std::pair<int, int>>,
     std::optional<ChessSha256>,
     std::vector<ChessSha256>>;
@@ -506,6 +509,7 @@ std::vector<RuleContentView> effectRuleContentViews(
             rule.intervalFrames,
             rule.everyNthEvent,
             rule.naturalCastsOnly,
+            rule.bindOncePerTeam,
             rule.activationLimit
                 ? std::optional{ std::pair{
                     static_cast<int>(rule.activationLimit->scope),

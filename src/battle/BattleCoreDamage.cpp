@@ -1982,6 +1982,44 @@ void queueShieldAndDeathEffectCommands(
 namespace CoreDetail
 {
 
+std::optional<BattleRescueTeleportDelta> applyOpeningRangedReposition(
+    BattleRuntimeState& state, BattleFrameContext& frame, const EffectSourceBinding& binding)
+{
+    assert(binding.kind == EffectSourceKind::Combo);
+    refreshRuntimeMovementProfiles(state);
+    std::vector<int> enemies;
+    std::vector<int> members;
+    for (const auto& record : state.units.live())
+    {
+        if (record.core.team != binding.sourceTeam)
+        {
+            if (record.core.style == CombatStyle::Ranged) enemies.push_back(record.id());
+        }
+        else if (record.core.cloneSourceUnitId < 0 && record.comboFacts.hasApplied(binding.sourceId))
+        {
+            members.push_back(record.id());
+        }
+    }
+    if (enemies.empty() || members.empty()) return std::nullopt;
+    std::ranges::sort(enemies);
+    std::ranges::sort(members);
+    const int enemyId = enemies[state.random.nextInt(static_cast<int>(enemies.size()))];
+    const auto input = makeRescueInput(state, makeRescueUnitSnapshots(state),
+        BattleRescuePullMode::Execute, enemyId, binding.sourceTeam);
+    while (!members.empty())
+    {
+        const int index = state.random.nextInt(static_cast<int>(members.size()));
+        const auto result = BattleRescueRepositionSystem().resolveAdjacent(input, members[index]);
+        if (result.teleport)
+        {
+            commitRescueResultToRuntime(state, result, frame.logEvents, frame.visualEvents);
+            return result.teleport;
+        }
+        members.erase(members.begin() + index);
+    }
+    return std::nullopt;
+}
+
 void appendFramePendingDamage(
     BattleRuntimeState& state,
     std::vector<BattlePendingDamageIntent>& pendingDamage,

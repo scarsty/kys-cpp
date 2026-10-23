@@ -695,6 +695,7 @@ using StateMachineExecution = std::variant<
     PreventDeathAction,
     FeignDeathAction,
     ConfigureRescueRepositionAction,
+    OpeningRangedRepositionAction,
     ConfigureGuardChargesAction,
     ConfigurePoisonConversionAction,
     SpreadPoisonAction>;

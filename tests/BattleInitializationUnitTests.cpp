@@ -233,6 +233,100 @@ TEST_CASE("BattleStartInitializer_CompilesSpawnInitializationApi", "[battle][ini
     CHECK(output.result.logEvents.empty());
 }
 
+TEST_CASE("Opening reposition pulls one ranged enemy to a random combo member once per team",
+          "[battle][initialization][opening-reposition][regression]")
+{
+    for (const int team : {0, 1})
+    {
+        std::set<int> chosenMembers;
+        std::set<int> chosenEnemies;
+        for (unsigned int seed = 1; seed <= 12; ++seed)
+        {
+            for (int scenario = 0; scenario < 4; ++scenario)
+            {
+                CAPTURE(team, seed, scenario);
+                std::uint64_t nextRuleId{};
+                BattleRuntimeSessionCreationInput input;
+                input.randomSeed = seed;
+                input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+                input.setup.comboDefinitions.push_back({
+                    .id = 77, .name = "挪移測試", .memberRoleIds = {1001, 1002},
+                    .thresholds = {gameplayThreshold(2, R"([
+                        {類型: 開場挪移遠程敵人, 眩暈幀數: 37},
+                        {類型: 低血敵人牽引追擊, 次數: 2}
+                    ])", nextRuleId)}});
+                addInitializedRuntimeTestUnit(input, 0, 1001, team, 2, 2, Towards_RightDown);
+                addInitializedRuntimeTestUnit(input, 1, 1002, team, 2, 8, Towards_RightDown);
+                addInitializedRuntimeTestUnit(input, 2, 1003, team, 2, 14, Towards_RightDown);
+                for (int id = 3; id <= 5; ++id)
+                    addInitializedRuntimeTestUnit(input, id, 2000 + id, 1 - team, 14, 2 + (id - 3) * 6,
+                        Towards_LeftUp, makeHadesTestSkillSeed(id < 5 && scenario != 1 ? 1 : 0));
+                for (int x = 0; x < 18; ++x)
+                    for (int y = 0; y < 18; ++y)
+                        input.rescueCells.push_back({.x = x, .y = y, .walkable = scenario != 2,
+                            .position = areaGridWorldPosition(input.rules.gridTransform, x, y)});
+                auto created = BattleRuntimeSession::createInitialized(std::move(input));
+                auto runtime = created.session.runtime();
+                for (auto& record : runtime.units.all())
+                {
+                    record.core.stats.speed = 0;
+                    record.core.canAttack = false;
+                    if (scenario == 3) record.status.effects.statusShield = 100;
+                }
+                CHECK(std::ranges::count_if(runtime.effectRules.rules(), [](const auto& bound)
+                {
+                    return bound.binding.sourceId == 77 && bound.rule().event == EffectEvent::FrameAdvanced;
+                }) == 1);
+                const auto frame = runBattleFrame(runtime);
+                const auto moved = std::ranges::find_if(frame.logEvents, [](const auto& log)
+                {
+                    return BattleLogTest::textOf(log) == "開場挪移";
+                });
+                if (scenario == 1 || scenario == 2)
+                {
+                    CHECK(moved == frame.logEvents.end());
+                }
+                else
+                {
+                    REQUIRE(moved != frame.logEvents.end());
+                    CHECK(std::ranges::count_if(frame.logEvents, [](const auto& log)
+                    {
+                        return BattleLogTest::textOf(log) == "開場挪移";
+                    }) == 1);
+                    CHECK((moved->sourceUnitId == 0 || moved->sourceUnitId == 1));
+                    CHECK((moved->targetUnitId == 3 || moved->targetUnitId == 4));
+                    chosenMembers.insert(moved->sourceUnitId);
+                    chosenEnemies.insert(moved->targetUnitId);
+                    const auto& source = runtime.units.requireCore(moved->sourceUnitId);
+                    const auto& target = runtime.units.require(moved->targetUnitId);
+                    CHECK(std::abs(target.core.grid.x - source.grid.x) <= 1);
+                    CHECK(std::abs(target.core.grid.y - source.grid.y) <= 1);
+                    CHECK(target.status.effects.has(BattleStatusKind::Stun) == (scenario == 0));
+                    if (scenario == 0)
+                    {
+                        REQUIRE(target.status.effects.statuses.size() == 1);
+                        CHECK(target.status.effects.statuses.front().remainingFrames == 37);
+                        CHECK(target.status.effects.statuses.front().sourceUnitId == source.id);
+                    }
+                }
+                CHECK_FALSE(runtime.units.require(5).status.effects.has(BattleStatusKind::Stun));
+                CHECK(runtime.units.require(0).forcePullExecuteRemaining() == 2);
+                CHECK(runtime.units.require(1).forcePullExecuteRemaining() == 2);
+                for (int i = 0; i < 3; ++i)
+                {
+                    const auto later = runBattleFrame(runtime);
+                    CHECK(std::ranges::none_of(later.logEvents, [](const auto& log)
+                    {
+                        return BattleLogTest::textOf(log) == "開場挪移";
+                    }));
+                }
+            }
+        }
+        CHECK(chosenMembers == std::set<int>{0, 1});
+        CHECK(chosenEnemies == std::set<int>{3, 4});
+    }
+}
+
 TEST_CASE("BattleStartInitializer_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });

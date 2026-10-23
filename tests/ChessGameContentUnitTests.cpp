@@ -453,12 +453,12 @@ TEST_CASE("combo configuration requires explicit nonnegative icon IDs", "[chess]
     else CHECK(combos.empty());
 }
 
-TEST_CASE("synthetic content fingerprint includes the current talent schema", "[chess][content][fingerprint]")
+TEST_CASE("synthetic content fingerprint includes the current gameplay schema", "[chess][content][fingerprint]")
 {
-    // 固定測試自有樣本的指紋，天賦結構變更時明確更新。
+    // 固定測試自有樣本的指紋，玩法結構變更時明確更新。
     const ChessGameContent content(syntheticContentData(Difficulty::Normal), "0.2.20");
     CHECK(chessSha256Hex(content.contentFingerprint())
-        == "4cf4e3b8ee9349b6181182e2ebfa9189749b4e225994bf13dec82c809b032bba");
+        == "d97a46dc6e0a79a3b30dc3c884f685d930452c2d479b739ed4ab73ed14e0a8e3");
 }
 
 TEST_CASE("0.2.20 only adds a forward compatibility exception for 0.2.19", "[chess][content][version]")

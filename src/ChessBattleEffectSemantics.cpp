@@ -600,6 +600,8 @@ void visitActionNumbers(
         }
         else if constexpr (std::is_same_v<T, CreateAreaAction>)
         {
+            visitor(typed.radiusTiles);
+            visitor(typed.durationFrames);
             for (auto& modifier : typed.modifiers) visitor(modifier.amount);
         }
         else if constexpr (std::is_same_v<T, ModifyCastAction>)
@@ -624,6 +626,7 @@ void visitActionNumbers(
                     || std::is_same_v<M, GenerateClonesAction>
                     || std::is_same_v<M, PreventDeathAction>
                     || std::is_same_v<M, FeignDeathAction>
+                    || std::is_same_v<M, OpeningRangedRepositionAction>
                     || std::is_same_v<M, ConfigureRescueRepositionAction>
                     || std::is_same_v<M, ConfigureGuardChargesAction>
                     || std::is_same_v<M, ConfigurePoisonConversionAction>

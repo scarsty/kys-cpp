@@ -566,8 +566,9 @@ void BattleStartInitializationRun::bindActiveComboRules()
 
             for (const auto& rule : active.rules)
             {
-                const bool bindOnceForTeam = rule.event == EffectEvent::BattleInitialized
-                    && rule.selector.kind == EffectSelectorKind::Allies;
+                const bool bindOnceForTeam = rule.bindOncePerTeam
+                    || (rule.event == EffectEvent::BattleInitialized
+                        && rule.selector.kind == EffectSelectorKind::Allies);
                 const auto owners = bindOnceForTeam
                     ? std::span<const int>{ ownerUnitIds.data(), 1 }
                     : std::span<const int>{ ownerUnitIds };

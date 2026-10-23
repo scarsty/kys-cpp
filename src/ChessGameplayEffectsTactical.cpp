@@ -205,9 +205,9 @@ struct ShareAllyDamageArea final : GameplayEffectDefinition
         return {
             EffectRule{.event = EffectEvent::AttackCommitted,
                        .actions = {EffectAction{.value = CreateAreaAction{
-                                                    .radiusTiles = 半徑格數,
+                                                    .radiusTiles = {.flat = 半徑格數},
                                                     .anchor = AreaAnchor::FollowSourceUnit,
-                                                    .durationFrames = 持續幀數,
+                                                    .durationFrames = {.flat = 持續幀數},
                                                     .sourceDeath = AreaSourceDeathPolicy::RemoveImmediately,
                                                     .merge = AreaMergePolicy::RefreshSameSource,
                                                     .modifiers = {AreaModifier{.kind = AreaModifierKind::DamageRedirect,
@@ -254,8 +254,8 @@ struct HitDisruptionArea final : GameplayEffectDefinition
             .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
             .actions = {EffectAction{
                 .value = CreateAreaAction{
-                    .radiusTiles = 半徑格數,
-                    .durationFrames = 持續幀數,
+                    .radiusTiles = {.flat = 半徑格數},
+                    .durationFrames = {.flat = 持續幀數},
                     .merge = AreaMergePolicy::RefreshSameSource,
                     .modifiers = {AreaModifier{.relation = EffectTeamFilter::Enemy,
                                                .attribute = BattleAttribute::Speed,
@@ -307,9 +307,9 @@ struct ProtectiveArea final : GameplayEffectDefinition
         return {EffectRule{.event = EffectEvent::AttackCommitted,
                            .actions = {EffectAction{
                                .value = CreateAreaAction{
-                                   .radiusTiles = 半徑格數,
+                                   .radiusTiles = {.flat = 半徑格數},
                                    .anchor = AreaAnchor::FollowSourceUnit,
-                                   .durationFrames = 持續幀數,
+                                   .durationFrames = {.flat = 持續幀數},
                                    .sourceDeath = AreaSourceDeathPolicy::RemoveImmediately,
                                    .merge = AreaMergePolicy::RefreshSameSource,
                                    .modifiers = {AreaModifier{.relation = EffectTeamFilter::Ally,
@@ -613,6 +613,30 @@ struct PeriodicFreeUltimate final : GameplayEffectDefinition
     }
 };
 
+struct OpeningRangedReposition final : GameplayEffectDefinition
+{
+    int 眩暈幀數{};
+    static constexpr std::string_view Name = "開場挪移遠程敵人";
+    static constexpr auto Parameters = std::array<Parameter<OpeningRangedReposition>, 1>{{
+        {{"眩暈幀數", 1, 1000000}, &OpeningRangedReposition::眩暈幀數}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{
+            .event = EffectEvent::FrameAdvanced,
+            .maxActivations = 1,
+            .bindOncePerTeam = true,
+            .actions = {EffectAction{.value = StateMachineAction{
+                OpeningRangedRepositionAction{.stunFrames = 眩暈幀數}}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("開場：隨機遠程敵人挪至隨機同羈絆友軍身旁，眩暈{}幀", 眩暈幀數);
+        return std::format("開場時，全隊共同觸發一次：隨機選擇一名遠程敵人，挪至隨機一名存活同羈絆友軍身旁的空位，並使該敵人眩暈{}幀。", 眩暈幀數);
+    }
+};
+
 struct RescueReposition final : GameplayEffectDefinition
 {
     int 次數{};
@@ -709,6 +733,7 @@ void appendTacticalEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<WeakenStrongestEnemies>());
     entries.push_back(registration<PeriodicFreeUltimate>());
     entries.push_back(registration<RescueReposition>());
+    entries.push_back(registration<OpeningRangedReposition>());
     entries.push_back(registration<ExecuteReposition>());
 }
 

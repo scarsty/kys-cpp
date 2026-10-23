@@ -1472,8 +1472,15 @@ bool validateActionPayload(
             }
             else if constexpr (std::is_same_v<T, CreateAreaAction>)
             {
-                if (typed.durationFrames <= 0 || typed.modifiers.empty()) return reject("區域需要正持續時間與非空修正");
-                if (typed.shape == AreaShape::Circle && typed.radiusTiles <= 0) return reject("圓形區域需要正半徑");
+                if (!validateEffectNumberAtEvent(typed.durationFrames, event, context, error)
+                    || !validateEffectNumberAtEvent(typed.radiusTiles, event, context, error)) return false;
+                if (!effectNumberCannotBeNegative(typed.durationFrames)
+                    || (typed.durationFrames.flat <= 0 && typed.durationFrames.percent <= 0)
+                    || typed.modifiers.empty()) return reject("區域需要正持續時間與非空修正");
+                if (typed.shape == AreaShape::Circle
+                    && (!effectNumberCannotBeNegative(typed.radiusTiles)
+                        || (typed.radiusTiles.flat <= 0 && typed.radiusTiles.percent <= 0)))
+                    return reject("圓形區域需要正半徑");
                 if (typed.shape == AreaShape::GridSquare
                     && (typed.squareSideTiles <= 0 || typed.squareSideTiles % 2 == 0))
                     return reject("棋格方形區域邊長必須是正奇數");
@@ -1616,6 +1623,10 @@ bool validateActionPayload(
                         else if constexpr (std::is_same_v<M, ConfigureRescueRepositionAction>)
                         {
                             if (machine.activations <= 0) return reject("挪移次數必須為正數");
+                        }
+                        else if constexpr (std::is_same_v<M, OpeningRangedRepositionAction>)
+                        {
+                            if (machine.stunFrames <= 0) return reject("開場挪移眩暈幀數必須為正數");
                         }
                         else if constexpr (std::is_same_v<M, ConfigureGuardChargesAction>)
                         {

@@ -286,7 +286,7 @@ TEST_CASE("Authored star-scaled spiral lifetime and target fire area preserve th
     REQUIRE(parseGameplayEffects(
         YAML::Load(R"(
 - {類型: 機率螺旋流血攻擊, 機率百分比: 10, 彈道數: 3, 流血層數: 1, 基礎幀數: 20, 每星幀數: 15}
-- {類型: 持續傷害區域, 半徑格數: 5, 持續幀數: 180, 每星傷害: 25, 間隔幀數: 20}
+- {類型: 持續傷害區域, 基礎半徑格數: 2, 每星半徑格數: 3, 基礎持續幀數: 40, 每星持續幀數: 20, 每星傷害: 25, 間隔幀數: 20}
 )"),
         effects,
         rules,
@@ -302,7 +302,14 @@ TEST_CASE("Authored star-scaled spiral lifetime and target fire area preserve th
     CHECK(rules[1].event == EffectEvent::MainProjectileBeforeDamage);
     const auto& area = std::get<CreateAreaAction>(rules[1].actions[0].value);
     CHECK(area.anchor == AreaAnchor::HitPosition);
-    CHECK(area.radiusTiles == 5);
+    CHECK(area.radiusTiles.base == EffectNumberBase::SourceStar);
+    CHECK(area.radiusTiles.flat == 2);
+    CHECK(area.radiusTiles.percent == 300);
+    CHECK(area.durationFrames.base == EffectNumberBase::SourceStar);
+    CHECK(area.durationFrames.flat == 40);
+    CHECK(area.durationFrames.percent == 2000);
+    CHECK(area.sourceDeath == AreaSourceDeathPolicy::PersistUntilExpiry);
+    CHECK(area.merge == AreaMergePolicy::Independent);
     REQUIRE(area.modifiers.size() == 1);
     CHECK(area.modifiers[0].amount.base == EffectNumberBase::SourceStar);
     CHECK(area.modifiers[0].amount.percent == 2500);

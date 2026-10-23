@@ -347,7 +347,7 @@ struct EffectEventConstraint
 using EffectEventMask = std::uint32_t;
 
 static_assert(std::variant_size_v<EffectActionValue> == 18);
-static_assert(std::variant_size_v<StateMachineAction> == 17);
+static_assert(std::variant_size_v<StateMachineAction> == 18);
 
 constexpr EffectEventMask effectEventBit(EffectEvent event)
 {
@@ -462,6 +462,8 @@ constexpr EffectEventMask effectStateMachineActionEventMask(std::size_t variantI
 {
     switch (variantIndex)
     {
+    case 17: // OpeningRangedRepositionAction
+        return effectEventBit(EffectEvent::FrameAdvanced);
     case 15: // HealAttackerByMissingMpAction
         return effectEventBit(EffectEvent::DamageResolved);
     case 14: // SpreadPoisonAction

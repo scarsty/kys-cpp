@@ -1329,6 +1329,7 @@ std::optional<BorrowedRuleActionCategory> borrowedActionCategory(
                 [](const PreventDeathAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const FeignDeathAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigureRescueRepositionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+                [](const OpeningRangedRepositionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigureGuardChargesAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigurePoisonConversionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const SpreadPoisonAction&) -> std::optional<BorrowedRuleActionCategory> { return BorrowedRuleActionCategory::Status; },
@@ -1945,9 +1946,9 @@ struct CommandEmitter
                     .source = metadata.binding,
                     .ruleId = metadata.ruleId,
                     .targetTeamDomain = areaTeamDomain(context),
-                    .geometry = { action.shape, action.radiusTiles, action.squareSideTiles },
+                    .geometry = { action.shape, evaluate(action.radiusTiles, target), action.squareSideTiles },
                     .currentFrame = context.header.executionFrame.value_or(context.header.frame),
-                    .durationFrames = action.durationFrames,
+                    .durationFrames = evaluate(action.durationFrames, target),
                     .sourceDeath = action.sourceDeath,
                     .merge = action.merge,
                     .modifiers = action.modifiers,
@@ -2124,6 +2125,10 @@ struct CommandEmitter
                         append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const ConfigureRescueRepositionAction& value)
+                    {
+                        append(metadata, StateMachineEffectCommand{ value });
+                    },
+                    [&](const OpeningRangedRepositionAction& value)
                     {
                         append(metadata, StateMachineEffectCommand{ value });
                     },

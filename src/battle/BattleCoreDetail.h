@@ -199,6 +199,9 @@ bool tryCommitAutoUltimate(
 
 void refreshRuntimeMovementProfiles(BattleRuntimeState& state);
 
+std::optional<BattleRescueTeleportDelta> applyOpeningRangedReposition(
+    BattleRuntimeState& state, BattleFrameContext& frame, const EffectSourceBinding& binding);
+
 BattleCastSkillState makePendingCastSkillPlan(BattleCastSkillState skill);
 
 std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(

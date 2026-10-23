@@ -666,9 +666,10 @@ TEST_CASE("BattleEffectEventBridge preserves hit positions during status livenes
 
     CreateAreaAction area;
     area.shape = AreaShape::Circle;
-    area.radiusTiles = 2;
+    runtime.units.requireCore(1).star = 3;
+    area.radiusTiles = {.base = EffectNumberBase::SourceStar, .flat = 2, .percent = 300};
     area.anchor = AreaAnchor::HitPosition;
-    area.durationFrames = 100;
+    area.durationFrames = {.base = EffectNumberBase::SourceStar, .flat = 40, .percent = 2000};
     area.sourceDeath = AreaSourceDeathPolicy::PersistUntilExpiry;
     area.merge = AreaMergePolicy::RefreshSameSource;
     AreaModifier modifier;
@@ -719,6 +720,7 @@ TEST_CASE("BattleEffectEventBridge preserves hit positions during status livenes
     CHECK(runtime.areas.areas.front().anchor.fixedPosition.x == contactPosition.x);
     CHECK(runtime.areas.areas.front().anchor.fixedPosition.y == contactPosition.y);
     CHECK(runtime.areas.areas.front().expiresFrameExclusive == 107);
+    CHECK(runtime.areas.areas.front().geometry.radiusTiles == 11);
 }
 
 TEST_CASE("BattleEffectEventBridge uses reducer-equivalent protection state for status liveness",

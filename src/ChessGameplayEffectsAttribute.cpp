@@ -234,14 +234,18 @@ struct CastTeamDefence final : GameplayEffectDefinition
 
 struct BurningArea final : GameplayEffectDefinition
 {
-    int 半徑格數{};
-    int 持續幀數{};
+    int 基礎半徑格數{};
+    int 每星半徑格數{};
+    int 基礎持續幀數{};
+    int 每星持續幀數{};
     int 每星傷害{};
     int 間隔幀數{};
     static constexpr std::string_view Name = "持續傷害區域";
-    static constexpr auto Parameters = std::array<Parameter<BurningArea>, 4>{
-        {Parameter<BurningArea>{{"半徑格數", 1, 1000000}, &BurningArea::半徑格數},
-         Parameter<BurningArea>{{"持續幀數", 1, 1000000}, &BurningArea::持續幀數},
+    static constexpr auto Parameters = std::array<Parameter<BurningArea>, 6>{
+        {Parameter<BurningArea>{{"基礎半徑格數", 1, 1000000}, &BurningArea::基礎半徑格數},
+         Parameter<BurningArea>{{"每星半徑格數", 0, 1000000}, &BurningArea::每星半徑格數},
+         Parameter<BurningArea>{{"基礎持續幀數", 1, 1000000}, &BurningArea::基礎持續幀數},
+         Parameter<BurningArea>{{"每星持續幀數", 0, 1000000}, &BurningArea::每星持續幀數},
          Parameter<BurningArea>{{"每星傷害", 0, 1000000}, &BurningArea::每星傷害},
          Parameter<BurningArea>{{"間隔幀數", 1, 1000000}, &BurningArea::間隔幀數}}};
     std::string_view name() const override { return Name; }
@@ -250,11 +254,13 @@ struct BurningArea final : GameplayEffectDefinition
         return {
             EffectRule{.event = EffectEvent::MainProjectileBeforeDamage,
                        .actions = {EffectAction{.value = CreateAreaAction{
-                                                    .radiusTiles = 半徑格數,
+                                                    .radiusTiles = {.base = EffectNumberBase::SourceStar,
+                                                        .flat = 基礎半徑格數, .percent = 每星半徑格數 * 100},
                                                     .anchor = AreaAnchor::HitPosition,
-                                                    .durationFrames = 持續幀數,
-                                                    .sourceDeath = AreaSourceDeathPolicy::RemoveImmediately,
-                                                    .merge = AreaMergePolicy::RefreshSameSource,
+                                                    .durationFrames = {.base = EffectNumberBase::SourceStar,
+                                                        .flat = 基礎持續幀數, .percent = 每星持續幀數 * 100},
+                                                    .sourceDeath = AreaSourceDeathPolicy::PersistUntilExpiry,
+                                                    .merge = AreaMergePolicy::Independent,
                                                     .modifiers = {AreaModifier{.kind = AreaModifierKind::PeriodicDamage,
                                                                                .relation = EffectTeamFilter::Enemy,
                                                                                .amount = EffectNumber{.base = EffectNumberBase::SourceStar,
@@ -264,16 +270,18 @@ struct BurningArea final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        const auto radius = recoveryDescription(基礎半徑格數, 每星半徑格數, 0);
+        const auto duration = recoveryDescription(基礎持續幀數, 每星持續幀數, 0);
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("命中時在目標位置建立半徑{}格的區域，持續{}幀；每{}幀對區域內敵人造成{}×星級傷害。來源死亡時區域消失。",
-                               半徑格數,
-                               持續幀數,
+            return std::format("命中時在目標位置建立半徑（{}）格的火區，持續（{}）幀；每{}幀對區域內敵人造成{}×星級傷害。各火區獨立存在並疊加傷害，來源死亡後保留至到期。",
+                               radius,
+                               duration,
                                間隔幀數,
                                每星傷害);
         }
         return std::format(
-            "命中：目標腳下火陣半徑{}格，{}幀；每{}幀傷敵{}×星級", 半徑格數, 持續幀數, 間隔幀數, 每星傷害);
+            "命中：火陣半徑（{}）格，（{}）幀；每{}幀傷敵{}×星級，可疊加、死亡後保留", radius, duration, 間隔幀數, 每星傷害);
     }
 };
 

@@ -892,10 +892,10 @@ struct AreaModifier
 struct CreateAreaAction
 {
     AreaShape shape{};
-    int radiusTiles = 0;
+    EffectNumber radiusTiles;
     int squareSideTiles = 0;
     AreaAnchor anchor{};
-    int durationFrames{};
+    EffectNumber durationFrames;
     AreaSourceDeathPolicy sourceDeath{};
     AreaMergePolicy merge{};
     std::vector<AreaModifier> modifiers;
@@ -1089,6 +1089,11 @@ struct ConfigureRescueRepositionAction
     int activations{};
 };
 
+struct OpeningRangedRepositionAction
+{
+    int stunFrames{};
+};
+
 struct ConfigureGuardChargesAction
 {
     int initialCharges{};
@@ -1122,7 +1127,8 @@ using StateMachineAction = std::variant<
     ConfigurePoisonConversionAction,
     SpreadPoisonAction,
     HealAttackerByMissingMpAction,
-    FeignDeathAction>;
+    FeignDeathAction,
+    OpeningRangedRepositionAction>;
 
 struct EffectAction;
 
@@ -1216,6 +1222,7 @@ struct EffectRule
     std::vector<EffectCondition> conditions;
     int chancePct = 100;
     int maxActivations = 0;
+    bool bindOncePerTeam = false;
     // Rules bound once per eligible owner can share a source-scoped cooldown.
     // This preserves group triggers such as one combo member starting a buff
     // window for every member without collapsing per-owner activation counts.

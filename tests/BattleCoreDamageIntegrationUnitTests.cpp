@@ -116,6 +116,34 @@ TEST_CASE("BattleFrameRunner_AuraPulsesUseElapsedFramesAndRespectImmunity", "[ba
     CHECK(state.areas.areas.empty());
 }
 
+TEST_CASE("Independent ground fire keeps damaging after caster death until each area expires",
+          "[battle][area][fire][regression]")
+{
+    auto state = auraBattleState();
+    auto request = fixedCircleAreaRequest(0, 0, {1}, {140, 100, 0}, 0, 45,
+        AreaMergePolicy::Independent);
+    request.modifiers = {{.kind = AreaModifierKind::PeriodicDamage,
+        .relation = EffectTeamFilter::Enemy, .amount = {.flat = 45},
+        .intervalFrames = 20, .overlap = AreaOverlapPolicy::Add}};
+    BattleAreaEffectSystem::create(state.areas, request);
+    request.durationFrames = 25;
+    BattleAreaEffectSystem::create(state.areas, request);
+    state.nextFrame.queueDamage({.request = {
+        .attackerUnitId = 2, .defenderUnitId = 0, .baseDamage = 1000, .preResolvedDamage = true}});
+    runBattleFrame(state);
+    CHECK_FALSE(state.units.requireCore(0).alive);
+    REQUIRE(state.areas.areas.size() == 2);
+    for (int i = 1; i < 20; ++i) runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == 910);
+    for (int i = 20; i < 40; ++i) runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == 865);
+    REQUIRE(state.areas.areas.size() == 1);
+    CHECK(state.areas.areas.front().anchor.fixedPosition.x == 140);
+    for (int i = 40; i < 60; ++i) runBattleFrame(state);
+    CHECK(state.units.requireCore(2).vitals.hp == 865);
+    CHECK(state.areas.areas.empty());
+}
+
 TEST_CASE("BattleFrameRunner_GuardianReducesTransferredDamageWithoutRecursion", "[battle][area][ultimate]")
 {
     auto state = auraBattleState();
