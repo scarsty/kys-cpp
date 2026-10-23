@@ -5,7 +5,6 @@
 #include "DisplayText.h"
 #include "InputBox.h"
 #include "Button.h"
-#include "GameUtil.h"
 #include "TextureManager.h"
 #include "ChessCharacterUi.h"
 #include <algorithm>
@@ -658,7 +657,7 @@ void ChessSelectionScreen::drawTalent()
     panel(316, 80, 948, 560);
     image(item.image, {336, 100, 144, 144});
     label(item.title, 32, 504, 104, gold, 720);
-    const auto description = wrapChessTalentDescription(item.talent->description,
+    const auto description = wrapLines(item.talent->description,
         displayTextUnitsForPixelWidth(21, 736));
     for (int i = 0; i < static_cast<int>(description.size()); ++i)
         label(description[i], 21, 504, 154 + i * 27, ink, 736);

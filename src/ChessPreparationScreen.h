@@ -40,7 +40,7 @@ public:
 private:
     using View = ChessPreparationView;
     using Icon = ChessUiStyle::Icon;
-    enum class Treatment { Quiet, Card, Slot, Action, Primary, Row };
+    enum class Treatment { Quiet, Surface, Action, Primary };
     struct Control
     {
         std::string key;
@@ -120,7 +120,6 @@ private:
     int textPage_{};
     int equipmentId_ = -1;
     int equipmentType_{};
-    int abilityId_ = -1;
     int neigongId_ = -1;
     std::string information_;
     uint64_t layoutRevision_{};
@@ -133,7 +132,7 @@ private:
     void pieceInspector();
     void equipmentInspector();
     void informationInspector();
-    void expandedInspector();
+    void neigongInspector();
     void footer();
     void guide();
     void finishGuide();
@@ -164,7 +163,6 @@ private:
     void icon(Icon icon, PanelFrame frame, Color color = {221, 200, 141, 255});
     void drawIcon(Icon icon, PanelFrame frame, Color color);
     void synergyIcon(int iconId, PanelFrame frame, Color color);
-    void disclosure(std::string key, PanelFrame frame, std::string label, std::function<void()> action);
     int iconButton(std::string key, PanelFrame frame, Icon icon, std::string label,
         std::function<void()> action, std::string tooltip = {}, bool enabled = true, bool selected = false,
         Color color = ChessUiStyle::ink, Treatment treatment = Treatment::Quiet);

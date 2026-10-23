@@ -126,28 +126,6 @@ TEST_CASE("preparation follows actual recursive merge events and inherited equip
     CHECK(std::ranges::count(result.events, ChessSemanticEventType::ChessMerged, &ChessSemanticEvent::type) == 2);
 }
 
-TEST_CASE("expanded inspector recovers when refresh purchase or merge removes its target", "[chess][preparation]")
-{
-    ChessSessionState state;
-    state.shop = {{10, 1}};
-    ChessPreparationSelection selection;
-    selection.selectShop(0, 10);
-    auto view = ChessPreparationView::Attributes;
-    reconcileChessPreparationView(selection, view, state);
-    CHECK(view == ChessPreparationView::Attributes);
-    state.shop[0].roleId = -1;
-    reconcileChessPreparationView(selection, view, state);
-    CHECK(view == ChessPreparationView::Piece);
-    CHECK(selection.shopRoleId == -1);
-    state.roster.emplace(4, ChessSessionPiece{.instanceId = 4, .roleId = 10});
-    selection.selectPiece(4);
-    view = ChessPreparationView::Ability;
-    state.roster.erase(4);
-    reconcileChessPreparationView(selection, view, state);
-    CHECK(view == ChessPreparationView::Piece);
-    CHECK(selection.instanceId == -1);
-}
-
 TEST_CASE("preparation purchase does not bypass bench capacity for automatic deployment", "[chess][preparation]")
 {
     const auto content = managementContent();

@@ -36,15 +36,4 @@ std::vector<ChessContextMenuItem> buildChessSystemMenu()
     };
 }
 
-std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items)
-{
-    std::vector<std::string> labels;
-    labels.reserve(items.size());
-    for (const auto& item : items)
-    {
-        labels.push_back(item.label);
-    }
-    return labels;
-}
-
 }    // namespace KysChess

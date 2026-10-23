@@ -17,19 +17,6 @@
 namespace KysChess
 {
 
-inline const char* chessTalentShortDescription(ChessTalentId id)
-{
-    switch (id)
-    {
-    case ChessTalentId::DivineArms: return "獲得更多高階裝備，終局可用神兵商店。";
-    case ChessTalentId::LateBloomer: return "勝場成長受星級及百分比效果加成，培養長期主力。";
-    case ChessTalentId::Gambler: return "開局額外禁棋；付費刷新為一枚棋子累積賭運，提高致命傷害免死機率。";
-    case ChessTalentId::Backbone: return "非三費友軍的額外星級強化三費棋子的內力與攻防；三費升二星後，下次商店保證三費。";
-    case ChessTalentId::Alliance: return "開局為一個羈絆永久加點，高階羈絆提前啟用。";
-    }
-    std::unreachable();
-}
-
 struct ChessTalentFactTableMetrics
 {
     int fontSize{};
@@ -63,36 +50,6 @@ inline bool chessTalentPresentationUsesEquipmentTable(
         presentation.facts.begin(),
         presentation.facts.end(),
         [](const auto& fact) { return fact.kind != ChessTalentFactKind::Mechanic; });
-}
-
-inline std::vector<std::string> wrapChessTalentDescription(
-    const std::string& text,
-    int maximumWidth)
-{
-    std::vector<std::string> result;
-    std::size_t lineStart = 0;
-    while (true)
-    {
-        const std::size_t lineEnd = text.find('\n', lineStart);
-        const auto paragraph = text.substr(
-            lineStart,
-            lineEnd == std::string::npos ? std::string::npos : lineEnd - lineStart);
-        const auto wrapped = wrapDisplayText(paragraph, maximumWidth);
-        if (wrapped.empty())
-        {
-            result.emplace_back();
-        }
-        else
-        {
-            result.insert(result.end(), wrapped.begin(), wrapped.end());
-        }
-        if (lineEnd == std::string::npos)
-        {
-            break;
-        }
-        lineStart = lineEnd + 1;
-    }
-    return result;
 }
 
 inline int chessTalentFactColumnWidth(int pixelWidth, int column)

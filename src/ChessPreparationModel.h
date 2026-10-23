@@ -68,7 +68,7 @@ struct ChessPreparationConfirmation
     void cancelUnless(const std::string& key) { if (armedKey != key) reset(); }
 };
 
-enum class ChessPreparationView { Piece, Equipment, Information, Attributes, Ability, Neigongs, Neigong };
+enum class ChessPreparationView { Piece, Equipment, Information, Neigongs, Neigong };
 
 // 整備的顯示順序保留原有位置，新上／下陣的棋子排在目的地末尾。
 // 戰場站位仍由 formationSlots 管理，不因整備動畫而改動。
@@ -130,15 +130,6 @@ struct ChessPreparationEquipmentPopover
     void scrollBy(int delta, int maximum) { scroll = std::clamp(scroll + delta, 0, maximum); }
 };
 
-inline void reconcileChessPreparationView(ChessPreparationSelection& selection,
-    ChessPreparationView& view, const ChessSessionState& state)
-{
-    selection.reconcile(state);
-    if (selection.instanceId < 0 && selection.shopRoleId < 0
-        && (view == ChessPreparationView::Attributes || view == ChessPreparationView::Ability))
-        view = ChessPreparationView::Piece;
-}
-
 struct ChessPreparationNavigationContext
 {
     ChessPreparationView view{};
@@ -148,7 +139,6 @@ struct ChessPreparationNavigationContext
     ChessPreparationSelection selection;
     int equipmentId = -1;
     int equipmentType{};
-    int abilityId = -1;
     int neigongId = -1;
     std::string information;
 };

@@ -5,7 +5,6 @@
 #include "ChessGameContent.h"
 #include "ChessManagementRules.h"
 #include "ChessRewardRules.h"
-#include "ChessScreenLayout.h"
 
 #include <algorithm>
 #include <cassert>
@@ -17,40 +16,6 @@
 
 namespace KysChess
 {
-
-struct ChessMenuColumnRow
-{
-    std::string prefix;
-    std::string name;
-    std::string middle;
-    std::string right;
-};
-
-struct ChessMenuColumnMinimumWidths
-{
-    int name = ChessScreenLayout::kMenuNameUnits;
-    int middle = ChessScreenLayout::kMenuStarUnits;
-    int right = ChessScreenLayout::kMenuCostUnits;
-};
-
-inline std::string chessMenuPrefixWithSeparator(std::string prefix)
-{
-    if (!prefix.empty() && prefix.back() != ' ')
-    {
-        prefix += ' ';
-    }
-    return prefix;
-}
-
-inline std::string chessEquipmentAssignmentColumn(bool assigned)
-{
-    return assigned ? " [已裝]" : std::string{};
-}
-
-inline std::string chessRewardOptionCostColumn(const ChessRewardOption& option)
-{
-    return option.goldCost > 0 ? std::format("+${}", option.goldCost) : std::string{};
-}
 
 inline std::string chessStarUpgradeRewardTitle(
     const ChessSessionState& state,
@@ -211,103 +176,6 @@ inline bool chessEquipmentMenuOrderLess(
     return left.itemId < right.itemId;
 }
 
-template <typename DisplayWidth>
-std::string padRightToDisplayWidth(std::string text, int targetWidth, DisplayWidth displayWidth)
-{
-    while (displayWidth(text) < targetWidth)
-    {
-        text += ' ';
-    }
-    return text;
-}
-
-template <typename DisplayWidth>
-std::string padLeftToDisplayWidth(std::string text, int targetWidth, DisplayWidth displayWidth)
-{
-    while (displayWidth(text) < targetWidth)
-    {
-        text = ' ' + text;
-    }
-    return text;
-}
-
-template <typename DisplayWidth>
-std::vector<std::string> buildAlignedChessMenuLabels(
-    const std::vector<ChessMenuColumnRow>& rows,
-    DisplayWidth displayWidth,
-    ChessMenuColumnMinimumWidths minimumWidths = {})
-{
-    int nameWidth = minimumWidths.name;
-    int middleWidth = minimumWidths.middle;
-    int rightWidth = minimumWidths.right;
-    for (const auto& row : rows)
-    {
-        nameWidth = std::max(nameWidth, displayWidth(row.prefix + row.name));
-        middleWidth = std::max(middleWidth, displayWidth(row.middle));
-        rightWidth = std::max(rightWidth, displayWidth(row.right));
-    }
-
-    std::vector<std::string> labels;
-    labels.reserve(rows.size());
-    for (const auto& row : rows)
-    {
-        labels.push_back(
-            padRightToDisplayWidth(row.prefix + row.name, nameWidth, displayWidth)
-            + padRightToDisplayWidth(row.middle, middleWidth, displayWidth)
-            + padLeftToDisplayWidth(row.right, rightWidth, displayWidth));
-    }
-    return labels;
-}
-
-template <typename DisplayWidth>
-std::vector<std::string> buildContentSizedAlignedChessMenuLabels(
-    const std::vector<ChessMenuColumnRow>& rows,
-    DisplayWidth displayWidth)
-{
-    return buildAlignedChessMenuLabels(
-        rows,
-        displayWidth,
-        ChessMenuColumnMinimumWidths{0, 0, 0});
-}
-
-template <typename DisplayWidth>
-std::vector<std::string> buildAlignedChessRewardMenuLabels(
-    ChessRewardKind rewardKind,
-    const std::vector<ChessMenuColumnRow>& rows,
-    DisplayWidth displayWidth)
-{
-    if (rewardKind == ChessRewardKind::Equipment)
-    {
-        return buildContentSizedAlignedChessMenuLabels(rows, displayWidth);
-    }
-    return buildAlignedChessMenuLabels(rows, displayWidth);
-}
-
-template <typename DisplayWidth>
-std::vector<std::string> buildAlignedComboCatalogLabels(
-    const std::vector<std::pair<std::string, std::string>>& rows,
-    DisplayWidth displayWidth)
-{
-    int nameWidth = 0;
-    int countWidth = 0;
-    for (const auto& [name, count] : rows)
-    {
-        nameWidth = std::max(nameWidth, displayWidth(name));
-        countWidth = std::max(countWidth, displayWidth(count));
-    }
-
-    std::vector<std::string> labels;
-    labels.reserve(rows.size());
-    for (const auto& [name, count] : rows)
-    {
-        labels.push_back(std::format(
-            "{} ({})",
-            padRightToDisplayWidth(name, nameWidth, displayWidth),
-            padRightToDisplayWidth(count, countWidth, displayWidth)));
-    }
-    return labels;
-}
-
 inline std::string chessStars(int star)
 {
     std::string result;
@@ -337,16 +205,6 @@ inline std::string chessVictoryComboBonusText(
     return std::format("({}+${})", source ? source->name : "羈絆", bonus);
 }
 
-inline const char* chessChallengeCompletionLabel(bool completed)
-{
-    return completed ? "[已通關]" : "";
-}
-
-inline Color chessChallengeMenuRowColor(bool completed)
-{
-    return completed ? Color{120, 120, 120, 255} : Color{255, 200, 100, 255};
-}
-
 inline std::vector<std::string> chessChallengeBrowseNames(const ChessGameContent& content)
 {
     std::vector<std::string> names;
@@ -356,24 +214,6 @@ inline std::vector<std::string> chessChallengeBrowseNames(const ChessGameContent
         names.push_back(challenge.name);
     }
     return names;
-}
-
-inline std::string chessChallengeEnemyDescription(
-    const ChessGameContent& content,
-    const BalanceConfig::ChallengeEnemy& enemy)
-{
-    const auto* role = content.role(enemy.roleId);
-    assert(role);
-    auto description = std::format("  {} {} ({}費)", role->Name, chessStars(enemy.star), role->Cost);
-    if (enemy.weaponId >= 0)
-    {
-        description += std::format("　{}", chessItemDisplayName(content, enemy.weaponId));
-    }
-    if (enemy.armorId >= 0)
-    {
-        description += std::format("{}{}", enemy.weaponId >= 0 ? "／" : "　", chessItemDisplayName(content, enemy.armorId));
-    }
-    return description;
 }
 
 }    // namespace KysChess

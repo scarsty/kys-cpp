@@ -38,5 +38,4 @@ struct ChessContextMenuItem
 std::vector<ChessContextMenuItem> buildChessOverviewMenu();
 std::vector<ChessContextMenuItem> buildChessEquipmentMenu(bool legendaryShopUnlocked);
 std::vector<ChessContextMenuItem> buildChessSystemMenu();
-std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items);
 }    // namespace KysChess

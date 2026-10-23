@@ -1,4 +1,3 @@
-#include "ChessTalentUi.h"
 #include "ChessPreparationScreen.h"
 
 #include "ChessGameQueries.h"
@@ -56,7 +55,7 @@ ChessAction simpleAction(ChessActionType type)
 std::vector<PanelTextSourceRow> paragraph(const std::string& value)
 {
     std::vector<PanelTextSourceRow> rows;
-    for (const auto& part : wrapChessTalentDescription(value, 200))
+    for (const auto& part : wrapLines(value, 200))
         if (!part.empty()) rows.push_back({.text = part, .spacingAfter = 4});
     return rows;
 }
@@ -142,12 +141,6 @@ void ChessPreparationScreen::synergyIcon(int iconId, PanelFrame frame, Color col
     });
 }
 
-void ChessPreparationScreen::disclosure(std::string key, PanelFrame frame, std::string label, std::function<void()> action)
-{
-    button(std::move(key), frame, std::move(label), std::move(action), {}, true, false, Treatment::Row);
-    icon(Icon::Right, {frame.x + frame.w - 28, frame.y + (frame.h - 16) / 2, 16, 16}, muted);
-}
-
 int ChessPreparationScreen::iconButton(std::string key, PanelFrame frame, Icon symbol, std::string label,
     std::function<void()> action, std::string tooltip, bool enabled, bool selected, Color color, Treatment treatment)
 {
@@ -187,7 +180,7 @@ int ChessPreparationScreen::button(std::string key, PanelFrame frame, std::strin
         while (size > 16 && Font::getTextDrawSize(caption) * size / 2 > frame.w - 16) --size;
         const auto labelColor = !enabled ? muted : confirming ? ink : treatment == Treatment::Primary ? darkLabel : color;
         ChessUiStyle::label(caption, size,
-            frame.x + (treatment == Treatment::Row ? 8 : std::max(6, (frame.w - Font::getTextDrawSize(caption) * size / 2) / 2)),
+            frame.x + std::max(6, (frame.w - Font::getTextDrawSize(caption) * size / 2) / 2),
             frame.y + (frame.h - size) / 2, labelColor, frame.w - 16);
     });
     return index;
@@ -200,7 +193,7 @@ void ChessPreparationScreen::rebuild()
     popoverFrame_ = {};
     pressedKey_.clear();
     pressPreview_.reset();
-    reconcileChessPreparationView(selection_, view_, session_.state());
+    selection_.reconcile(session_.state());
     observation_ = session_.observe();
     w_ = Engine::getInstance()->getUIWidth();
     h_ = Engine::getInstance()->getUIHeight();
@@ -556,7 +549,7 @@ void ChessPreparationScreen::shop()
         button(std::format("offer:{}", slot), {frame.x, frame.y, frame.w, frame.h - 40}, {},
             [this, slot] { selectShop(slot); },
             std::format("{} · {}階；雙擊購買", role->Name, offer.tier),
-            true, selection_.shopSlot == slot, Treatment::Card);
+            true, selection_.shopSlot == slot, Treatment::Surface);
         controls_.back().key = std::format("offer:{}:{}", slot, offer.roleId);
         controls_.back().preview = [this, slot] { if (selection_.shopSlot != slot) selectShop(slot); };
         controls_.back().shortcut = [this, slot] { buy(slot); };
@@ -599,10 +592,8 @@ void ChessPreparationScreen::inspector()
     case View::Piece: pieceInspector(); break;
     case View::Equipment: equipmentInspector(); break;
     case View::Information: informationInspector(); break;
-    case View::Attributes:
-    case View::Ability:
     case View::Neigongs:
-    case View::Neigong: expandedInspector(); break;
+    case View::Neigong: neigongInspector(); break;
     }
 }
 
@@ -620,10 +611,10 @@ void ChessPreparationScreen::pieceInspector()
         iconButton("empty-combos", {x, y + 314, width, 52}, Icon::Link, "羈絆一覽", [this] { showChessComboOverview(session_.content(), session_.state()); rebuild(); });
         return;
     }
-    const auto character = std::make_shared<ChessCharacterPresentation>(buildChessCharacterPresentation(
+    const auto character = buildChessCharacterPresentation(
         session_.content(), session_.state(), roleId, piece ? piece->star : 1,
-        piece ? piece->instanceId : -1, piece ? ChessCharacterContext::Owned : ChessCharacterContext::Shop));
-    auto content = composeChessCharacterInspector(*character,
+        piece ? piece->instanceId : -1, piece ? ChessCharacterContext::Owned : ChessCharacterContext::Shop);
+    auto content = composeChessCharacterInspector(character,
         {inspector_.x, inspector_.y, inspector_.w, inspector_.h - 64}, characterInspector_);
     for (int i = 0; i < static_cast<int>(content.controls.size()); ++i)
     {
@@ -747,7 +738,7 @@ void ChessPreparationScreen::equipmentInspector()
         PanelFrame frame{x + (slot % columns) * (cellWidth + gap), y + 140 + (slot / columns) * (cellHeight + gap), cellWidth, cellHeight};
         button(std::format("equipment:{}", equipment.instanceId), frame, {}, [this, id = equipment.instanceId] {
             equipmentId_ = id; textPage_ = 0; rebuild();
-        }, item->name, true, equipmentId_ == equipment.instanceId, Treatment::Slot);
+        }, item->name, true, equipmentId_ == equipment.instanceId, Treatment::Surface);
         controls_.back().equipmentId = equipment.instanceId;
         image("item", item->id, {frame.x + 8, frame.y + 4, frame.w - 16, 32});
         text(item->name, frame.x + 4, frame.y + 40, 16, chessRewardTierColor(definition->tier), frame.w - 8);
@@ -908,7 +899,7 @@ void ChessPreparationScreen::informationInspector()
     prose(rows, {x, y + 76, width, inspector_.h - 160});
 }
 
-void ChessPreparationScreen::expandedInspector()
+void ChessPreparationScreen::neigongInspector()
 {
     const int x = inspector_.x + 12, y = inspector_.y + 12, width = inspector_.w - 24;
     std::vector<PanelTextSourceRow> rows;
@@ -933,59 +924,13 @@ void ChessPreparationScreen::expandedInspector()
             [this, pages] { listPage_ = (listPage_ + 1) % pages; rebuild(); }, {}, pages > 1);
         return;
     }
-    if (view_ == View::Neigong)
-    {
-        const auto ng = std::ranges::find(session_.content().neigong(), neigongId_, &NeigongDef::magicId);
-        assert(ng != session_.content().neigong().end());
-        text("內功詳情", x, y + 8, 24, gold);
-        image("item", ng->itemId, {x, y + 64, 64, 64});
-        text(ng->name, x + 78, y + 80, 22, chessRewardTierColor(ng->tier), width - 82, 2);
-        rows = panelTextRowsForEffectDescription(describeGameplayEffects(ng->effects, EffectDescriptionStyle::Full));
-        rows.insert(rows.begin(), {.text = "對所有成員自動生效", .spacingAfter = 12});
-        prose(rows, {x, y + 152, width, inspector_.h - 180});
-        return;
-    }
-    const auto* piece = rosterPiece(session_.state(), selection_.instanceId);
-    const auto* role = session_.content().role(piece ? piece->roleId : selection_.shopRoleId);
-    assert(role);
-    const int star = piece ? piece->star : 1;
-    text(view_ == View::Attributes ? "完整屬性" : "武學詳情", x, y + 8, 24, gold);
-    image("head", role->HeadID, {x, y + 60, 64, 64});
-    text(role->Name + " " + chessStars(star), x + 78, y + 78, 20, ink, width - 82, 2);
-    if (view_ == View::Attributes)
-    {
-        const auto stats = piece ? chessPieceStats(session_.content(), *piece,
-            session_.content().balance().talent(observation_.talent).amplifiedGrowthPercent)
-            : chessRoleStats(*role, session_.content().balance(), star, 0);
-        rows = paragraph(std::format("生命  {}\n內力  {}\n攻擊  {}\n防禦  {}\n輕功  {}\n拳掌  {}\n御劍  {}\n耍刀  {}\n特殊  {}\n暗器  {}\n勝場  {}",
-            stats.maxHp, stats.maxMp, stats.attack, stats.defence, stats.speed, stats.fist, stats.sword, stats.knife, stats.unusual, stats.hiddenWeapon,
-            piece ? piece->fightsWon : 0));
-    }
-    else
-    {
-        const auto abilities = chessAbilitiesForRoleStar(session_.content(), *role, star, EffectDescriptionStyle::Full);
-        if (abilityId_ < 0)
-        {
-            const int pages = std::max(1, (static_cast<int>(abilities.size()) + 5) / 6);
-            listPage_ = std::clamp(listPage_, 0, pages - 1);
-            for (int i = 0; i < 6 && listPage_ * 6 + i < static_cast<int>(abilities.size()); ++i)
-            {
-                const auto& ability = abilities[listPage_ * 6 + i];
-                disclosure(std::format("all-ability:{}", ability.magicId), {x, y + 152 + i * 48, width, 44}, ability.name,
-                    [this, id = ability.magicId] { navigate(View::Ability, id); });
-            }
-            button("ability-page", {x, inspector_.y + inspector_.h - 60, width, 44}, std::format("{} / {}  下一頁", listPage_ + 1, pages),
-                [this, pages] { listPage_ = (listPage_ + 1) % pages; rebuild(); }, {}, pages > 1);
-            return;
-        }
-        const auto ability = std::ranges::find(abilities, abilityId_, &ChessAbilityMetadata::magicId);
-        assert(ability != abilities.end());
-        rows = paragraph(std::format("{}\n威力 {} · 內力消耗 {}\n範圍：{}", ability->name, ability->powerByStar.front().power,
-            ability->mpCost, ability->geometry));
-        auto effects = panelTextRowsForEffectDescription(ability->effects);
-        rows.insert(rows.end(), effects.begin(), effects.end());
-        if (!ability->effectNote.empty()) rows.push_back({.text = ability->effectNote});
-    }
+    const auto ng = std::ranges::find(session_.content().neigong(), neigongId_, &NeigongDef::magicId);
+    assert(ng != session_.content().neigong().end());
+    text("內功詳情", x, y + 8, 24, gold);
+    image("item", ng->itemId, {x, y + 64, 64, 64});
+    text(ng->name, x + 78, y + 80, 22, chessRewardTierColor(ng->tier), width - 82, 2);
+    rows = panelTextRowsForEffectDescription(describeGameplayEffects(ng->effects, EffectDescriptionStyle::Full));
+    rows.insert(rows.begin(), {.text = "對所有成員自動生效", .spacingAfter = 12});
     prose(rows, {x, y + 152, width, inspector_.h - 180});
 }
 
@@ -1086,11 +1031,10 @@ void ChessPreparationScreen::finishGuide()
 
 void ChessPreparationScreen::navigate(View view, int detailId, std::string information)
 {
-    if (view_ == view && view != View::Ability && view != View::Neigong
+    if (view_ == view && view != View::Neigong
         && (view != View::Information || information_ == information)) { rebuild(); return; }
-    history_.push({view_, listPage_, textPage_, focusKey_, selection_, equipmentId_, equipmentType_, abilityId_, neigongId_, information_});
+    history_.push({view_, listPage_, textPage_, focusKey_, selection_, equipmentId_, equipmentType_, neigongId_, information_});
     view_ = view;
-    if (view == View::Ability) abilityId_ = detailId;
     if (view == View::Neigong) neigongId_ = detailId;
     if (view == View::Information) information_ = std::move(information);
     listPage_ = 0;
@@ -1113,7 +1057,6 @@ void ChessPreparationScreen::back()
         selection_ = context.selection;
         equipmentId_ = context.equipmentId;
         equipmentType_ = context.equipmentType;
-        abilityId_ = context.abilityId;
         neigongId_ = context.neigongId;
         information_ = std::move(context.information);
         listPage_ = context.listPage;

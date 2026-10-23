@@ -42,7 +42,6 @@
 #include "TextBox.h"
 #include "TextureManager.h"
 #include "UISave.h"
-#include "strfunc.h"
 
 #include <SDL3/SDL.h>
 
@@ -73,8 +72,6 @@ namespace
 
 struct SessionMenuData
 {
-    std::vector<std::string> labels;
-    std::vector<Color> colors;
     std::vector<ChessSelectionItem> cards;
     bool browseOnly{};
     bool commandMode{};
@@ -87,21 +84,6 @@ struct SessionMenuData
     ChessSelectionPosition* position{};
 };
 
-
-int menuDisplayWidth(const std::string& text)
-{
-    return Font::getTextDrawSize(text);
-}
-
-std::vector<std::string> alignedMenuLabels(const std::vector<ChessMenuColumnRow>& rows)
-{
-    return buildAlignedChessMenuLabels(rows, menuDisplayWidth);
-}
-
-std::vector<std::string> contentSizedAlignedMenuLabels(const std::vector<ChessMenuColumnRow>& rows)
-{
-    return buildContentSizedAlignedChessMenuLabels(rows, menuDisplayWidth);
-}
 
 const char* tierLabel(int tier)
 {
@@ -341,12 +323,10 @@ ChessSelectionItem roleCard(const ChessGameSession& session, int roleId, int sta
     return item;
 }
 
-std::vector<ChessSelectionItem> roleCards(const ChessGameSession& session, const std::vector<int>& roles,
-    const std::vector<int>& stars = {}, const std::vector<int>& instances = {})
+std::vector<ChessSelectionItem> roleCards(const ChessGameSession& session, const std::vector<int>& roles)
 {
     std::vector<ChessSelectionItem> cards;
-    for (int i = 0; i < static_cast<int>(roles.size()); ++i)
-        cards.push_back(roleCard(session, roles[i], stars.empty() ? 1 : stars[i], instances.empty() ? -1 : instances[i]));
+    for (const int roleId : roles) cards.push_back(roleCard(session, roleId));
     return cards;
 }
 
@@ -425,38 +405,23 @@ int runSelection(
     bool exitable = true,
     std::function<bool()> exitConfirmation = {})
 {
-    if (data.labels.empty())
+    if (data.cards.empty())
     {
         return -1;
     }
 
-    auto cards = data.cards;
-    if (cards.empty())
-        for (int i = 0; i < static_cast<int>(data.labels.size()); ++i)
-        {
-            std::string caption;
-            bool previousSpace = false;
-            for (const char ch : data.labels[i])
-            {
-                if (ch != ' ' || !previousSpace) caption += ch;
-                previousSpace = ch == ' ';
-            }
-            cards.push_back({.title = strfunc::trim(caption), .image = chessSelectionIcon(ChessUiStyle::Icon::Book),
-                .accent = i < static_cast<int>(data.colors.size()) ? data.colors[i] : ChessUiStyle::gold});
-        }
-    assert(cards.size() == data.labels.size());
-    auto menu = std::make_shared<ChessSelectionScreen>(title, std::move(cards));
+    auto menu = std::make_shared<ChessSelectionScreen>(title, data.cards);
     menu->setBrowseOnly(data.browseOnly);
     menu->setShopMode(data.shopMode);
     menu->setDoubleClickConfirms(data.doubleClickConfirms);
-    menu->setCommandMode(data.commandMode || (!detailRenderer && data.cards.empty()));
+    menu->setCommandMode(data.commandMode);
     if (data.shortChoice) menu->setShortChoiceMode();
     if (data.overviewMode) menu->setOverviewMode();
     menu->setActionLabel(data.actionLabel);
     menu->setHeaderNote(data.headerNote);
     if (data.position) menu->restorePosition(*data.position);
     menu->setExitable(exitable);
-    menu->setSearchEnabled(showSearch || data.labels.size() > 12);
+    menu->setSearchEnabled(showSearch || data.cards.size() > 12);
     menu->setExitConfirmation(std::move(exitConfirmation));
     menu->setDetailRenderer(std::move(detailRenderer));
     menu->run();
@@ -469,7 +434,6 @@ std::optional<ChessContextMenuAction> runContextActionMenu(
 {
     SessionMenuData data;
     data.position = &position;
-    data.labels = chessContextMenuLabels(items);
     data.commandMode = true;
     for (const auto& item : items)
     {
@@ -1426,22 +1390,9 @@ void ChessGuiSessionAdapter::showBanManagement()
         const auto rows = buildChessBanManagementRows(observation, session_.content());
         SessionMenuData data;
         data.position = &position;
-        std::vector<ChessMenuColumnRow> labelRows;
         std::vector<int> roleIds;
         for (const auto& row : rows)
-        {
-            const auto* role = session_.content().role(row.roleId);
-            assert(role);
-            labelRows.push_back({
-                row.banned ? "[已禁] " : "[未禁] ",
-                role->Name,
-                {},
-                std::format("${}", ChessManagementRules::pieceValue(session_.content(), row.roleId, 1)),
-            });
-            data.colors.push_back(chessPieceTierColor(role->Cost));
             roleIds.push_back(row.roleId);
-        }
-        data.labels = alignedMenuLabels(labelRows);
         data.cards = roleCards(session_, roleIds);
         data.actionLabel = "封禁";
         data.doubleClickConfirms = true;
@@ -1495,7 +1446,6 @@ bool ChessGuiSessionAdapter::chooseForcedBans()
             pending.eligibleTiers.front(), remaining, pending.choiceCount);
         for (auto& card : data.cards)
         {
-            data.labels.push_back(card.title);
             card.actionEnabled = !card.character->banned;
             card.subtitle = card.character->banned ? "已封禁 · 本局永久" : "可封禁";
             card.character->context = card.subtitle;
@@ -1529,22 +1479,16 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
         const auto items = buildChessEquipmentMenu(legendaryUnlocked);
         SessionMenuData data;
         data.position = &position;
-        std::vector<ChessMenuColumnRow> labelRows;
+        data.commandMode = true;
         for (const auto& item : items)
         {
-            labelRows.push_back({
-                {},
-                item.label,
-                {},
-                item.action == ChessContextMenuAction::BuyLegendaryEquipment
-                    ? std::format("${}", session_.content().balance().legendaryShop.price)
-                    : std::string{},
+            const bool legendary = item.action == ChessContextMenuAction::BuyLegendaryEquipment;
+            data.cards.push_back({
+                .title = item.label + (legendary ? std::format(" ${}", session_.content().balance().legendaryShop.price) : ""),
+                .image = chessSelectionIcon(ChessUiStyle::Icon::Book),
+                .accent = legendary ? Color{255, 140, 255, 255} : ChessUiStyle::ink,
             });
-            data.colors.push_back(item.action == ChessContextMenuAction::BuyLegendaryEquipment
-                ? Color{255, 140, 255, 255}
-                : ChessUiStyle::ink);
         }
-        data.labels = alignedMenuLabels(labelRows);
         const int selected = runSelection(std::format("裝備管理　${}", session_.state().money), data, {}, false);
         if (selected < 0)
         {
@@ -1608,24 +1552,13 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
                 {right.owned, right.definition->tier, right.definition->itemId});
         });
 
-        std::vector<ChessMenuColumnRow> labelRows;
         for (const auto& row : rows)
         {
-            const auto* item = session_.content().item(row.definition->itemId);
-            const std::string name = item ? item->name : std::format("裝備 {}", row.definition->itemId);
             const auto* instance = equipmentInstance(session_.state(), row.instanceId);
-            labelRows.push_back({
-                chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(row.definition->tier))),
-                name,
-                chessEquipmentAssignmentColumn(instance && instance->assignedChessInstanceId >= 0),
-                {},
-            });
-            data.colors.push_back(row.owned ? ChessUiStyle::positive : Color{120, 120, 120, 255});
             auto card = equipmentCard(session_, *row.definition);
             card.subtitle = !row.owned ? "未持有" : instance && instance->assignedChessInstanceId >= 0 ? "已裝備" : "行囊";
             data.cards.push_back(std::move(card));
         }
-        data.labels = contentSizedAlignedMenuLabels(labelRows);
         const int selected = runSelection("裝備一覽", data);
         if (selected < 0)
         {
@@ -1654,22 +1587,12 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
     if (descriptor.candidateIds.size() > 1)
     {
         SessionMenuData equipmentData;
-        std::vector<ChessMenuColumnRow> equipmentRows;
         for (const int id : descriptor.candidateIds)
         {
             const auto* instance = equipmentInstance(session_.state(), id);
             assert(instance);
-            const auto* item = session_.content().item(instance->itemId);
-            equipmentRows.push_back({
-                {},
-                item ? item->name : std::format("裝備 {}", instance->itemId),
-                chessEquipmentAssignmentColumn(instance->assignedChessInstanceId >= 0),
-                {},
-            });
-            equipmentData.colors.push_back(ChessUiStyle::positive);
             equipmentData.cards.push_back(equipmentCard(session_, *equipmentDefinition(session_.content(), instance->itemId)));
         }
-        equipmentData.labels = alignedMenuLabels(equipmentRows);
         const int choice = runSelection("選擇裝備", equipmentData);
         if (choice < 0)
         {
@@ -1680,27 +1603,8 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
 
     const auto observation = session_.observe();
     SessionMenuData pieceData;
-    std::vector<ChessMenuColumnRow> pieceRows;
-    std::vector<int> roleIds;
-    std::vector<int> starRows;
-    std::vector<int> instanceIds;
     for (const auto& piece : observation.roster)
-    {
-        const auto* role = session_.content().role(piece.roleId);
-        assert(role);
-        pieceRows.push_back({
-            piece.deployed ? "[戰]" : "",
-            role->Name,
-            chessStars(piece.star),
-            std::format("${}", ChessManagementRules::pieceValue(session_.content(), piece.roleId, piece.star)),
-        });
-        pieceData.colors.push_back(chessPieceTierColor(role->Cost));
-        roleIds.push_back(piece.roleId);
-        starRows.push_back(piece.star);
-        instanceIds.push_back(piece.instanceId);
-    }
-    pieceData.labels = alignedMenuLabels(pieceRows);
-    pieceData.cards = roleCards(session_, roleIds, starRows, instanceIds);
+        pieceData.cards.push_back(roleCard(session_, piece.roleId, piece.star, piece.instanceId));
     pieceData.actionLabel = "裝備";
     const int selected = runSelection("選擇棋子", pieceData, {}, false);
     if (selected < 0)
@@ -1726,26 +1630,14 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
         SessionMenuData data;
         data.position = &position;
         data.shopMode = true;
-        std::vector<ChessMenuColumnRow> labelRows;
-        std::vector<const EquipmentDef*> definitions;
         for (const int itemId : descriptor.candidateIds)
         {
             const auto* definition = equipmentDefinition(session_.content(), itemId);
             assert(definition);
-            const auto* item = session_.content().item(itemId);
-            labelRows.push_back({
-                chessMenuPrefixWithSeparator("[傳說]"),
-                item ? item->name : "未知裝備",
-                {},
-                std::format("${}", session_.content().balance().legendaryShop.price),
-            });
-            data.colors.push_back({255, 100, 255, 255});
-            definitions.push_back(definition);
             auto card = equipmentCard(session_, *definition);
             card.subtitle = std::format("{} 金", session_.content().balance().legendaryShop.price);
             data.cards.push_back(std::move(card));
         }
-        data.labels = alignedMenuLabels(labelRows);
         const int choice = runSelection(std::format("神兵商店　${}", session_.state().money), data);
         if (choice < 0)
         {
@@ -1981,8 +1873,6 @@ void ChessGuiSessionAdapter::viewChessPool()
 {
     SessionMenuData data;
     data.browseOnly = true;
-    std::vector<ChessMenuColumnRow> labelRows;
-    std::vector<int> roleIds;
     std::set<int> owned;
     for (const auto& [instanceId, piece] : session_.state().roster)
     {
@@ -1990,21 +1880,10 @@ void ChessGuiSessionAdapter::viewChessPool()
     }
     for (const int roleId : buildChessPoolBrowseOrder(session_.content()))
     {
-        const auto* role = session_.content().role(roleId);
-        assert(role);
-        labelRows.push_back({
-            chessMenuPrefixWithSeparator(owned.contains(roleId) ? "[✓]" : "[ ]"),
-            role->Name,
-            {},
-            std::format("${}", ChessManagementRules::pieceValue(session_.content(), roleId, 1)),
-        });
-        data.colors.push_back(chessPieceTierColor(role->Cost));
-        roleIds.push_back(roleId);
         auto card = roleCard(session_, roleId);
         card.subtitle = owned.contains(roleId) ? "已招募 · 圖鑑預覽" : "圖鑑預覽";
         data.cards.push_back(std::move(card));
     }
-    data.labels = alignedMenuLabels(labelRows);
     runSelection("棋子一覽", data, {}, false);
 }
 
@@ -2012,22 +1891,10 @@ void ChessGuiSessionAdapter::viewNeigong()
 {
     SessionMenuData data;
     data.browseOnly = true;
-    std::vector<ChessMenuColumnRow> labelRows;
-    std::vector<const NeigongDef*> rows;
     for (const auto& neigong : session_.content().neigong())
     {
-        const bool owned = session_.state().obtainedNeigongIds.contains(neigong.magicId);
-        labelRows.push_back({
-            chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(neigong.tier))),
-            neigong.name,
-            owned ? " ✓" : "",
-            {},
-        });
-        data.colors.push_back(owned ? ChessUiStyle::positive : Color{120, 120, 120, 255});
-        rows.push_back(&neigong);
         data.cards.push_back(neigongCard(session_, neigong));
     }
-    data.labels = alignedMenuLabels(labelRows);
     runSelection("內功一覽", data);
 }
 
@@ -2036,19 +1903,8 @@ void ChessGuiSessionAdapter::viewEffects()
     auto entries = chessEffectCatalog(session_.content());
     SessionMenuData data;
     data.browseOnly = true;
-    std::vector<ChessMenuColumnRow> labelRows;
-    labelRows.reserve(entries.size());
     for (const auto& entry : entries)
     {
-        labelRows.push_back({
-            chessMenuPrefixWithSeparator(std::format(
-                "[{}]",
-                chessEffectCatalogSourceLabel(entry.source))),
-            entry.sourceName,
-            std::format(" {}/{}", entry.ruleOrdinal, entry.sourceRuleCount),
-            {},
-        });
-        data.colors.push_back(effectCatalogSourceColor(entry.source));
         data.cards.push_back({
             .title = entry.sourceName,
             .subtitle = std::format("效果 {} / {}", entry.ruleOrdinal, entry.sourceRuleCount),
@@ -2060,7 +1916,6 @@ void ChessGuiSessionAdapter::viewEffects()
             .description = entry.sourceContext + "\n\n" + joinEffectDescriptionRows(entry.effects),
         });
     }
-    data.labels = contentSizedAlignedMenuLabels(labelRows);
     runSelection("效果全覽", data);
 }
 
@@ -2114,7 +1969,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
         data.actionLabel = "挑戰";
         data.overviewMode = true;
         data.headerNote = "不推進主線 · 僅首勝領獎與累計勝場 · 獎勵依條件提供";
-        std::vector<ChessMenuColumnRow> labelRows;
         for (const auto& name : descriptor.candidateStableIds)
         {
             const auto found = std::ranges::find(
@@ -2123,13 +1977,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
                 &BalanceConfig::ChallengeDef::name);
             assert(found != session_.content().balance().challenges.end());
             const bool complete = session_.state().completedChallengeNames.contains(name);
-            labelRows.push_back({
-                chessMenuPrefixWithSeparator(chessChallengeCompletionLabel(complete)),
-                found->name,
-                {},
-                {},
-            });
-            data.colors.push_back(chessChallengeMenuRowColor(complete));
             ChessSelectionItem card{
                 .title = found->name,
                 .subtitle = found->description,
@@ -2194,7 +2041,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
                 card.image = {"head", session_.content().role(found->enemies.front().roleId)->HeadID};
             data.cards.push_back(std::move(card));
         }
-        data.labels = alignedMenuLabels(labelRows);
         const int choice = runSelection("遠征挑戰", data);
         if (choice < 0)
         {
@@ -2239,65 +2085,33 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             });
         SessionMenuData data;
         data.actionLabel = "領取";
-        std::vector<ChessMenuColumnRow> labelRows;
         for (const auto& option : availableOptions)
         {
             if (option.kind == ChessRewardKind::Equipment)
             {
                 const auto* definition = equipmentDefinition(session_.content(), option.value);
                 assert(definition);
-                const auto* item = session_.content().item(option.value);
-                labelRows.push_back({
-                    chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(definition->tier))),
-                    item ? item->name : "未知裝備",
-                    {},
-                    chessRewardOptionCostColumn(option),
-                });
-                data.colors.push_back(chessRewardTierColor(definition->tier));
                 data.cards.push_back(equipmentCard(session_, *definition));
             }
             else if (option.kind == ChessRewardKind::InternalSkill)
             {
                 const auto found = std::ranges::find(session_.content().neigong(), option.value, &NeigongDef::magicId);
                 assert(found != session_.content().neigong().end());
-                labelRows.push_back({
-                    chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(found->tier))),
-                    found->name,
-                    {},
-                    chessRewardOptionCostColumn(option),
-                });
-                data.colors.push_back(chessRewardTierColor(found->tier));
                 data.cards.push_back(neigongCard(session_, *found));
             }
             else if (option.kind == ChessRewardKind::Piece)
             {
-                const auto* role = session_.content().role(option.value);
-                assert(role);
-                labelRows.push_back({{}, role->Name, chessStars(1), chessRewardOptionCostColumn(option)});
-                data.colors.push_back(chessPieceTierColor(role->Cost));
-                data.cards.push_back(roleCard(session_, role->ID));
+                data.cards.push_back(roleCard(session_, option.value));
             }
             else if (option.kind == ChessRewardKind::Synergy)
             {
                 const auto combo = std::ranges::find(session_.content().combos(), option.value, &ComboDef::id);
                 assert(combo != session_.content().combos().end());
-                const auto& talent = session_.content().balance().talent(session_.state().talent);
-                labelRows.push_back({{}, combo->name, std::format("+{}人", talent.selectedComboBonus), {}});
-                data.colors.push_back({115, 220, 190, 255});
                 data.cards.push_back(comboCard(session_, *combo));
             }
             else if (option.kind == ChessRewardKind::StarUpgrade)
             {
                 const auto& piece = session_.state().roster.at(option.value);
-                const auto* role = session_.content().role(piece.roleId);
-                assert(role);
-                labelRows.push_back({
-                    {},
-                    role->Name,
-                    std::format("{}→{}", chessStars(piece.star), chessStars(option.value2)),
-                    chessRewardOptionCostColumn(option),
-                });
-                data.colors.push_back(chessPieceTierColor(role->Cost));
                 data.cards.push_back(roleCard(session_, piece.roleId, option.value2, piece.instanceId));
             }
             else
@@ -2311,13 +2125,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     return chessChallengeRewardDescription(session_.content(), candidate) == option.id;
                 });
                 assert(reward != challenge->rewards.end());
-                labelRows.push_back({
-                    {},
-                    chessChallengeRewardDescription(session_.content(), *reward),
-                    {},
-                    chessRewardOptionCostColumn(option),
-                });
-                data.colors.push_back(ChessUiStyle::gold);
                 ChessSelectionItem card{.image = chessSelectionIcon(ChessUiStyle::Icon::Spark), .summary = option.id};
                 using Type = BalanceConfig::ChallengeRewardType;
                 switch (reward->type)
@@ -2356,10 +2163,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             }
             if (option.goldCost > 0) data.cards.back().subtitle = std::format("{} 金", option.goldCost);
         }
-        data.labels = buildAlignedChessRewardMenuLabels(
-            pending.kind,
-            labelRows,
-            menuDisplayWidth);
         data.shortChoice = pending.kind == ChessRewardKind::ChallengeReward
             && availableOptions.size() <= 3;
         std::string title = "選擇獎勵";
@@ -2442,8 +2245,6 @@ void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descrip
     data.actionLabel = "前往戰場";
     for (const int mapId : descriptor.candidateIds)
     {
-        data.labels.push_back(chessBattleMapDisplayName(session_.content(), mapId));
-        data.colors.push_back({230, 230, 220, 255});
         const auto* map = ChessBattleMapCatalog::find(mapId);
         data.cards.push_back({.title = chessBattleMapDisplayName(session_.content(), mapId),
             .image = chessSelectionIcon(ChessUiStyle::Icon::Mountain),

@@ -11,28 +11,9 @@ using namespace KysChess;
 namespace
 {
 
-int testDisplayWidth(const std::string& text)
-{
-    int width = 0;
-    for (std::size_t index = 0; index < text.size();)
-    {
-        const auto lead = static_cast<unsigned char>(text[index]);
-        if (lead < 0x80)
-        {
-            ++width;
-            ++index;
-            continue;
-        }
-        const int length = lead < 0xE0 ? 2 : (lead < 0xF0 ? 3 : 4);
-        width += 2;
-        index += length;
-    }
-    return width;
-}
-
 int displayColumnBefore(const std::string& text, const std::string& marker)
 {
-    return testDisplayWidth(text.substr(0, text.find(marker)));
+    return displayTextWidth(text.substr(0, text.find(marker)));
 }
 
 const ChessGameGuideSection& guideSection(
@@ -222,113 +203,6 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
     CHECK(fact(alliance, "高階羈絆", "降低門檻").value.contains("降低2人"));
     CHECK_FALSE(chessTalentPresentationUsesEquipmentTable(alliance));
 }
-TEST_CASE("chess menu labels align stars and prices by measured display width", "[chess][menu-formatting]")
-{
-    const auto labels = buildAlignedChessMenuLabels(
-        {
-            {"", "楊過", "★", "$1"},
-            {"[戰]", "黃蓉", "★★", "$12"},
-            {"", "獨孤求敗", "★★★", "$123"},
-        },
-        testDisplayWidth);
-
-    REQUIRE(labels.size() == 3);
-    CHECK(displayColumnBefore(labels[0], "★") == displayColumnBefore(labels[1], "★"));
-    CHECK(displayColumnBefore(labels[1], "★") == displayColumnBefore(labels[2], "★"));
-    CHECK(testDisplayWidth(labels[0]) == testDisplayWidth(labels[1]));
-    CHECK(testDisplayWidth(labels[1]) == testDisplayWidth(labels[2]));
-}
-
-TEST_CASE("menu action and equipment rows share the same measured columns", "[chess][menu-formatting]")
-{
-    const auto labels = buildAlignedChessMenuLabels(
-        {
-            {"", "刷新商店", "", "$2"},
-            {"", "[已鎖定] 點擊解鎖", "", ""},
-            {"", "[傳說] 倚天劍", "[已裝]", "$40"},
-        },
-        testDisplayWidth);
-
-    REQUIRE(labels.size() == 3);
-    const int width = testDisplayWidth(labels.front());
-    CHECK(testDisplayWidth(labels[1]) == width);
-    CHECK(testDisplayWidth(labels[2]) == width);
-}
-
-TEST_CASE("equipment inventory alignment does not reserve unused global columns",
-          "[chess][menu-formatting][equipment]")
-{
-    const auto labels = buildContentSizedAlignedChessMenuLabels(
-        {
-            {"[初階] ", "射雕弓", " [已裝]", ""},
-            {"[初階] ", "越女劍", "", ""},
-        },
-        testDisplayWidth);
-
-    REQUIRE(labels.size() == 2);
-    CHECK(testDisplayWidth(labels[0]) == testDisplayWidth(labels[1]));
-    CHECK(testDisplayWidth(labels[0]) < ChessScreenLayout::kDefaultMenuItemUnits);
-    CHECK(labels[0].contains(" [已裝]"));
-}
-
-TEST_CASE("equipment reward alignment does not reserve unused global columns",
-          "[chess][menu-formatting][equipment][reward]")
-{
-    const std::vector<ChessMenuColumnRow> rows{
-        {"[中階] ", "綠波香露刀", "", ""},
-        {"[高階] ", "大燕傳國玉璽", "", ""},
-        {"", "刷新", "", "$4"},
-    };
-
-    const auto labels = buildAlignedChessRewardMenuLabels(
-        ChessRewardKind::Equipment,
-        rows,
-        testDisplayWidth);
-
-    REQUIRE(labels.size() == 3);
-    const int width = testDisplayWidth(labels.front());
-    CHECK(testDisplayWidth(labels[1]) == width);
-    CHECK(testDisplayWidth(labels[2]) == width);
-    CHECK(width < ChessScreenLayout::kDefaultMenuItemUnits);
-}
-
-TEST_CASE("menu state prefixes retain their visible legacy separators", "[chess][menu-formatting][legacy]")
-{
-    CHECK(chessMenuPrefixWithSeparator("").empty());
-    CHECK(chessMenuPrefixWithSeparator("[初階]") == "[初階] ");
-    CHECK(chessMenuPrefixWithSeparator("[已通關] ") == "[已通關] ");
-    CHECK(chessEquipmentAssignmentColumn(false).empty());
-    CHECK(chessEquipmentAssignmentColumn(true) == " [已裝]");
-
-    const auto labels = buildAlignedChessMenuLabels(
-        {
-            {chessMenuPrefixWithSeparator("[初階]"), "倚天劍", chessEquipmentAssignmentColumn(true), ""},
-            {chessMenuPrefixWithSeparator("[✓]"), "楊過", "", ""},
-            {chessMenuPrefixWithSeparator("[已通關]"), "聚賢莊內", "", ""},
-        },
-        testDisplayWidth);
-
-    CHECK(labels[0].find("[初階] 倚天劍") != std::string::npos);
-    CHECK(labels[0].find(" [已裝]") != std::string::npos);
-    CHECK(labels[1].find("[✓] 楊過") != std::string::npos);
-    CHECK(labels[2].find("[已通關] 聚賢莊內") != std::string::npos);
-}
-
-TEST_CASE("combo catalog aligns mixed-width names and progress counts", "[chess][menu-formatting]")
-{
-    const auto labels = buildAlignedComboCatalogLabels(
-        {
-            {"拳師", "3/5 ✓"},
-            {"江南七怪", "2+1/5 ✓"},
-            {"獨行", "獨/1 ✓"},
-        },
-        testDisplayWidth);
-
-    REQUIRE(labels.size() == 3);
-    const int width = testDisplayWidth(labels.front());
-    CHECK(testDisplayWidth(labels[1]) == width);
-    CHECK(testDisplayWidth(labels[2]) == width);
-}
 
 TEST_CASE("panel text wrapping reserves indentation inside the right boundary", "[chess][ui][wrapping]")
 {
@@ -344,9 +218,9 @@ TEST_CASE("panel text wrapping reserves indentation inside the right boundary", 
     const int indentedUnits = displayTextUnitsForPixelWidth(fontSize, pixelWidth, indent);
     CHECK(unindentedUnits == 23);
     CHECK(indentedUnits == 21);
-    CHECK(testDisplayWidth(descriptions[0]) <= unindentedUnits);
-    CHECK(testDisplayWidth(descriptions[0]) > indentedUnits);
-    CHECK(testDisplayWidth(descriptions[1]) <= indentedUnits);
+    CHECK(displayTextWidth(descriptions[0]) <= unindentedUnits);
+    CHECK(displayTextWidth(descriptions[0]) > indentedUnits);
+    CHECK(displayTextWidth(descriptions[1]) <= indentedUnits);
     CHECK(indent + fontSize * indentedUnits / 2 <= pixelWidth);
 }
 
@@ -581,11 +455,6 @@ TEST_CASE("challenge rewards retain configured limits and specific equipment nam
     armor.id = 100;
     armor.name = "金絲甲";
     data.items.emplace(armor.id, armor);
-    ChessRoleDefinition enemyRole;
-    enemyRole.ID = 7;
-    enemyRole.Name = "金輪法王";
-    enemyRole.Cost = 4;
-    data.roles.emplace(enemyRole.ID, enemyRole);
     const ChessGameContent content(std::move(data));
     using Type = BalanceConfig::ChallengeRewardType;
 
@@ -596,22 +465,6 @@ TEST_CASE("challenge rewards retain configured limits and specific equipment nam
     CHECK(chessChallengeRewardDescription(content, {Type::StarUp2to3, 5}) == "升星★★→★★★(最高5費)");
     CHECK(chessChallengeRewardDescription(content, {Type::GetEquipment, 4}) == "獲取裝備(最高4階)");
     CHECK(chessChallengeRewardDescription(content, {Type::GetSpecificEquipment, 99}) == "獲取指定裝備: 倚天劍");
-
-    CHECK(std::string(chessChallengeCompletionLabel(false)).empty());
-    CHECK(std::string(chessChallengeCompletionLabel(true)) == "[已通關]");
-    const auto incompleteColor = chessChallengeMenuRowColor(false);
-    CHECK(incompleteColor.r == 255);
-    CHECK(incompleteColor.g == 200);
-    CHECK(incompleteColor.b == 100);
-    CHECK(incompleteColor.a == 255);
-    const auto completedColor = chessChallengeMenuRowColor(true);
-    CHECK(completedColor.r == 120);
-    CHECK(completedColor.g == 120);
-    CHECK(completedColor.b == 120);
-    CHECK(completedColor.a == 255);
-    CHECK(chessChallengeEnemyDescription(content, {7, 2}) == "  金輪法王 ★★ (4費)");
-    CHECK(chessChallengeEnemyDescription(content, {7, 2, 99, 100})
-        == "  金輪法王 ★★ (4費)　倚天劍／金絲甲");
 }
 
 TEST_CASE("challenge browsing is driven by configured rows rather than current legality", "[chess][menu-formatting][challenge]")
@@ -644,16 +497,6 @@ TEST_CASE("star reward title derives one shared source and target pair from sess
     };
 
     CHECK(chessStarUpgradeRewardTitle(state, pending) == "選擇升星 2★→3★");
-}
-
-TEST_CASE("reward option cost column marks only paid rerolled choices", "[chess][menu-formatting][reward]")
-{
-    ChessRewardOption original{"equipment:1", ChessRewardKind::Equipment, 1};
-    ChessRewardOption rerolled{"equipment:2", ChessRewardKind::Equipment, 2};
-    rerolled.goldCost = 4;
-
-    CHECK(chessRewardOptionCostColumn(original).empty());
-    CHECK(chessRewardOptionCostColumn(rerolled) == "+$4");
 }
 
 TEST_CASE("victory combo bonus uses the configured source combo name", "[chess][menu-formatting][combo][config]")
