@@ -18,14 +18,15 @@ const std::vector<ChessBattleMapCatalogEntry>& ChessBattleMapCatalog::entries()
             {{31, 39}, {31, 38}, {31, 37}},
             "迷洞巷戰",
         },
-        {
-            13,
-            20,
-            {{25, 27}, {24, 27}, {25, 28}, {24, 28}, {25, 25}, {24, 25},
-             {25, 26}, {24, 26}, {25, 29}, {24, 29}},
-            {{26, 25}, {26, 26}, {26, 27}},
-            "十面埋伏",
-        },
+        // 暫停輪替：敵軍從四面包圍我方，開局過於困難。
+        // {
+        //     13,
+        //     20,
+        //     {{25, 27}, {24, 27}, {25, 28}, {24, 28}, {25, 25}, {24, 25},
+        //      {25, 26}, {24, 26}, {25, 29}, {24, 29}},
+        //     {{26, 25}, {26, 26}, {26, 27}},
+        //     "十面埋伏",
+        // },
         {
             17,
             13,
@@ -142,7 +143,8 @@ std::vector<int> ChessBattleMapCatalog::fittingMapIds(
     int bestCapacity = -1;
     for (const auto& [id, map] : content.battleMaps())
     {
-        if (id == ChessPvpMapLayout::BattleId)
+        // 十面埋伏已暫停輪替，原始資料的後備選圖也必須排除。
+        if (id == 13 || id == ChessPvpMapLayout::BattleId)
         {
             continue;
         }
