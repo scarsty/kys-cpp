@@ -153,6 +153,8 @@ std::string battleEffectType(const BattleReportEvent& event)
     case Battle::BattleStatusSemanticId::MpBlocked: return "magic_block_applied";
     case Battle::BattleStatusSemanticId::BlockedByInvincible: return "blocked_by_invulnerability";
     case Battle::BattleStatusSemanticId::DeathPrevented: return "death_prevented";
+    case Battle::BattleStatusSemanticId::FeignedDeathStarted: return "feigned_death_started";
+    case Battle::BattleStatusSemanticId::Revived: return "revived";
     case Battle::BattleStatusSemanticId::ExecuteTriggered: return "execute_triggered";
     case Battle::BattleStatusSemanticId::Knockback: return "knockback_applied";
     case Battle::BattleStatusSemanticId::EnemyTopAttackDebuff: return "enemy_top_attack_debuff_changed";

@@ -59,6 +59,11 @@ constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
 constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
+
+uint8_t feignedDeathWhiteOpacity(int remainingFrames)
+{
+    return static_cast<uint8_t>(210 + 25 * std::sin(remainingFrames * 0.12));
+}
 constexpr float PAPER_CAMERA_FOV = 60.0f;
 constexpr float PAPER_CAMERA_CLASSIC_VIEW_ANGLE = -0.17453292520f;
 constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
@@ -1069,7 +1074,7 @@ void BattleSceneHades::drawClassicView()
         //if (r->Dead) { continue; }
         DrawInfo info;
         const auto& presentation = scene_units_.requirePresentation(unit.id);
-        info.unitId = unit.alive ? unit.id : -1;
+        info.unitId = unit.alive || unit.feignedDeathFrames > 0 ? unit.id : -1;
         auto path = std::format("fight/fight{:03}", unit.headId);
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
@@ -1092,7 +1097,7 @@ void BattleSceneHades::drawClassicView()
         {
             continue;
         }
-        if (!unit.alive)
+        if (!unit.alive && unit.feignedDeathFrames == 0)
         {
             info.corpse = true;
             //if (r->Frozen == 0)
@@ -1114,6 +1119,12 @@ void BattleSceneHades::drawClassicView()
 
         // 應用受击闪红
         info.color = calculateHurtFlashColor(unit.id, info.color);
+        if (unit.feignedDeathFrames > 0)
+        {
+            info.color = {125, 140, 155, 255};
+            info.alpha = 255;
+            info.white = feignedDeathWhiteOpacity(unit.feignedDeathFrames);
+        }
 
         info.shadow = 1;
         //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
@@ -1356,12 +1367,19 @@ void BattleSceneHades::drawClassicView()
     // Role info text
     for (const auto& unit : scene_units_.runtimeUnits())
     {
-        if (!unit.alive) { continue; }
+        if (!unit.alive && unit.feignedDeathFrames == 0) { continue; }
         double wx = unit.motion.position.x;
         double wy = unit.motion.position.y / 2.0;
         int ux = worldToUiX(wx);
         int uy = worldToUiY(wy);
         if (ux < -80 || ux >= ui_w + 80 || uy < -80 || uy >= ui_h + 80) { continue; }
+        if (unit.feignedDeathFrames > 0)
+        {
+            Font::getInstance()->draw(std::format("假死 · {}幀", unit.feignedDeathFrames),
+                std::max(1, int(16 * sizeScale)), worldToUiX(wx - 42),
+                worldToUiY(wy + ROLE_STATUS_BAR_Y), {225, 240, 255, 255});
+            continue;
+        }
         const auto frozen = runtimeFrozenStatusForUnit(activeRuntimeSession(), unit.id);
         if (frozen.frames > 0 && frozen.maxFrames > 0)
         {
@@ -1686,6 +1704,7 @@ void BattleSceneHades::drawPaperView()
         bool faceCamera = false;
         bool usePerspectiveMesh = false;
         bool debugRoleTexture = false;
+        bool feignedDeath = false;
         int debugHeadId = -1;
     };
 
@@ -1875,16 +1894,23 @@ void BattleSceneHades::drawPaperView()
         sprite.anchor = unit.motion.position;
         sprite.sortAnchor = sprite.anchor;
         sprite.debugRoleTexture = true;
-        sprite.unitId = unit.alive ? unit.id : -1;
+        sprite.unitId = unit.alive || unit.feignedDeathFrames > 0 ? unit.id : -1;
         sprite.debugHeadId = unit.headId;
         sprite.alpha = presentation.attention ? 255 - presentation.attention * 4 : 255;
         sprite.color = calculateHurtFlashColor(unit.id, sprite.color);
+        if (unit.feignedDeathFrames > 0)
+        {
+            sprite.feignedDeath = true;
+            sprite.alpha = 255;
+            const auto shade = feignedDeathWhiteOpacity(unit.feignedDeathFrames);
+            sprite.color = {shade, shade, 255, 255};
+        }
         roleInfoAnchorZByUnitId[unit.id] = BattleSceneRenderMath::paperRoleInfoAnchorZ(tex->dy);
         if (result_ == -1 && presentation.shake)
         {
             sprite.anchor.x += shakeJitter(battle_frame_, unit.id);
         }
-        if (!unit.alive)
+        if (!unit.alive && unit.feignedDeathFrames == 0)
         {
             sprite.rot = faceTowards >= 2 ? 90 : 270;
             sprite.turn = 0;
@@ -1999,6 +2025,11 @@ void BattleSceneHades::drawPaperView()
         }
         sprite.tex->load();
         auto* texture = sprite.tex->getTexture();
+        if (sprite.feignedDeath)
+        {
+            sprite.tex->createWhiteTexture();
+            texture = sprite.tex->tex_white;
+        }
         if (!texture)
         {
             return;
@@ -2183,7 +2214,7 @@ void BattleSceneHades::drawPaperView()
 
     for (const auto& unit : scene_units_.runtimeUnits())
     {
-        if (!unit.alive)
+        if (!unit.alive && unit.feignedDeathFrames == 0)
         {
             continue;
         }
@@ -3209,6 +3240,13 @@ void BattleSceneHades::renderExtraRoleInfo(
     double x,
     double statusBarY)
 {
+    if (unit.feignedDeathFrames > 0)
+    {
+        Font::getInstance()->draw(std::format("假死 · {}幀", unit.feignedDeathFrames), 16,
+            static_cast<int>(std::round(x - 42)), static_cast<int>(std::round(statusBarY)),
+            {225, 240, 255, 255}, 255);
+        return;
+    }
     if (!unit.alive)
     {
         return;

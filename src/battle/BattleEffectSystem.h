@@ -693,6 +693,7 @@ using StateMachineExecution = std::variant<
     SettleRemainingStatusDamageAction,
     GenerateClonesAction,
     PreventDeathAction,
+    FeignDeathAction,
     ConfigureRescueRepositionAction,
     ConfigureGuardChargesAction,
     ConfigurePoisonConversionAction,

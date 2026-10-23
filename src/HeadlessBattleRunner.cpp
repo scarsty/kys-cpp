@@ -46,6 +46,7 @@ struct HeadlessBattleDigestUnit
     int realRoleId{};
     int team{};
     bool alive{};
+    int feignedDeathFrames{};
     Battle::BattleUnitVitals vitals;
     int shield{};
     int invincible{};
@@ -837,6 +838,7 @@ ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
             unit.realRoleId,
             unit.team,
             unit.alive,
+            unit.feignedDeathFrames,
             unit.vitals,
             unit.shield,
             unit.invincible,
@@ -858,10 +860,12 @@ ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
         result.finalRuntime.talentRandom.seed(), result.finalRuntime.talentRandom.rawDrawCount()};
     std::map<int, std::optional<Battle::BattleLethalRecovery>> lethalRecoveries;
     std::map<int, Battle::BattleStrengthening> strengthening;
+    std::map<int, std::optional<Battle::BattleFeignedDeath>> feignedDeaths;
     for (const auto& record : result.finalRuntime.units.all())
     {
         lethalRecoveries.emplace(record.core.id, record.damage.lethalRecovery);
         strengthening.emplace(record.core.id, record.damage.strengthening);
+        feignedDeaths.emplace(record.core.id, record.damage.feignedDeath);
     }
     const auto attacks = attackStateDigest(result.finalRuntime.attacks);
     const auto queues = queueStateDigest(result.finalRuntime);
@@ -870,6 +874,7 @@ ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
         talentRandom,
         lethalRecoveries,
         strengthening,
+        feignedDeaths,
         result.digestEvents,
         result.summary.outcome,
         result.summary.endFrame,

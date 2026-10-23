@@ -1607,6 +1607,12 @@ bool validateActionPayload(
                             if (machine.invincibilityFrames <= 0)
                                 return reject("死亡庇護無敵幀數必須為正數");
                         }
+                        else if constexpr (std::is_same_v<M, FeignDeathAction>)
+                        {
+                            if (machine.delayFrames <= 0 || machine.hpPercent <= 0 || machine.hpPercent > 100
+                                || machine.stunWidthTiles <= 0 || machine.stunFrames <= 0)
+                                return reject("假死復甦的時間、生命比例或眩暈範圍無效");
+                        }
                         else if constexpr (std::is_same_v<M, ConfigureRescueRepositionAction>)
                         {
                             if (machine.activations <= 0) return reject("挪移次數必須為正數");
@@ -1699,6 +1705,7 @@ bool isActionAllowedAtEvent(const EffectAction& action, EffectEvent event, std::
         case 7: return reject("複製攻擊定義只允許用於絕招提交事件");
         case 9: return reject("生成分身只允許用於戰鬥初始化事件");
         case 10: return reject("死亡庇護只允許用於戰鬥初始化事件");
+        case 16: return reject("假死復甦只允許用於戰鬥初始化事件");
         case 11: return reject("挪移次數只允許用於戰鬥初始化事件");
         default: return reject("狀態機動作不支援此事件");
         }
@@ -1997,6 +2004,7 @@ bool validateBattleInitializedAction(
                         || reject("生成分身的戰鬥初始化規則必須以自身為目標");
                 }
                 else if constexpr (std::is_same_v<M, PreventDeathAction>
+                    || std::is_same_v<M, FeignDeathAction>
                     || std::is_same_v<M, ConfigureRescueRepositionAction>
                     || std::is_same_v<M, ConfigureGuardChargesAction>
                     || std::is_same_v<M, ConfigurePoisonConversionAction>)

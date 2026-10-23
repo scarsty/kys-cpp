@@ -338,6 +338,9 @@ ChessSha256 stateMachineContentHash(const StateMachineAction& machine)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.count);
             else if constexpr (std::is_same_v<T, PreventDeathAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.invincibilityFrames);
+            else if constexpr (std::is_same_v<T, FeignDeathAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    typed.delayFrames, typed.hpPercent, typed.stunWidthTiles, typed.stunFrames);
             else if constexpr (std::is_same_v<T, ConfigureGuardChargesAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
                     typed.initialCharges, typed.maximumCharges, typed.reductionPct,

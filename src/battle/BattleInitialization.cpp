@@ -383,6 +383,7 @@ private:
     std::map<int, int> cloneCountByTeam_;
     std::set<int> cloneSourceOwnerUnitIds_;
     std::map<int, int> deathPreventionFramesByUnitId_;
+    std::map<int, BattleFeignedDeath> feignedDeathByUnitId_;
     std::map<int, BattleRescueUnitRuntime> rescueByUnitId_;
     std::optional<BattleInitializedBaseline> initializedBaseline_;
     std::unordered_map<int, std::size_t> spawnIndexByUnitId_;
@@ -733,6 +734,13 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
                 auto& frames = deathPreventionFramesByUnitId_[command.metadata.targetUnitId];
                 frames = std::max(frames, action.invincibilityFrames);
             },
+            [&](const FeignDeathAction& action)
+            {
+                const auto [it, inserted] = feignedDeathByUnitId_.emplace(command.metadata.targetUnitId,
+                    BattleFeignedDeath{.config = action, .binding = command.metadata.binding,
+                        .ruleId = command.metadata.ruleId});
+                assert(inserted);
+            },
             [&](const ConfigureRescueRepositionAction& action)
             {
                 auto& rescue = rescueByUnitId_[command.metadata.targetUnitId];
@@ -871,6 +879,11 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         {
             seededSpawn.damage.deathPrevention = true;
             seededSpawn.damage.deathPreventionFrames = prevention->second;
+        }
+        if (const auto recovery = feignedDeathByUnitId_.find(unitId);
+            recovery != feignedDeathByUnitId_.end())
+        {
+            seededSpawn.damage.feignedDeath = recovery->second;
         }
         if (const auto rescue = rescueByUnitId_.find(unitId); rescue != rescueByUnitId_.end())
         {

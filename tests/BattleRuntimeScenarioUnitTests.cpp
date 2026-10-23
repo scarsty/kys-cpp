@@ -401,9 +401,9 @@ const BattleAttackInstance* copiedRuntimeAttack(const BattleRuntimeState& state)
 TEST_CASE("BattleRuntimeScenario_EffectRefactorBattleGoldens", "[battle][scenario][determinism][effect-golden]")
 {
     const std::map<int, std::pair<std::string, std::uint64_t>> goldens{
-        { 18, { "b58afdfc54b745aaf0e2084a5e4dd7aa902cad1bd136b89d049c4c12a9212a27", 45 } },
-        { 94, { "2b6ec4031fc6ad72190087dd025790c5ec87401fa6d5c17176c84d86c87eff9b", 60 } },
-        { 133, { "69d123d03aca4ec867650b2383049dddea003a49a966a447d04cbf9225e74729", 60 } },
+        { 18, { "3b984cfb261cd3d12449e8014f02f229606383062aacd72d0f9d027876bf316a", 45 } },
+        { 94, { "23ad527e00bb927760d6bd9db80df2a01a265174531d2df8a67dd6088b9041c0", 60 } },
+        { 133, { "f3fb8f7392922e715371ff0715a8a2d5fc21a6914516a157077720efc5bc2675", 60 } },
     };
     for (const auto& [magicId, expected] : goldens)
     {
@@ -433,6 +433,26 @@ TEST_CASE("BattleRuntimeScenario_BasicSessionDigestTracksFramesAndRuntime", "[ba
     CHECK(digests[1].activeAttackCount == 0);
     CHECK(digests[1].pendingAttackSpawnCount == 0);
     CHECK_FALSE(digests[1].battleEnded);
+}
+
+TEST_CASE("Battle digest distinguishes a pending revival and an already spent revival",
+    "[battle][scenario][determinism][feigned-death]")
+{
+    auto input = basicSessionInput();
+    input.rules.maximumFrames = 2;
+    auto battle = HeadlessBattleRunner::run(std::move(input));
+    auto& record = battle.finalRuntime.units.require(0);
+    record.damage.feignedDeath = BattleFeignedDeath{.config = {100, 40, 4, 50}};
+    const auto available = HeadlessBattleRunner::digest(battle);
+    record.damage.feignedDeath->used = true;
+    const auto spent = HeadlessBattleRunner::digest(battle);
+    CHECK(available != spent);
+    record.core.alive = false;
+    record.core.vitals.hp = 0;
+    record.core.feignedDeathFrames = 100;
+    const auto pending = HeadlessBattleRunner::digest(battle);
+    --record.core.feignedDeathFrames;
+    CHECK(pending != HeadlessBattleRunner::digest(battle));
 }
 
 TEST_CASE("BattleRuntimeScenario_ActionProjectileDamageClearsCastState", "[battle][scenario][runtime]")

@@ -1327,6 +1327,7 @@ std::optional<BorrowedRuleActionCategory> borrowedActionCategory(
                 [](const CopyAttackDefinitionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const GenerateClonesAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const PreventDeathAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+                [](const FeignDeathAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigureRescueRepositionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigureGuardChargesAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigurePoisonConversionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
@@ -2115,6 +2116,10 @@ struct CommandEmitter
                         append(metadata, StateMachineEffectCommand{ value });
                     },
                     [&](const PreventDeathAction& value)
+                    {
+                        append(metadata, StateMachineEffectCommand{ value });
+                    },
+                    [&](const FeignDeathAction& value)
                     {
                         append(metadata, StateMachineEffectCommand{ value });
                     },

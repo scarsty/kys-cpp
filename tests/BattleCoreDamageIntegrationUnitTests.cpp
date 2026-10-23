@@ -649,7 +649,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
 }
 
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive", "[battle][core][breakthrough]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_FeignedDeathKeepsBattlePending", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -667,24 +667,84 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
     });
     state.units.requireCore(1).vitals.hp = 20;
     auto& runtime = state.units.require(1).damage;
-    runtime.deathPrevention = true;
-    runtime.deathPreventionFrames = 30;
+    runtime.feignedDeath = BattleFeignedDeath{.config = {30, 40, 4, 50}};
 
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(state.units.requireCore(1).alive);
+    CHECK_FALSE(state.units.requireCore(1).alive);
+    CHECK_FALSE(state.result.ended);
     CHECK(gameplayEventsFor(result, BattleGameplayEventType::UnitDied, 1).empty());
     const auto& defender = state.units.requireCore(1);
-    CHECK(defender.alive);
-    CHECK(defender.vitals.hp == 1);
-    CHECK(defender.invincible == 30);
-    CHECK(runtime.deathPreventionUsed);
-    CHECK(runtime.deathPreventionFrames == 30);
+    CHECK_FALSE(defender.alive);
+    CHECK(defender.vitals.hp == 0);
+    CHECK(defender.invincible == 0);
+    CHECK(runtime.feignedDeath->used);
+    CHECK(runtime.feignedDeath->config.delayFrames == 30);
+    CHECK(defender.feignedDeathFrames == 30);
 }
 
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionUsedRuntimeDoesNotTriggerAgain", "[battle][core][breakthrough]")
+TEST_CASE("Immediate lethal saves resolve before feigned death in battle", "[battle][core][feigned-death][talent]")
+{
+    const int recoveryChance = GENERATE(0, 100);
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, {100, 100, 0}), unit(1, 1, {200, 100, 0}),
+    }));
+    state.attacks = attackWorld();
+    for (auto& record : state.units.all())
+    {
+        record.core.canAttack = false;
+        record.core.stats.speed = 0;
+        record.core.animation = {};
+    }
+    auto& defender = state.units.require(1);
+    defender.core.vitals.hp = 20;
+    defender.damage.deathPrevention = true;
+    defender.damage.deathPreventionFrames = 30;
+    defender.damage.lethalRecovery = BattleLethalRecovery{recoveryChance, 1, 120};
+    defender.damage.feignedDeath = BattleFeignedDeath{.config = {100, 40, 4, 50}};
+    const auto lethalHit = [&]()
+    {
+        state.nextFrame.queueDamage({.request = {.attackerUnitId = 0, .defenderUnitId = 1,
+            .baseDamage = 1000, .preResolvedDamage = true}});
+        return runBattleFrame(state);
+    };
+
+    const auto armorSave = lethalHit();
+    CHECK(defender.core.alive);
+    CHECK(defender.core.vitals.hp == 1);
+    CHECK(defender.damage.deathPreventionUsed);
+    CHECK_FALSE(defender.damage.lethalRecovery->used);
+    CHECK_FALSE(defender.damage.feignedDeath->used);
+    CHECK(defender.core.feignedDeathFrames == 0);
+    CHECK(state.talentRandom.rawDrawCount() == 0);
+    CHECK(gameplayEventsFor(armorSave, BattleGameplayEventType::UnitDied, 1).empty());
+
+    defender.core.invincible = 0;
+    auto pending = lethalHit();
+    CHECK(defender.damage.lethalRecovery->used);
+    CHECK(state.talentRandom.rawDrawCount() == 1);
+    CHECK(gameplayEventsFor(pending, BattleGameplayEventType::UnitDied, 1).empty());
+    if (recoveryChance == 100)
+    {
+        CHECK(defender.core.alive);
+        CHECK(defender.core.vitals.hp == 1);
+        CHECK_FALSE(defender.damage.feignedDeath->used);
+        CHECK(defender.core.feignedDeathFrames == 0);
+        defender.core.invincible = 0;
+        pending = lethalHit();
+    }
+    CHECK_FALSE(defender.core.alive);
+    CHECK(defender.damage.feignedDeath->used);
+    CHECK(defender.core.feignedDeathFrames == 100);
+    CHECK(state.talentRandom.rawDrawCount() == 1);
+    CHECK(gameplayEventsFor(pending, BattleGameplayEventType::UnitDied, 1).empty());
+    CHECK_FALSE(state.result.ended);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_FeignedDeathUsedRuntimeDoesNotTriggerAgain", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -702,15 +762,111 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionUsedRuntimeDoesNotTrigg
     });
     state.units.requireCore(1).vitals.hp = 20;
     auto& runtime = state.units.require(1).damage;
-    runtime.deathPrevention = true;
-    runtime.deathPreventionFrames = 30;
-    runtime.deathPreventionUsed = true;
+    runtime.feignedDeath = BattleFeignedDeath{.config = {30, 40, 4, 50}};
+    runtime.feignedDeath->used = true;
 
     auto result = runBattleFrame(state);
 
     CHECK_FALSE(state.units.requireCore(1).alive);
     CHECK_FALSE(gameplayEventsFor(result, BattleGameplayEventType::UnitDied, 1).empty());
-    CHECK(runtime.deathPreventionUsed);
+    CHECK(runtime.feignedDeath->used);
+}
+
+TEST_CASE("Feigned death waits exactly its delay, restores resources, and stuns only the revival square",
+    "[battle][core][feigned-death]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, {300, 300, 0}), unit(1, 1, {371, 371, 0}),
+        unit(2, 1, {373, 300, 0}), unit(3, 1, {300, 227, 0}),
+        unit(4, 0, {310, 310, 0}), unit(5, 1, {300, 230, 0}),
+    }));
+    state.attacks = attackWorld();
+    for (auto& record : state.units.all())
+    {
+        record.core.canAttack = false;
+        record.core.stats.speed = 0;
+        record.core.animation = {};
+    }
+    auto& defender = state.units.require(0);
+    defender.core.vitals = {10, 1000, 3, 100};
+    defender.core.motion.velocity = {5, 8, 2};
+    defender.damage.feignedDeath = BattleFeignedDeath{.config = {100, 40, 4, 50},
+        .binding = {.kind = EffectSourceKind::Combo, .sourceId = 9001, .ownerUnitId = 0}, .ruleId = {9001}};
+    state.units.require(5).status.effects.controlImmunityFrames = 300;
+    state.nextFrame.queueDamage({.request = {.attackerUnitId = 1, .defenderUnitId = 0,
+        .baseDamage = 100, .preResolvedDamage = true}});
+
+    const auto entered = runBattleFrame(state);
+    REQUIRE(defender.core.feignedDeathFrames == 100);
+    CHECK_FALSE(defender.core.alive);
+    CHECK_FALSE(defender.core.haveAction);
+    CHECK(defender.core.vitals.hp == 0);
+    CHECK(defender.core.motion.velocity.norm() == 0);
+    CHECK(gameplayEventsFor(entered, BattleGameplayEventType::UnitDied, 0).empty());
+    const auto position = defender.core.motion.position;
+    CHECK(findNearestEnemyUnitId(state.units, 1) == 4);
+
+    state.nextFrame.queueDamage({.request = {.attackerUnitId = 1, .defenderUnitId = 0,
+        .baseDamage = 1000, .preResolvedDamage = true}});
+    for (int i = 0; i < 99; ++i) runBattleFrame(state);
+    CHECK(defender.core.feignedDeathFrames == 1);
+    CHECK_FALSE(defender.core.alive);
+    CHECK(defender.core.vitals.hp == 0);
+    CHECK(defender.core.motion.position.x == position.x);
+    CHECK(defender.core.motion.position.y == position.y);
+    CHECK(defender.core.motion.position.z == 0);
+
+    const auto revived = runBattleFrame(state);
+    CHECK(defender.core.alive);
+    CHECK(defender.core.feignedDeathFrames == 0);
+    CHECK(defender.core.vitals.hp == 400);
+    CHECK(defender.core.vitals.mp == 100);
+    CHECK(defender.core.invincible == 0);
+    REQUIRE(state.units.require(1).status.effects.has(BattleStatusKind::Stun));
+    CHECK(state.units.require(1).status.effects.statuses.front().remainingFrames == 50);
+    for (int id : {2, 3, 4, 5})
+        CHECK_FALSE(state.units.require(id).status.effects.has(BattleStatusKind::Stun));
+    CHECK(std::ranges::any_of(revived.visualEvents, [](const auto& event) { return event.text == "復甦"; }));
+
+    state.nextFrame.queueDamage({.request = {.attackerUnitId = 2, .defenderUnitId = 0,
+        .baseDamage = 1000, .preResolvedDamage = true}});
+    const auto finalDeath = runBattleFrame(state);
+    CHECK_FALSE(defender.core.alive);
+    CHECK(defender.core.feignedDeathFrames == 0);
+    CHECK(gameplayEventsFor(finalDeath, BattleGameplayEventType::UnitDied, 0).size() == 1);
+}
+
+TEST_CASE("Pending revivals prevent defeat and simultaneous revivals stun both teams",
+    "[battle][core][feigned-death]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({unit(0, 0, {100, 100, 0}), unit(1, 1, {130, 100, 0})}));
+    state.attacks = attackWorld();
+    for (auto& record : state.units.all())
+    {
+        record.core.canAttack = false;
+        record.core.stats.speed = 0;
+        record.damage.feignedDeath = BattleFeignedDeath{.config = {2, 40, 4, 50},
+            .binding = {.kind = EffectSourceKind::Combo, .sourceId = 9001,
+                .ownerUnitId = record.id(), .sourceTeam = record.core.team}, .ruleId = {9001}};
+        state.nextFrame.queueDamage({.request = {.attackerUnitId = 1 - record.id(),
+            .defenderUnitId = record.id(), .baseDamage = 1000, .preResolvedDamage = true}});
+    }
+    runBattleFrame(state);
+    CHECK_FALSE(state.units.requireCore(0).alive);
+    CHECK_FALSE(state.units.requireCore(1).alive);
+    CHECK_FALSE(state.result.ended);
+    runBattleFrame(state);
+    CHECK_FALSE(state.result.ended);
+    runBattleFrame(state);
+    for (const auto& record : state.units.all())
+    {
+        CHECK(record.core.alive);
+        CHECK(record.core.vitals.hp == 40);
+        CHECK(record.status.effects.has(BattleStatusKind::Stun));
+    }
+    CHECK_FALSE(state.result.ended);
 }
 
 
@@ -1814,4 +1970,67 @@ TEST_CASE("Melody shield logs its name and actual replenishment without full-shi
     defender.shield = 100;
     state.units.writeDamageUnit(defender);
     checkShield(70, 100, 170);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.nextFrame.queueDamage({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 99,
+            .preResolvedDamage = true,
+        },
+    });
+    state.units.requireCore(1).vitals.hp = 20;
+    auto& runtime = state.units.require(1).damage;
+    runtime.deathPrevention = true;
+    runtime.deathPreventionFrames = 30;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1).size() == 1);
+    CHECK(state.units.requireCore(1).alive);
+    CHECK(gameplayEventsFor(result, BattleGameplayEventType::UnitDied, 1).empty());
+    const auto& defender = state.units.requireCore(1);
+    CHECK(defender.alive);
+    CHECK(defender.vitals.hp == 1);
+    CHECK(defender.invincible == 30);
+    CHECK(runtime.deathPreventionUsed);
+    CHECK(runtime.deathPreventionFrames == 30);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionUsedRuntimeDoesNotTriggerAgain", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.nextFrame.queueDamage({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 99,
+            .preResolvedDamage = true,
+        },
+    });
+    state.units.requireCore(1).vitals.hp = 20;
+    auto& runtime = state.units.require(1).damage;
+    runtime.deathPrevention = true;
+    runtime.deathPreventionFrames = 30;
+    runtime.deathPreventionUsed = true;
+
+    auto result = runBattleFrame(state);
+
+    CHECK_FALSE(state.units.requireCore(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result, BattleGameplayEventType::UnitDied, 1).empty());
+    CHECK(runtime.deathPreventionUsed);
 }

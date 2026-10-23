@@ -725,7 +725,7 @@ TEST_CASE("BattleDamageSystem_AbsorptionCannotExceedGlobalReductionCap", "[battl
     CHECK(alreadyCapped.remainingDamageBasisPoints == 2000);
 }
 
-TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrFeignedDeath", "[battle][damage][unit]")
 {
     BattleDamageSystem system;
 
@@ -739,13 +739,13 @@ TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[
 
     auto protectedUnit = unit();
     protectedUnit.vitals.hp = 10;
-    protectedUnit.deathPrevention = true;
-    protectedUnit.deathPreventionFrames = 30;
+    protectedUnit.feignedDeath = BattleFeignedDeath{.config = {30, 40, 4, 50}};
     auto protectedResult = system.applyDamageTaken(protectedUnit, 20);
-    CHECK(protectedResult.defender.vitals.hp == 1);
-    CHECK(protectedResult.defender.invincible == 30);
-    CHECK(protectedResult.defender.deathPreventionUsed);
-    CHECK(protectedResult.deathPrevented);
+    CHECK(protectedResult.defender.vitals.hp == 0);
+    CHECK(protectedResult.defender.invincible == 0);
+    CHECK(protectedResult.defender.feignedDeath->used);
+    CHECK(protectedResult.defender.feignedDeathFrames == 30);
+    CHECK(protectedResult.feignedDeathStarted);
     CHECK_FALSE(protectedResult.died);
 
     auto noHurtInvinc = unit();
@@ -1496,7 +1496,7 @@ TEST_CASE("BattleDamageSystem_PreResolvedExecuteRequest_UsesCurrentHpThreshold",
     CHECK(result.events[2].type == BattleDamageEventType::UnitDied);
 }
 
-TEST_CASE("BattleDamageSystem_TransactionReportsDeathProtection", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_TransactionReportsFeignedDeath", "[battle][damage][unit]")
 {
     BattleDamageTransactionInput protectedInput;
     protectedInput.request.attackerUnitId = 1;
@@ -1507,19 +1507,19 @@ TEST_CASE("BattleDamageSystem_TransactionReportsDeathProtection", "[battle][dama
     protectedInput.defender = unit();
     protectedInput.defender.id = 2;
     protectedInput.defender.vitals.hp = 20;
-    protectedInput.defender.deathPrevention = true;
-    protectedInput.defender.deathPreventionFrames = 30;
+    protectedInput.defender.feignedDeath = BattleFeignedDeath{.config = {30, 40, 4, 50}};
 
     auto protectedResult = BattleDamageSystem().resolveTransaction(protectedInput);
 
-    CHECK(protectedResult.defender.vitals.hp == 1);
-    CHECK(protectedResult.defender.alive);
-    CHECK(protectedResult.defender.deathPreventionUsed);
-    CHECK(protectedResult.defender.invincible == 30);
-    CHECK(protectedResult.defenderDelta.hpDelta == -19);
+    CHECK(protectedResult.defender.vitals.hp == 0);
+    CHECK_FALSE(protectedResult.defender.alive);
+    CHECK(protectedResult.defender.feignedDeath->used);
+    CHECK(protectedResult.defender.feignedDeathFrames == 30);
+    CHECK(protectedResult.defender.invincible == 0);
+    CHECK(protectedResult.defenderDelta.hpDelta == -20);
     REQUIRE(protectedResult.events.size() == 2);
     CHECK(protectedResult.events[0].type == BattleDamageEventType::DamageApplied);
-    CHECK(protectedResult.events[1].type == BattleDamageEventType::DeathPrevented);
+    CHECK(protectedResult.events[1].type == BattleDamageEventType::FeignedDeathStarted);
 }
 
 TEST_CASE("BattleDamageSystem_TransactionMpDamageSkipsHpDefenseLayers", "[battle][damage][unit]")
@@ -1936,4 +1936,61 @@ TEST_CASE("BattleDamageSystem_PreservesTypedPoisonAndBleedKinds", "[battle][dama
         REQUIRE(result.events.size() == 1);
         CHECK(result.events.front().damageKind == kind);
     }
+}
+
+TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[battle][damage][unit]")
+{
+    BattleDamageSystem system;
+
+    auto hurt = unit();
+    hurt.hurtInvincFrames = 5;
+    auto hurtResult = system.applyDamageTaken(hurt, 20);
+    CHECK(hurtResult.defender.vitals.hp == 80);
+    CHECK(hurtResult.defender.invincible == 5);
+    CHECK(hurtResult.hurtInvincGranted);
+    CHECK_FALSE(hurtResult.died);
+
+    auto protectedUnit = unit();
+    protectedUnit.vitals.hp = 10;
+    protectedUnit.deathPrevention = true;
+    protectedUnit.deathPreventionFrames = 30;
+    auto protectedResult = system.applyDamageTaken(protectedUnit, 20);
+    CHECK(protectedResult.defender.vitals.hp == 1);
+    CHECK(protectedResult.defender.invincible == 30);
+    CHECK(protectedResult.defender.deathPreventionUsed);
+    CHECK(protectedResult.deathPrevented);
+    CHECK_FALSE(protectedResult.died);
+
+    auto noHurtInvinc = unit();
+    noHurtInvinc.hurtInvincFrames = 5;
+    auto noHurtInvincResult = system.applyDamageTaken(noHurtInvinc, 20, false);
+    CHECK(noHurtInvincResult.defender.vitals.hp == 80);
+    CHECK(noHurtInvincResult.defender.invincible == 0);
+    CHECK_FALSE(noHurtInvincResult.hurtInvincGranted);
+}
+
+TEST_CASE("BattleDamageSystem_TransactionReportsDeathProtection", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput protectedInput;
+    protectedInput.request.attackerUnitId = 1;
+    protectedInput.request.defenderUnitId = 2;
+    protectedInput.request.baseDamage = 50;
+    protectedInput.attacker = unit();
+    protectedInput.attacker.id = 1;
+    protectedInput.defender = unit();
+    protectedInput.defender.id = 2;
+    protectedInput.defender.vitals.hp = 20;
+    protectedInput.defender.deathPrevention = true;
+    protectedInput.defender.deathPreventionFrames = 30;
+
+    auto protectedResult = BattleDamageSystem().resolveTransaction(protectedInput);
+
+    CHECK(protectedResult.defender.vitals.hp == 1);
+    CHECK(protectedResult.defender.alive);
+    CHECK(protectedResult.defender.deathPreventionUsed);
+    CHECK(protectedResult.defender.invincible == 30);
+    CHECK(protectedResult.defenderDelta.hpDelta == -19);
+    REQUIRE(protectedResult.events.size() == 2);
+    CHECK(protectedResult.events[0].type == BattleDamageEventType::DamageApplied);
+    CHECK(protectedResult.events[1].type == BattleDamageEventType::DeathPrevented);
 }

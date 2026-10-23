@@ -113,6 +113,8 @@ enum class BattleStatusSemanticId : std::int16_t
     DamageAbsorptionEnded = 33,
     AttackCopied = 34,
     FreeCast = 35,
+    Revived = 36,
+    FeignedDeathStarted = 37,
 };
 
 enum class BattleResourceSemanticId : std::int16_t

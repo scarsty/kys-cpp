@@ -558,39 +558,70 @@ TEST_CASE("growth amplification uses integer G S U for every stat", "[chess][tal
             }
 }
 
-TEST_CASE("lethal recovery follows death protection and consumes exactly one independent draw", "[chess][talent][damage]")
+TEST_CASE("lethal recovery precedes feigned death and consumes exactly one independent draw", "[chess][talent][damage]")
 {
     Battle::BattleDamageUnitState unit;
     unit.id = 1;
     unit.vitals = {100, 100, 23, 100};
-    unit.deathPrevention = true;
-    unit.deathPreventionFrames = 30;
+    unit.feignedDeath = Battle::BattleFeignedDeath{.config = {30, 40, 4, 50}};
     unit.lethalRecovery = Battle::BattleLethalRecovery{100, 1, 120};
     Battle::BattleRuntimeRandom random(17);
     Battle::BattleDamageSystem system;
     auto first = system.applyDamageTaken(unit, 100, true, &random);
-    CHECK(first.deathPrevented);
-    CHECK_FALSE(first.recoveryTested);
-    CHECK(first.defender.lethalRecovery->used == false);
-    CHECK(random.rawDrawCount() == 0);
+    CHECK(first.recoveryTested);
+    CHECK(first.recoverySucceeded);
+    CHECK_FALSE(first.feignedDeathStarted);
+    CHECK_FALSE(first.defender.feignedDeath->used);
+    CHECK(first.defender.feignedDeathFrames == 0);
+    CHECK(first.defender.lethalRecovery->used);
+    CHECK(first.defender.alive);
+    CHECK(first.defender.vitals.hp == 1);
+    CHECK(first.defender.vitals.mp == unit.vitals.mp);
+    CHECK(first.defender.invincible == 120);
+    CHECK(random.rawDrawCount() == 1);
     first.defender.invincible = 0;
     auto second = system.applyDamageTaken(first.defender, 100, true, &random);
-    CHECK(second.recoverySucceeded);
-    CHECK_FALSE(second.deathPrevented);
-    CHECK(second.defender.vitals.hp == 1);
-    CHECK(second.defender.vitals.mp == unit.vitals.mp);
-    CHECK(second.defender.invincible == 120);
+    CHECK_FALSE(second.recoveryTested);
+    CHECK(second.feignedDeathStarted);
+    CHECK(second.defender.feignedDeath->used);
+    CHECK(second.defender.feignedDeathFrames == 30);
+    CHECK_FALSE(second.died);
     CHECK(random.rawDrawCount() == 1);
+    second.defender.alive = true;
+    second.defender.feignedDeathFrames = 0;
+    second.defender.vitals.hp = 40;
     auto third = system.applyDamageTaken(second.defender, 100, true, &random);
     CHECK(third.died);
     CHECK_FALSE(third.recoveryTested);
     CHECK(random.rawDrawCount() == 1);
-    unit.deathPrevention = false;
-    unit.lethalRecovery->chancePercent = 0;
-    const auto failed = system.applyDamageTaken(unit, 100, true, &random);
+}
+
+TEST_CASE("failed lethal recovery falls through to feigned death on the same hit", "[chess][talent][damage]")
+{
+    Battle::BattleDamageUnitState unit;
+    unit.id = 1;
+    unit.vitals = {100, 100, 23, 100};
+    unit.feignedDeath = Battle::BattleFeignedDeath{.config = {30, 40, 4, 50}};
+    unit.lethalRecovery = Battle::BattleLethalRecovery{0, 1, 120};
+    Battle::BattleRuntimeRandom random(17);
+    Battle::BattleDamageSystem system;
+    auto failed = system.applyDamageTaken(unit, 100, true, &random);
     CHECK(failed.recoveryTested);
     CHECK_FALSE(failed.recoverySucceeded);
-    CHECK(failed.died);
+    CHECK(failed.defender.lethalRecovery->used);
+    CHECK(failed.feignedDeathStarted);
+    CHECK(failed.defender.feignedDeath->used);
+    CHECK(failed.defender.feignedDeathFrames == 30);
+    CHECK_FALSE(failed.died);
+    CHECK(random.rawDrawCount() == 1);
+    failed.defender.alive = true;
+    failed.defender.feignedDeathFrames = 0;
+    failed.defender.vitals.hp = 40;
+    const auto finalDeath = system.applyDamageTaken(failed.defender, 100, true, &random);
+    CHECK(finalDeath.died);
+    CHECK_FALSE(finalDeath.recoveryTested);
+    CHECK_FALSE(finalDeath.feignedDeathStarted);
+    CHECK(random.rawDrawCount() == 1);
 }
 
 TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[chess][talent][battle]")
@@ -862,4 +893,50 @@ TEST_CASE("late bloomer four-star opening shields survive PvP and standalone con
         CHECK(chessRoleMagicsForStar(*content, *content->role(tier * 100), 4)
             == chessRoleMagicsForStar(*content, *content->role(tier * 100), 3));
     }
+}
+
+TEST_CASE("death protection precedes lethal recovery and feigned death", "[chess][talent][damage]")
+{
+    Battle::BattleDamageUnitState unit;
+    unit.id = 1;
+    unit.vitals = {100, 100, 23, 100};
+    unit.deathPrevention = true;
+    unit.deathPreventionFrames = 30;
+    unit.feignedDeath = Battle::BattleFeignedDeath{.config = {30, 40, 4, 50}};
+    unit.lethalRecovery = Battle::BattleLethalRecovery{100, 1, 120};
+    Battle::BattleRuntimeRandom random(17);
+    Battle::BattleDamageSystem system;
+    auto first = system.applyDamageTaken(unit, 100, true, &random);
+    CHECK(first.deathPrevented);
+    CHECK_FALSE(first.recoveryTested);
+    CHECK_FALSE(first.feignedDeathStarted);
+    CHECK_FALSE(first.defender.feignedDeath->used);
+    CHECK(first.defender.feignedDeathFrames == 0);
+    CHECK(first.defender.lethalRecovery->used == false);
+    CHECK(random.rawDrawCount() == 0);
+    first.defender.invincible = 0;
+    auto second = system.applyDamageTaken(first.defender, 100, true, &random);
+    CHECK(second.recoverySucceeded);
+    CHECK_FALSE(second.deathPrevented);
+    CHECK_FALSE(second.feignedDeathStarted);
+    CHECK_FALSE(second.defender.feignedDeath->used);
+    CHECK(second.defender.vitals.hp == 1);
+    CHECK(second.defender.vitals.mp == unit.vitals.mp);
+    CHECK(second.defender.invincible == 120);
+    CHECK(random.rawDrawCount() == 1);
+    second.defender.invincible = 0;
+    auto third = system.applyDamageTaken(second.defender, 100, true, &random);
+    CHECK(third.feignedDeathStarted);
+    CHECK_FALSE(third.died);
+    CHECK_FALSE(third.recoveryTested);
+    CHECK(random.rawDrawCount() == 1);
+    third.defender.alive = true;
+    third.defender.feignedDeathFrames = 0;
+    third.defender.vitals.hp = 40;
+    const auto finalDeath = system.applyDamageTaken(third.defender, 100, true, &random);
+    CHECK(finalDeath.died);
+    CHECK_FALSE(finalDeath.deathPrevented);
+    CHECK_FALSE(finalDeath.recoveryTested);
+    CHECK_FALSE(finalDeath.feignedDeathStarted);
+    CHECK(random.rawDrawCount() == 1);
 }

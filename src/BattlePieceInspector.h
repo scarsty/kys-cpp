@@ -168,6 +168,7 @@ inline std::vector<BattlePieceEffectRow> battlePieceEffectRows(
     };
     protection("護盾", unit.shield, false, BattleEffectIcon::Shield);
     protection("無敵", unit.invincible, true, BattleEffectIcon::DamageBlock);
+    protection("假死復甦", unit.feignedDeathFrames, true, BattleEffectIcon::DamageBlock);
     protection("狀態護盾", record.status.effects.statusShield, false, BattleEffectIcon::DamageBlock);
     protection("硬直護盾", record.status.effects.staggerShield, false, BattleEffectIcon::SingleHitCap);
     protection("控制免疫", record.status.effects.controlImmunityFrames, true, BattleEffectIcon::SwordGuard);

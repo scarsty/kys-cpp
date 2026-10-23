@@ -23,6 +23,16 @@ inline constexpr int FinalDamageReductionCapPct = 80;
 
 struct BattleRuntimeUnit;
 
+struct BattleFeignedDeath
+{
+    FeignDeathAction config;
+    EffectSourceBinding binding;
+    EffectRuleId ruleId;
+    bool used = false;
+
+    bool operator==(const BattleFeignedDeath&) const = default;
+};
+
 struct BattleDamageUnitState
 {
     int id = -1;
@@ -36,9 +46,11 @@ struct BattleDamageUnitState
     int dualWieldBlocksRemaining = 0;
     BattleStrengthening strengthening{};
 
+    int feignedDeathFrames = 0;
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
+    std::optional<BattleFeignedDeath> feignedDeath;
     std::optional<BattleLethalRecovery> lethalRecovery;
 
     bool mpBlocked = false;
@@ -53,6 +65,7 @@ struct BattleDamageRuntimeUnit
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
+    std::optional<BattleFeignedDeath> feignedDeath;
     std::optional<BattleLethalRecovery> lethalRecovery;
 
     bool operator==(const BattleDamageRuntimeUnit&) const = default;
@@ -204,6 +217,7 @@ struct BattleDamageTakenResult
     BattleDamageUnitState defender;
     bool hurtInvincGranted = false;
     bool deathPrevented = false;
+    bool feignedDeathStarted = false;
     bool died = false;
     bool recoveryTested = false;
     bool recoverySucceeded = false;
@@ -276,6 +290,7 @@ enum class BattleDamageEventType
     BlockedByDamageLayer,
     SingleHitCapped,
     DeathPrevented,
+    FeignedDeathStarted,
     UnitDied,
     ExecuteTriggered,
     HpRestored,
@@ -403,6 +418,7 @@ struct BattleDamageTransactionResult
     bool recoverySucceeded = false;
     bool hurtInvincGranted = false;
     bool deathPrevented = false;
+    bool feignedDeathStarted = false;
     bool blockedByInvincible = false;
     bool blockedByDualWield = false;
     bool blockedByDamageLayer = false;

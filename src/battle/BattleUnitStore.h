@@ -34,6 +34,7 @@ struct BattleRuntimeUnit
     std::string skillNames;
     int team = 0;
     bool alive = true;
+    int feignedDeathFrames = 0;
     BattleUnitVitals vitals;
     BattleUnitStats stats;
     BattleUnitMotion motion;

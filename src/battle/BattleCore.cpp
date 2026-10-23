@@ -1,8 +1,10 @@
 #include "BattleCore.h"
 #include "../Find.h"
+#include "../ChessEftIds.h"
 #include "BattleAreaEffectSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleFrameContext.h"
+#include "BattleLogSegments.h"
 #include "BattleProjectileEvents.h"
 #include "BattleCoreDetail.h"
 #include "BattleMovementPhysics.h"
@@ -31,7 +33,8 @@ void prepareMovementAgents(BattleRuntimeState& state)
     {
         const auto& unit = record.core;
         auto& agent = record.movement;
-        agent.active = unit.alive || needsCorpsePhysics(unit.alive, unit.motion.position, unit.motion.velocity);
+        agent.active = unit.feignedDeathFrames == 0
+            && (unit.alive || needsCorpsePhysics(unit.alive, unit.motion.position, unit.motion.velocity));
         if (!unit.alive)
         {
             state.movement.movementReservations.erase(unit.id);
@@ -391,6 +394,72 @@ void discardBattleEndFrameContinuationWork(BattleFrameContext& frame)
     (void)frame.drainCastCommitBarriers();
     (void)frame.drainEffectCommandBatches();
 }
+
+void advanceFeignedDeaths(BattleRuntimeState& state, BattleFrameContext& frame, int frameNumber)
+{
+    std::vector<int> revivedUnitIds;
+    for (auto& record : state.units.all())
+    {
+        auto& unit = record.core;
+        if (unit.feignedDeathFrames == 0) continue;
+        assert(!unit.alive && record.damage.feignedDeath && record.damage.feignedDeath->used);
+        if (--unit.feignedDeathFrames > 0) continue;
+        revivedUnitIds.push_back(unit.id);
+
+        const auto& recovery = *record.damage.feignedDeath;
+        const auto& config = recovery.config;
+        unit.alive = true;
+        unit.vitals.hp = std::max(1, static_cast<int>(
+            static_cast<std::int64_t>(unit.vitals.maxHp) * config.hpPercent / 100));
+        unit.vitals.mp = unit.vitals.maxMp;
+        unit.animation = {};
+        unit.animation.actType = -1;
+        record.clearFrozen();
+
+        auto log = CoreDetail::makeEffectLogEvent(state, recovery.binding, unit.id, frameNumber);
+        log.statusId = BattleStatusSemanticId::Revived;
+        log.amount = unit.vitals.hp;
+        log.secondaryAmount = unit.vitals.mp;
+        log.segments = battleLogText(std::format("假死復甦：恢復{}生命及全滿內力，周圍{}×{}格眩暈{}幀",
+            unit.vitals.hp, config.stunWidthTiles, config.stunWidthTiles, config.stunFrames),
+            BattleLogTextTone::Positive);
+        frame.logEvents.push_back(std::move(log));
+        frame.gameplayEvents.push_back({.type = BattleGameplayEventType::StatusApplied,
+            .frame = frameNumber, .sourceUnitId = unit.id, .targetUnitId = unit.id,
+            .amount = unit.vitals.hp, .statusId = BattleStatusSemanticId::Revived});
+        frame.visualEvents.push_back(CoreDetail::roleEffectEvent(unit.id, KysChess::EFT_HEAL, 30));
+        BattleVisualEvent text;
+        text.type = BattleVisualEventType::FloatingText;
+        text.targetUnitId = unit.id;
+        text.text = "復甦";
+        text.color = {160, 255, 210, 255};
+        frame.visualEvents.push_back(std::move(text));
+    }
+    for (int unitId : revivedUnitIds)
+    {
+        const auto& record = state.units.require(unitId);
+        const auto& unit = record.core;
+        const auto& recovery = *record.damage.feignedDeath;
+        const auto& config = recovery.config;
+        const double halfSide = config.stunWidthTiles * state.gridTransform.tileWidth / 2.0;
+        std::vector<EffectCommand> commands;
+        for (const auto& target : state.units.live())
+        {
+            if (target.core.team == unit.team
+                || std::abs(target.core.motion.position.x - unit.motion.position.x) > halfSide
+                || std::abs(target.core.motion.position.y - unit.motion.position.y) > halfSide) continue;
+            const ApplyStatusAction stun{.status = BattleStatusKind::Stun,
+                .durationFrames = config.stunFrames,
+                .reapplication = StatusReapplicationPolicy::KeepLongerDuration};
+            commands.push_back({.metadata = {.binding = recovery.binding, .ruleId = recovery.ruleId,
+                .event = EffectEvent::FrameAdvanced, .targetOrder = static_cast<std::uint32_t>(commands.size()),
+                .targetUnitId = target.id(), .eventSourceUnitId = unit.id},
+                .value = prepareStatusApplication(stun, config.stunFrames, {}),
+                .execution = {.frame = frameNumber}});
+        }
+        frame.queueEffectCommands(std::move(commands));
+    }
+}
 }  // namespace
 
 void cancelBattleRuntimeForBattleEnd(BattleRuntimeState& state, int frame)
@@ -505,6 +574,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
         upcomingFrame);
     // Tick status timers after the merged per-frame rules have dispatched.
     CoreDetail::advanceStatus(state, frame.currentFrameDamage());
+    advanceFeignedDeaths(state, frame, upcomingFrame);
     // Tick unit cooldown/action/MP timers and collect typed skill-finished effects.
     auto runtimeAdvance = CoreDetail::advanceRuntimeUnits(state);
     for (auto& batch : runtimeAdvance.cooldownFinishedEffects)
@@ -708,8 +778,9 @@ void updateFrameBattleResultAfterDamage(BattleRuntimeState& state, BattleFrameCo
     }
 
     std::optional<int> aliveTeam;
-    for (const auto& record : state.units.live())
+    for (const auto& record : state.units.all())
     {
+        if (!record.core.alive && record.core.feignedDeathFrames == 0) continue;
         if (aliveTeam && *aliveTeam != record.core.team)
         {
             return;

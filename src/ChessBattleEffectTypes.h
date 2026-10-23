@@ -1067,6 +1067,16 @@ struct PreventDeathAction
     int invincibilityFrames{};
 };
 
+struct FeignDeathAction
+{
+    int delayFrames{};
+    int hpPercent{};
+    int stunWidthTiles{};
+    int stunFrames{};
+
+    bool operator==(const FeignDeathAction&) const = default;
+};
+
 enum class RescueRepositionMode
 {
     Protect,
@@ -1111,7 +1121,8 @@ using StateMachineAction = std::variant<
     ConfigureGuardChargesAction,
     ConfigurePoisonConversionAction,
     SpreadPoisonAction,
-    HealAttackerByMissingMpAction>;
+    HealAttackerByMissingMpAction,
+    FeignDeathAction>;
 
 struct EffectAction;
 

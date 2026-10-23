@@ -227,6 +227,11 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
         gameplay.type = BattleGameplayEventType::StatusApplied;
         gameplay.text = toStatusText(event);
         break;
+    case BattleDamageEventType::FeignedDeathStarted:
+        gameplay.statusId = BattleStatusSemanticId::FeignedDeathStarted;
+        gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.text = toStatusText(event);
+        break;
     case BattleDamageEventType::ExecuteTriggered:
         gameplay.statusId = BattleStatusSemanticId::ExecuteTriggered;
         gameplay.type = BattleGameplayEventType::StatusApplied;
@@ -282,6 +287,19 @@ void applyDamageResultToFrameState(
     commitDamageUnitCoreToRuntime(state, transaction.defender);
     commitDamageCooldownToRuntime(state, transaction);
     auto& unit = state.units.requireCore(transaction.defender.id);
+    if (transaction.feignedDeathStarted)
+    {
+        unit.motion.position.z = 0;
+        unit.motion.velocity = {};
+        unit.motion.acceleration = {};
+        auto& record = state.units.require(unit.id);
+        record.movement.physics = {};
+        record.movement.physics.position = unit.motion.position;
+        unit.animation = {};
+        unit.animation.actType = -1;
+        unit.haveAction = false;
+        unit.operationType = BattleOperationType::None;
+    }
     if (transaction.killed)
     {
         unit.motion = defenderStartMotion;
@@ -296,7 +314,7 @@ void applyDamageResultToFrameState(
         agent.physics.acceleration = unit.motion.acceleration;
     }
     commitDamageDefenderStatusToRuntime(state, transaction);
-    if (transaction.killed)
+    if (transaction.killed || transaction.feignedDeathStarted)
     {
         state.units.require(unit.id).clearFrozen();
     }
@@ -954,6 +972,18 @@ BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
     return log;
 }
 
+BattleLogEvent makeFeignedDeathLog(const BattleDamageEvent& event)
+{
+    BattleLogEvent log;
+    log.type = BattleLogEventType::Status;
+    log.sourceUnitId = event.targetUnitId;
+    log.targetUnitId = event.targetUnitId;
+    log.amount = event.value;
+    log.statusId = BattleStatusSemanticId::FeignedDeathStarted;
+    log.segments = logStatusFrames<BattleLogTextTone::Positive>("假死復甦：假死", event.value);
+    return log;
+}
+
 void appendProjectileFollowUpsToFrame(
     BattleFrameContext& frame,
     BattleProjectileFollowUpExpansion followUps)
@@ -1374,6 +1404,16 @@ std::vector<int> appendFrameDamageLifecycle(
         if (event.type == BattleDamageEventType::DeathPrevented)
         {
             frame.logEvents.push_back(makeDeathPreventionLog(event));
+        }
+        if (event.type == BattleDamageEventType::FeignedDeathStarted)
+        {
+            frame.logEvents.push_back(makeFeignedDeathLog(event));
+            BattleVisualEvent text;
+            text.type = BattleVisualEventType::FloatingText;
+            text.targetUnitId = event.targetUnitId;
+            text.text = "假死";
+            text.color = {230, 240, 255, 255};
+            frame.visualEvents.push_back(std::move(text));
         }
         if (event.type != BattleDamageEventType::UnitDied)
         {
@@ -2299,6 +2339,10 @@ void applyDamageAndLifecycle(
         appendFrameDamageResourceLogEvents(frame, transaction);
         appendFrameDamageGameplayEvents(frame, transaction, presentation.skillId);
         auto transactionDeadUnitIds = appendFrameDamageLifecycle(state, frame, transaction);
+        if (transaction.feignedDeathStarted)
+        {
+            cancelDeadRuntimeActions(state);
+        }
         applyRescueRepositionForDamage(state, transaction, logEvents, visualEvents);
 
         if (!transactionDeadUnitIds.empty())
@@ -2627,6 +2671,7 @@ BattleDamageUnitState makeBattleDamageUnitStateFromRuntime(
     BattleDamageUnitState damage;
     damage.id = unit.id;
     damage.alive = unit.alive;
+    damage.feignedDeathFrames = unit.feignedDeathFrames;
     damage.vitals = unit.vitals;
     damage.attack = unit.stats.attack;
     damage.invincible = unit.invincible;
@@ -2639,6 +2684,7 @@ BattleDamageUnitState makeBattleDamageUnitStateFromRuntime(
         damage.deathPrevention = runtime->deathPrevention;
         damage.deathPreventionUsed = runtime->deathPreventionUsed;
         damage.deathPreventionFrames = runtime->deathPreventionFrames;
+        damage.feignedDeath = runtime->feignedDeath;
         damage.lethalRecovery = runtime->lethalRecovery;
     }
     return damage;
@@ -2680,6 +2726,7 @@ void writeBattleDamageRuntimeUnitImpl(BattleDamageRuntimeUnit& runtime, const Ba
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.feignedDeath = unit.feignedDeath;
     runtime.lethalRecovery = unit.lethalRecovery;
 }
 

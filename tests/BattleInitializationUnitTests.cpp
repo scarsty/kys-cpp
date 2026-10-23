@@ -332,7 +332,7 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
             1,
             60));
     preInitializationSource.damage.hurtInvincFrames = 12;
-    preInitializationSource.damage.deathPreventionUsed = true;
+    preInitializationSource.damage.feignedDeath = BattleFeignedDeath{.config = {10, 20, 2, 30}, .used = true};
     preInitializationSource.rescue.forcePullExecuteRemaining = 8;
 
     BattleRuntimeSetupSeed setup;
@@ -400,7 +400,8 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
         { EffectActionValue{ statusShield } },
         { EffectActionValue{ damageBlock } },
         { EffectActionValue{ StateMachineAction{ GenerateClonesAction{ 1 } } } },
-        { EffectActionValue{ StateMachineAction{ PreventDeathAction{ 90 } } } },
+        { EffectActionValue{ StateMachineAction{ PreventDeathAction{90} } } },
+        { EffectActionValue{ StateMachineAction{ FeignDeathAction{90, 40, 4, 50} } } },
         { EffectActionValue{ StateMachineAction{
             ConfigureRescueRepositionAction{ RescueRepositionMode::Protect, 2 },
         } } },
@@ -424,12 +425,15 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     const auto& source = requireSpawn(output.spawns, 0);
     const auto& clone = requireSpawn(output.spawns, 1);
     CHECK(clone.unit.cloneSourceUnitId == 0);
+    REQUIRE(source.damage.feignedDeath);
     CHECK(source.damage.deathPrevention);
     CHECK(source.damage.deathPreventionFrames == 90);
+    CHECK_FALSE(source.damage.deathPreventionUsed);
+    CHECK(source.damage.feignedDeath->config == (FeignDeathAction{90, 40, 4, 50}));
     CHECK(source.rescue.forcePullProtectRemaining == 2);
     CHECK(source.rescue.forcePullExecuteRemaining == 0);
     CHECK(source.damage.hurtInvincFrames == 0);
-    CHECK_FALSE(source.damage.deathPreventionUsed);
+    CHECK_FALSE(source.damage.feignedDeath->used);
     CHECK_FALSE(source.status.effects.has(BattleStatusKind::Poison));
     CHECK(source.unit.shield == expectedShield);
     CHECK(source.status.effects.statusShield == 80);

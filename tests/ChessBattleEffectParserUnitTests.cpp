@@ -7,6 +7,27 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("假死復甦 exposes its delay, restored HP, and revival stun", "[chess][effects][named][feigned-death]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 假死復甦, 假死幀數: 73, 復甦生命百分比: 41, 眩暈範圍格數: 4, 眩暈幀數: 51}]"),
+        effects, rules, id, "假死測試"));
+    REQUIRE(effects.size() == 1);
+    REQUIRE(rules.size() == 1);
+    CHECK(rules.front().event == EffectEvent::BattleInitialized);
+    const auto& machine = std::get<StateMachineAction>(rules.front().actions.front().value);
+    CHECK(std::get<FeignDeathAction>(machine) == (FeignDeathAction{73, 41, 4, 51}));
+    const auto description = effects.front()->describe(EffectDescriptionStyle::Full);
+    CHECK(description.contains("73幀"));
+    CHECK(description.contains("41%生命"));
+    CHECK(description.contains("全滿內力"));
+    CHECK(description.contains("4×4格"));
+    CHECK(description.contains("51幀"));
+}
+
 TEST_CASE("Named effect definitions load as ordered runtime contracts", "[chess][effects][named][content]")
 {
     const auto fixtures = YAML::LoadFile("tests/data/gameplay-effect-contracts.yaml");

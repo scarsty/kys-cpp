@@ -1239,6 +1239,36 @@ struct PreventLethalDamage final : GameplayEffectDefinition
     }
 };
 
+struct FeignedDeathRecovery final : GameplayEffectDefinition
+{
+    int 假死幀數{};
+    int 復甦生命百分比{};
+    int 眩暈範圍格數{};
+    int 眩暈幀數{};
+    static constexpr std::string_view Name = "假死復甦";
+    static constexpr auto Parameters = std::array<Parameter<FeignedDeathRecovery>, 4>{
+        {Parameter<FeignedDeathRecovery>{{"假死幀數", 1, 1000000}, &FeignedDeathRecovery::假死幀數},
+         Parameter<FeignedDeathRecovery>{{"復甦生命百分比", 1, 100}, &FeignedDeathRecovery::復甦生命百分比},
+         Parameter<FeignedDeathRecovery>{{"眩暈範圍格數", 1, 100}, &FeignedDeathRecovery::眩暈範圍格數},
+         Parameter<FeignedDeathRecovery>{{"眩暈幀數", 1, 1000000}, &FeignedDeathRecovery::眩暈幀數}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.actions = {EffectAction{
+                               .value = StateMachineAction{FeignDeathAction{
+                                   .delayFrames = 假死幀數, .hpPercent = 復甦生命百分比,
+                                   .stunWidthTiles = 眩暈範圍格數, .stunFrames = 眩暈幀數}}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("每戰一次假死{}幀，復甦{}%生命、滿內力，周圍{}×{}格眩暈{}幀",
+                假死幀數, 復甦生命百分比, 眩暈範圍格數, 眩暈範圍格數, 眩暈幀數);
+        return std::format("每戰首次受到致命傷害時假死{}幀，期間無法行動或被選為目標；隨後以{}%生命及全滿內力復甦，並使以自身為中心的{}×{}格內敵人眩暈{}幀。",
+            假死幀數, 復甦生命百分比, 眩暈範圍格數, 眩暈範圍格數, 眩暈幀數);
+    }
+};
+
 }    // namespace
 
 void appendStatusEffects(std::vector<GameplayEffectRegistration>& entries)
@@ -1276,6 +1306,7 @@ void appendStatusEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<InitialDamageBlocks>());
     entries.push_back(registration<PeriodicInvincibility>());
     entries.push_back(registration<PreventLethalDamage>());
+    entries.push_back(registration<FeignedDeathRecovery>());
 }
 
 }    // namespace KysChess::GameplayEffects

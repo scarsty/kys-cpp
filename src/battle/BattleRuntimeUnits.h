@@ -375,6 +375,7 @@ public:
         auto& record = require(source.id);
         auto& unit = record.core;
         unit.alive = source.alive;
+        unit.feignedDeathFrames = source.feignedDeathFrames;
         unit.vitals = source.vitals;
         unit.stats.attack = source.attack;
         unit.invincible = source.invincible;

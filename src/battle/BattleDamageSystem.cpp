@@ -273,6 +273,7 @@ BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState&
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.feignedDeath = unit.feignedDeath;
     runtime.lethalRecovery = unit.lethalRecovery;
     return runtime;
 }
@@ -547,6 +548,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.vitals.hp);
         result.hurtInvincGranted = taken.hurtInvincGranted;
         result.deathPrevented = taken.deathPrevented;
+        result.feignedDeathStarted = taken.feignedDeathStarted;
         result.invincibilityGranted = taken.invincibilityGranted;
         result.killed = taken.died;
         result.recoveryTested = taken.recoveryTested;
@@ -562,11 +564,16 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         }
         if (taken.deathPrevented)
         {
+            recordBattleDamageEvent(result.events, BattleDamageEventType::DeathPrevented,
+                input.request.attackerUnitId, input.request.defenderUnitId, taken.invincibilityGranted);
+        }
+        if (taken.feignedDeathStarted)
+        {
             recordBattleDamageEvent(result.events,
-                                    BattleDamageEventType::DeathPrevented,
+                                    BattleDamageEventType::FeignedDeathStarted,
                                     input.request.attackerUnitId,
                                     input.request.defenderUnitId,
-                                    taken.invincibilityGranted);
+                                    taken.defender.feignedDeathFrames);
         }
         if (taken.died)
         {
@@ -1038,28 +1045,41 @@ BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(
         {
             result.defender.deathPreventionUsed = true;
             result.defender.vitals.hp = 1;
-            int frames = result.defender.deathPreventionFrames > 0 ? result.defender.deathPreventionFrames : 100;
+            const int frames = result.defender.deathPreventionFrames;
+            assert(frames > 0);
             result.defender.invincible += frames;
             result.deathPrevented = true;
             result.invincibilityGranted = frames;
+            return result;
+        }
+
+        auto& recovery = result.defender.lethalRecovery;
+        if (recovery && !recovery->used)
+        {
+            assert(recoveryRandom);
+            recovery->used = true;
+            result.recoveryTested = true;
+            result.recoverySucceeded = recoveryRandom->nextInt(100) < recovery->chancePercent;
+            if (result.recoverySucceeded)
+            {
+                result.defender.vitals.hp = std::min(recovery->survivalHp, result.defender.vitals.maxHp);
+                result.defender.invincible += recovery->invincibleFrames;
+                result.invincibilityGranted = recovery->invincibleFrames;
+                return result;
+            }
+        }
+
+        if (result.defender.feignedDeath && !result.defender.feignedDeath->used)
+        {
+            result.defender.feignedDeath->used = true;
+            result.defender.vitals.hp = 0;
+            result.defender.alive = false;
+            result.defender.feignedDeathFrames = result.defender.feignedDeath->config.delayFrames;
+            result.defender.invincible = 0;
+            result.feignedDeathStarted = true;
         }
         else
         {
-            auto& recovery = result.defender.lethalRecovery;
-            if (recovery && !recovery->used)
-            {
-                assert(recoveryRandom);
-                recovery->used = true;
-                result.recoveryTested = true;
-                result.recoverySucceeded = recoveryRandom->nextInt(100) < recovery->chancePercent;
-                if (result.recoverySucceeded)
-                {
-                    result.defender.vitals.hp = std::min(recovery->survivalHp, result.defender.vitals.maxHp);
-                    result.defender.invincible += recovery->invincibleFrames;
-                    result.invincibilityGranted = recovery->invincibleFrames;
-                    return result;
-                }
-            }
             result.defender.vitals.hp = 0;
             result.defender.alive = false;
             result.died = true;
