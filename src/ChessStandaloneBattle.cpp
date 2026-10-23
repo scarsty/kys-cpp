@@ -122,12 +122,12 @@ bool validatePiece(
         error = std::format("{}第{}名角色 ID {} 不存在", team, index + 1, piece.roleId);
         return false;
     }
-    if (piece.star < 1 || piece.star > 3)
+    if (piece.star < 1 || piece.star > 4)
     {
         error = std::format("{}第{}名角色星級 {} 無效", team, index + 1, piece.star);
         return false;
     }
-    if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > kChessMaximumGrowthAmplificationPercent || piece.openingMp < 0
+    if (piece.amplifiedGrowthPercent < 0 || piece.amplifiedGrowthPercent > kChessMaximumGrowthAmplificationPercent || piece.openingMp < 0 || piece.openingStatusShield < 0
         || piece.openingStrengthening.charges < 0
         || piece.openingStrengthening.damagePercent < 0 || piece.openingStrengthening.damagePercent > 100
         || (piece.openingStrengthening.charges > 0 && piece.openingStrengthening.damagePercent == 0)
@@ -170,6 +170,7 @@ void appendTeam(
         unit.openingMp = piece.openingMp;
         unit.openingStrengthening = piece.openingStrengthening;
         unit.lethalRecovery = piece.lethalRecovery;
+        unit.openingStatusShield = piece.openingStatusShield;
         if (source.formationSlots.empty())
         {
             unit.formationSlot = index;
@@ -256,6 +257,7 @@ ChessStandaloneBattleTeam chessStandaloneBattleTeam(
             piece.openingMp,
             piece.openingStrengthening,
             piece.lethalRecovery,
+            piece.openingStatusShield,
         });
     }
     return result;

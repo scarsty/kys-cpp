@@ -37,6 +37,39 @@ void updateDeployedWins(ChessSessionState& state)
 
 }
 
+int ChessProgressionRules::remainingVictoryBattles(const ChessSessionState& state, const ChessGameContent& content)
+{
+    return std::max(0, content.balance().totalFights - state.fight)
+        + static_cast<int>(std::ranges::count_if(content.balance().challenges, [&](const auto& challenge) {
+            return !state.completedChallengeNames.contains(challenge.name)
+                && std::ranges::none_of(state.pendingRewards, [&](const auto& reward) {
+                    return reward.challengeName == challenge.name;
+                });
+        }));
+}
+
+std::string ChessProgressionRules::lateBloomerReminder(const ChessSessionState& state, const ChessGameContent& content)
+{
+    if (state.talent != ChessTalentId::LateBloomer) return {};
+    const auto& talent = content.balance().talent(state.talent);
+    const int remaining = remainingVictoryBattles(state, content);
+    if (remaining >= talent.evolutionWarningBattles) return {};
+    if (!state.lateBloomerSelectionUsed)
+        return std::format("晚成提醒：尚餘{}場主線與未通關遠征。請在棋子面板選定培養對象並讓其上陣，累積{}勝且達到三星後突破四星。", remaining, talent.evolutionWins);
+    const auto chosen = std::ranges::find_if(state.roster, [](const auto& entry) { return entry.second.lateBloomerChosen; });
+    if (chosen == state.roster.end() || chosen->second.star == 4) return {};
+    const auto& piece = chosen->second;
+    const auto& name = content.role(piece.roleId)->Name;
+    const int needed = std::max(0, talent.evolutionWins - piece.fightsWon);
+    if (needed > remaining)
+        return std::format("晚成提醒：{}還需{}勝，但主線與未通關遠征只餘{}場，已不足以完成培養。", name, needed, remaining);
+    if (needed == 0)
+        return std::format("晚成提醒：{}已達{}勝，合成至三星即可突破四星。", name, talent.evolutionWins);
+    if (!piece.deployed)
+        return std::format("晚成提醒：尚餘{}場主線與未通關遠征。請將{}上陣，還需{}勝才能完成培養。", remaining, name, needed);
+    return {};
+}
+
 int ChessProgressionRules::baseVictoryGold(
     const ChessSessionState& state,
     const ChessGameContent& content)
@@ -130,6 +163,7 @@ void ChessProgressionRules::applyBattleResult(
                 content,
                 requireChallenge(content, prepared.stableBattleId),
                 events);
+            ChessManagementRules::resolveLateBloomerEvolution(state, content, events);
         }
         state.preparedBattle.reset();
         if (state.pendingRewards.empty())
@@ -205,6 +239,7 @@ void ChessProgressionRules::applyBattleResult(
         ChessManagementRules::refreshShop(state, content, random, &events);
     }
     state.campaignComplete = state.fight >= balance.totalFights;
+    ChessManagementRules::resolveLateBloomerEvolution(state, content, events);
     if (state.campaignComplete)
     {
         events.push_back({ChessSemanticEventType::CampaignCompleted});

@@ -105,6 +105,7 @@ struct BattleSetupRosterUnit
     int openingMp{};
     BattleStrengthening openingStrengthening{};
     std::optional<BattleLethalRecovery> lethalRecovery;
+    int openingStatusShield{};
 };
 
 struct BattleRuntimeSetupSeed

@@ -147,6 +147,7 @@ private:
     void pickEquipment(int type);
     void ban(int roleId);
     void deploy();
+    void chooseLateBloomer(int instanceId);
     void activate(std::string key, bool touch = false);
     int hit(SDL_FPoint point) const;
     int focusIndex() const;

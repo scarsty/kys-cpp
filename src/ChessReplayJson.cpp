@@ -85,6 +85,7 @@ ChessActionData actionData(const ChessAction& action)
     {
     case ChessActionType::BuyShopSlot: dto.slot = action.shopSlot; break;
     case ChessActionType::SetShopLocked: dto.locked = action.value; break;
+    case ChessActionType::ChooseLateBloomer:
     case ChessActionType::SellChess: dto.chess_instance_id = action.chessInstanceId; break;
     case ChessActionType::SetDeployment:
     case ChessActionType::SetFormation:
@@ -148,6 +149,7 @@ std::optional<ChessAction> actionFromData(const ChessActionData& dto, std::strin
         action.value = *dto.locked;
         break;
     case ChessActionType::SellChess:
+    case ChessActionType::ChooseLateBloomer:
         if (!require(dto.chess_instance_id.has_value(), "chess_instance_id", "整數")) return std::nullopt;
         action.chessInstanceId = *dto.chess_instance_id;
         break;
@@ -271,6 +273,7 @@ std::string chessActionTypeId(ChessActionType type)
     case ChessActionType::StartChallenge: return "start_challenge";
     case ChessActionType::FinishRun: return "finish_run";
     case ChessActionType::SetFormation: return "set_formation";
+    case ChessActionType::ChooseLateBloomer: return "choose_late_bloomer";
     }
     std::unreachable();
 }
@@ -278,7 +281,7 @@ std::string chessActionTypeId(ChessActionType type)
 std::optional<ChessActionType> chessActionTypeFromId(std::string_view id)
 {
     for (int value = static_cast<int>(ChessActionType::BuyShopSlot);
-         value <= static_cast<int>(ChessActionType::SetFormation);
+         value <= static_cast<int>(ChessActionType::ChooseLateBloomer);
          ++value)
     {
         const auto type = static_cast<ChessActionType>(value);
@@ -321,6 +324,7 @@ std::string chessActionPayloadSchema(ChessActionType type)
     case ChessActionType::SellChess: return R"({"type":"sell_chess","chess_instance_id":"整數"})";
     case ChessActionType::SetDeployment: return R"({"type":"set_deployment","chess_instance_ids":"整數陣列"})";
     case ChessActionType::SetFormation: return R"({"type":"set_formation","chess_instance_ids":"十個棋子實例 ID 或 -1"})";
+    case ChessActionType::ChooseLateBloomer: return R"({"type":"choose_late_bloomer","chess_instance_id":"整數"})";
     case ChessActionType::AddBan: return R"({"type":"add_ban","role_id":"整數"})";
     case ChessActionType::Equip: return R"({"type":"equip","equipment_instance_id":"整數","target_chess_instance_id":"整數"})";
     case ChessActionType::BuyLegendaryEquipment: return R"({"type":"buy_legendary_equipment","item_id":"整數"})";
@@ -343,6 +347,7 @@ std::string chessActionExampleJson(ChessActionType type)
     {
     case ChessActionType::BuyShopSlot: action.shopSlot = 0; break;
     case ChessActionType::SetShopLocked: action.value = true; break;
+    case ChessActionType::ChooseLateBloomer:
     case ChessActionType::SellChess: action.chessInstanceId = 1; break;
     case ChessActionType::SetDeployment: action.chessInstanceIds = {1, 2}; break;
     case ChessActionType::SetFormation: action.chessInstanceIds = {1, 2, -1, -1, -1, -1, -1, -1, -1, -1}; break;

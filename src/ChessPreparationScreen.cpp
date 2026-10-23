@@ -614,8 +614,13 @@ void ChessPreparationScreen::pieceInspector()
     const auto character = buildChessCharacterPresentation(
         session_.content(), session_.state(), roleId, piece ? piece->star : 1,
         piece ? piece->instanceId : -1, piece ? ChessCharacterContext::Owned : ChessCharacterContext::Shop);
+    const bool showTraining = !characterInspector_.expanded && piece && session_.state().talent == ChessTalentId::LateBloomer
+        && (!session_.state().lateBloomerSelectionUsed || piece->lateBloomerChosen);
+    const int detailWidth = (width - 12) / 2;
+    const std::optional<SDL_Rect> navigationFrame = showTraining
+        ? std::optional(SDL_Rect{x, inspector_.y + inspector_.h - 120, detailWidth, 44}) : std::nullopt;
     auto content = composeChessCharacterInspector(character,
-        {inspector_.x, inspector_.y, inspector_.w, inspector_.h - 64}, characterInspector_);
+        {inspector_.x, inspector_.y, inspector_.w, inspector_.h - 64}, characterInspector_, navigationFrame);
     for (int i = 0; i < static_cast<int>(content.controls.size()); ++i)
     {
         const auto control = content.controls[i];
@@ -644,6 +649,17 @@ void ChessPreparationScreen::pieceInspector()
     const int bottom = inspector_.y + inspector_.h - 64;
     if (piece)
     {
+        if (showTraining)
+        {
+            const int wins = session_.content().balance().talent(ChessTalentId::LateBloomer).evolutionWins;
+            const auto label = !piece->lateBloomerChosen ? std::string("晚成培養")
+                : piece->star == 4 ? std::string("已突破四星")
+                : std::format("培養 {}/{}", std::min(piece->fightsWon, wins), wins);
+            button("late-bloomer", {x + detailWidth + 12, bottom - 56, width - detailWidth - 12, 44}, label,
+                [this, id = piece->instanceId] { chooseLateBloomer(id); },
+                chessLateBloomerSelectionDescription(session_.content(), *piece),
+                !piece->lateBloomerChosen, false, Treatment::Action);
+        }
         const int price = ChessManagementRules::pieceValue(session_.content(), piece->roleId, piece->star);
         button("deployment", {x, bottom, width - 136, 52}, piece->deployed ? "下陣" : "上陣", [this] { deploy(); }, {}, true, false, Treatment::Action);
         button(std::format("sell:{}", piece->instanceId), {x + width - 124, bottom, 124, 52}, std::format("出售 {}金", price),
@@ -1102,6 +1118,20 @@ void ChessPreparationScreen::ban(int roleId)
     submit(action, {});
 }
 
+void ChessPreparationScreen::chooseLateBloomer(int instanceId)
+{
+    const auto& piece = session_.state().roster.at(instanceId);
+    const auto& name = session_.content().role(piece.roleId)->Name;
+    if (runChessChoiceMenu(std::format("確認培養「{}」", name), {"確定培養", "取消"},
+        ChessChoiceStyle::Confirmation, nullptr, chessLateBloomerSelectionDescription(session_.content(), piece)) == 0)
+    {
+        auto action = simpleAction(ChessActionType::ChooseLateBloomer);
+        action.chessInstanceId = instanceId;
+        submit(action, std::format("已選定{}，出戰勝場會累積培養進度", name));
+    }
+    else rebuild();
+}
+
 void ChessPreparationScreen::open(ChessContextMenuAction command)
 {
     // 先離開整備的輸入派送，再由 adapter 執行戰鬥／獎勵等既有流程。
@@ -1140,10 +1170,13 @@ ChessActionResult ChessPreparationScreen::submit(const ChessAction& action, cons
                 std::erase_if(luckFeedback_, [&](const auto& feedback) { return feedback.instanceId == event.primaryId; });
                 luckFeedback_.push_back({event.primaryId, event.value, Engine::getTicks() + 1800});
             }
-            if (event.type == ChessSemanticEventType::ChessPurchased || event.type == ChessSemanticEventType::ChessMerged)
+            if (event.type == ChessSemanticEventType::LateBloomerEvolved)
+                notice_ = std::format("{}突破四星！", session_.content().role(event.secondaryId)->Name);
+            if (event.type == ChessSemanticEventType::ChessPurchased || event.type == ChessSemanticEventType::ChessMerged
+                || event.type == ChessSemanticEventType::LateBloomerEvolved)
             {
                 arrivalIds_.push_back(event.primaryId);
-                if (event.type == ChessSemanticEventType::ChessMerged) arrivalMerged_ = true;
+                if (event.type != ChessSemanticEventType::ChessPurchased) arrivalMerged_ = true;
             }
         }
         if (arrivalMerged_) playChessUpgradeSound();

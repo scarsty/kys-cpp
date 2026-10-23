@@ -180,7 +180,6 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
     assert(instanceId < 0 || (piece && piece->roleId == roleId));
     auto preview = piece ? *piece : ChessSessionPiece{};
     preview.star = star;
-    const int growthPercent = content.balance().talent(state.talent).amplifiedGrowthPercent;
     std::array<int, 2> equipmentItemIds{-1, -1};
     if (piece)
         for (int slot = 0; slot < 2; ++slot)
@@ -199,7 +198,7 @@ inline ChessCharacterPresentation buildChessCharacterPresentation(const ChessGam
             state.talent == ChessTalentId::Gambler};
         result.stats = breakdown.total;
     }
-    else result.stats = chessRoleStats(*role, content.balance(), star, 0, growthPercent);
+    else result.stats = chessRoleStats(*role, content.balance(), star, 0);
 
     for (const auto& combo : content.combos())
     {

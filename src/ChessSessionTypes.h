@@ -51,6 +51,7 @@ enum class ChessActionType : std::uint16_t
     StartChallenge,
     FinishRun,
     SetFormation,
+    ChooseLateBloomer,
 };
 
 enum class ChessRuleErrorCode : std::uint16_t
@@ -85,6 +86,7 @@ enum class ChessRuleErrorCode : std::uint16_t
     CampaignNotComplete,
     NoPreparedBattle,
     InvalidFormation,
+    TalentSelectionUnavailable,
 };
 
 enum class ChessSemanticEventType : std::uint16_t
@@ -129,6 +131,8 @@ enum class ChessSemanticEventType : std::uint16_t
     ShopGuaranteeInjected,
     ShopGuaranteeCancelled,
     TalentComboChosen,
+    LateBloomerChosen,
+    LateBloomerEvolved,
 };
 
 enum class ChessRewardKind : std::uint16_t
@@ -214,6 +218,7 @@ struct ChessSessionPiece
     int armorInstanceId = -1;
     int fightsWon{};
     int luckStacks{};
+    bool lateBloomerChosen = false;
 
     auto operator<=>(const ChessSessionPiece&) const = default;
 };
@@ -266,6 +271,7 @@ struct ChessSessionState
     ChessTalentId talent = ChessTalentId::DivineArms;
     int selectedTalentComboId = -1;
     std::vector<int> shopGuarantees;
+    bool lateBloomerSelectionUsed = false;
     int money{};
     int experience{};
     int level{};
@@ -326,6 +332,10 @@ struct ChessGameplayObservation
     ChessTalentId talent = ChessTalentId::DivineArms;
     int selectedTalentComboId = -1;
     std::vector<int> shopGuarantees;
+    bool lateBloomerSelectionUsed{};
+    int evolutionWins{};
+    int remainingVictoryBattles{};
+    std::string lateBloomerReminder;
     ChessSessionOptions options;
     std::string talentName;
     std::string talentDescription;

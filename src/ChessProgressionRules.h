@@ -15,6 +15,8 @@ public:
     static int interestGold(const ChessSessionState& state, const ChessGameContent& content);
     static std::optional<int> nextInterestThreshold(const ChessSessionState& state, const ChessGameContent& content);
     static int projectedVictoryIncome(const ChessSessionState& state, const ChessGameContent& content);
+    static int remainingVictoryBattles(const ChessSessionState& state, const ChessGameContent& content);
+    static std::string lateBloomerReminder(const ChessSessionState& state, const ChessGameContent& content);
     static void applyBattleResult(
         ChessSessionState& state,
         const ChessGameContent& content,

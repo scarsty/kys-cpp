@@ -1,6 +1,9 @@
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessBattlePlanner.h"
 #include "ChessRewardRules.h"
+#include "ChessProgressionRules.h"
+#include "ChessPreparationModel.h"
+#include "ChessGameQueries.h"
 #include "ChessReplayVerifier.h"
 #include "ChessSessionCheckpoint.h"
 #include "ChessPvp.h"
@@ -36,7 +39,8 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
         ChessTalentDefinition{.description = "測試神兵", .legendaryShop = true});
     data.balance.talents.insert_or_assign(
         ChessTalentId::LateBloomer,
-        ChessTalentDefinition{.description = "測試晚成", .amplifiedGrowthPercent = 100});
+        ChessTalentDefinition{.description = "測試晚成", .evolutionWins = 30,
+            .evolutionWarningBattles = 35, .evolutionStatusShields = {810, 410, 210, 0, 0}});
     data.balance.talents.insert_or_assign(
         ChessTalentId::Gambler,
         ChessTalentDefinition{
@@ -607,6 +611,10 @@ TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[c
         ChessBattlePlanner::prepareChallenge(state, *content, random, challenge)})
     {
         CHECK(battle.units[0].openingMp == 30);
+        CHECK(battle.units[0].amplifiedGrowthPercent == 0);
+        CHECK(battle.units[1].amplifiedGrowthPercent == 0);
+        CHECK(battle.units[2].amplifiedGrowthPercent == 0);
+        CHECK(battle.units[3].amplifiedGrowthPercent == 0);
         CHECK(battle.units[1].openingMp == 30);
         CHECK(battle.units[2].openingMp == 0);
         CHECK(battle.units[3].openingMp == 0);
@@ -617,7 +625,7 @@ TEST_CASE("campaign and challenge lower talents from their deployed lineup", "[c
     }
     state.talent = ChessTalentId::LateBloomer;
     auto battle = ChessBattlePlanner::prepareChallenge(state, *content, random, challenge);
-    CHECK(battle.units[0].amplifiedGrowthPercent == 100);
+    CHECK(battle.units[0].amplifiedGrowthPercent == 0);
     CHECK(battle.units.back().amplifiedGrowthPercent == 0);
     CHECK(battle.units[0].openingStrengthening.charges == 0);
     state.talent = ChessTalentId::Gambler;
@@ -722,5 +730,136 @@ TEST_CASE("equipment rewards respect both tier bounds and talent shop capability
                 CHECK(chosen.insert(option.value).second);
             }
         }
+    }
+}
+
+TEST_CASE("late bloomer chooses one owned instance at any tier or star and preserves existing wins", "[chess][talent][late-bloomer]")
+{
+    const auto content = talentContent();
+    for (int tier = 1; tier <= 5; ++tier)
+        for (int star = 1; star <= 3; ++star)
+        {
+            ChessSessionState state;
+            state.talent = ChessTalentId::LateBloomer;
+            state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = tier * 100,
+                .star = star, .fightsWon = 30});
+            state.roster.emplace(2, ChessSessionPiece{.instanceId = 2, .roleId = tier * 100,
+                .star = star, .deployed = true, .fightsWon = 40});
+            ChessRunRandom random(1);
+            std::vector<ChessSemanticEvent> events;
+            const ChessAction choose{.type = ChessActionType::ChooseLateBloomer, .chessInstanceId = 1};
+            REQUIRE(ChessManagementRules::validate(state, *content, choose) == ChessRuleErrorCode::None);
+            ChessManagementRules::apply(state, *content, random, choose, events);
+            CHECK(state.lateBloomerSelectionUsed);
+            CHECK(state.roster.at(1).lateBloomerChosen);
+            CHECK(state.roster.at(1).fightsWon == 30);
+            CHECK(state.roster.at(1).star == (star == 3 ? 4 : star));
+            CHECK_FALSE(state.roster.at(2).lateBloomerChosen);
+            CHECK(state.roster.at(2).star == star);
+            CHECK(ChessManagementRules::validate(state, *content,
+                {.type = ChessActionType::ChooseLateBloomer, .chessInstanceId = 2}) == ChessRuleErrorCode::TalentSelectionUnavailable);
+            ChessManagementRules::apply(state, *content, random,
+                {.type = ChessActionType::SellChess, .chessInstanceId = 1}, events);
+            CHECK(ChessManagementRules::validate(state, *content,
+                {.type = ChessActionType::ChooseLateBloomer, .chessInstanceId = 2}) == ChessRuleErrorCode::TalentSelectionUnavailable);
+        }
+    ChessSessionState state;
+    state.talent = ChessTalentId::LateBloomer;
+    CHECK(ChessManagementRules::validate(state, *content,
+        {.type = ChessActionType::ChooseLateBloomer, .chessInstanceId = 99}) == ChessRuleErrorCode::UnknownChessInstance);
+}
+
+TEST_CASE("late bloomer follows recursive merges and reward upgrades without spreading to a second copy", "[chess][talent][late-bloomer]")
+{
+    const auto content = talentContent();
+    ChessSessionState state;
+    state.talent = ChessTalentId::LateBloomer;
+    state.lateBloomerSelectionUsed = true;
+    state.nextChessInstanceId = 10;
+    state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = 100, .fightsWon = 35});
+    state.roster.emplace(2, ChessSessionPiece{.instanceId = 2, .roleId = 100, .deployed = true,
+        .fightsWon = 12, .lateBloomerChosen = true});
+    state.roster.emplace(3, ChessSessionPiece{.instanceId = 3, .roleId = 100, .star = 2});
+    state.roster.emplace(4, ChessSessionPiece{.instanceId = 4, .roleId = 100, .star = 2});
+    state.roster.emplace(5, ChessSessionPiece{.instanceId = 5, .roleId = 100, .star = 3, .fightsWon = 50});
+    std::vector<ChessSemanticEvent> events;
+    ChessManagementRules::grantPiece(state, *content, 100, events);
+    REQUIRE(state.roster.size() == 2);
+    const auto chosen = std::ranges::find_if(state.roster, [](const auto& entry) { return entry.second.lateBloomerChosen; });
+    REQUIRE(chosen != state.roster.end());
+    CHECK(chosen->second.star == 4);
+    CHECK(chosen->second.fightsWon == 35);
+    CHECK(chosen->second.deployed);
+    CHECK(state.roster.at(5).star == 3);
+    CHECK(eventCount(events, ChessSemanticEventType::LateBloomerEvolved) == 1);
+    const auto copies = queryChessRoleCopies(state, 100);
+    CHECK(copies.copiesByStar == std::array{0, 0, 1, 1});
+    CHECK(copies.ownedCopies == 18);
+    CHECK(ChessManagementRules::pieceValue(*content, 100, 4) == ChessManagementRules::pieceValue(*content, 100, 3));
+
+    auto& piece = state.roster.at(chosen->first);
+    piece.star = 2;
+    events.clear();
+    ChessManagementRules::upgradePiece(state, *content, piece.instanceId, 3, events);
+    CHECK(piece.star == 4);
+    CHECK(eventCount(events, ChessSemanticEventType::LateBloomerEvolved) == 1);
+}
+
+TEST_CASE("late bloomer selection round trips action protocol checkpoint and replay", "[chess][talent][late-bloomer][replay]")
+{
+    const auto content = talentContent();
+    ChessGameSession session(content, 24, {.talent = ChessTalentId::LateBloomer});
+    REQUIRE(session.submitAndDrain(Test::buySlot(0)).accepted);
+    const int id = session.state().roster.begin()->first;
+    const ChessAction choose{.type = ChessActionType::ChooseLateBloomer, .chessInstanceId = id};
+    REQUIRE(parseChessActionJson(serializeChessActionJson(choose)) == choose);
+    CHECK(std::ranges::any_of(session.legalActions(), [](const auto& action) {
+        return action.type == ChessActionType::ChooseLateBloomer;
+    }));
+    const auto before = session.observe().stateHash;
+    REQUIRE(session.submitAndDrain(choose).accepted);
+    CHECK(session.observe().stateHash != before);
+    CHECK(session.observe().lateBloomerSelectionUsed);
+    CHECK_FALSE(session.submitAndDrain(choose).accepted);
+    CHECK(ChessReplayVerifier::verify(content, *session.exportReplay()).valid);
+    const auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    ChessCheckpointError error;
+    const auto parsed = ChessSessionCheckpoint::parseJson(checkpoint.serializeJson(), error);
+    REQUIRE(parsed);
+    ChessGameSession restored(content, 25);
+    REQUIRE(parsed->restore(restored) == ChessCheckpointError::None);
+    CHECK(restored.state() == session.state());
+    auto invalid = checkpoint;
+    invalid.state.roster.emplace(99, ChessSessionPiece{.instanceId = 99, .roleId = 100, .lateBloomerChosen = true});
+    CHECK(invalid.restore(restored) == ChessCheckpointError::UnrepresentableSnapshot);
+}
+
+TEST_CASE("late bloomer four-star opening shields survive PvP and standalone conversion", "[chess][talent][late-bloomer][pvp]")
+{
+    const auto content = talentContent();
+    for (int tier = 1; tier <= 5; ++tier)
+    {
+        ChessGameSession session(content, 88, {.talent = ChessTalentId::LateBloomer});
+        auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+        checkpoint.state.lateBloomerSelectionUsed = true;
+        checkpoint.state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = tier * 100, .star = 4,
+            .deployed = true, .fightsWon = 30, .lateBloomerChosen = true});
+        checkpoint.state.roster.emplace(2, ChessSessionPiece{.instanceId = 2, .roleId = tier * 100,
+            .star = 3, .deployed = true, .fightsWon = 40});
+        checkpoint.state.nextChessInstanceId = 3;
+        ChessManagementRules::maintainFormation(checkpoint.state);
+        REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+        const auto composition = extractChessPvpComposition(session);
+        const auto team = chessStandaloneBattleTeam(composition);
+        const auto preview = ChessBattlePlanner::prepareRosterPreview(session.state(), *content);
+        const auto shield = content->balance().talent(ChessTalentId::LateBloomer).evolutionStatusShields[tier - 1];
+        CHECK(preview.units[0].openingStatusShield == shield);
+        CHECK(preview.units[1].openingStatusShield == 0);
+        CHECK(composition.pieces[0].star == 4);
+        CHECK(composition.pieces[0].openingStatusShield == shield);
+        CHECK(team.pieces[0].openingStatusShield == shield);
+        CHECK(team.pieces[1].openingStatusShield == 0);
+        CHECK(chessRoleMagicsForStar(*content, *content->role(tier * 100), 4)
+            == chessRoleMagicsForStar(*content, *content->role(tier * 100), 3));
     }
 }

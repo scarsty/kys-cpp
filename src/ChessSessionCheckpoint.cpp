@@ -68,13 +68,22 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
     {
         return ChessCheckpointError::UnrepresentableSnapshot;
     }
+    int chosenCount{};
     for (const auto& [id, piece] : state.roster)
     {
         if (piece.luckStacks < 0
             || piece.luckStacks > session.content_->balance().talent(state.talent).luckStackCap
             || (state.talent != ChessTalentId::Gambler && piece.luckStacks != 0))
             return ChessCheckpointError::UnrepresentableSnapshot;
+        if (piece.lateBloomerChosen) ++chosenCount;
+        if (piece.star < 1 || piece.star > 4
+            || (piece.lateBloomerChosen && (state.talent != ChessTalentId::LateBloomer || !state.lateBloomerSelectionUsed))
+            || (piece.star == 4 && (!piece.lateBloomerChosen
+                || piece.fightsWon < session.content_->balance().talent(state.talent).evolutionWins)))
+            return ChessCheckpointError::UnrepresentableSnapshot;
     }
+    if (chosenCount > 1 || (state.lateBloomerSelectionUsed && state.talent != ChessTalentId::LateBloomer))
+        return ChessCheckpointError::UnrepresentableSnapshot;
     if (state.selectedTalentComboId != -1)
     {
         const auto combo = std::ranges::find(session.content_->combos(), state.selectedTalentComboId, &ComboDef::id);

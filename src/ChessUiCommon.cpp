@@ -51,10 +51,46 @@ bool containsMusicId(const std::array<int, N>& musicIds, int musicId)
 
 }    // namespace
 
-void showChessMessage(const std::string& text, int fontSize)
+void showChessMessage(const std::string& text, int fontSize, bool highlightValues)
 {
     class Message : public DismissibleTextBox
     {
+    public:
+        bool highlightValues = false;
+
+    private:
+        void drawRow(const std::string& row, int size, int x, int y) const
+        {
+            using namespace ChessUiStyle;
+            std::size_t drawn{};
+            const auto drawThrough = [&](std::size_t end, Color color) {
+                const auto text = row.substr(drawn, end - drawn);
+                Font::getInstance()->draw(text, size, x, y, color);
+                x += displayTextWidth(text) * size / 2;
+                drawn = end;
+            };
+            if (highlightValues)
+            {
+                for (auto start = row.find_first_of("0123456789"); start != std::string::npos;)
+                {
+                    auto end = row.find_first_not_of("0123456789", start);
+                    if (end == std::string::npos) end = row.size();
+                    const bool money = start > 0 && row[start - 1] == '$';
+                    const auto suffix = std::string_view(row).substr(end);
+                    const bool progress = suffix.starts_with("關") || suffix.starts_with("場") || suffix.starts_with("勝");
+                    if (money || progress)
+                    {
+                        auto begin = money ? start - 1 : start;
+                        if (money && begin > 0 && row[begin - 1] == '+') --begin;
+                        drawThrough(begin, ink);
+                        drawThrough(end, money ? gold : context);
+                    }
+                    start = row.find_first_of("0123456789", end);
+                }
+            }
+            drawThrough(row.size(), ink);
+        }
+
         void draw() override
         {
             using namespace ChessUiStyle;
@@ -69,7 +105,7 @@ void showChessMessage(const std::string& text, int fontSize)
             int y = top + 32;
             for (const auto& row : rows)
             {
-                Font::getInstance()->draw(row, size, left + 32, y, ink);
+                drawRow(row, size, left + 32, y);
                 y += size + 10;
             }
             engine->fillColor(line, left + 32, y + 8, 856, 1);
@@ -77,13 +113,14 @@ void showChessMessage(const std::string& text, int fontSize)
         }
     };
     auto box = std::make_shared<Message>();
+    box->highlightValues = highlightValues;
     box->setText(text);
     box->setFontSize(fontSize);
     box->runCentered(Engine::getInstance()->getUIHeight() / 2);
 }
 
 int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
-    ChessChoiceStyle style, ChessSelectionPosition* position)
+    ChessChoiceStyle style, ChessSelectionPosition* position, const std::string& description)
 {
     std::vector<ChessSelectionItem> items;
     for (const auto& choice : choices)
@@ -94,6 +131,7 @@ int runChessChoiceMenu(const std::string& title, const std::vector<std::string>&
     if (style != ChessChoiceStyle::Options)
         menu->setConfirmation(style == ChessChoiceStyle::DestructiveConfirmation);
     menu->setActionLabel("確認");
+    menu->setHeaderNote(description);
     if (position) menu->restorePosition(*position);
     const int result = menu->run();
     if (position) *position = menu->position();

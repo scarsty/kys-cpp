@@ -16,6 +16,7 @@
 #include "ChessEffectDescription.h"
 #include "ChessGuiBattleFlow.h"
 #include "ChessManagementRules.h"
+#include "ChessProgressionRules.h"
 #include "ChessMenuFormatting.h"
 #include "ChessGameGuide.h"
 #include "ChessPresentationHelpers.h"
@@ -142,6 +143,23 @@ std::optional<ChessLegalActionDescriptor> legalAction(
     return found == legal.end() ? std::nullopt : std::optional(*found);
 }
 
+std::string lateBloomerBattleFeedback(const ChessGameSession& session, const ChessActionResult& result)
+{
+    std::string message;
+    for (const auto& event : result.events)
+        if (event.type == ChessSemanticEventType::LateBloomerEvolved)
+            message += std::format("{}突破四星！\n", session.content().role(event.secondaryId)->Name);
+    message += ChessProgressionRules::lateBloomerReminder(session.state(), session.content());
+    return message;
+}
+
+void showBattleCompletionMessage(const ChessGameSession& session, const ChessActionResult& result, std::string message)
+{
+    const auto feedback = lateBloomerBattleFeedback(session, result);
+    if (!feedback.empty()) message += "\n\n" + feedback;
+    showChessMessage(message, 32, true);
+}
+
 void showCampaignVictoryFeedback(
     const ChessGameSession& session,
     const ChessActionResult& result,
@@ -175,7 +193,7 @@ void showCampaignVictoryFeedback(
     const std::string comboMessage = comboBonus > 0
         ? chessVictoryComboBonusText(session.content(), *gold, comboBonus)
         : std::string{};
-    showChessMessage(std::format(
+    showBattleCompletionMessage(session, result, std::format(
         "勝利！獲得${}{}{} 經驗+{}{}{}",
         gold->primaryId,
         interestMessage,
@@ -2207,7 +2225,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             const auto* role = session_.content().role(selected.value);
             assert(role);
             const bool merged = std::ranges::contains(result.events, ChessSemanticEventType::ChessMerged, &ChessSemanticEvent::type);
-            showChessMessage(merged ? std::format("{}升星！", role->Name) : std::format("獲得棋子：{}", role->Name));
+            const bool evolved = std::ranges::contains(result.events, ChessSemanticEventType::LateBloomerEvolved, &ChessSemanticEvent::type);
+            showChessMessage(evolved ? std::format("{}突破四星！", role->Name)
+                : merged ? std::format("{}升星！", role->Name) : std::format("獲得棋子：{}", role->Name));
             if (merged)
             {
                 playChessUpgradeSound();
@@ -2219,7 +2239,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             assert(merged != result.events.end());
             const auto* role = session_.content().role(merged->secondaryId);
             assert(role);
-            showChessMessage(std::format("{}升星至{}★！", role->Name, selected.value2));
+            const bool evolved = std::ranges::contains(result.events, ChessSemanticEventType::LateBloomerEvolved, &ChessSemanticEvent::type);
+            showChessMessage(evolved ? std::format("{}突破四星！", role->Name)
+                : std::format("{}升星至{}★！", role->Name, selected.value2));
         }
         else if (pending.kind == ChessRewardKind::ChallengeReward)
         {
@@ -2340,13 +2362,13 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         {
             if (session_.state().lastBattleOutcome == Battle::BattleOutcome::Timeout)
             {
-                showChessMessage(std::format(
+                showBattleCompletionMessage(session_, actionResult, std::format(
                     "{}。請調整陣容後再試",
                     chessBattleOutcomeDescription(session_.state().lastBattleOutcome)));
             }
             else
             {
-                showChessMessage(prepared.kind == PreparedChessBattleKind::Challenge
+                showBattleCompletionMessage(session_, actionResult, prepared.kind == PreparedChessBattleKind::Challenge
                     ? "挑戰失敗！請調整陣容後再試"
                     : "戰鬥失敗！請調整陣容後再試");
             }
@@ -2360,7 +2382,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         {
             if (repeatedChallenge)
             {
-                showChessMessage("挑戰勝利！(已領取過獎勵)");
+                showBattleCompletionMessage(session_, actionResult, "挑戰勝利！(已領取過獎勵)");
                 if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
                 {
                     return ChessGuiFlowResult::Aborted;
@@ -2369,6 +2391,11 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
             else if (drainRewards() == ChessGuiFlowResult::Aborted)
             {
                 return ChessGuiFlowResult::Aborted;
+            }
+            else if (!lateBloomerBattleFeedback(session_, actionResult).empty())
+            {
+                showBattleCompletionMessage(session_, actionResult, "挑戰勝利！");
+                if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted) return ChessGuiFlowResult::Aborted;
             }
             continue;
         }

@@ -65,7 +65,7 @@ inline ChessShopRowEmphasis chessShopRowEmphasis(const ChessSessionState& state,
         if (piece.roleId == roleId)
         {
             ++matchingPieces;
-            hasOtherStarPiece = hasOtherStarPiece || piece.star != 3;
+            hasOtherStarPiece = hasOtherStarPiece || piece.star < 3;
         }
     }
     if (matchingPieces == 0 || (matchingPieces == 1 && !hasOtherStarPiece))

@@ -297,40 +297,14 @@ inline ChessTalentPresentation buildChessTalentPresentation(
     case ChessTalentId::DivineArms:
         break;
     case ChessTalentId::LateBloomer:
-        appendMechanic(
-            "勝場成長",
-            "每場基礎",
-            std::format(
-                "生命 +{}、攻擊 +{}、防禦 +{}、兵器 +{}、輕功 +{}",
-                balance.fightWinGrowthHP,
-                balance.fightWinGrowthAtk,
-                balance.fightWinGrowthDef,
-                balance.fightWinGrowthWeapon,
-                balance.fightWinGrowthSpeed));
-        appendMechanic(
-            "一般基準",
-            "加成",
-            "0%（勝場成長不受星級倍率放大）");
-        appendMechanic(
-            "晚成",
-            "加成",
-            std::format(
-                "{}%（勝場成長會併入星級倍率）",
-                talent.amplifiedGrowthPercent));
-        appendMechanic(
-            "每多1星",
-            "星級倍率",
-            std::format(
-                "生命 +{}、攻擊 +{}、防禦 +{}、武功 +{}、輕功 +{}",
-                formatChessTalentPercent(balance.starHPMult),
-                formatChessTalentPercent(balance.starAtkMult),
-                formatChessTalentPercent(balance.starDefMult),
-                formatChessTalentPercent(balance.starMartialMult),
-                formatChessTalentPercent(balance.starSpdMult)));
-        appendMechanic(
-            "計算方式",
-            "放大部分",
-            "勝場成長 × 晚成比例 × 每星倍率 ×（星數−1）；1星不放大，2星放大1次，3星放大2次。小數按實際計算取整。");
+        appendMechanic("培養對象", "每局一次", "在出戰或候補棋子的面板選定一枚；不限費用與星級，選定後不可更換");
+        appendMechanic("突破四星", "條件", std::format("選定棋子達到三星與{}勝；四星沿用一般升星加成", talent.evolutionWins));
+        appendMechanic("勝場", "正常累積", "計入已有勝場、主線勝利與遠征首次通關；須出戰，合成取最高勝場");
+        appendMechanic("合成", "繼承選擇", "培養資格隨合成保留；第二枚同名棋子不會獲得資格，出售不退還選擇機會");
+        for (int tier = 0; tier < 5; ++tier)
+            if (talent.evolutionStatusShields[tier] > 0)
+                appendMechanic("四星開場", std::format("{}費棋子", tier + 1),
+                    std::format("狀態護盾{}幀，可抵銷負面狀態的持續時間", talent.evolutionStatusShields[tier]));
         break;
     case ChessTalentId::Gambler:
         appendMechanic(

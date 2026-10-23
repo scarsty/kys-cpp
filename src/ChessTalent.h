@@ -52,7 +52,9 @@ struct ChessTalentDefinition
 {
     std::string description;
     bool legendaryShop = false;
-    int amplifiedGrowthPercent{};
+    int evolutionWins{};
+    int evolutionWarningBattles{};
+    std::array<int, 5> evolutionStatusShields{};
     int openingBans{};
     int banMinTier{};
     int banMaxTier{};

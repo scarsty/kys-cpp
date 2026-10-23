@@ -129,7 +129,7 @@ bool loadBalanceConfig(
         switch (*id)
         {
         case ChessTalentId::DivineArms: keys(n, {"說明", "可使用神兵商店"}); break;
-        case ChessTalentId::LateBloomer: keys(n, {"說明", "勝場成長受加成比例"}); break;
+        case ChessTalentId::LateBloomer: keys(n, {"說明", "突破勝場", "提醒剩餘戰鬥", "各費開場狀態護盾"}); break;
         case ChessTalentId::Gambler:
             keys(n, {"說明", "開局額外禁棋", "賭運"});
             keys(n["開局額外禁棋"], {"次數", "最低費用", "最高費用"});
@@ -160,7 +160,16 @@ bool loadBalanceConfig(
             def.legendaryShop = n["可使用神兵商店"].as<bool>();
             break;
         case ChessTalentId::LateBloomer:
-            def.amplifiedGrowthPercent = number(n, "勝場成長受加成比例", 0, kChessMaximumGrowthAmplificationPercent);
+            def.evolutionWins = number(n, "突破勝場", 1, 1000);
+            def.evolutionWarningBattles = number(n, "提醒剩餘戰鬥", 1, 1000);
+            if (!n["各費開場狀態護盾"].IsSequence() || n["各費開場狀態護盾"].size() != 5)
+                throw std::runtime_error("各費開場狀態護盾必須包含一至五費的五個數值");
+            for (int tier = 0; tier < 5; ++tier)
+            {
+                const int shield = n["各費開場狀態護盾"][tier].as<int>();
+                if (shield < 0 || shield > 100000) throw std::runtime_error("開場狀態護盾必須介於0至100000");
+                def.evolutionStatusShields[tier] = shield;
+            }
             break;
         case ChessTalentId::Gambler:
         {

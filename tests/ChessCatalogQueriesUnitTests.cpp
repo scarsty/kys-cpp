@@ -556,7 +556,7 @@ TEST_CASE("enemy character inspector shares equipment and skills while using ene
     CHECK_FALSE(owned.synergies.front().active);
 }
 
-TEST_CASE("win growth breakdown includes talent and the current contributing synergy", "[chess][ui][catalog]")
+TEST_CASE("win growth breakdown includes the current contributing synergy without backbone amplification", "[chess][ui][catalog]")
 {
     ChessGameContentData data;
     data.balance.starHPMult = 0.8;
@@ -565,13 +565,14 @@ TEST_CASE("win growth breakdown includes talent and the current contributing syn
     data.balance.fightWinGrowthHP = 2.5;
     data.balance.fightWinGrowthAtk = 1;
     data.balance.fightWinGrowthDef = 1;
-    data.balance.talents.emplace(ChessTalentId::LateBloomer,
-        ChessTalentDefinition{.amplifiedGrowthPercent = 120});
+    data.balance.talents.emplace(ChessTalentId::Backbone,
+        ChessTalentDefinition{.targetTier = 3});
     for (int id : {10, 20, 30})
     {
         ChessRoleDefinition role;
         role.ID = id;
         role.MaxHP = 101;
+        role.Cost = 3;
         role.Attack = 20;
         role.Defence = 10;
         data.roles.emplace(id, role);
@@ -583,7 +584,7 @@ TEST_CASE("win growth breakdown includes talent and the current contributing syn
     data.equipment.push_back({.itemId = 500, .managementRules = {CountsAsComboRule{"成長羈絆"}}});
     const ChessGameContent content(std::move(data));
     ChessSessionState state;
-    state.talent = ChessTalentId::LateBloomer;
+    state.talent = ChessTalentId::Backbone;
     for (int id = 1; id <= 3; ++id)
         state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = id * 10,
             .star = 2, .deployed = true, .fightsWon = 3});
@@ -591,15 +592,15 @@ TEST_CASE("win growth breakdown includes talent and the current contributing syn
     state.equipmentInventory.emplace(5, ChessEquipmentInstance{.instanceId = 5, .itemId = 500, .assignedChessInstanceId = 2});
 
     const auto natural = chessPieceStatBreakdown(content, state, state.roster.at(1));
-    CHECK(natural.fightWinGrowth.maxHp == 37);
-    CHECK(natural.fightWinGrowth.attack == 14);
-    CHECK(natural.fightWinGrowth.defence == 16);
+    CHECK(natural.fightWinGrowth.maxHp == 19);
+    CHECK(natural.fightWinGrowth.attack == 9);
+    CHECK(natural.fightWinGrowth.defence == 12);
     const auto transferred = chessPieceStatBreakdown(content, state, state.roster.at(2));
     CHECK(transferred.fightWinGrowth == natural.fightWinGrowth);
     const auto outsider = chessPieceStatBreakdown(content, state, state.roster.at(3));
-    CHECK(outsider.fightWinGrowth.maxHp == 14);
-    CHECK(outsider.fightWinGrowth.attack == 4);
-    CHECK(outsider.fightWinGrowth.defence == 4);
+    CHECK(outsider.fightWinGrowth.maxHp == 7);
+    CHECK(outsider.fightWinGrowth.attack == 3);
+    CHECK(outsider.fightWinGrowth.defence == 3);
 
     auto preview = state.roster.at(1);
     preview.fightsWon = 0;

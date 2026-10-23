@@ -203,11 +203,12 @@ inline PanelTextLayout layoutPanelText(
     int pixelWidth,
     int baseFontSize);
 
-void showChessMessage(const std::string& text, int fontSize = 32);
+void showChessMessage(const std::string& text, int fontSize = 32, bool highlightValues = false);
 enum class ChessChoiceStyle { Options, Confirmation, DestructiveConfirmation };
 struct ChessSelectionPosition;
 int runChessChoiceMenu(const std::string& title, const std::vector<std::string>& choices,
-    ChessChoiceStyle style = ChessChoiceStyle::Options, ChessSelectionPosition* position = nullptr);
+    ChessChoiceStyle style = ChessChoiceStyle::Options, ChessSelectionPosition* position = nullptr,
+    const std::string& description = {});
 void playChessUpgradeSound();
 int getRandomChessMusic();
 int getRandomBattleMusic();

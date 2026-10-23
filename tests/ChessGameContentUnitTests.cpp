@@ -113,7 +113,9 @@ constexpr std::string_view talentsFixtureText = R"(棋手天賦:
     可使用神兵商店: true
   晚成:
     說明: 測試晚成說明
-    勝場成長受加成比例: 10
+    突破勝場: 10
+    提醒剩餘戰鬥: 15
+    各費開場狀態護盾: [80, 40, 20, 0, 0]
   賭徒:
     說明: 測試賭徒說明
     開局額外禁棋:
@@ -451,12 +453,12 @@ TEST_CASE("combo configuration requires explicit nonnegative icon IDs", "[chess]
     else CHECK(combos.empty());
 }
 
-TEST_CASE("content without NPC-only combos preserves the 0.2.19 fingerprint", "[chess][content][fingerprint][version]")
+TEST_CASE("synthetic content fingerprint includes the current talent schema", "[chess][content][fingerprint]")
 {
-    // 由 0.2.19 的指紋實作對此測試自有樣本計算，避免僅驗證新版彼此相等。
+    // 固定測試自有樣本的指紋，天賦結構變更時明確更新。
     const ChessGameContent content(syntheticContentData(Difficulty::Normal), "0.2.20");
     CHECK(chessSha256Hex(content.contentFingerprint())
-        == "6e8b667e21616e4125706752e15cb3233f220b639026e68ac69ce0259481e4ab");
+        == "4cf4e3b8ee9349b6181182e2ebfa9189749b4e225994bf13dec82c809b032bba");
 }
 
 TEST_CASE("0.2.20 only adds a forward compatibility exception for 0.2.19", "[chess][content][version]")
@@ -637,11 +639,12 @@ TEST_CASE("pool configuration rejects duplicate role identifiers", "[chess][cont
     CHECK(diagnostics.hasErrors());
 }
 
-TEST_CASE("late bloomer configuration permits growth amplification above one hundred percent", "[chess][content][talent]")
+TEST_CASE("late bloomer configuration loads training milestones and tier shields", "[chess][content][talent]")
 {
     TemporaryConfigDirectory files;
     auto talents = YAML::Load(std::string(talentsFixtureText));
-    talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = 120;
+    talents["棋手天賦"]["晚成"]["突破勝場"] = 31;
+    talents["棋手天賦"]["晚成"]["各費開場狀態護盾"] = YAML::Load("[801, 401, 201, 0, 0]");
     files.write("chess_talents.yaml", YAML::Dump(talents));
     const auto balance = files.write("balance.yaml", "棋手天賦: {預設: 晚成, 可選: [晚成]}\n玩家裝備獎勵: {基本: [], 天賦額外: {}}\n");
     const auto challenge = files.write("challenge.yaml", "遠征挑戰: []\n");
@@ -649,7 +652,8 @@ TEST_CASE("late bloomer configuration permits growth amplification above one hun
     BalanceConfig result;
     REQUIRE(loadBalanceConfig(balance.generic_string(), challenge.generic_string(),
         [](std::string_view text) { return std::string(text); }, diagnostics.sink(), result));
-    CHECK(result.talent(ChessTalentId::LateBloomer).amplifiedGrowthPercent == 120);
+    CHECK(result.talent(ChessTalentId::LateBloomer).evolutionWins == 31);
+    CHECK(result.talent(ChessTalentId::LateBloomer).evolutionStatusShields == std::array{801, 401, 201, 0, 0});
 }
 
 TEST_CASE("content lookups use stable numeric identifiers", "[chess][content]")
@@ -747,7 +751,9 @@ TEST_CASE("talent configuration rejects malformed identities ranges and legacy k
     SECTION("missing catalog entry") { talents["棋手天賦"].remove("賭徒"); }
     SECTION("unknown catalog field") { talents["棋手天賦"]["神兵"]["未知"] = 1; }
     SECTION("unknown catalog root") { talents["未知"] = 1; }
-    SECTION("growth percentage") { talents["棋手天賦"]["晚成"]["勝場成長受加成比例"] = kChessMaximumGrowthAmplificationPercent + 1; }
+    SECTION("evolution wins") { talents["棋手天賦"]["晚成"]["突破勝場"] = 0; }
+    SECTION("evolution shields need five tiers") { talents["棋手天賦"]["晚成"]["各費開場狀態護盾"] = YAML::Load("[80, 40, 20]"); }
+    SECTION("evolution shields cannot be negative") { talents["棋手天賦"]["晚成"]["各費開場狀態護盾"][0] = -1; }
     SECTION("negative synergy bonus") { talents["棋手天賦"]["合縱"]["開局羈絆加點"] = -1; }
     SECTION("synergy bonus cannot activate an empty pair") { talents["棋手天賦"]["合縱"]["開局羈絆加點"] = 2; }
     SECTION("invalid reduced threshold") { talents["棋手天賦"]["合縱"]["高階門檻"]["最低門檻"] = 1; }

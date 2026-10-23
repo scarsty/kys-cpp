@@ -168,6 +168,7 @@ PieceDto pieceDto(
     dto.star = piece.star;
     dto.deployed = piece.deployed;
     dto.fights_won = piece.fightsWon;
+    dto.late_bloomer_chosen = piece.lateBloomerChosen;
     if (full || observation.talent == ChessTalentId::Gambler)
     {
         dto.luck_stacks = piece.luckStacks;
@@ -177,10 +178,7 @@ PieceDto pieceDto(
     {
         return dto;
     }
-    dto.current_stats = roleStatsDto(chessPieceStats(
-        content,
-        piece,
-        content.balance().talent(observation.talent).amplifiedGrowthPercent));
+    dto.current_stats = roleStatsDto(chessPieceStats(content, piece));
     dto.current_stats_note = "已計入星級與勝場成長；羈絆與裝備特殊效果於開戰時套用";
     return dto;
 }
@@ -854,6 +852,10 @@ ObservationDto observationDto(
         && content.balance().legendaryShop.unlockFight > 0
         && observation.fight >= content.balance().legendaryShop.unlockFight;
     dto.shop_guarantees = observation.shopGuarantees;
+    dto.late_bloomer_selection_used = observation.lateBloomerSelectionUsed;
+    dto.evolution_wins = observation.evolutionWins;
+    dto.remaining_victory_battles = observation.remainingVictoryBattles;
+    dto.late_bloomer_reminder = observation.lateBloomerReminder;
     dto.next_basic_equipment_reward = observation.nextBasicEquipmentReward;
     dto.next_talent_equipment_reward = observation.nextTalentEquipmentReward;
     const bool full = detail == ObservationDetail::Full;
@@ -1112,6 +1114,7 @@ std::string ruleErrorId(ChessRuleErrorCode error)
     case ChessRuleErrorCode::CampaignNotComplete: return "campaign_not_complete";
     case ChessRuleErrorCode::NoPreparedBattle: return "no_prepared_battle";
     case ChessRuleErrorCode::InvalidFormation: return "invalid_formation";
+    case ChessRuleErrorCode::TalentSelectionUnavailable: return "talent_selection_unavailable";
     }
     std::unreachable();
 }
@@ -1201,6 +1204,7 @@ std::string legalActionExampleJson(
         action.value = true;
         break;
     case ChessActionType::SellChess:
+    case ChessActionType::ChooseLateBloomer:
         action.chessInstanceId = descriptor.candidateIds.front();
         break;
     case ChessActionType::SetDeployment:
@@ -1352,7 +1356,8 @@ LegalActionDto legalActionDto(
             candidate.projected_gold_after = state.money - cost;
         }
         else if (descriptor.type == ChessActionType::SellChess
-            || descriptor.type == ChessActionType::SetDeployment)
+            || descriptor.type == ChessActionType::SetDeployment
+            || descriptor.type == ChessActionType::ChooseLateBloomer)
         {
             const auto& piece = state.roster.at(id);
             const auto* role = content.role(piece.roleId);
@@ -1482,6 +1487,7 @@ LegalActionDto legalActionDto(
         {
         case ChessActionType::BuyShopSlot: return "slot";
         case ChessActionType::SellChess: return "chess_instance_id";
+        case ChessActionType::ChooseLateBloomer: return "chess_instance_id";
         case ChessActionType::SetDeployment: return "chess_instance_ids";
         case ChessActionType::SetFormation: return "chess_instance_ids";
         case ChessActionType::AddBan: return "role_id";
@@ -1789,6 +1795,7 @@ ChessInstanceInspectionDto chessInstanceInspectionDto(
     dto.chess.deployed = analysis.piece.deployed;
     dto.chess.fights_won = analysis.piece.fightsWon;
     dto.chess.luck_stacks = analysis.piece.luckStacks;
+    dto.chess.late_bloomer_chosen = analysis.piece.lateBloomerChosen;
     dto.chess.luck_chance_percent = analysis.luckChancePercent;
     dto.chess.current_stats = roleStatsDto(analysis.currentStats);
     dto.chess.current_stats_note = "已計入星級與勝場成長；羈絆與裝備特殊效果於開戰時套用";
@@ -1894,6 +1901,8 @@ std::string semanticEventTypeId(ChessSemanticEventType type)
     case ChessSemanticEventType::OpeningTalentBansQueued: return "opening_talent_bans_queued";
     case ChessSemanticEventType::OpeningTalentShopRefreshed: return "opening_talent_shop_refreshed";
     case ChessSemanticEventType::TalentComboChosen: return "talent_combo_chosen";
+    case ChessSemanticEventType::LateBloomerChosen: return "late_bloomer_chosen";
+    case ChessSemanticEventType::LateBloomerEvolved: return "late_bloomer_evolved";
     case ChessSemanticEventType::LuckGranted: return "luck_granted";
     case ChessSemanticEventType::LuckMerged: return "luck_merged";
     case ChessSemanticEventType::ShopGuaranteeQueued: return "shop_guarantee_queued";

@@ -176,6 +176,11 @@ std::string ChessObservationText::format(
         text += "\n";
     }
     text += std::format("天賦：{}\n{}\n", observation.talentName, observation.talentDescription);
+    if (observation.talent == ChessTalentId::LateBloomer)
+    {
+        text += std::format("尚餘{}場可累積勝場的主線與遠征\n", observation.remainingVictoryBattles);
+        if (!observation.lateBloomerReminder.empty()) text += observation.lateBloomerReminder + "\n";
+    }
     if (!observation.shopGuarantees.empty())
     {
         text += "下次刷新保證：";
@@ -213,6 +218,9 @@ std::string ChessObservationText::format(
             piece.weaponInstanceId,
             piece.armorInstanceId);
         if (piece.luckStacks > 0) text += std::format("    賭運 {} 層（{}%）\n", piece.luckStacks, content.balance().talent(observation.talent).luckChance(piece.luckStacks));
+        if (piece.lateBloomerChosen)
+            text += piece.star == 4 ? "    晚成：已突破四星\n"
+                : std::format("    晚成培養：{}/{}勝；需三星\n", piece.fightsWon, observation.evolutionWins);
     }
     text += "陣形：";
     for (const int id : observation.formationSlots)

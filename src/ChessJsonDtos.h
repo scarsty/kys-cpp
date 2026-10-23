@@ -264,6 +264,7 @@ struct PieceDto
     int star{};
     bool deployed{};
     int fights_won{};
+    bool late_bloomer_chosen{};
     std::optional<int> luck_stacks;
     std::optional<int> luck_chance_percent;
     std::optional<RoleStatsDto> current_stats;
@@ -677,6 +678,10 @@ struct ObservationDto
     bool talent_has_legendary_shop{};
     bool legendary_shop_unlocked{};
     std::vector<int> shop_guarantees;
+    bool late_bloomer_selection_used{};
+    int evolution_wins{};
+    int remaining_victory_battles{};
+    std::string late_bloomer_reminder;
     std::optional<BalanceConfig::PlayerEquipmentReward> next_basic_equipment_reward;
     std::optional<BalanceConfig::PlayerEquipmentReward> next_talent_equipment_reward;
     std::string detail;

@@ -95,7 +95,8 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
 
     ChessTalentDefinition lateBloomer;
     lateBloomer.description = "晚成說明來自設定";
-    lateBloomer.amplifiedGrowthPercent = 73;
+    lateBloomer.evolutionWins = 29;
+    lateBloomer.evolutionStatusShields = {81, 41, 21, 0, 0};
     balance.talents.emplace(ChessTalentId::LateBloomer, lateBloomer);
 
     ChessTalentDefinition gambler;
@@ -158,13 +159,10 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
 
     const auto latePresentation = buildChessTalentPresentation(balance, ChessTalentId::LateBloomer);
     CHECK(latePresentation.description.contains("晚成說明來自設定"));
-    REQUIRE(latePresentation.facts.size() == 5);
-    CHECK(fact(latePresentation, "一般基準", "加成").value
-        == "0%（勝場成長不受星級倍率放大）");
-    CHECK(fact(latePresentation, "晚成", "加成").value
-        == "73%（勝場成長會併入星級倍率）");
-    CHECK(fact(latePresentation, "每多1星", "星級倍率").value
-        == "生命 +80%、攻擊 +80%、防禦 +50%、武功 +50%、輕功 +25%");
+    REQUIRE(latePresentation.facts.size() == 7);
+    CHECK(fact(latePresentation, "突破四星", "條件").value.contains("三星與29勝"));
+    CHECK(fact(latePresentation, "培養對象", "每局一次").value.contains("不限費用與星級"));
+    CHECK(fact(latePresentation, "四星開場", "1費棋子").value.contains("狀態護盾81幀"));
     CHECK(chessTalentPresentationUsesEquipmentTable(latePresentation) == false);
     CHECK_FALSE(latePresentation.description.contains("神兵商店"));
 

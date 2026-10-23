@@ -19,7 +19,7 @@ struct ChessCliActionCommand
     std::string_view arguments;
 };
 
-inline constexpr std::array<ChessCliActionCommand, 20> kChessCliActionCommands{{
+inline constexpr std::array<ChessCliActionCommand, 21> kChessCliActionCommands{{
     {ChessActionType::BuyShopSlot, "buy", "<商店欄位>"},
     {ChessActionType::RefreshShop, "refresh", {}},
     {ChessActionType::SetShopLocked, "lock", "<on|off>"},
@@ -40,6 +40,7 @@ inline constexpr std::array<ChessCliActionCommand, 20> kChessCliActionCommands{{
     {ChessActionType::StartChallenge, "challenge", "<遠征名稱>"},
     {ChessActionType::FinishRun, "finish", {}},
     {ChessActionType::SetFormation, "formation", "<十格棋子 ID,...>"},
+    {ChessActionType::ChooseLateBloomer, "train", "<棋子 ID>"},
 }};
 
 inline constexpr const ChessCliActionCommand* chessCliActionCommand(

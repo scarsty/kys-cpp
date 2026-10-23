@@ -84,6 +84,7 @@ ChessPvpComposition extractChessPvpComposition(const ChessGameSession& session)
     for (std::size_t i = 0; i < result.pieces.size(); ++i)
     {
         result.pieces[i].amplifiedGrowthPercent = battle.units[i].amplifiedGrowthPercent;
+        result.pieces[i].openingStatusShield = battle.units[i].openingStatusShield;
         result.pieces[i].openingMp = battle.units[i].openingMp;
         result.pieces[i].openingStrengthening = battle.units[i].openingStrengthening;
         result.pieces[i].lethalRecovery = battle.units[i].lethalRecovery;

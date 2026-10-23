@@ -256,17 +256,13 @@ def render_talents(talents, balances, convert_text):
             content += f'<div class="talent-caption">{text("額外裝備獎勵關卡")}</div>'
             content += render_chips([f'{reward["關卡"]}關' for reward in rewards], text, "reward-stages")
         elif name == "晚成":
-            route = "勝場養成"
-            proportion = definition["勝場成長受加成比例"]
-            factors = [1 + balance["星級加成"]["生命倍率"] * proportion / 100 * extra for extra in (0, 1, 2)]
-            content = render_metrics([(f'{proportion}%', "成長參與加成"), ("2★", "開始星級放大"), ("3★", "放大兩次")], text)
-            content += f'<div class="talent-caption">{text("同勝場 · 生命成長倍率")}</div><div class="growth-chart">'
-            for star, factor in enumerate(factors, 1):
-                factor_label = f'{factor:.3f}'.rstrip("0").rstrip(".")
-                content += (f'<div><span>{star}★</span><div class="growth-track"><i style="width:{factor / max(factors) * 100:.2f}%"></i></div>'
-                            f'<b>×{factor_label}</b></div>')
-            content += '</div>' + render_chips(["保留高勝場主力", "升星放大成長"], text)
-            content += f'<p class="talent-note">{text("示意未計其他加成與取整")}</p>'
+            route = "四星突破"
+            wins = definition["突破勝場"]
+            content = render_metrics([("1枚", "整局培養名額"), (f'{wins}勝', "正常勝場累積"), ("4★", "突破星級")], text)
+            content += render_flow(["任選已擁有棋子", f'達到3★與{wins}勝', "自動突破4★"], text)
+            content += render_chips([f'{tier}費：{shield}幀狀態護盾'
+                                     for tier, shield in enumerate(definition["各費開場狀態護盾"], 1) if shield], text)
+            content += f'<p class="talent-note">{text("四星沿用一般升星加成；選擇隨合成保留，不套用另一枚同名棋子。突破後每戰開場獲得對應護盾。")}</p>'
         elif name == "賭徒":
             route = "低費免死"
             bans, luck = definition["開局額外禁棋"], definition["賭運"]

@@ -478,6 +478,7 @@ std::string ChessCliController::executeInteractive(
         break;
     }
     case ChessActionType::SellChess:
+    case ChessActionType::ChooseLateBloomer:
         validSyntax = readSingleInt(action.chessInstanceId);
         break;
     case ChessActionType::SetDeployment:

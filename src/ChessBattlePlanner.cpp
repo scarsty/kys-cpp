@@ -656,7 +656,9 @@ void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,
     {
         if (unit.team != 0) continue;
         const auto& piece = state.roster.at(unit.chessInstanceId);
-        unit.amplifiedGrowthPercent = talent.amplifiedGrowthPercent;
+        const int tier = content.role(piece.roleId)->Cost;
+        if (piece.lateBloomerChosen && piece.star == 4)
+            unit.openingStatusShield = talent.evolutionStatusShields.at(tier - 1);
         if (piece.luckStacks > 0)
             unit.lethalRecovery = Battle::BattleLethalRecovery{
                 talent.luckChance(piece.luckStacks), talent.luckSurvivalHp, talent.luckInvincibleFrames};

@@ -76,6 +76,8 @@ std::string actionDescription(
         return action.value ? "鎖定商店" : "解除商店鎖定";
     case ChessActionType::SellChess:
         return std::format("出售{}", pieceDescription(session, action.chessInstanceId));
+    case ChessActionType::ChooseLateBloomer:
+        return std::format("選定{}作為晚成培養對象", pieceDescription(session, action.chessInstanceId));
     case ChessActionType::SetDeployment:
         return std::format("調整出戰陣容 {}", integerList(action.chessInstanceIds));
     case ChessActionType::BuyExp: return "購買經驗";

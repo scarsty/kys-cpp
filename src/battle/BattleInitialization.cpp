@@ -843,6 +843,15 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         {
             seededSpawn.damage.lethalRecovery = rosterUnit->lethalRecovery;
             seededSpawn.damage.strengthening = rosterUnit->openingStrengthening;
+            seededSpawn.status.effects.statusShield += rosterUnit->openingStatusShield;
+            if (rosterUnit->openingStatusShield > 0)
+            {
+                BattleLogEvent log;
+                log.type = BattleLogEventType::Status;
+                log.sourceUnitId = log.targetUnitId = unitId;
+                log.segments = battleLogText(std::format("晚成突破：開場狀態護盾 +{}", rosterUnit->openingStatusShield), BattleLogTextTone::Positive);
+                result_.logEvents.push_back(std::move(log));
+            }
             if (rosterUnit->openingStrengthening.charges > 0)
             {
                 const auto& strengthening = rosterUnit->openingStrengthening;

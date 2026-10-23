@@ -86,7 +86,7 @@ class PromoPageTests(unittest.TestCase):
     def test_talent_visuals_use_fixture_values_instead_of_long_descriptions(self):
         talents = {
             "神兵": {"說明": "長篇說明", "可使用神兵商店": True},
-            "晚成": {"說明": "長篇說明", "勝場成長受加成比例": 50},
+            "晚成": {"說明": "長篇說明", "突破勝場": 30, "提醒剩餘戰鬥": 35, "各費開場狀態護盾": [800, 400, 200, 0, 0]},
             "賭徒": {"說明": "長篇說明", "開局額外禁棋": {"次數": 9, "最低費用": 1, "最高費用": 2},
                      "賭運": {"目標最低費用": 2, "目標最高費用": 4, "累積截止關卡": 17,
                               "每次增加層數": 2, "層數上限": 3, "每層觸發機率百分點": 25,
@@ -101,10 +101,13 @@ class PromoPageTests(unittest.TestCase):
                            "神兵商店": {"通關後": 22, "價格": 71},
                            "玩家裝備獎勵": {"天賦額外": {"神兵": [{"關卡": 7}, {"關卡": 13}]}}}}
         result = promo.render_talents(talents, balances, identity)
-        for value in ("+2次", "22關後", "71金", "×1.3", "×1.6", "25%", "75%", "73幀無敵", "+52", "8次", "增傷 +37%", "保證2枚同名", "+1人", "7人以上", "-3人"):
+        for value in ("+2次", "22關後", "71金", "25%", "75%", "73幀無敵", "+52", "8次", "增傷 +37%", "保證2枚同名", "+1人", "7人以上", "-3人"):
             with self.subTest(value=value):
                 self.assertIn(value, result)
-        self.assertIn('class="growth-chart"', result)
+        self.assertIn('四星突破', result)
+        self.assertIn('30勝', result)
+        self.assertIn('1費：800幀狀態護盾', result)
+        self.assertNotIn('勝場成長也享受星級加成', result)
         self.assertIn('class="luck-ladder"', result)
         self.assertNotIn("長篇說明", result)
 

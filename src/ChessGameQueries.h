@@ -13,7 +13,7 @@ namespace KysChess
 
 struct ChessRoleCopiesAnalysis
 {
-    std::array<int, 3> copiesByStar{};
+    std::array<int, 4> copiesByStar{};
     int ownedCopies{};
     int highestStar{};
 };

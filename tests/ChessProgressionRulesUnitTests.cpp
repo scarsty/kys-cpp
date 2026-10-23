@@ -12,6 +12,106 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+namespace
+{
+ChessGameContent lateBloomerProgressionContent()
+{
+    ChessGameContentData data;
+    data.balance.totalFights = 40;
+    data.balance.shopSlotCount = 0;
+    data.balance.battleExp = 0;
+    data.balance.bossBattleExp = 0;
+    data.balance.talents.emplace(ChessTalentId::LateBloomer,
+        ChessTalentDefinition{.evolutionWins = 30, .evolutionWarningBattles = 35});
+    for (const auto name : {"甲", "乙"})
+    {
+        BalanceConfig::ChallengeDef challenge;
+        challenge.name = name;
+        challenge.rewards = {{BalanceConfig::ChallengeRewardType::Gold, 1}};
+        data.balance.challenges.push_back(challenge);
+    }
+    ChessRoleDefinition role;
+    role.ID = 100;
+    role.Cost = 1;
+    role.Name = "培養棋子";
+    data.roles.emplace(role.ID, role);
+    return ChessGameContent(std::move(data));
+}
+}
+
+TEST_CASE("late bloomer uses normal deployed campaign and first challenge wins", "[chess][progression][late-bloomer]")
+{
+    const auto content = lateBloomerProgressionContent();
+    ChessSessionState state;
+    state.talent = ChessTalentId::LateBloomer;
+    state.lateBloomerSelectionUsed = true;
+    state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = 100, .star = 3,
+        .deployed = true, .fightsWon = 28, .lateBloomerChosen = true});
+    state.roster.emplace(2, ChessSessionPiece{.instanceId = 2, .roleId = 100, .star = 3,
+        .deployed = true, .fightsWon = 50});
+    ChessManagementRules::maintainFormation(state);
+    ChessRunRandom random(1);
+    std::vector<ChessSemanticEvent> events;
+    const auto resolve = [&](PreparedChessBattleKind kind, Battle::BattleOutcome outcome, std::string name = {}) {
+        state.preparedBattle = PreparedChessBattle{.kind = kind, .stableBattleId = std::move(name)};
+        HeadlessBattleResult battle;
+        battle.summary.outcome = outcome;
+        events.clear();
+        ChessProgressionRules::applyBattleResult(state, content, random, battle, events);
+    };
+    resolve(PreparedChessBattleKind::Campaign, Battle::BattleOutcome::PlayerVictory);
+    CHECK(state.roster.at(1).fightsWon == 29);
+    CHECK(state.roster.at(1).star == 3);
+    resolve(PreparedChessBattleKind::Campaign, Battle::BattleOutcome::PlayerDefeat);
+    CHECK(state.roster.at(1).fightsWon == 29);
+    state.roster.at(1).deployed = false;
+    resolve(PreparedChessBattleKind::Campaign, Battle::BattleOutcome::PlayerVictory);
+    CHECK(state.roster.at(1).fightsWon == 29);
+    state.roster.at(1).deployed = true;
+    resolve(PreparedChessBattleKind::Challenge, Battle::BattleOutcome::PlayerVictory, "甲");
+    CHECK(state.roster.at(1).fightsWon == 30);
+    CHECK(state.roster.at(1).star == 4);
+    CHECK(state.roster.at(2).star == 3);
+    CHECK(std::ranges::count(events, ChessSemanticEventType::LateBloomerEvolved, &ChessSemanticEvent::type) == 1);
+    const int remaining = ChessProgressionRules::remainingVictoryBattles(state, content);
+    ChessRewardRules::apply(state, content, random,
+        {.type = ChessActionType::ChooseReward, .rewardId = "獲取1金幣"}, events);
+    CHECK(ChessProgressionRules::remainingVictoryBattles(state, content) == remaining);
+    resolve(PreparedChessBattleKind::Challenge, Battle::BattleOutcome::PlayerVictory, "甲");
+    CHECK(state.roster.at(1).fightsWon == 30);
+    CHECK(std::ranges::none_of(events, [](const auto& event) { return event.type == ChessSemanticEventType::LateBloomerEvolved; }));
+    resolve(PreparedChessBattleKind::Standalone, Battle::BattleOutcome::PlayerVictory);
+    CHECK(state.roster.at(1).fightsWon == 30);
+}
+
+TEST_CASE("late bloomer reminders count remaining victories and distinguish selection deployment and completion", "[chess][progression][late-bloomer]")
+{
+    const auto content = lateBloomerProgressionContent();
+    ChessSessionState state;
+    state.talent = ChessTalentId::LateBloomer;
+    state.fight = 7;
+    CHECK(ChessProgressionRules::remainingVictoryBattles(state, content) == 35);
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).empty());
+    state.completedChallengeNames.insert("甲");
+    CHECK(ChessProgressionRules::remainingVictoryBattles(state, content) == 34);
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).contains("選定培養對象"));
+    state.lateBloomerSelectionUsed = true;
+    state.roster.emplace(1, ChessSessionPiece{.instanceId = 1, .roleId = 100, .star = 3,
+        .fightsWon = 12, .lateBloomerChosen = true});
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).contains("請將培養棋子上陣"));
+    state.roster.at(1).deployed = true;
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).empty());
+    state.fight = 30;
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).contains("已不足"));
+    state.roster.at(1).fightsWon = 30;
+    state.roster.at(1).star = 2;
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).contains("合成至三星"));
+    state.roster.at(1).star = 4;
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).empty());
+    state.talent = ChessTalentId::DivineArms;
+    CHECK(ChessProgressionRules::lateBloomerReminder(state, content).empty());
+}
+
 TEST_CASE("campaign victory increments every deployed piece and leaves benched pieces unchanged",
           "[chess][progression]")
 {

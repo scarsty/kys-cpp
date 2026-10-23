@@ -29,15 +29,28 @@
               "type": "string",
               "minLength": 1
             },
-            "勝場成長受加成比例": {
+            "突破勝場": {
               "type": "integer",
-              "minimum": 0,
+              "minimum": 1,
               "maximum": 1000
+            },
+            "提醒剩餘戰鬥": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "各費開場狀態護盾": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": { "type": "integer", "minimum": 0, "maximum": 100000 }
             }
           },
           "required": [
             "說明",
-            "勝場成長受加成比例"
+            "突破勝場",
+            "提醒剩餘戰鬥",
+            "各費開場狀態護盾"
           ],
           "additionalProperties": false
         },

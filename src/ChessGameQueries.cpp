@@ -13,7 +13,7 @@ namespace KysChess
 ChessRoleCopiesAnalysis queryChessRoleCopies(const ChessSessionState& state, int roleId)
 {
     ChessRoleCopiesAnalysis result{};
-    constexpr std::array equivalents{1, 3, 9};
+    constexpr std::array equivalents{1, 3, 9, 9};
     for (const auto& [id, piece] : state.roster)
     {
         if (piece.roleId == roleId)
@@ -80,7 +80,7 @@ ChessShopSlotAnalysis queryChessShopSlot(
     result.shopTier = slot.tier;
     const auto copies = queryChessRoleCopies(state, role->ID);
     result.ownedCopies = copies.ownedCopies;
-    for (int star = 1; star <= 3; ++star)
+    for (int star = 1; star <= static_cast<int>(copies.copiesByStar.size()); ++star)
     {
         result.copiesByStar.push_back({star, copies.copiesByStar.at(star - 1)});
     }
@@ -157,7 +157,7 @@ ChessInstanceAnalysis queryChessInstance(
     ChessInstanceAnalysis result;
     result.piece = foundPiece->second;
     result.luckChancePercent = content.balance().talent(state.talent).luckChance(result.piece.luckStacks);
-    result.currentStats = chessPieceStats(content, result.piece, content.balance().talent(state.talent).amplifiedGrowthPercent);
+    result.currentStats = chessPieceStats(content, result.piece);
     const auto copies = queryChessRoleCopies(state, result.piece.roleId);
     result.oneStarEquivalentCopies = copies.ownedCopies;
     result.sameStarCopies = copies.copiesByStar.at(result.piece.star - 1);

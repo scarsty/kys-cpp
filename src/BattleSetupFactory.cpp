@@ -394,6 +394,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
             preparedUnit.openingMp,
             preparedUnit.openingStrengthening,
             preparedUnit.lethalRecovery,
+            preparedUnit.openingStatusShield,
         };
         (unit.team == 0 ? input.setup.allyRoster : input.setup.enemyRoster).push_back(roster);
         input.setup.cloneSources.push_back({

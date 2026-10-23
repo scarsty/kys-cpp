@@ -51,6 +51,10 @@ public:
         const ChessGameContent& content,
         int tier);
     static int pieceValue(const ChessGameContent& content, int roleId, int star);
+    static void resolveLateBloomerEvolution(
+        ChessSessionState& state,
+        const ChessGameContent& content,
+        std::vector<ChessSemanticEvent>& events);
     static bool wouldGrantPieceMerge(const ChessSessionState& state, int roleId);
     static bool canGrantPiece(
         const ChessSessionState& state,

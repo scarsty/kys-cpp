@@ -35,6 +35,7 @@ struct ChessStandaloneBattlePiece
     int openingMp{};
     Battle::BattleStrengthening openingStrengthening{};
     std::optional<Battle::BattleLethalRecovery> lethalRecovery;
+    int openingStatusShield{};
 };
 
 struct ChessStandaloneBattleTeam

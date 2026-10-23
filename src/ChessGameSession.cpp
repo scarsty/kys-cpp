@@ -206,6 +206,10 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.talent = state_.talent;
     observation.selectedTalentComboId = state_.selectedTalentComboId;
     observation.shopGuarantees = state_.shopGuarantees;
+    observation.lateBloomerSelectionUsed = state_.lateBloomerSelectionUsed;
+    observation.evolutionWins = content_->balance().talent(state_.talent).evolutionWins;
+    observation.remainingVictoryBattles = ChessProgressionRules::remainingVictoryBattles(state_, *content_);
+    observation.lateBloomerReminder = ChessProgressionRules::lateBloomerReminder(state_, *content_);
     observation.talentName = chessTalentName(state_.talent);
     const auto& talent = content_->balance().talent(state_.talent);
     observation.talentDescription = chessTalentDescription(content_->balance(), state_.talent);
@@ -379,6 +383,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         result.push_back(std::move(buy));
     }
     auto sell = selectionAction(ChessActionType::SellChess, 1, 1);
+    auto lateBloomer = selectionAction(ChessActionType::ChooseLateBloomer, 1, 1);
     auto deployment = selectionAction(
         ChessActionType::SetDeployment,
         0,
@@ -386,6 +391,8 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
     for (const auto& [id, piece] : state_.roster)
     {
         sell.candidateIds.push_back(id);
+        if (state_.talent == ChessTalentId::LateBloomer && !state_.lateBloomerSelectionUsed)
+            lateBloomer.candidateIds.push_back(id);
         deployment.candidateIds.push_back(id);
     }
     if (!sell.candidateIds.empty())
@@ -393,6 +400,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         result.push_back(std::move(sell));
     }
     result.push_back(std::move(deployment));
+    if (!lateBloomer.candidateIds.empty()) result.push_back(std::move(lateBloomer));
     result.push_back({ChessActionType::SetFormation, {}, {}, kChessFormationSlotCount, kChessFormationSlotCount});
     if (state_.bannedRoleIds.size()
         < static_cast<std::size_t>(ChessManagementRules::maximumBanCount(state_, *content_)))
@@ -539,6 +547,7 @@ std::string ChessGameSession::errorDescription(ChessRuleErrorCode error)
     case ChessRuleErrorCode::CampaignNotComplete: return "尚未通關，不能結束本局";
     case ChessRuleErrorCode::NoPreparedBattle: return "尚未準備戰鬥";
     case ChessRuleErrorCode::InvalidFormation: return "陣形必須完整且只包含目前出戰棋子";
+    case ChessRuleErrorCode::TalentSelectionUnavailable: return "只有晚成可選擇培養對象，且每局只能選擇一次";
     }
     std::unreachable();
 }

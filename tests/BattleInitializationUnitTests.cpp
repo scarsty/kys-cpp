@@ -1112,7 +1112,7 @@ TEST_CASE("talent initialization amplifies complete growth and adds opening MP a
     setup.allyRoster.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
         .fightsWon = 3, .amplifiedGrowthPercent = 100, .openingMp = 50,
         .openingStrengthening = {3, 50},
-        .lethalRecovery = BattleLethalRecovery{70, 1, 120}});
+        .lethalRecovery = BattleLethalRecovery{70, 1, 120}, .openingStatusShield = 810});
     setup.units.push_back({.unitId = 0, .realRoleId = 1001, .star = 2, .cost = 3,
         .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40});
     BattleSetupComboDefinition combo;
@@ -1141,6 +1141,7 @@ TEST_CASE("talent initialization amplifies complete growth and adds opening MP a
     CHECK(spawn.unit.stats.defence == expected.def);
     REQUIRE(spawn.damage.lethalRecovery);
     CHECK(spawn.damage.lethalRecovery->chancePercent == 70);
+    CHECK(spawn.status.effects.statusShield == 810);
 }
 
 

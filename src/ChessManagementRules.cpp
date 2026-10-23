@@ -97,6 +97,7 @@ void mergeAvailablePieces(
             std::vector<int> armor;
             int fightsWon = 0;
             int luckStacks = 0;
+            bool lateBloomerChosen = false;
             for (const auto& [id, piece] : state.roster)
             {
                 if (piece.roleId == roleId && piece.star == star)
@@ -105,6 +106,7 @@ void mergeAvailablePieces(
                     deployed = deployed || piece.deployed;
                     fightsWon = std::max(fightsWon, piece.fightsWon);
                     luckStacks += piece.luckStacks;
+                    lateBloomerChosen = lateBloomerChosen || piece.lateBloomerChosen;
                     if (piece.weaponInstanceId >= 0) weapons.push_back(piece.weaponInstanceId);
                     if (piece.armorInstanceId >= 0) armor.push_back(piece.armorInstanceId);
                     if (consumed.size() == 3)
@@ -123,6 +125,7 @@ void mergeAvailablePieces(
             upgraded.star = star + 1;
             upgraded.deployed = deployed;
             upgraded.fightsWon = fightsWon;
+            upgraded.lateBloomerChosen = lateBloomerChosen;
             upgraded.luckStacks = std::min(luckStacks, content.balance().talent(state.talent).luckStackCap);
             milestones.push_back({roleId, star, star + 1});
             if (luckStacks > 0) events.push_back({ChessSemanticEventType::LuckMerged, upgraded.instanceId, roleId, upgraded.luckStacks});
@@ -367,7 +370,7 @@ int ChessManagementRules::pieceValue(const ChessGameContent& content, int roleId
     assert(role);
     const auto& balance = content.balance();
     int starMultiplier = 1;
-    for (int level = 1; level < star; ++level)
+    for (int level = 1; level < std::min(star, 3); ++level)
     {
         starMultiplier *= balance.starCostMult;
     }
@@ -459,6 +462,11 @@ ChessRuleErrorCode ChessManagementRules::validate(
     const auto& balance = content.balance();
     switch (action.type)
     {
+    case ChessActionType::ChooseLateBloomer:
+        if (state.talent != ChessTalentId::LateBloomer || state.lateBloomerSelectionUsed)
+            return ChessRuleErrorCode::TalentSelectionUnavailable;
+        return state.roster.contains(action.chessInstanceId)
+            ? ChessRuleErrorCode::None : ChessRuleErrorCode::UnknownChessInstance;
     case ChessActionType::RefreshShop:
     {
         const int cost = state.freeShopRefreshAvailable ? 0 : balance.refreshCost;
@@ -620,6 +628,15 @@ void ChessManagementRules::apply(
     };
     switch (action.type)
     {
+    case ChessActionType::ChooseLateBloomer:
+    {
+        auto& piece = state.roster.at(action.chessInstanceId);
+        piece.lateBloomerChosen = true;
+        state.lateBloomerSelectionUsed = true;
+        events.push_back({ChessSemanticEventType::LateBloomerChosen, piece.instanceId, piece.roleId});
+        resolveLateBloomerEvolution(state, content, events);
+        return;
+    }
     case ChessActionType::RefreshShop:
     {
         const bool free = state.freeShopRefreshAvailable;
@@ -833,6 +850,7 @@ int ChessManagementRules::grantPiece(
     std::vector<StarMilestone> milestones{{roleId, 0, star}};
     mergeAvailablePieces(state, content, roleId, milestones, events);
     resolveStarMilestones(state, content, milestones, events);
+    resolveLateBloomerEvolution(state, content, events);
     maintainFormation(state);
     return piece.instanceId;
 }
@@ -887,7 +905,23 @@ void ChessManagementRules::upgradePiece(
     events.push_back(std::move(event));
     mergeAvailablePieces(state, content, roleId, milestones, events);
     resolveStarMilestones(state, content, milestones, events);
+    resolveLateBloomerEvolution(state, content, events);
     maintainFormation(state);
+}
+
+void ChessManagementRules::resolveLateBloomerEvolution(
+    ChessSessionState& state, const ChessGameContent& content, std::vector<ChessSemanticEvent>& events)
+{
+    if (state.talent != ChessTalentId::LateBloomer) return;
+    const int requiredWins = content.balance().talent(state.talent).evolutionWins;
+    for (auto& [id, piece] : state.roster)
+    {
+        if (piece.lateBloomerChosen && piece.star == 3 && piece.fightsWon >= requiredWins)
+        {
+            piece.star = 4;
+            events.push_back({ChessSemanticEventType::LateBloomerEvolved, id, piece.roleId, 4});
+        }
+    }
 }
 
 }

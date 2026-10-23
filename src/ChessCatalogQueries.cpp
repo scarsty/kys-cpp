@@ -219,9 +219,8 @@ ChessPieceStatBreakdown chessPieceStatBreakdown(
     const auto* role = content.role(piece.roleId);
     assert(role);
     const auto& balance = content.balance();
-    const int amplified = balance.talent(state.talent).amplifiedGrowthPercent;
-    const auto total = chessRoleStats(*role, balance, piece.star, piece.fightsWon, amplified, extraGrowth);
-    const auto withoutWins = chessRoleStats(*role, balance, piece.star, 0, amplified, extraGrowth);
+    const auto total = chessRoleStats(*role, balance, piece.star, piece.fightsWon, 0, extraGrowth);
+    const auto withoutWins = chessRoleStats(*role, balance, piece.star, 0, 0, extraGrowth);
     return {total, chessStatDelta(total, withoutWins)};
 }
 
