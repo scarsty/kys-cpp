@@ -1,4 +1,6 @@
 #include "EffectCommandTestHelpers.h"
+#include "ChessGameplayEffect.h"
+#include <yaml-cpp/yaml.h>
 #include "battle/BattleCore.h"
 #include "BattleLogTestHelpers.h"
 #include "BattlePresentationTestHelpers.h"
@@ -2872,4 +2874,47 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(log.amount == 25);
     CHECK(log.secondaryAmount == 12);
     CHECK(log.frame == result.frame);
+}
+
+TEST_CASE("Huagong follows actual poison ticks and expires after one hundred frames",
+          "[battle][frame_runner][poison][huagong]")
+{
+    auto state = runtimeFrameState();
+    auto source = teamRuntimeUnit(0, 0, 1000);
+    auto target = teamRuntimeUnit(1, 1, 1000);
+    source.vitals.maxHp = 1000;
+    target.vitals.maxHp = 1000;
+    seedRuntimeUnits(state, {source, target});
+    seedDamageExtrasFromUnits(state);
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId{};
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 命中化功, 中毒次數: 5, 生命傷害百分比: 1, 持續幀數: 100, 每次扣內: 12, 治療內力基準: 100}]"),
+        effects, rules, nextId, "化功逐幀測試"));
+    const EffectSourceBinding binding{EffectSourceKind::Magic, 87, 0, 0};
+    const auto& application = std::get<ApplyStatusAction>(rules.back().actions.front().value);
+    BattleEffectCommandSystem().reduce(state, KysChess::Battle::Test::commandFixture(
+        EffectCommand{{.binding = binding, .ruleId = EffectRuleId{87}, .targetUnitId = 1},
+            KysChess::Battle::Test::statusApplication(application)}, {.frame = state.movement.frame}));
+    appendStatus(state.units.require(1).status.effects, BattleStatusKind::Poison, 150, 5, 1, 0, 1);
+    state.units.requireCore(1).vitals.mp = 80;
+    const auto first = runBattleFrame(state);
+    CHECK(damageLogAmountsFor(first, 1) == std::vector<int>{10});
+    CHECK(state.units.requireCore(1).vitals.mp == 69); // 正常回內 +1，毒跳扣12。
+    CHECK_FALSE(state.units.require(1).mpBlocked());
+    CHECK(state.units.require(1).status.effects.remainingFrames(BattleStatusKind::Huagong) == 99);
+    runBattleFrame(state);
+    CHECK(state.units.requireCore(1).vitals.mp == 69);
+    for (int frame = 2; frame < 99; ++frame) runBattleFrame(state);
+    REQUIRE(state.units.require(1).status.effects.has(BattleStatusKind::Huagong));
+    CHECK(state.units.require(1).status.effects.remainingFrames(BattleStatusKind::Huagong) == 1);
+    runBattleFrame(state);
+    CHECK_FALSE(state.units.require(1).status.effects.has(BattleStatusKind::Huagong));
+    REQUIRE(state.units.require(1).status.effects.has(BattleStatusKind::Poison));
+    state.units.require(1).status.effects.find(BattleStatusKind::Poison)
+        ->behaviorRuntime[0].intervalFramesRemaining = 1;
+    state.units.requireCore(1).vitals.mp = 40;
+    runBattleFrame(state);
+    CHECK(state.units.requireCore(1).vitals.mp == 40);
 }

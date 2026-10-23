@@ -347,7 +347,7 @@ struct EffectEventConstraint
 using EffectEventMask = std::uint32_t;
 
 static_assert(std::variant_size_v<EffectActionValue> == 18);
-static_assert(std::variant_size_v<StateMachineAction> == 14);
+static_assert(std::variant_size_v<StateMachineAction> == 16);
 
 constexpr EffectEventMask effectEventBit(EffectEvent event)
 {
@@ -462,6 +462,10 @@ constexpr EffectEventMask effectStateMachineActionEventMask(std::size_t variantI
 {
     switch (variantIndex)
     {
+    case 15: // HealAttackerByMissingMpAction
+        return effectEventBit(EffectEvent::DamageResolved);
+    case 14: // SpreadPoisonAction
+        return effectEventBit(EffectEvent::HitBeforeDamage);
     case 2: // RecordMaximumDamageAction
         return effectEventBit(EffectEvent::DamageResolved);
     case 6: // BorrowEffectRulesAction
@@ -560,6 +564,7 @@ constexpr EffectEventConstraint effectConditionConstraint(
     case 18: // DamageKilledTargetCondition
     case 19: // AcceptedHitCondition
     case 21: // DamagePerspectiveCondition
+    case 28: // PoisonTickCondition
     case 27: // EventTargetHasNegativeStatusCondition
         return { effectCapability(C::Damage), {} };
     case 20: // EventTargetBelongsToBoundSourceCondition

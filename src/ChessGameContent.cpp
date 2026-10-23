@@ -329,6 +329,11 @@ ChessSha256 stateMachineContentHash(const StateMachineAction& machine)
                     typed.copyCount, static_cast<int>(typed.propagation));
             else if constexpr (std::is_same_v<T, SettleRemainingStatusDamageAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), static_cast<int>(typed.status));
+            else if constexpr (std::is_same_v<T, SpreadPoisonAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    typed.radiusTiles, typed.targetCount, typed.effectId);
+            else if constexpr (std::is_same_v<T, HealAttackerByMissingMpAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.mpCeiling);
             else if constexpr (std::is_same_v<T, GenerateClonesAction>)
                 return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.count);
             else if constexpr (std::is_same_v<T, PreventDeathAction>)

@@ -1035,6 +1035,54 @@ BattleStatusApplyEffectResult applyStatus(
     return { std::move(result) };
 }
 
+BattlePoisonSpreadResult spreadPoison(
+    BattleRuntimeState& state,
+    const EffectCommandMetadata& metadata,
+    const SpreadPoisonAction& action,
+    const EffectExecutionInputs& context)
+{
+    BattlePoisonSpreadResult result{.effectId = action.effectId};
+    const auto& primary = state.units.require(metadata.targetUnitId);
+    const auto* active = primary.status.effects.find(BattleStatusKind::Poison);
+    if (!active) return result; // 主目標可能以狀態護盾擋下施毒。
+    const auto poison = *active;
+    const auto center = primary.core.motion.position;
+    const double radius = action.radiusTiles * state.gridTransform.tileWidth;
+    std::vector<std::pair<double, int>> candidates;
+    for (const auto& unit : state.units.live())
+    {
+        if (unit.core.id == primary.core.id || unit.core.team != primary.core.team) continue;
+        const auto offset = unit.core.motion.position - center;
+        const double distance = offset.x * offset.x + offset.y * offset.y;
+        if (distance <= radius * radius) candidates.emplace_back(distance, unit.core.id);
+    }
+    std::ranges::sort(candidates);
+    if (candidates.size() > static_cast<std::size_t>(action.targetCount))
+        candidates.resize(action.targetCount);
+    const ApplyStatusEffectCommand command{
+        .status = BattleStatusKind::Poison,
+        .durationFrames = poison.remainingFrames,
+        .stacks = poison.stacks,
+        .stack = EffectStackPolicy::KeepStrongest,
+        .behavior = poison.behavior};
+    for (const auto& [distance, unitId] : candidates)
+    {
+        auto targetMetadata = metadata;
+        targetMetadata.targetUnitId = unitId;
+        auto applied = applyStatus(statusProtectionState(state), targetMetadata, command, context);
+        if (applied.status.applied)
+        {
+            // 傳毒保留原本的下一跳倒數，不重新啟動完整中毒週期。
+            auto* contribution = applied.status.target.effects.find(BattleStatusKind::Poison);
+            assert(contribution);
+            contribution->behaviorRuntime = poison.behaviorRuntime;
+            state.units.require(unitId).writeStatusDamageResult(applied.status.target);
+        }
+        result.applications.push_back({targetMetadata, command, std::move(applied)});
+    }
+    return result;
+}
+
 BattleStatusConsumeEffectResult consumeStatusContribution(
     StatusProtectionState state,
     const EffectCommandMetadata& metadata,
@@ -1580,6 +1628,8 @@ BattleEffectReductionValue reduceCommand(
         },
         [&](const StateMachineEffectCommand& command) -> BattleEffectReductionValue
         {
+            if (const auto* spread = std::get_if<SpreadPoisonAction>(&command.value))
+                return spreadPoison(state, effectCommand.metadata, *spread, context);
             if (const auto* start = std::get_if<StartDamageAbsorptionAction>(&command.value))
                 return applyDamageAbsorption(state, effectCommand.metadata, *start, context);
             DealDamageEffectCommand damage;

@@ -111,6 +111,7 @@ BattleStatusSemanticId statusSemanticId(BattleStatusKind status)
     case BattleStatusKind::Shadowless:
     case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
+    case BattleStatusKind::Huagong:
     case BattleStatusKind::Berserk:
         return BattleStatusSemanticId::None;
     case BattleStatusKind::Count:
@@ -925,6 +926,7 @@ BattleSemanticCueFamily statusCueFamily(BattleStatusKind status)
 {
     switch (status)
     {
+    case BattleStatusKind::Huagong:
     case BattleStatusKind::Poison:
     case BattleStatusKind::ColdPoison:
         return BattleSemanticCueFamily::Poison;
@@ -1252,6 +1254,20 @@ void reduceEffectCommandImpl(
             apply->status,
             apply->stacks,
             status->status);
+    }
+    else if (const auto* spread = std::get_if<BattlePoisonSpreadResult>(&entry.value))
+    {
+        for (const auto& application : spread->applications)
+        {
+            CoreDetail::appendPoisonEffectLogEvents(frame.logEvents,
+                application.metadata, application.command, application.result);
+            queueStatusApplyCue(frame, application.metadata, BattleStatusKind::Poison,
+                application.command.stacks, application.result.status);
+            if (application.result.status.applied)
+                frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
+                    application.metadata.targetUnitId, spread->effectId,
+                    CoreDetail::CoreRoleStatusEffectFrames));
+        }
     }
     else if (const auto* consume = std::get_if<BattleStatusConsumeEffectResult>(&entry.value))
     {

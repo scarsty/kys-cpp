@@ -1093,6 +1093,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             : BattleStatusApplyOutcome::Applied;
         return result;
     }
+    case BattleStatusKind::Huagong:
     case BattleStatusKind::ColdPoison:
     case BattleStatusKind::WitheredBone:
     case BattleStatusKind::SevenStarMark:
@@ -1107,7 +1108,8 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         result.value = selected.stacks;
         if (!replaced)
             result.outcome = BattleStatusApplyOutcome::Applied;
-        else if (request.kind == BattleStatusKind::ColdPoison
+        else if (request.kind == BattleStatusKind::Huagong
+            || request.kind == BattleStatusKind::ColdPoison
             || request.kind == BattleStatusKind::WitheredBone)
             result.outcome = BattleStatusApplyOutcome::Refreshed;
         else

@@ -695,7 +695,8 @@ using StateMachineExecution = std::variant<
     PreventDeathAction,
     ConfigureRescueRepositionAction,
     ConfigureGuardChargesAction,
-    ConfigurePoisonConversionAction>;
+    ConfigurePoisonConversionAction,
+    SpreadPoisonAction>;
 
 struct StateMachineEffectCommand
 {

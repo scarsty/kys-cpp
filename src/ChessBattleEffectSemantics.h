@@ -649,6 +649,17 @@ inline constexpr std::array statusCatalog{
         .behaviorClassification = StatusBehaviorClassification::OpenMarker,
         .behaviorProfile = StatusBehaviorProfile::None,
     },
+    StatusCatalogEntry{
+        .status = BattleStatusKind::Huagong,
+        .label = "化功",
+        .negative = true,
+        .storage = StatusStorageModel::SelectedDebuffInstance,
+        .quantity = StatusQuantityModel::None,
+        .duration = StatusDurationModel::RequiredPositive,
+        .reapplication = StatusReapplicationModel::AuthoredRefreshDuration,
+        .behaviorClassification = StatusBehaviorClassification::OpenMarker,
+        .behaviorProfile = StatusBehaviorProfile::None,
+    },
 };
 
 static_assert(statusCatalog.size()

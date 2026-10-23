@@ -891,6 +891,13 @@ bool conditionSatisfied(const EffectCondition& condition,
             });
         },
         [&](const DamageOriginIsAttackCondition&) { return isAttackDamageOrigin(context); },
+        [&](const PoisonTickCondition&)
+        {
+            const auto* damage = std::get_if<DamageResultEventData>(&context.payload);
+            if (!damage || damage->damageKind != BattleDamageKind::Poison) return false;
+            const auto* origin = std::get_if<EffectStatusDamageOrigin>(&damage->origin);
+            return origin && origin->contribution.kind == BattleStatusKind::Poison;
+        },
         [&](const DamageKilledTargetCondition&)
         {
             const auto* damage = std::get_if<DamageResultEventData>(&context.payload);
@@ -1063,8 +1070,11 @@ bool ruleObservesEvent(const BoundEffectRuleView& bound,
     case EffectObservationScope::StatusHolderEventTarget:
     {
         const auto* target = transactionTargetSnapshot(context);
+        // 傷害結算分別派送攻擊者與防守者事件；持有者受擊行為只在防守者那次派送執行。
         return context.scope.statusContribution
             && target
+            && (context.event != EffectEvent::DamageResolved
+                || context.header.owner->id == target->id)
             && target->id == context.scope.statusContribution->holderUnitId;
     }
     case EffectObservationScope::StatusSourceEventSource:
@@ -1320,6 +1330,8 @@ std::optional<BorrowedRuleActionCategory> borrowedActionCategory(
                 [](const ConfigureRescueRepositionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigureGuardChargesAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
                 [](const ConfigurePoisonConversionAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
+                [](const SpreadPoisonAction&) -> std::optional<BorrowedRuleActionCategory> { return BorrowedRuleActionCategory::Status; },
+                [](const HealAttackerByMissingMpAction&) -> std::optional<BorrowedRuleActionCategory> { return std::nullopt; },
             }, machine);
         },
         [](const std::shared_ptr<ConditionalEffectAction>&)
@@ -2079,6 +2091,24 @@ struct CommandEmitter
                     [&](const SettleRemainingStatusDamageAction& value)
                     {
                         append(metadata, StateMachineEffectCommand{ value });
+                    },
+                    [&](const SpreadPoisonAction& value)
+                    {
+                        append(metadata, StateMachineEffectCommand{ value });
+                    },
+                    [&](const HealAttackerByMissingMpAction& value)
+                    {
+                        const auto* attacker = sourceSnapshot(context);
+                        const auto* victim = transactionTargetSnapshot(context);
+                        assert(attacker && victim);
+                        auto healMetadata = metadata;
+                        healMetadata.targetUnitId = attacker->id;
+                        ChangeResourceAction heal;
+                        heal.healKind = EffectHealKind::OnHit;
+                        heal.healSourcePolicy = EffectHealSourcePolicy::AllowDead;
+                        const int amount = clampToInt(static_cast<std::int64_t>(
+                            std::max(0, value.mpCeiling - victim->mp)) * attacker->star);
+                        append(healMetadata, prepareChangeResource(heal, amount, {}));
                     },
                     [&](const GenerateClonesAction& value)
                     {
@@ -3683,12 +3713,14 @@ void evaluateOrdinaryRule(
         {
             switch (bound.rule().activationLimit->scope)
             {
+            case EffectActivationScope::PerCast:
             case EffectActivationScope::PerCastPerTarget:
             {
                 auto& evaluationCount = activationEvaluation(
                     runtime,
                     cast->castId,
-                    target->id);
+                    bound.rule().activationLimit->scope == EffectActivationScope::PerCast
+                        ? -1 : target->id);
                 if (evaluationCount >= bound.rule().activationLimit->maxEvaluations)
                 {
                     continue;

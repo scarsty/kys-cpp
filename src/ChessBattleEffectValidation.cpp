@@ -178,7 +178,8 @@ bool validateConditionAtEvent(const EffectCondition& condition, EffectEvent even
                 if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("治療種類條件需要治療事件");
                 if (typed.kinds.empty()) return reject("治療種類條件不可為空");
             }
-            else if constexpr (std::is_same_v<T, DamageOriginIsAttackCondition>)
+            else if constexpr (std::is_same_v<T, DamageOriginIsAttackCondition>
+                || std::is_same_v<T, PoisonTickCondition>)
             {
                 if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("傷害來源條件需要傷害、破盾或死亡事件");
             }
@@ -1588,6 +1589,15 @@ bool validateActionPayload(
                             if (machine.status != BattleStatusKind::Poison)
                                 return reject("剩餘狀態傷害結算目前只支援中毒");
                         }
+                        else if constexpr (std::is_same_v<M, SpreadPoisonAction>)
+                        {
+                            if (machine.radiusTiles <= 0 || machine.targetCount <= 0 || machine.effectId < 0)
+                                return reject("傳毒範圍、數量或特效設定無效");
+                        }
+                        else if constexpr (std::is_same_v<M, HealAttackerByMissingMpAction>)
+                        {
+                            if (machine.mpCeiling <= 0) return reject("化功治療內力基準必須為正數");
+                        }
                         else if constexpr (std::is_same_v<M, GenerateClonesAction>)
                         {
                             if (machine.count <= 0) return reject("生成分身數量必須為正數");
@@ -2235,6 +2245,7 @@ bool validateEffectRule(
         }
         switch (rule.activationLimit->scope)
         {
+        case EffectActivationScope::PerCast:
         case EffectActivationScope::PerCastPerTarget:
             if (!effectEventHas(rule.event, EffectEventCapability::CastProvenance))
             {

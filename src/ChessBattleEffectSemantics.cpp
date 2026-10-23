@@ -321,6 +321,7 @@ std::shared_ptr<const StatusBehaviorDefinition> makeCatalogOwnedStatusBehavior(
     case BattleStatusKind::SwordGuard:
     case BattleStatusKind::NextAttackCritical:
     case BattleStatusKind::Berserk:
+    case BattleStatusKind::Huagong:
         assert(false && "此狀態沒有目錄擁有的行為");
         break;
     }
@@ -624,7 +625,9 @@ void visitActionNumbers(
                     || std::is_same_v<M, PreventDeathAction>
                     || std::is_same_v<M, ConfigureRescueRepositionAction>
                     || std::is_same_v<M, ConfigureGuardChargesAction>
-                    || std::is_same_v<M, ConfigurePoisonConversionAction>)
+                    || std::is_same_v<M, ConfigurePoisonConversionAction>
+                    || std::is_same_v<M, SpreadPoisonAction>
+                    || std::is_same_v<M, HealAttackerByMissingMpAction>)
                 {
                 }
                 else

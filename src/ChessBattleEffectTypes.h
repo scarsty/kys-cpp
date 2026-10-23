@@ -171,6 +171,7 @@ enum class BattleStatusKind
     SwordGuard,
     NextAttackCritical,
     Berserk,
+    Huagong,
     Count,
 };
 
@@ -256,6 +257,7 @@ struct CastDistinctTargetCountAtLeastCondition { int count = 1; };
 struct AttackOrdinalEqualsCondition { int ordinal = 0; };
 struct HealKindInCondition { std::vector<std::string> kinds; };
 struct DamageOriginIsAttackCondition {};
+struct PoisonTickCondition {};
 struct DamageKilledTargetCondition {};
 struct AcceptedHitCondition
 {
@@ -303,7 +305,8 @@ using EffectCondition = std::variant<
     RandomSelectionAvailableCondition,
     TargetIsStatusHolderCondition,
     SourceIsLastAliveComboMemberCondition,
-    EventTargetHasNegativeStatusCondition>;
+    EventTargetHasNegativeStatusCondition,
+    PoisonTickCondition>;
 
 enum class BattleAttribute
 {
@@ -1042,6 +1045,18 @@ struct SettleRemainingStatusDamageAction
     BattleStatusKind status{};
 };
 
+struct SpreadPoisonAction
+{
+    int radiusTiles{};
+    int targetCount{};
+    int effectId{};
+};
+
+struct HealAttackerByMissingMpAction
+{
+    int mpCeiling{};
+};
+
 struct GenerateClonesAction
 {
     int count{};
@@ -1094,7 +1109,9 @@ using StateMachineAction = std::variant<
     PreventDeathAction,
     ConfigureRescueRepositionAction,
     ConfigureGuardChargesAction,
-    ConfigurePoisonConversionAction>;
+    ConfigurePoisonConversionAction,
+    SpreadPoisonAction,
+    HealAttackerByMissingMpAction>;
 
 struct EffectAction;
 
@@ -1151,6 +1168,7 @@ constexpr EffectRuleId intrinsicStatusEffectRuleId(EffectRuleId producer)
 enum class EffectActivationScope
 {
     PerCastPerTarget,
+    PerCast,
 };
 
 enum class EffectObservationScope

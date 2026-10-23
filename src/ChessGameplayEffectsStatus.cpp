@@ -900,6 +900,106 @@ struct HitPoison final : GameplayEffectDefinition
     }
 };
 
+struct HitSpreadPoison final : GameplayEffectDefinition
+{
+    int 中毒次數{};
+    int 生命傷害百分比{};
+    int 半徑格數{};
+    int 敵人數{};
+    int 特效編號{};
+    static constexpr std::string_view Name = "命中傳毒";
+    static constexpr auto Parameters = std::array<Parameter<HitSpreadPoison>, 5>{{
+        {{"中毒次數", 1, 1000}, &HitSpreadPoison::中毒次數},
+        {{"生命傷害百分比", 0, 1000000}, &HitSpreadPoison::生命傷害百分比},
+        {{"半徑格數", 1, 1000000}, &HitSpreadPoison::半徑格數},
+        {{"敵人數", 1, 1000000}, &HitSpreadPoison::敵人數},
+        {{"特效編號", 0, 1000000}, &HitSpreadPoison::特效編號}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        HitPoison poison;
+        poison.中毒次數 = 中毒次數;
+        poison.生命傷害百分比 = 生命傷害百分比;
+        auto rules = poison.buildRules();
+        rules.push_back(EffectRule{
+            .event = EffectEvent::HitBeforeDamage,
+            .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
+            .activationLimit = EffectActivationLimit{EffectActivationScope::PerCast, 1},
+            .actions = {EffectAction{.value = StateMachineAction{
+                SpreadPoisonAction{半徑格數, 敵人數, 特效編號}}}}});
+        return rules;
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("命中：施毒{}%×{}次，每招傳至{}格內最近{}敵，已有毒取較強、不連鎖",
+                生命傷害百分比, 中毒次數, 半徑格數, 敵人數);
+        return std::format("命中施毒{}%×{}次；每次出招首次命中，將目標中毒傳至{}格內最近{}名其他敵人，沿用毒傷比例、剩餘次數及跳傷時間；已有中毒取較強，不連鎖。",
+            生命傷害百分比, 中毒次數, 半徑格數, 敵人數);
+    }
+};
+
+struct HitHuagong final : GameplayEffectDefinition
+{
+    int 中毒次數{};
+    int 生命傷害百分比{};
+    int 持續幀數{};
+    int 每次扣內{};
+    int 治療內力基準{};
+    static constexpr std::string_view Name = "命中化功";
+    static constexpr auto Parameters = std::array<Parameter<HitHuagong>, 5>{{
+        {{"中毒次數", 1, 1000}, &HitHuagong::中毒次數},
+        {{"生命傷害百分比", 0, 1000000}, &HitHuagong::生命傷害百分比},
+        {{"持續幀數", 1, 1000000}, &HitHuagong::持續幀數},
+        {{"每次扣內", 0, 1000000}, &HitHuagong::每次扣內},
+        {{"治療內力基準", 1, 1000000}, &HitHuagong::治療內力基準}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        HitPoison poison;
+        poison.中毒次數 = 中毒次數;
+        poison.生命傷害百分比 = 生命傷害百分比;
+        auto rules = poison.buildRules();
+        auto behavior = std::make_shared<StatusBehaviorDefinition>();
+        behavior->rules = {
+            EffectRule{
+                .id = EffectRuleId{1},
+                .event = EffectEvent::DamageResolved,
+                .observation = EffectObservationScope::StatusHolderEventTarget,
+                .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
+                .conditions = {PoisonTickCondition{}},
+                .actions = {EffectAction{.value = ChangeResourceAction{
+                    .resource = BattleResource::Mp,
+                    .amount = EffectNumber{.flat = 每次扣內},
+                    .kind = ResourceChangeKind::Remove}}}},
+            EffectRule{
+                .id = EffectRuleId{2},
+                .event = EffectEvent::DamageResolved,
+                .observation = EffectObservationScope::StatusHolderEventTarget,
+                .selector = EffectSelector{.kind = EffectSelectorKind::SourceUnit},
+                .conditions = {AcceptedHitCondition{}},
+                .actions = {EffectAction{.value = StateMachineAction{
+                    HealAttackerByMissingMpAction{治療內力基準}}}}}};
+        rules.push_back(EffectRule{
+            .event = EffectEvent::HitBeforeDamage,
+            .selector = EffectSelector{.kind = EffectSelectorKind::HitTarget},
+            .actions = {EffectAction{.value = ApplyStatusAction{
+                .status = BattleStatusKind::Huagong,
+                .durationFrames = 持續幀數,
+                .reapplication = StatusReapplicationPolicy::RefreshDuration,
+                .behavior = std::move(behavior)}}}});
+        return rules;
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("命中：施毒{}%×{}次、化功{}幀；毒跳扣{}內，攻擊者回血（{}－目標內力）×自身星級",
+                生命傷害百分比, 中毒次數, 持續幀數, 每次扣內, 治療內力基準);
+        return std::format("命中施毒{}%×{}次，並施加化功{}幀。期間每次中毒跳傷扣{}內力；任何角色直接攻擊有效命中化功目標，回復（{}－目標內力）×攻擊者星級的生命，最低0點。化功可淨化，重複施加刷新時間、不疊加。",
+            生命傷害百分比, 中毒次數, 持續幀數, 每次扣內, 治療內力基準);
+    }
+};
+
 struct KillInvincibility final : GameplayEffectDefinition
 {
     int 持續幀數{};
@@ -1164,6 +1264,8 @@ void appendStatusEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<InitialShield<BattleResource::StaggerShield>>());
     entries.push_back(registration<CastInvincibility>());
     entries.push_back(registration<HitPoison>());
+    entries.push_back(registration<HitSpreadPoison>());
+    entries.push_back(registration<HitHuagong>());
     entries.push_back(registration<KillInvincibility>());
     entries.push_back(registration<ChanceHitSilence>());
     entries.push_back(registration<ChanceHitStun>());

@@ -242,6 +242,19 @@ struct BattleStatusApplyEffectResult
     BattleStatusApplyResult status;
 };
 
+struct BattlePoisonSpreadApplication
+{
+    EffectCommandMetadata metadata;
+    ApplyStatusEffectCommand command;
+    BattleStatusApplyEffectResult result;
+};
+
+struct BattlePoisonSpreadResult
+{
+    int effectId{};
+    std::vector<BattlePoisonSpreadApplication> applications;
+};
+
 struct BattleStatusConsumeEffectResult
 {
     BattleStatusConsumeResult status;
@@ -290,6 +303,7 @@ using BattleEffectReductionValue = std::variant<
     BattleDamageAbsorptionEffectResult,
     BattleResourceEffectResult,
     BattleStatusApplyEffectResult,
+    BattlePoisonSpreadResult,
     BattleStatusConsumeEffectResult,
     BattleStatusRemoveEffectResult,
     BattleAreaEffectResult,

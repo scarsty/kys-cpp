@@ -1,4 +1,7 @@
 #include "EffectCommandTestHelpers.h"
+#include "ChessGameplayEffect.h"
+#include "battle/BattleEffectEventBridge.h"
+#include <yaml-cpp/yaml.h>
 #include "battle/BattleEffectCommandSystem.h"
 #include "battle/BattleCoreDetail.h"
 #include "battle/BattleFrameContext.h"
@@ -2747,4 +2750,212 @@ TEST_CASE("Area projectile execution preserves captured damage and formula-deriv
     CHECK_FALSE(followUp.triggersDefenseEffects);
     if (flat == 0) CHECK(followUp.logText == "殉爆30%");
     else CHECK(followUp.logText == "殉爆（307傷害）");
+}
+
+namespace
+{
+std::vector<EffectRule> poisonUltimateRules(const char* yaml)
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(yaml), effects, rules, id, "毒宗測試"));
+    return rules;
+}
+
+BattleEffectDispatchResult dispatchPoisonTestEvent(
+    BattleRuntimeState& state, int owner, EffectEvent event, EffectEventPayload payload)
+{
+    const auto owned = BattleEffectEventBridge().makeEvent(state,
+        {.frame = state.movement.frame, .ownerUnitId = owner}, event, std::move(payload));
+    auto dispatched = BattleEffectEventBridge().dispatch(state, owned);
+    BattleEffectCommandSystem().reduce(state, dispatched.commands);
+    return dispatched;
+}
+
+BattleAttackProvenance poisonTestAttack(int owner, int magicId, int castId = 1)
+{
+    return {
+        .cast = {.rootCastId = BattleCastId{static_cast<std::uint64_t>(castId)},
+                 .castId = BattleCastId{static_cast<std::uint64_t>(castId)},
+                 .sourceUnitId = owner, .magicId = magicId, .ultimate = true,
+                 .origin = CastOriginKind::Ultimate},
+        .attackId = BattleAttackId{static_cast<std::uint64_t>(castId)},
+        .rootAttack = true, .mainProjectile = true};
+}
+
+void seedPoison(BattleRuntimeState& state, int unitId, int percent, int frames, int nextTick)
+{
+    auto poison = boundStatusBehaviorContribution(BattleStatusKind::Poison,
+        poisonStatusBehavior(percent), 1, 900, 3, 1, frames);
+    poison.behaviorRuntime[0].intervalFramesRemaining = nextTick;
+    state.units.require(unitId).status.effects.statuses.push_back(std::move(poison));
+    state.units.require(unitId).status.effects.nextStatusSequence = 2;
+}
+}
+
+TEST_CASE("Chilian spreads to the nearest three enemies with canonical poison merging",
+          "[battle][effect][poison][chilian]")
+{
+    auto state = makeState();
+    state.gridTransform.tileWidth = 10;
+    for (int id = 4; id <= 9; ++id)
+        appendRuntimeUnit(state, makeRuntimeUnitSpawn(makeUnit(id, 1, 1000, 1000), {}));
+    for (int id = 3; id <= 9; ++id)
+        state.units.requireCore(id).motion.position = {float((id - 3) * 10), 0, 0};
+    state.units.requireCore(7).motion.position = {30, 0, 0};
+    state.units.requireCore(8).motion.position = {31, 0, 0};
+    state.units.requireCore(9).motion.position = {1, 0, 0};
+    state.units.requireCore(9).alive = false;
+    seedPoison(state, 3, 14, 75, 15);
+    seedPoison(state, 4, 14, 40, 10);
+    seedPoison(state, 5, 20, 60, 20);
+    seedPoison(state, 6, 7, 90, 30);
+    const auto rules = poisonUltimateRules(
+        "[{類型: 命中傳毒, 中毒次數: 3, 生命傷害百分比: 7, 半徑格數: 3, 敵人數: 3, 特效編號: 53}]");
+    state.effectRules.append(metadata(137, 3).binding, rules);
+    const auto hit = [&](int target, int castId)
+    {
+        return dispatchPoisonTestEvent(state, 1, EffectEvent::HitBeforeDamage,
+            HitEventData{.provenance = poisonTestAttack(1, 137, castId), .targetUnitId = target});
+    };
+    const auto dispatched = hit(3, 1);
+    REQUIRE(dispatched.commands.size() == 2);
+    const auto* equal = state.units.require(4).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(equal);
+    CHECK(equal->remainingFrames == 40);
+    CHECK(equal->behaviorRuntime[0].intervalFramesRemaining == 10);
+    const auto* stronger = state.units.require(5).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(stronger);
+    CHECK(poisonDamagePercent(stronger->behavior) == 20);
+    CHECK(stronger->remainingFrames == 60);
+    const auto* upgraded = state.units.require(6).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(upgraded);
+    CHECK(poisonDamagePercent(upgraded->behavior) == 14);
+    CHECK(upgraded->remainingFrames == 75);
+    CHECK(upgraded->stacks == 3);
+    CHECK(upgraded->behaviorRuntime[0].intervalFramesRemaining == 15);
+    CHECK_FALSE(state.units.require(2).status.effects.has(BattleStatusKind::Poison));
+    CHECK_FALSE(state.units.require(7).status.effects.has(BattleStatusKind::Poison));
+    CHECK_FALSE(state.units.require(8).status.effects.has(BattleStatusKind::Poison));
+    CHECK_FALSE(state.units.require(9).status.effects.has(BattleStatusKind::Poison));
+
+    CHECK(hit(3, 1).commands.size() == 1);
+    CHECK(hit(5, 1).commands.size() == 1); // 同次出招更換命中目標仍不得再次傳毒。
+    CHECK(hit(3, 2).commands.size() == 2);
+}
+
+TEST_CASE("Chilian seeds clean enemies and respects status protection", "[battle][effect][poison][chilian]")
+{
+    auto state = makeState();
+    appendRuntimeUnit(state, makeRuntimeUnitSpawn(makeUnit(4, 1, 1000, 1000), {}));
+    const auto rules = poisonUltimateRules(
+        "[{類型: 命中傳毒, 中毒次數: 3, 生命傷害百分比: 7, 半徑格數: 3, 敵人數: 3, 特效編號: 53}]");
+    state.effectRules.append(metadata(137, 3).binding, rules);
+    bool primaryBlocked{};
+    bool secondaryBlocked{};
+    SECTION("正常傳毒") {}
+    SECTION("主目標狀態護盾") { primaryBlocked = true; state.units.require(3).status.effects.statusShield = 500; }
+    SECTION("次目標狀態護盾") { secondaryBlocked = true; state.units.require(4).status.effects.statusShield = 500; }
+    dispatchPoisonTestEvent(state, 1, EffectEvent::HitBeforeDamage,
+        HitEventData{.provenance = poisonTestAttack(1, 137), .targetUnitId = 3});
+    CHECK(state.units.require(3).status.effects.has(BattleStatusKind::Poison) == !primaryBlocked);
+    CHECK(state.units.require(4).status.effects.has(BattleStatusKind::Poison) == (!primaryBlocked && !secondaryBlocked));
+}
+
+TEST_CASE("Huagong drains poison ticks and heals the actual attacker without blocking MP",
+          "[battle][effect][poison][huagong]")
+{
+    auto state = makeState();
+    state.units.requireCore(1).star = 1;
+    state.units.requireCore(2).star = 3;
+    state.units.requireCore(3).vitals.mp = 40;
+    const auto rules = poisonUltimateRules(
+        "[{類型: 命中化功, 中毒次數: 3, 生命傷害百分比: 7, 持續幀數: 100, 每次扣內: 12, 治療內力基準: 100}]");
+    state.effectRules.append(metadata(87, 3).binding, rules);
+    const auto apply = [&]
+    {
+        dispatchPoisonTestEvent(state, 1, EffectEvent::HitBeforeDamage,
+            HitEventData{.provenance = poisonTestAttack(1, 87), .targetUnitId = 3});
+    };
+    apply();
+    REQUIRE(state.units.require(3).status.effects.has(BattleStatusKind::Huagong));
+    CHECK(state.units.require(3).status.effects.remainingFrames(BattleStatusKind::Huagong) == 100);
+    CHECK_FALSE(state.units.require(3).mpBlocked());
+    apply();
+    CHECK(std::ranges::count(state.units.require(3).status.effects.statuses,
+        BattleStatusKind::Huagong, &BattleStatusContribution::kind) == 1);
+
+    const auto damage = [&](EffectDamageOrigin origin, BattleDamageKind kind, bool blocked = false)
+    {
+        auto attacker = makeEffectUnitSnapshot(state, state.units.require(2));
+        const auto victim = makeEffectUnitSnapshot(state, state.units.require(3));
+        const auto payload = DamageResultEventData{.origin = std::move(origin), .attackerBefore = attacker,
+            .defenderBefore = victim, .defenderAfter = victim,
+            .finalHpDamage = 10, .damageKind = kind, .blocked = blocked};
+        CHECK(dispatchPoisonTestEvent(state, 2, EffectEvent::DamageResolved, payload).commands.empty());
+        return dispatchPoisonTestEvent(state, 3, EffectEvent::DamageResolved, payload);
+    };
+    const auto attack = EffectAttackDamageOrigin{poisonTestAttack(2, 999)};
+    const auto poisonOrigin = EffectStatusDamageOrigin{
+        .binding = metadata(900, 3).binding,
+        .contribution = {.holderUnitId = 3, .sourceUnitId = 1, .kind = BattleStatusKind::Poison,
+            .quantity = 3, .appliedSequence = 1, .producerRuleId = EffectRuleId{900}}};
+
+    SECTION("不同攻擊者星級及目前目標內力")
+    {
+        damage(attack, BattleDamageKind::Physical);
+        CHECK(state.units.requireCore(2).vitals.hp == 380); // (100 - 40) * 3
+        CHECK(state.units.requireCore(1).vitals.hp == 900);
+        state.units.requireCore(3).vitals.mp = 0;
+        damage(attack, BattleDamageKind::Skill);
+        CHECK(state.units.requireCore(2).vitals.hp == 680);
+        state.units.requireCore(3).vitals.mp = 100;
+        damage(attack, BattleDamageKind::Physical);
+        CHECK(state.units.requireCore(2).vitals.hp == 680);
+    }
+    SECTION("施術者死亡後仍由攻擊者觸發，且沿用禁療規則")
+    {
+        state.units.requireCore(1).alive = false;
+        damage(attack, BattleDamageKind::Physical);
+        CHECK(state.units.requireCore(2).vitals.hp == 380);
+        ApplyStatusAction cold;
+        cold.status = BattleStatusKind::ColdPoison;
+        cold.durationFrames = 100;
+        cold.reapplication = StatusReapplicationPolicy::Implicit;
+        cold.behavior = makeCatalogOwnedStatusBehavior(cold);
+        BattleEffectCommandSystem().reduce(state, commandFixture(
+            EffectCommand{metadata(5, 2), statusApplication(cold)}, {.frame = 0}));
+        damage(attack, BattleDamageKind::Physical);
+        CHECK(state.units.requireCore(2).vitals.hp == 380);
+    }
+    SECTION("普通中毒跳傷扣內，結算毒傷不扣內也不治療")
+    {
+        damage(poisonOrigin, BattleDamageKind::Poison);
+        CHECK(state.units.requireCore(3).vitals.mp == 28);
+        CHECK(state.units.requireCore(2).vitals.hp == 200);
+        state.units.requireCore(3).vitals.mp = 5;
+        damage(poisonOrigin, BattleDamageKind::Poison);
+        CHECK(state.units.requireCore(3).vitals.mp == 0);
+        state.units.requireCore(3).vitals.mp = 40;
+        damage(EffectRuleDamageOrigin{}, BattleDamageKind::Poison);
+        CHECK(state.units.requireCore(3).vitals.mp == 40);
+    }
+    SECTION("無效命中不治療")
+    {
+        damage(attack, BattleDamageKind::Physical, true);
+        CHECK(state.units.requireCore(2).vitals.hp == 200);
+    }
+    SECTION("淨化後不再扣內或治療")
+    {
+        RemoveStatusAction cleanse;
+        cleanse.negativeOnly = true;
+        BattleEffectCommandSystem().reduce(state, commandFixture(
+            EffectCommand{metadata(87, 3), statusRemoval(cleanse)}, {.frame = 0}));
+        CHECK_FALSE(state.units.require(3).status.effects.has(BattleStatusKind::Huagong));
+        damage(attack, BattleDamageKind::Physical);
+        damage(poisonOrigin, BattleDamageKind::Poison);
+        CHECK(state.units.requireCore(2).vitals.hp == 200);
+        CHECK(state.units.requireCore(3).vitals.mp == 40);
+    }
 }

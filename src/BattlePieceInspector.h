@@ -56,6 +56,7 @@ inline BattleEffectIcon battleInspectorStatusIcon(BattleStatusKind status)
     case BattleStatusKind::Shadowless: return BattleEffectIcon::Shadowless;
     case BattleStatusKind::SwordGuard: return BattleEffectIcon::SwordGuard;
     case BattleStatusKind::NextAttackCritical: return BattleEffectIcon::Critical;
+    case BattleStatusKind::Huagong: return BattleEffectIcon::Poison;
     case BattleStatusKind::Berserk: return BattleEffectIcon::Berserk;
     case BattleStatusKind::Count: break;
     }
