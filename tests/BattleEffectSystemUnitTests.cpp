@@ -1628,6 +1628,8 @@ TEST_CASE("BattleEffectSystem numeric catalog rows agree with runtime evaluation
         owner,
         units,
         DamageResultEventData{ .finalHpDamage = 17 });
+    context.header.binding.kind = EffectSourceKind::Combo;
+    context.header.binding.comboPoints = 11;
     context.header.formulaInputs.storedStateValue = 321;
     context.header.statusContribution = EffectStatusContributionContext{
         .holderUnitId = target.id,
@@ -1661,6 +1663,7 @@ TEST_CASE("BattleEffectSystem numeric catalog rows agree with runtime evaluation
         Case{ EffectNumberBase::StoredStateValue, 321 },
         Case{ EffectNumberBase::ApplicationTargetMaxHp, 777 },
         Case{ EffectNumberBase::BoundRatio, 777, std::nullopt, true },
+        Case{ EffectNumberBase::SourceComboPoints, 11 },
     };
     for (const auto& test : cases)
     {

@@ -142,6 +142,7 @@ enum class ApplicationBaseBindingKind
     SourceStatusQuantity,
     StoredStateValue,
     ApplicationTargetMaxHp,
+    SourceComboPoints,
 };
 
 enum class EffectNumberEvaluationKind
@@ -162,6 +163,7 @@ enum class EffectNumberEvaluationKind
     StoredStateValue,
     ApplicationTargetMaxHp,
     BoundRatio,
+    SourceComboPoints,
     Count,
 };
 
@@ -194,6 +196,7 @@ inline constexpr std::array effectNumberBaseCatalog{
     EffectNumberBaseCatalogEntry{ EffectNumberBase::StoredStateValue, "狀態槽值", StatusNumberBindingPhase::ApplicationBound, ApplicationBaseBindingKind::StoredStateValue, EffectNumberEvaluationKind::StoredStateValue },
     EffectNumberBaseCatalogEntry{ EffectNumberBase::ApplicationTargetMaxHp, "套用目標最大生命", StatusNumberBindingPhase::ApplicationBound, ApplicationBaseBindingKind::ApplicationTargetMaxHp, EffectNumberEvaluationKind::ApplicationTargetMaxHp, {}, EffectNumberAuthoringScope::StatusBehaviorOnly },
     EffectNumberBaseCatalogEntry{ EffectNumberBase::BoundRatio, {}, StatusNumberBindingPhase::Literal, ApplicationBaseBindingKind::None, EffectNumberEvaluationKind::BoundRatio },
+    EffectNumberBaseCatalogEntry{ EffectNumberBase::SourceComboPoints, "來源羈絆值", StatusNumberBindingPhase::ApplicationBound, ApplicationBaseBindingKind::SourceComboPoints, EffectNumberEvaluationKind::SourceComboPoints },
 };
 
 static_assert(effectNumberBaseCatalog.size()

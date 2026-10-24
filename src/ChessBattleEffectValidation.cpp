@@ -1862,6 +1862,7 @@ bool validateBattleInitializedNumber(const EffectNumber& number, std::string& er
         case EffectNumberBase::SourceAttack:
         case EffectNumberBase::SourceMaxHp:
         case EffectNumberBase::SourceCurrentMpRatio:
+        case EffectNumberBase::SourceComboPoints:
         case EffectNumberBase::TargetMaxHp:
         case EffectNumberBase::TargetCurrentHp:
             return true;

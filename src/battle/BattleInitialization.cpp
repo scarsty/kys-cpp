@@ -42,6 +42,7 @@ struct TeamResolvedSetup
     {
         int comboId = -1;
         bool isAntiCombo = false;
+        int comboPoints{};
         std::vector<int> memberUnitIds;
         std::vector<EffectRule> rules;
     };
@@ -173,6 +174,7 @@ TeamResolvedSetup resolveTeamSetup(
         resolved.activeComboRules.push_back({
             .comboId = active.id,
             .isAntiCombo = active.isAntiCombo,
+            .comboPoints = active.effectiveMemberCount,
             .memberUnitIds = std::move(memberUnitIds),
             .rules = threshold.rules,
         });
@@ -580,6 +582,7 @@ void BattleStartInitializationRun::bindActiveComboRules()
                             .sourceId = active.comboId,
                             .ownerUnitId = ownerUnitId,
                             .sourceTeam = team,
+                            .comboPoints = active.comboPoints,
                         },
                         rule);
                 }

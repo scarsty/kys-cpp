@@ -1636,6 +1636,10 @@ struct CommandEmitter
         {
         case ApplicationBaseBindingKind::SourceStar:
             return { context.scope.owner->star, 1 };
+        case ApplicationBaseBindingKind::SourceComboPoints:
+            assert(context.scope.binding.kind == EffectSourceKind::Combo);
+            assert(context.scope.binding.comboPoints > 0);
+            return { context.scope.binding.comboPoints, 1 };
         case ApplicationBaseBindingKind::SourceAttack:
             return { context.scope.owner->attack, 1 };
         case ApplicationBaseBindingKind::SourceMaxHp:
@@ -2690,6 +2694,10 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
         {
         case EffectNumberEvaluationKind::Constant: return 0;
         case EffectNumberEvaluationKind::SourceStar: return context.scope.owner->star;
+        case EffectNumberEvaluationKind::SourceComboPoints:
+            assert(context.scope.binding.kind == EffectSourceKind::Combo);
+            assert(context.scope.binding.comboPoints > 0);
+            return context.scope.binding.comboPoints;
         case EffectNumberEvaluationKind::SourceAttack: return context.scope.owner->attack;
         case EffectNumberEvaluationKind::SourceMaxHp: return context.scope.owner->maxHp;
         case EffectNumberEvaluationKind::SourceMissingHpRatio:

@@ -31,6 +31,7 @@ struct EffectSourceBinding
     // Permanent configured bindings use zero. Runtime-only aliases receive a
     // unique instance so identical borrowed magics keep independent state.
     std::uint64_t runtimeInstanceId{};
+    int comboPoints{};
 
     bool operator==(const EffectSourceBinding&) const = default;
 };
@@ -195,6 +196,7 @@ enum class EffectNumberBase
     StoredStateValue,
     ApplicationTargetMaxHp,
     BoundRatio,
+    SourceComboPoints,
     Count,
 };
 

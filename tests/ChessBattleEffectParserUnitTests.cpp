@@ -28,6 +28,28 @@ TEST_CASE("假死復甦 exposes its delay, restored HP, and revival stun", "[che
     CHECK(description.contains("51幀"));
 }
 
+TEST_CASE("Combo point attack bonuses compile to a flat opening bonus from their own combo",
+          "[chess][effects][named][combo-points]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextRuleId{};
+    REQUIRE(parseGameplayEffects(YAML::Load("[{類型: 羈絆值攻擊加成, 每點攻擊: 13}]"),
+        effects, rules, nextRuleId, "羈絆值測試"));
+    REQUIRE(rules.size() == 1);
+    const auto& rule = rules.front();
+    CHECK(rule.event == EffectEvent::BattleInitialized);
+    CHECK(rule.selector.kind == EffectSelectorKind::Self);
+    REQUIRE(rule.actions.size() == 1);
+    const auto& action = std::get<ModifyAttributeAction>(rule.actions.front().value);
+    CHECK(action.attribute == BattleAttribute::Attack);
+    CHECK(action.operation == AttributeOperation::FlatAdd);
+    CHECK(action.amount.base == EffectNumberBase::SourceComboPoints);
+    CHECK(action.amount.percent == 1300);
+    CHECK_FALSE(action.amount.maximum);
+    CHECK(action.durationFrames == 0);
+}
+
 TEST_CASE("Named effect loading rejects malformed parameters atomically", "[chess][effects][named][config]")
 {
     const std::string_view invalid[]{

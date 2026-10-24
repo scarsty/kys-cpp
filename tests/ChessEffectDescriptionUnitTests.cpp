@@ -82,6 +82,15 @@ TEST_CASE("Afflicted hit shield descriptions retain the cap and cast limit in on
         == "命中：負面敵人→護盾+血上限5%，上限20%，每招一次");
 }
 
+TEST_CASE("Combo point attack descriptions explain total points beyond the highest tier",
+          "[chess][effects][description][combo-points]")
+{
+    const auto effect = configured("[{類型: 羈絆值攻擊加成, 每點攻擊: 13}]").front();
+    CHECK(effect->describe(EffectDescriptionStyle::Full)
+        == "開戰時，攻擊增加此羈絆的總羈絆值×13，包含星級與天賦加點，超出最高門檻仍持續計算。");
+    CHECK(effect->describe(EffectDescriptionStyle::Compact) == "攻擊+羈絆值×13");
+}
+
 TEST_CASE("Low health combo attack descriptions specify other members",
           "[chess][effects][description][member-team-attack]")
 {

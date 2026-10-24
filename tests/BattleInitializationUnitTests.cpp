@@ -1279,6 +1279,90 @@ TEST_CASE("Lore equipment initializes its configurable defense and conversion on
     CHECK(poison.binding.ownerUnitId == 0);
 }
 
+TEST_CASE("Combo point attack bonuses unlock at their tier and scale beyond it for either team",
+          "[battle][initialization][combo-points][regression]")
+{
+    struct Case
+    {
+        std::vector<int> stars;
+        int talentPoints{};
+        int expectedPoints{};
+        int expectedBonus{};
+    };
+    const std::vector cases{
+        Case{{1, 1, 1}, 0, 3, 0},
+        Case{{2, 2, 1}, 0, 5, 0},
+        Case{{2, 2, 2}, 0, 6, 0},
+        Case{{3, 2, 2}, 0, 7, 70},
+        Case{{3, 3, 2}, 0, 8, 80},
+        Case{{3, 3, 3}, 0, 9, 90},
+        Case{{4, 3, 3}, 0, 10, 100},
+        Case{{4, 4, 4, 4, 4, 4, 4}, 0, 28, 280},
+        Case{{2, 2, 2}, 1, 7, 70},
+        Case{{3, 2, 2}, 1, 8, 80},
+    };
+    for (const auto& test : cases)
+    {
+        for (int team : {0, 1})
+        {
+            CAPTURE(test.stars, test.talentPoints, test.expectedPoints, team);
+            std::uint64_t nextRuleId{};
+            BattleRuntimeSetupSeed setup;
+            setup.comboDefinitions.push_back({
+                .id = 77,
+                .name = "測試星級羈絆",
+                .memberRoleIds = {100, 101, 102, 103, 104, 105, 106},
+                .thresholds = {
+                    gameplayThreshold(3, "[{類型: 防禦加成, 點數: 11}]", nextRuleId),
+                    gameplayThreshold(5, "[{類型: 防禦加成, 點數: 22}]", nextRuleId),
+                    gameplayThreshold(7, R"([
+                        {類型: 防禦加成, 點數: 33},
+                        {類型: 羈絆值攻擊加成, 每點攻擊: 10}
+                    ])", nextRuleId),
+                },
+                .starSynergyBonus = true,
+            });
+            setup.comboModifiersByTeam[team] = {.selectedComboId = 77,
+                .selectedComboBonus = test.talentPoints};
+
+            std::vector<BattleRuntimeUnitSpawn> spawns;
+            const auto addUnit = [&](int id, int roleId, int unitTeam, int star)
+            {
+                spawns.push_back(runtimeSpawn(runtimeUnit(id, unitTeam, 100, 20, 30, 40)));
+                setup.units.push_back({.unitId = id, .realRoleId = roleId, .team = unitTeam,
+                    .star = star, .cost = 1, .baseMaxHp = 100, .baseAttack = 20,
+                    .baseDefence = 30, .baseSpeed = 40});
+                auto& roster = unitTeam == 0 ? setup.allyRoster : setup.enemyRoster;
+                roster.push_back({.unitId = id, .realRoleId = roleId, .team = unitTeam,
+                    .star = star, .cost = 1});
+            };
+            for (int index = 0; index < static_cast<int>(test.stars.size()); ++index)
+                addUnit(index, 100 + index, team, test.stars[index]);
+            addUnit(90, 999, team, 1);
+            for (int index = 0; index < 3; ++index)
+                addUnit(100 + index, 100 + index, 1 - team, 1);
+
+            const auto& roster = team == 0 ? setup.allyRoster : setup.enemyRoster;
+            const auto resolved = resolveBattleSetupCombos(roster, setup);
+            REQUIRE(resolved.size() == 1);
+            CHECK(resolved.front().effectiveMemberCount == test.expectedPoints);
+
+            auto output = initializeBattleStartForTest(std::move(spawns), setup);
+            for (int index = 0; index < static_cast<int>(test.stars.size()); ++index)
+            {
+                const auto& unit = requireSpawn(output.spawns, index).unit;
+                const auto base = computeStarBoostedStats({100, 20, 30, 40}, setup.starGrowth, test.stars[index]);
+                CHECK(unit.stats.attack == base.atk + test.expectedBonus);
+                CHECK(unit.stats.defence == base.def
+                    + (test.expectedPoints >= 7 ? 33 : test.expectedPoints >= 5 ? 22 : 11));
+            }
+            CHECK(requireSpawn(output.spawns, 90).unit.stats.attack == 20);
+            for (int index = 0; index < 3; ++index)
+                CHECK(requireSpawn(output.spawns, 100 + index).unit.stats.attack == 20);
+        }
+    }
+}
+
 TEST_CASE("Alliance synergy points activate suppression tiers without adding debuff owners",
           "[battle][initialization][alliance][enemy-top-debuff][regression]")
 {

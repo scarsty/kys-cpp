@@ -540,6 +540,29 @@ struct AttackBonus final : GameplayEffectDefinition
     }
 };
 
+struct ComboPointAttackBonus final : GameplayEffectDefinition
+{
+    int 每點攻擊{};
+    static constexpr std::string_view Name = "羈絆值攻擊加成";
+    static constexpr auto Parameters = std::array<Parameter<ComboPointAttackBonus>, 1>{
+        {Parameter<ComboPointAttackBonus>{{"每點攻擊", 0, 1000000}, &ComboPointAttackBonus::每點攻擊}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.event = EffectEvent::BattleInitialized,
+                           .actions = {EffectAction{.value = ModifyAttributeAction{
+                               .attribute = BattleAttribute::Attack,
+                               .amount = EffectNumber{.base = EffectNumberBase::SourceComboPoints,
+                                                      .percent = 每點攻擊 * 100}}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("攻擊+羈絆值×{}", 每點攻擊);
+        return std::format("開戰時，攻擊增加此羈絆的總羈絆值×{}，包含星級與天賦加點，超出最高門檻仍持續計算。", 每點攻擊);
+    }
+};
+
 struct DefencePercentBonus final : GameplayEffectDefinition
 {
     int 百分比{};
@@ -1090,6 +1113,7 @@ void appendAttributeEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<MpRecoveryBonus>());
     entries.push_back(registration<HitStackDamage>());
     entries.push_back(registration<AttackBonus>());
+    entries.push_back(registration<ComboPointAttackBonus>());
     entries.push_back(registration<DefencePercentBonus>());
     entries.push_back(registration<DodgeBonus>());
     entries.push_back(registration<CriticalAfterDodge>());
