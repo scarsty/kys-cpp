@@ -1,14 +1,18 @@
 import fs from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {parseArgs} from 'node:util';
+import {readJson, readSave, scriptJson, talentNames} from './report-common.mjs';
+import {selectUsageForTournament} from './usage-analysis.mjs';
+import {usageScript, usageTabs} from './usage-report.mjs';
 
-const [sourcePath, outputPath, saveDirectory, cliPath = "kys_chess_cli.exe", dataRootArg, configRootArg] = process.argv.slice(2);
-if (!sourcePath || !outputPath || !saveDirectory) {
-  throw new Error("Usage: node generate-tournament-report.mjs <results.json> <report.html> <save-directory> [cli-path] [data-root] [config-root]");
+const {values, positionals} = parseArgs({allowPositionals:true, options:{usage:{type:'string'}}});
+const [sourcePath, outputPath, saveDirectory, cliPath = "kys_chess_cli.exe", dataRootArg, configRootArg] = positionals;
+if (!sourcePath || !outputPath || !saveDirectory || positionals.length > 6) {
+  throw new Error("用法：node generate-tournament-report.mjs <results.json> <report.html> <存檔目錄> [CLI] [資料目錄] [配置目錄] [--usage usage.json]");
 }
 
-const source = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
+const source = readJson(sourcePath);
 if (source.format !== "full_round_robin_mirrored") {
   throw new Error(`Unsupported tournament format: ${source.format}`);
 }
@@ -16,20 +20,10 @@ const metadata = source.run_metadata ?? {};
 const dataRoot = dataRootArg || metadata.data_root;
 if (!dataRoot) throw new Error("Provide data-root so replay commands use the tournament's game data.");
 const configRoot = configRootArg || metadata.config_root || path.join(dataRoot, "config");
-const talents = new Map([
-  ["divine_arms", "神兵"], ["backbone", "中堅"],
-  ["late_bloomer", "晚成"], ["gambler", "賭徒"], ["alliance", "合縱"],
-]);
 const headers = [];
 const submissions = source.submissions.map(entry => {
-  if (path.basename(entry.source) !== entry.source) throw new Error(`Expected a save filename: ${entry.source}`);
-  const bytes = fs.readFileSync(path.join(saveDirectory, entry.source));
-  const hash = createHash("sha256").update(bytes).digest("hex");
-  if (hash !== entry.payload_sha256) throw new Error(`Save SHA256 differs from tournament input: ${entry.source}`);
-  const payload = JSON.parse(bytes.toString("utf8").replace(/^\uFEFF/, ""));
-  const header = (payload.checkpoint ?? payload).replay.header;
-  const talent = talents.get(header.talent);
-  if (!talent) throw new Error(`Unknown talent in ${entry.source}: ${header.talent}`);
+  const {hash, header} = readSave(saveDirectory, entry.source, entry.payload_sha256);
+  const talent = talentNames.get(header.talent);
   headers.push(header);
   return [entry.index, entry.name, entry.source, hash, talent, header.talent];
 });
@@ -97,13 +91,14 @@ const reportData = {
 
 const templatePath = fileURLToPath(new URL("./modern-tournament-template.html", import.meta.url));
 const template = fs.readFileSync(templatePath, "utf8");
-const serialized = JSON.stringify(reportData)
-  .replaceAll("<", "\\u003c")
-  .replaceAll("\u2028", "\\u2028")
-  .replaceAll("\u2029", "\\u2029");
-const html = template.replace("__TOURNAMENT_DATA__", serialized);
-if (html === template) {
+if (!template.includes('__TOURNAMENT_DATA__')) {
   throw new Error("Tournament data placeholder was not found in the template");
 }
+const usage = values.usage ? selectUsageForTournament(readJson(values.usage), source.submissions) : null;
+const html = template.replace('__TOURNAMENT_DATA__', () => scriptJson(reportData))
+  .replace('__REPORT_TABS__', () => usage ? usageTabs() : '')
+  .replace('__USAGE_PANEL__', () => usage ? '<div id="usageReport" hidden></div>' : '')
+  .replace('__USAGE_SCRIPT__', () => usage ? usageScript(usage, true) : '');
+fs.mkdirSync(path.dirname(outputPath), {recursive:true});
 fs.writeFileSync(outputPath, html, "utf8");
 console.log(outputPath);

@@ -11,6 +11,7 @@
 #include "ChessReplayArchive.h"
 #include "ChessReplayJson.h"
 #include "ChessReplayVerifier.h"
+#include "ChessReplayTrace.h"
 #include "ChessSaveFile.h"
 #include "ChessStandaloneBattle.h"
 #include "ChessTournament.h"
@@ -56,6 +57,7 @@ struct Arguments
     std::filesystem::path dataRoot;
     std::filesystem::path configRoot;
     std::filesystem::path autosaveFile;
+    std::optional<std::filesystem::path> traceOutputPath;
     KysChess::Difficulty difficulty = KysChess::Difficulty::Normal;
     std::uint64_t seed = 1;
     std::optional<KysChess::ChessTalentId> talent;
@@ -136,7 +138,7 @@ void printUsage(std::ostream& output)
               "  kys_chess_cli validate-content [--difficulty easy|normal|hard] [--data-root 路徑] [--config-root 路徑]\n"
               "  kys_chess_cli verify <重播檔>\n"
               "  kys_chess_cli replay-prefix <存檔> --sequence N --output <新存檔>\n"
-              "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
+              "  kys_chess_cli verify-pvp <離線對戰存檔> [--trace-output 決策快照.jsonl]\n"
               "  kys_chess_cli pvp-battle <我方存檔> <對方存檔> --seed <戰鬥種子> [--json]\n"
               "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--jobs N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
               "  kys_chess_cli tournament-battle <存檔甲> <存檔乙> --seed N --seed-index N --leg 0|1 [--json]\n"
@@ -255,6 +257,12 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             }
             result.arguments.autosaveFile = *path;
             result.arguments.autosaveFileSpecified = true;
+        }
+        else if (value == "--trace-output")
+        {
+            const auto path = optionValue(value);
+            if (!path) return result;
+            result.arguments.traceOutputPath = *path;
         }
         else if (value == "--output")
         {
@@ -455,6 +463,7 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             || result.arguments.legSpecified
             || result.arguments.replaySequenceSpecified
             || result.arguments.outputPathSpecified
+            || result.arguments.traceOutputPath.has_value()
             || result.arguments.jsonOutputPathSpecified)
         {
             result.error = result.arguments.mcp
@@ -470,7 +479,20 @@ ArgumentParseResult parseArguments(int argc, char** argv)
         return result;
     }
 
-    if (result.arguments.difficultySpecified
+    if (result.arguments.traceOutputPath && command != "verify-pvp")
+    {
+        result.error = "--trace-output 只適用於 verify-pvp";
+    }
+    else if (result.arguments.traceOutputPath
+        && (std::filesystem::weakly_canonical(*result.arguments.traceOutputPath)
+                == std::filesystem::weakly_canonical(result.arguments.replayPath)
+            || (std::filesystem::exists(*result.arguments.traceOutputPath)
+                && std::filesystem::exists(result.arguments.replayPath)
+                && std::filesystem::equivalent(*result.arguments.traceOutputPath, result.arguments.replayPath))))
+    {
+        result.error = "決策快照輸出不可覆寫原始存檔";
+    }
+    else if (result.arguments.difficultySpecified
         && command != "play"
         && command != "new"
         && command != "validate-content")
@@ -1080,12 +1102,38 @@ int main(int argc, char** argv)
         {
             return 2;
         }
-        ChessPvpSaveVerifier verifier(content, *payload);
+        std::ofstream traceOutput;
+        std::optional<ChessReplayTraceWriter> traceWriter;
+        ChessReplayObserver observer;
+        if (arguments.traceOutputPath)
+        {
+            traceOutput.open(*arguments.traceOutputPath, std::ios::binary | std::ios::trunc);
+            if (!traceOutput)
+            {
+                std::cerr << "無法寫入決策快照\n";
+                return 2;
+            }
+            traceWriter.emplace(traceOutput, *content);
+            observer = [&](std::size_t sequence, const ChessGameSession& session) {
+                traceWriter->observe(sequence, session);
+            };
+        }
+        ChessPvpSaveVerifier verifier(content, *payload, std::move(observer));
         while (!verifier.finished())
         {
             verifier.step(1, std::numeric_limits<int>::max());
         }
         const auto verification = verifier.takeResult();
+        if (traceWriter)
+        {
+            traceWriter->finish(verification);
+            traceOutput.flush();
+            if (!traceOutput)
+            {
+                std::cerr << "寫入決策快照失敗\n";
+                return 2;
+            }
+        }
         if (!verification.valid)
         {
             std::cerr << "序號 " << verification.sequence << "：" << verification.message << '\n';

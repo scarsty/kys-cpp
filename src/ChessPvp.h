@@ -89,7 +89,8 @@ class ChessPvpSaveVerifier
 public:
     ChessPvpSaveVerifier(
         std::shared_ptr<const ChessGameContent> content,
-        std::string_view payload);
+        std::string_view payload,
+        ChessReplayObserver observer = {});
 
     void step(std::size_t decisionBudget, int battleFrameBudget);
     bool finished() const { return finished_; }

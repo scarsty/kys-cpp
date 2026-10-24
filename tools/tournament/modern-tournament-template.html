@@ -20,12 +20,16 @@
 </head>
 <body>
 <main class="wrap">
-<header class="topbar"><a class="brand" href="#"><span class="brand-mark">棋</span><span>金群自走棋<small>TOURNAMENT REPORT</small></span></a><nav aria-label="報告導覽"><a href="#standings">完整排名</a><a href="#matchups">對戰分析</a></nav></header>
+<header class="topbar"><a class="brand" href="#"><span class="brand-mark">棋</span><span>金群自走棋<small>離線對戰賽事</small></span></a><nav aria-label="報告導覽"><a href="#standings">完整排名</a><a href="#matchups">對戰分析</a></nav></header>
+__REPORT_TABS__
+<div id="tournamentPanel">
 <section class="hero"><div><p class="eyebrow" id="versionLabel"></p><h1>賽事戰報</h1><p class="subtitle" id="formatLabel"></p></div></section>
 <section class="podium" id="podium" aria-label="前三名"></section>
 <section class="section" id="standings"><div class="section-title"><h2>完整排名</h2><small id="rowCount" aria-live="polite"></small></div><div class="toolbar"><label>搜尋陣容<input id="search" type="search" placeholder="輸入陣容名稱"></label><label>棋手天賦<select id="talentFilter"><option value="all">全部天賦</option></select></label><label>排序<select id="sort"><option value="rank">名次</option><option value="name">陣容名稱</option><option value="losses">敗場由少至多</option></select></label></div><div class="table-wrap standings-table"><table><thead><tr><th>名次</th><th>陣容</th><th>天賦</th><th class="num">總分</th><th class="num">勝</th><th class="num">敗</th><th class="num">勝率</th></tr></thead><tbody id="standingRows"></tbody></table></div></section>
 <section class="section" id="matchups"><div class="section-title"><h2>對戰分析</h2><small>選擇陣容查看全部對手，點選對手查看單場結果。</small></div><div class="versus-controls"><label>參賽陣容<select id="entrantA"></select></label><label>對手陣容<select id="entrantB"></select></label></div><div class="matchup-layout"><div class="opponent-overview" id="opponentOverview"><div class="section-title"><h3 id="opponentTitle"></h3><small id="opponentSummary" aria-live="polite"></small></div><div class="table-wrap" id="opponentList" tabindex="0" role="region" aria-labelledby="opponentTitle"><table><thead><tr><th>名次</th><th>對手陣容</th><th class="num">勝 · 和 · 敗</th><th class="num">勝率</th></tr></thead><tbody id="opponentRows"></tbody></table></div></div><div class="match-details" id="matchDetails"><div class="match-detail-heading"><h3>對戰詳情</h3><button class="back-to-opponents" id="backToOpponents" type="button">返回對手列表 ↑</button></div><div class="comparison" id="comparison" aria-live="polite"></div><div class="seed-grid" id="seedCards"></div><div class="status" id="copyStatus" role="status"></div></div></div></section>
 <footer><span id="footerVersion"></span><span id="rulesLabel"></span><details class="report-metadata"><summary>賽事資料</summary><p id="rootSeed"></p><p id="sourceLabel"></p></details></footer>
+</div>
+__USAGE_PANEL__
 </main>
 <script>
 const DATA = __TOURNAMENT_DATA__;
@@ -114,5 +118,6 @@ el('seedCards').addEventListener('click',async event=>{const button=event.target
 new ResizeObserver(resizeStandings).observe(el('standingRows').closest('table'));
 renderStandings();selectEntrant(selectedA);
 </script>
+__USAGE_SCRIPT__
 </body>
 </html>

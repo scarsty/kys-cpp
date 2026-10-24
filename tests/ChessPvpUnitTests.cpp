@@ -5,6 +5,7 @@
 #include "ChessReplayJournal.h"
 #include "ChessReplayVerifier.h"
 #include "ChessStandaloneBattle.h"
+#include "../cli/ChessReplayTrace.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -14,6 +15,7 @@
 #include <array>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -89,6 +91,42 @@ TEST_CASE("offline PvP verifier accepts direct checkpoints and full slot envelop
         fullSlotPayload(fixture.checkpoint));
     REQUIRE(full.valid);
     CHECK(full.composition == direct.composition);
+}
+
+TEST_CASE("usage traces retain the final PvP validation result after all observed decisions", "[chess][pvp][trace]")
+{
+    auto fixture = checkpointFixture();
+    const bool corruptSnapshot = GENERATE(false, true);
+    if (corruptSnapshot) ++fixture.checkpoint.state.money;
+    std::ostringstream output;
+    ChessReplayTraceWriter writer(output, *fixture.content);
+    ChessPvpSaveVerifier verifier(fixture.content, fixture.checkpoint.serializeJson(),
+        [&](std::size_t sequence, const ChessGameSession& session) { writer.observe(sequence, session); });
+    while (!verifier.finished()) verifier.step(1, 10000);
+    const auto result = verifier.takeResult();
+    CHECK(result.valid == !corruptSnapshot);
+    writer.finish(result);
+
+    std::istringstream input(output.str());
+    std::string line;
+    REQUIRE(std::getline(input, line));
+    const auto catalog = glz::read_json<ChessTraceCatalog>(line);
+    REQUIRE(catalog);
+    CHECK(catalog->engine_version == fixture.content->gameVersion());
+    CHECK(catalog->content_fingerprint == chessSha256Hex(fixture.content->contentFingerprint()));
+    for (std::size_t sequence = 0; sequence <= fixture.checkpoint.replay.decisions.size(); ++sequence)
+    {
+        REQUIRE(std::getline(input, line));
+        const auto snapshot = glz::read_json<ChessTraceSnapshot>(line);
+        REQUIRE(snapshot);
+        CHECK(snapshot->sequence == sequence);
+    }
+    REQUIRE(std::getline(input, line));
+    const auto terminal = glz::read_json<ChessTraceTerminal>(line);
+    REQUIRE(terminal);
+    CHECK(terminal->validation.valid == result.valid);
+    CHECK(terminal->validation.sequence == result.sequence);
+    CHECK_FALSE(std::getline(input, line));
 }
 
 TEST_CASE("compatible releases verify unchanged offline PvP saves", "[chess][pvp][save][version]")

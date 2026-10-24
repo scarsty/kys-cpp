@@ -161,8 +161,9 @@ std::string actionDescription(
 
 ChessReplayAudit::ChessReplayAudit(
     std::shared_ptr<const ChessGameContent> content,
-    ChessReplay replay)
-    : replay_(std::move(replay))
+    ChessReplay replay,
+    ChessReplayObserver observer)
+    : replay_(std::move(replay)), observer_(std::move(observer))
 {
     const bool versionCompatible = chessGameVersionsCompatible(
         replay_.header.gameVersion, content->gameVersion());
@@ -198,6 +199,7 @@ ChessReplayAudit::ChessReplayAudit(
         replay_.header.rootSeed,
         replay_.header.options,
         ChessSessionExecutionMode::ReplayVerification);
+    if (observer_) observer_(0, *session_);
 }
 
 void ChessReplayAudit::fail(
@@ -225,6 +227,7 @@ bool ChessReplayAudit::completeDecision(const ChessActionResult& actual)
         return false;
     }
     ++nextDecision_;
+    if (observer_) observer_(nextDecision_, *session_);
     return true;
 }
 

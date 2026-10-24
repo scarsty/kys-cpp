@@ -80,6 +80,25 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("--jobs 只適用於 tournament", completed.stderr)
 
+    def test_trace_output_is_restricted_to_verify_pvp(self):
+        for args in (["new"], ["--jsonl"], ["--mcp"]):
+            with self.subTest(args=args):
+                completed = run_cli([*args, "--trace-output", "unused.jsonl"])
+                self.assertEqual(completed.returncode, 2)
+
+    def test_trace_output_cannot_overwrite_input_or_its_hard_link(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "save.json"
+            source.write_text("original", encoding="utf-8")
+            alias = Path(directory) / "alias.json"
+            os.link(source, alias)
+            for target in (source, alias):
+                with self.subTest(target=target):
+                    completed = run_cli(["verify-pvp", str(source), "--trace-output", str(target)])
+                    self.assertEqual(completed.returncode, 2)
+                    self.assertIn("不可覆寫原始存檔", completed.stderr)
+                    self.assertEqual(source.read_text(encoding="utf-8"), "original")
+
     def test_interactive_json_is_rejected_in_favor_of_jsonl(self):
         completed = run_cli(["--json"], "quit\n")
 

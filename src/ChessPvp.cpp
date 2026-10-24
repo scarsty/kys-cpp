@@ -201,7 +201,8 @@ bool ChessPvpMapLayout::validate(const ChessGameContent& content, std::string& e
 
 ChessPvpSaveVerifier::ChessPvpSaveVerifier(
     std::shared_ptr<const ChessGameContent> content,
-    std::string_view payload)
+    std::string_view payload,
+    ChessReplayObserver observer)
     : content_(std::move(content))
 {
     assert(content_);
@@ -244,7 +245,8 @@ ChessPvpSaveVerifier::ChessPvpSaveVerifier(
     }
     audit_ = std::make_unique<ChessReplayAudit>(
         content_,
-        checkpoint_->replay);
+        checkpoint_->replay,
+        std::move(observer));
     if (audit_->finished())
     {
         finishAudit();

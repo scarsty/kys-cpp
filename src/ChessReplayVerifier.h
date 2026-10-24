@@ -3,6 +3,7 @@
 #include "ChessGameSession.h"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 
 namespace KysChess
@@ -31,12 +32,17 @@ struct ChessReplayAuditResult
     std::unique_ptr<ChessGameSession> reconstructedSession;
 };
 
+// 序號 0 為初始局面，其餘回呼只發生在操作證據通過驗證之後。
+// 完整重播及存檔快照是否有效，仍須以最終驗證結果為準。
+using ChessReplayObserver = std::function<void(std::size_t, const ChessGameSession&)>;
+
 class ChessReplayAudit
 {
 public:
     ChessReplayAudit(
         std::shared_ptr<const ChessGameContent> content,
-        ChessReplay replay);
+        ChessReplay replay,
+        ChessReplayObserver observer = {});
 
     void step(std::size_t decisionBudget, int battleFrameBudget);
     bool finished() const { return finished_; }
@@ -55,6 +61,7 @@ private:
     void verifyFooter();
 
     ChessReplay replay_;
+    ChessReplayObserver observer_;
     std::unique_ptr<ChessGameSession> session_;
     ChessReplayVerificationResult verification_;
     std::size_t nextDecision_{};

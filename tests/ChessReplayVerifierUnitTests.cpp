@@ -74,6 +74,36 @@ TEST_CASE("fresh session verifier accepts an unmodified replay", "[chess][replay
     CHECK(result.sequence == 3);
 }
 
+TEST_CASE("replay observers see only verified decision boundaries", "[chess][replay][observe]")
+{
+    auto replay = shortReplay();
+    const bool corrupt = GENERATE(false, true);
+    if (corrupt) replay.decisions[1].evidenceHash[0] ^= 1;
+    std::vector<std::size_t> sequences;
+    std::vector<std::size_t> rosterSizes;
+    ChessReplayAudit audit(managementContent(), replay,
+        [&](std::size_t sequence, const ChessGameSession& session) {
+            sequences.push_back(sequence);
+            rosterSizes.push_back(session.state().roster.size());
+        });
+    while (!audit.finished()) audit.step(1, 10000);
+    const auto result = audit.takeResult();
+    CHECK(result.verification.valid == !corrupt);
+    if (corrupt)
+    {
+        CHECK(sequences == std::vector<std::size_t>{0, 1});
+        CHECK(rosterSizes == std::vector<std::size_t>{0, 0});
+        CHECK(result.verification.mismatch == ChessReplayMismatch::Evidence);
+    }
+    else
+    {
+        CHECK(sequences == std::vector<std::size_t>{0, 1, 2, 3});
+        CHECK(rosterSizes == std::vector<std::size_t>{0, 0, 1, 1});
+        REQUIRE(result.reconstructedSession);
+        CHECK(result.reconstructedSession->state().roster.begin()->second.deployed);
+    }
+}
+
 TEST_CASE("replay verifier reconstructs an authoritative decision prefix", "[chess][replay][prefix]")
 {
     const auto replay = shortReplay();
