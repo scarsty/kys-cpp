@@ -459,7 +459,7 @@ TEST_CASE("synthetic content fingerprint includes the current gameplay schema", 
     // 固定測試自有樣本的指紋，玩法結構變更時明確更新。
     const ChessGameContent content(syntheticContentData(Difficulty::Normal), "0.2.20");
     CHECK(chessSha256Hex(content.contentFingerprint())
-        == "d97a46dc6e0a79a3b30dc3c884f685d930452c2d479b739ed4ab73ed14e0a8e3");
+        == "6bc66d2a4c187416d9d8b8ad8158863e3040fe5dcd8c2b55bd4af4035a89ce62");
 }
 
 TEST_CASE("0.2.20 only adds a forward compatibility exception for 0.2.19", "[chess][content][version]")

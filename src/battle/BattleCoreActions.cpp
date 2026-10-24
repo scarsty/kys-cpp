@@ -42,7 +42,7 @@ constexpr int ActionCastFrameJitterChoices = ActionCastFrameJitterRadius * 2 + 1
 
 struct RuntimeCastPolicies
 {
-    std::optional<ModifyCastAction> forceRanged;
+    std::optional<ModifyCastAction> rangeOverride;
     bool dashAttack{};
     bool blinkAttack{};
 };
@@ -54,6 +54,7 @@ struct RuntimeCastSkillProfile
     double reach{};
     double blinkReach{};
     bool forceRanged = false;
+    bool forceMelee{};
     bool rangedStyle = false;
 };
 
@@ -92,10 +93,10 @@ RuntimeCastPolicies runtimeCastPolicies(
             {
                 continue;
             }
-            if (!result.forceRanged
-                && action->rangeMode == CastRangeMode::Ranged)
+            if (!result.rangeOverride && action->rangeMode
+                && action->rangeMode != CastRangeMode::Preserve)
             {
-                result.forceRanged = *action;
+                result.rangeOverride = *action;
             }
             result.dashAttack = result.dashAttack
                 || action->mobility == CastMobilityPolicy::DashAttack;
@@ -466,23 +467,34 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
         ? RuntimeCastPolicies{}
         : runtimeCastPoliciesForSkill(state, unit, seed.id, ultimate);
     const auto& policies = precomputedPolicies ? *precomputedPolicies : queriedPolicies;
-    profile.forceRanged = policies.forceRanged.has_value();
-    const int forcedRangedMinSelectDistance = policies.forceRanged
-            && policies.forceRanged->minimumSelectDistance > 0
-        ? std::max(1, policies.forceRanged->minimumSelectDistance)
+    profile.forceMelee = policies.rangeOverride
+        && policies.rangeOverride->rangeMode == CastRangeMode::Melee;
+    std::optional<BattleActionSkillSeed> meleeSeed;
+    if (profile.forceMelee)
+    {
+        meleeSeed.emplace(seed);
+        meleeSeed->attackAreaType = 0;
+        meleeSeed->selectDistance = 1;
+    }
+    const auto& effectiveSeed = meleeSeed ? *meleeSeed : seed;
+    profile.forceRanged = policies.rangeOverride
+        && policies.rangeOverride->rangeMode == CastRangeMode::Ranged;
+    const int forcedRangedMinSelectDistance = policies.rangeOverride
+            && policies.rangeOverride->minimumSelectDistance > 0
+        ? std::max(1, policies.rangeOverride->minimumSelectDistance)
         : DefaultForcedRangedMinSelectDistance;
-    const bool forcedRangedMagic = runtimeForcedRangedMagic(seed, profile.forceRanged);
+    const bool forcedRangedMagic = runtimeForcedRangedMagic(effectiveSeed, profile.forceRanged);
     profile.effectiveSelectDistance = runtimeEffectiveProjectileSelectDistance(
-        seed,
+        effectiveSeed,
         forcedRangedMagic,
         forcedRangedMinSelectDistance);
-    profile.projectileSpeedMultiplierPct = policies.forceRanged
-            && policies.forceRanged->projectileSpeedPct > 0
-        ? policies.forceRanged->projectileSpeedPct
+    profile.projectileSpeedMultiplierPct = policies.rangeOverride
+            && policies.rangeOverride->projectileSpeedPct > 0
+        ? policies.rangeOverride->projectileSpeedPct
         : 100;
     profile.reach = std::min(
         runtimeEffectiveBattleReach(
-            seed,
+            effectiveSeed,
             profile.forceRanged,
             forcedRangedMinSelectDistance,
             profile.projectileSpeedMultiplierPct,
@@ -491,9 +503,9 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
             state.action.actionRules,
             state.action.castGeometry),
         state.movement.config.maxRangedReach);
-    profile.rangedStyle = runtimeBattleRangedStyle(seed, profile.forceRanged);
+    profile.rangedStyle = runtimeBattleRangedStyle(effectiveSeed, profile.forceRanged);
     profile.blinkReach = runtimeBattleBlinkReach(
-        seed,
+        effectiveSeed,
         profile.forceRanged,
         forcedRangedMinSelectDistance,
         state.movement.config,
@@ -526,6 +538,8 @@ BattleCastSkillState makeRuntimeCastSkillState(
     skill.soundId = seed.soundId;
     skill.hurtType = seed.hurtType;
     skill.attackAreaType = seed.attackAreaType;
+    if (profile.forceMelee)
+        skill.attackAreaType = 0;
     skill.magicType = seed.magicType;
     skill.visualEffectId = seed.visualEffectId;
     skill.selectDistance = profile.effectiveSelectDistance;

@@ -1781,7 +1781,7 @@ ExactRuntimeActionClass exactRuntimeActionClass(const EffectAction& action)
         using T = std::decay_t<decltype(typed)>;
         if constexpr (std::is_same_v<T, ModifyCastAction>)
         {
-            const bool exact = typed.rangeMode == CastRangeMode::Ranged
+            const bool exact = (typed.rangeMode && typed.rangeMode != CastRangeMode::Preserve)
                 || typed.projectileSpeedPct > 0
                 || typed.minimumSelectDistance > 0
                 || typed.additionalProjectiles > 0
@@ -2215,7 +2215,10 @@ bool validateEffectRule(
         error = "間隔幀數只允許用於每幀事件";
         return false;
     }
-    if (rule.naturalCastsOnly && rule.event != EffectEvent::AttackCommitted)
+    if (rule.naturalCastsOnly
+        && rule.event != EffectEvent::AttackCommitted
+        && rule.event != EffectEvent::UltimateCommitted
+        && rule.event != EffectEvent::CastSettled)
     {
         error = "自主出招篩選只允許用於出招事件";
         return false;
@@ -2228,6 +2231,12 @@ bool validateEffectRule(
     if (rule.everyNthEvent == 1)
     {
         error = "每N次事件為1沒有意義，請省略此欄位";
+        return false;
+    }
+    if (rule.eventOrdinalOffset < 0
+        || (rule.eventOrdinalOffset > 0 && rule.eventOrdinalOffset >= rule.everyNthEvent))
+    {
+        error = "事件序號偏移必須為零或小於每N次事件的非負數";
         return false;
     }
     if (rule.repetitionCount)

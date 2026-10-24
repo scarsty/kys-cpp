@@ -183,6 +183,8 @@ ChessSha256 conditionContentHash(const EffectCondition& condition)
             constexpr auto empty = std::is_empty_v<T>;
             if constexpr (empty)
                 return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index());
+            else if constexpr (std::is_same_v<T, IsUltimateCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), typed.expected);
             else if constexpr (std::is_same_v<T, SourceHpRatioAtMostCondition>
                 || std::is_same_v<T, SourceHpRatioBelowCondition>
                 || std::is_same_v<T, TargetHpRatioAtMostCondition>)
@@ -484,6 +486,7 @@ using RuleContentView = std::tuple<
     int,
     bool,
     bool,
+    int,
     std::optional<std::pair<int, int>>,
     std::optional<ChessSha256>,
     std::vector<ChessSha256>>;
@@ -510,6 +513,7 @@ std::vector<RuleContentView> effectRuleContentViews(
             rule.everyNthEvent,
             rule.naturalCastsOnly,
             rule.bindOncePerTeam,
+            rule.eventOrdinalOffset,
             rule.activationLimit
                 ? std::optional{ std::pair{
                     static_cast<int>(rule.activationLimit->scope),

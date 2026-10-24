@@ -239,7 +239,7 @@ struct EffectNumber
     bool operator==(const EffectNumber&) const = default;
 };
 
-struct IsUltimateCondition {};
+struct IsUltimateCondition { bool expected = true; };
 struct CastUsesEffectSourceMagicCondition {};
 struct IsMainProjectileCondition {};
 struct IsRootAttackCondition {};
@@ -905,6 +905,7 @@ enum class CastRangeMode
 {
     Preserve,
     Ranged,
+    Melee,
 };
 
 enum class CastMobilityPolicy
@@ -1233,6 +1234,8 @@ struct EffectRule
     // Every-N activation counts otherwise eligible observed events per bound
     // rule. Zero means every event; N activates on N, 2N, and so on.
     int everyNthEvent = 0;
+    // Offset the eligible-event ordinal before applying the every-N period.
+    int eventOrdinalOffset{};
     bool naturalCastsOnly = false;
     std::optional<EffectActivationLimit> activationLimit;
     // Ordered repetition replays the complete action list. Unlike an action's

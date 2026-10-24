@@ -190,6 +190,63 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesDefaultProjectileProfileWithou
     CHECK(projectile->durationFrames == 30);
 }
 
+TEST_CASE("Melee normal conversion changes approach and attack delivery while preserving ultimates",
+          "[battle][core][lore-equipment][unarmed-gloves]")
+{
+    bool ultimate{};
+    float distance = 72.0f;
+    SECTION("normal attack closes a ranged gap") { distance = 250.0f; }
+    SECTION("normal attack uses melee delivery") {}
+    SECTION("ultimate retains ranged delivery") { ultimate = true; }
+
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, {2304, 720, 0}, CombatStyle::Ranged),
+        unit(1, 1, {2304 + distance, 720, 0}),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.selectDistance = 6;
+    cast.normalSkill.rangedStyle = true;
+    configureRuntimeActionPlan(state, cast);
+    state.movementPhysics.terrain.tileWidth = SceneTileWidth;
+    state.movementPhysics.terrain.coordCount = BattleCoordCount;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth * 1.5;
+    state.movementPhysics.terrain.walkableByCell.assign(BattleCoordCount * BattleCoordCount, 1);
+    state.units.requireCore(0).vitals.mp = ultimate ? 100 : 20;
+    state.units.requireCore(0).animation.cooldown = 0;
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load("[{類型: 普攻近戰化}]"),
+        effects, rules, nextId, "測試"));
+    for (const auto& rule : rules)
+        state.effectRules.append({.kind = EffectSourceKind::Equipment,
+            .sourceId = 900, .ownerUnitId = 0, .sourceTeam = 0}, rule);
+    runBattleFrame(state);
+    const auto* pending = state.units.require(0).pendingCast();
+    if (distance > 200.0f)
+    {
+        CHECK(pending == nullptr);
+        CHECK(state.units.requireCore(0).motion.position.x > 2304.0f);
+        return;
+    }
+    REQUIRE(pending != nullptr);
+    const auto operation = ultimate ? BattleOperationType::RangedProjectile : BattleOperationType::Melee;
+    CHECK(pending->operationType == operation);
+    preparePendingCastCommitFrame(state, 0, operation, 6);
+    runBattleFrame(state);
+    REQUIRE_FALSE(state.attacks.attacks.empty());
+    for (const auto& attack : state.attacks.attacks)
+    {
+        CHECK(attack.state.delivery == (ultimate
+            ? BattleAttackDelivery::projectile()
+            : BattleAttackDelivery::contact()));
+    }
+}
+
 
 TEST_CASE("BattleFrameRunner_BorrowedExactCastRuleUsesPlanningCastThroughDelayedCommit",
           "[battle][core][runtime][borrow][exact-runtime]")

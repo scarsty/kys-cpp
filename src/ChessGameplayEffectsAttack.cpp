@@ -128,6 +128,23 @@ struct RangedAttack final : GameplayEffectDefinition
     }
 };
 
+struct MeleeNormalAttack final : GameplayEffectDefinition
+{
+    static constexpr std::string_view Name = "普攻近戰化";
+    static constexpr auto Parameters = std::array<Parameter<MeleeNormalAttack>, 0>{};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.event = EffectEvent::CastPlanned,
+            .conditions = {IsUltimateCondition{.expected = false}},
+            .actions = {EffectAction{.value = ModifyCastAction{.rangeMode = CastRangeMode::Melee}}}}};
+    }
+    std::string describe(EffectDescriptionStyle) const override
+    {
+        return "普通攻擊改為近戰，絕招保留原有攻擊方式。";
+    }
+};
+
 struct HitIgnoreDefence final : GameplayEffectDefinition
 {
     int 忽略防禦百分比{};
@@ -1229,6 +1246,7 @@ void appendAttackEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<PiercingFan>());
     entries.push_back(registration<CopyLivingAttack>());
     entries.push_back(registration<RangedAttack>());
+    entries.push_back(registration<MeleeNormalAttack>());
     entries.push_back(registration<HitIgnoreDefence>());
     entries.push_back(registration<HitFlatSkillDamage>());
     entries.push_back(registration<MissingHealthPureDamage>());

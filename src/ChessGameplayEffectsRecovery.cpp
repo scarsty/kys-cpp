@@ -830,6 +830,108 @@ struct ClearMelodyShield final : GameplayEffectDefinition
     }
 };
 
+struct BrahmaShield final : GameplayEffectDefinition
+{
+    int 生命護盾百分比{};
+    static constexpr std::string_view Name = "梵音護體";
+    static constexpr auto Parameters = std::array<Parameter<BrahmaShield>, 1>{{
+        {{"生命護盾百分比", 1, 1000000}, &BrahmaShield::生命護盾百分比}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        return {EffectRule{.event = EffectEvent::UltimateCommitted,
+            .naturalCastsOnly = true,
+            .actions = {EffectAction{.value = ChangeResourceAction{
+                .resource = BattleResource::Shield,
+                .amount = {.base = EffectNumberBase::TargetMaxHp, .percent = 生命護盾百分比},
+                .kind = ResourceChangeKind::Grant,
+                .sourceShieldMaxHpPct = 生命護盾百分比,
+                .activationLog = "梵音護體"}}}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("絕招：護盾=血上限{}%，同來源補滿不疊加", 生命護盾百分比);
+        return std::format("自主施放絕招時獲得最大生命{}%護盾，持續至耗盡；同來源補滿不疊加。", 生命護盾百分比);
+    }
+};
+
+struct WitheringBloomMeditation final : GameplayEffectDefinition
+{
+    int 減傷百分比{};
+    int 持續幀數{};
+    int 生命治療百分比{};
+    static constexpr std::string_view Name = "枯榮禪境";
+    static constexpr auto Parameters = std::array<Parameter<WitheringBloomMeditation>, 3>{{
+        {{"減傷百分比", 0, 100}, &WitheringBloomMeditation::減傷百分比},
+        {{"持續幀數", 1, 1000000}, &WitheringBloomMeditation::持續幀數},
+        {{"生命治療百分比", 0, 1000000}, &WitheringBloomMeditation::生命治療百分比}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        const auto heal = EffectAction{.value = ChangeResourceAction{
+            .resource = BattleResource::Hp,
+            .amount = {.base = EffectNumberBase::TargetMaxHp, .percent = 生命治療百分比},
+            .kind = ResourceChangeKind::Restore,
+            .activationLog = "枯榮禪境・榮"}};
+        return {
+            EffectRule{.event = EffectEvent::UltimateCommitted,
+                .everyNthEvent = 2, .eventOrdinalOffset = 1, .naturalCastsOnly = true,
+                .actions = {EffectAction{.value = ModifyAttributeAction{
+                    .attribute = BattleAttribute::DamageReduction,
+                    .amount = {.flat = 減傷百分比},
+                    .operation = AttributeOperation::PercentagePointAdd,
+                    .durationFrames = 持續幀數, .stack = EffectStackPolicy::Refresh}}}},
+            EffectRule{.event = EffectEvent::UltimateCommitted,
+                .selector = {.kind = EffectSelectorKind::LowestHpAllies, .count = 2,
+                    .requiredTarget = EffectRequiredTarget::Self},
+                .everyNthEvent = 2, .naturalCastsOnly = true,
+                .actions = {heal}}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("絕招：枯／榮交替，先枯；枯減傷{}%／{}幀，榮自身及另一最低血比友軍回血{}%", 減傷百分比, 持續幀數, 生命治療百分比);
+        return std::format("自主施放絕招時交替觸發枯與榮，首次為枯。枯：自身減傷{}%，持續{}幀；榮：自身與另一名生命比例最低的友軍各回復其最大生命{}%。", 減傷百分比, 持續幀數, 生命治療百分比);
+    }
+};
+
+struct YangFingerSalvation final : GameplayEffectDefinition
+{
+    int 每名敵人治療百分比{};
+    int 敵人數上限{};
+    static constexpr std::string_view Name = "一陽濟世";
+    static constexpr auto Parameters = std::array<Parameter<YangFingerSalvation>, 2>{{
+        {{"每名敵人治療百分比", 1, 1000000}, &YangFingerSalvation::每名敵人治療百分比},
+        {{"敵人數上限", 1, 100}, &YangFingerSalvation::敵人數上限}}};
+    std::string_view name() const override { return Name; }
+    std::vector<EffectRule> buildRules() const override
+    {
+        std::vector<EffectAction> actions;
+        for (int count = 1; count <= 敵人數上限; ++count)
+        {
+            auto branch = std::make_shared<ConditionalEffectAction>();
+            branch->conditions = {CastDistinctTargetCountAtLeastCondition{.count = count}};
+            branch->whenTrue = {EffectAction{.value = ChangeResourceAction{
+                    .resource = BattleResource::Hp,
+                    .amount = {.base = EffectNumberBase::TargetMaxHp, .percent = 每名敵人治療百分比 * count},
+                    .kind = ResourceChangeKind::Restore, .activationLog = "一陽濟世"}}};
+            branch->whenFalse = std::move(actions);
+            actions = {EffectAction{.value = std::move(branch)}};
+        }
+        return {EffectRule{.event = EffectEvent::CastSettled,
+            .selector = {.kind = EffectSelectorKind::LowestHpAllies, .count = 1},
+            .conditions = {CastDistinctTargetCountAtLeastCondition{.count = 1}},
+            .naturalCastsOnly = true, .actions = std::move(actions)}};
+    }
+    std::string describe(EffectDescriptionStyle style) const override
+    {
+        if (style == EffectDescriptionStyle::Compact)
+            return std::format("出招結束：每命中1名不同敵人，最低血比友軍回血{}%，最多{}敵，可選自身", 每名敵人治療百分比, 敵人數上限);
+        return std::format("自主出招結束時，每命中一名不同敵人，為生命比例最低的友軍回復其最大生命{}%，最多計算{}名敵人，可選自身；同一敵人不重複計數。", 每名敵人治療百分比, 敵人數上限);
+    }
+};
+
 struct PoisonConversion final : GameplayEffectDefinition
 {
     int 毒傷轉化百分比{};
@@ -861,6 +963,9 @@ struct PoisonConversion final : GameplayEffectDefinition
 void appendRecoveryEffects(std::vector<GameplayEffectRegistration>& entries)
 {
     entries.push_back(registration<ClearMelodyShield>());
+    entries.push_back(registration<BrahmaShield>());
+    entries.push_back(registration<WitheringBloomMeditation>());
+    entries.push_back(registration<YangFingerSalvation>());
     entries.push_back(registration<PoisonConversion>());
     entries.push_back(registration<CastSelfHeal>());
     entries.push_back(registration<CastShield<BattleResource::Shield>>());

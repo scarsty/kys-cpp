@@ -2251,3 +2251,132 @@ TEST_CASE("Five wheel volley counts natural casts and selects distinct enemies",
         }
     }
 }
+
+TEST_CASE("Brahma shield triggers only on natural ultimates and replenishes its own pool",
+          "[battle][effect][lore-equipment][tianlong]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {500, 1000, 100, 100};
+    runtime.units.requireCore(1).shield = 30;
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load("[{類型: 梵音護體, 生命護盾百分比: 8}]"),
+        effects, rules, nextId, "測試"));
+    runtime.effectRules.append(binding(EffectSourceKind::Equipment, 900, 1, 0), rules.front());
+    const auto cast = [&](int ordinal, EffectEvent event, CastOriginKind origin)
+    {
+        auto provenance = ultimateCast(ordinal);
+        provenance.origin = origin;
+        auto result = BattleEffectEventBridge{}.dispatch(runtime,
+            {.frame = ordinal, .eventOrdinal = static_cast<std::uint64_t>(ordinal), .ownerUnitId = 1},
+            event, CastCommitEventData{.provenance = provenance, .targetUnitId = 2});
+        BattleEffectCommandSystem{}.reduce(runtime, result.commands);
+        return result;
+    };
+    CHECK(cast(1, EffectEvent::AttackCommitted, CastOriginKind::Normal).commands.empty());
+    CHECK(cast(2, EffectEvent::UltimateCommitted, CastOriginKind::FreeRepeat).commands.empty());
+    CHECK(runtime.units.requireCore(1).shield == 30);
+    REQUIRE(cast(3, EffectEvent::UltimateCommitted, CastOriginKind::Ultimate).commands.size() == 1);
+    CHECK(runtime.units.requireCore(1).shield == 110);
+    cast(4, EffectEvent::UltimateCommitted, CastOriginKind::Ultimate);
+    CHECK(runtime.units.requireCore(1).shield == 110);
+    auto damage = runtime.units.require(1).damageState(0);
+    damage.shield = 50;
+    runtime.units.writeDamageUnit(damage);
+    cast(5, EffectEvent::UltimateCommitted, CastOriginKind::Ultimate);
+    CHECK(runtime.units.requireCore(1).shield == 110);
+}
+
+TEST_CASE("Withering bloom alternates natural ultimates and heals self plus the lowest other ally",
+          "[battle][effect][lore-equipment][tianlong]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {100, 1000, 100, 100};
+    runtime.units.append(runtimeUnit(3, 0, 300, 2000));
+    runtime.units.append(runtimeUnit(4, 0, 200, 1000));
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 枯榮禪境, 減傷百分比: 30, 持續幀數: 60, 生命治療百分比: 8}]"),
+        effects, rules, nextId, "測試"));
+    for (const auto& rule : rules)
+        runtime.effectRules.append(binding(EffectSourceKind::EquipmentSynergy, 900, 1, 0), rule);
+    int ordinal{};
+    const auto cast = [&](CastOriginKind origin = CastOriginKind::Ultimate)
+    {
+        auto provenance = ultimateCast(++ordinal);
+        provenance.origin = origin;
+        auto result = BattleEffectEventBridge{}.dispatch(runtime,
+            {.frame = ordinal, .eventOrdinal = static_cast<std::uint64_t>(ordinal), .ownerUnitId = 1},
+            EffectEvent::UltimateCommitted, CastCommitEventData{.provenance = provenance, .targetUnitId = 2});
+        BattleEffectCommandSystem{}.reduce(runtime, result.commands);
+        return result;
+    };
+    REQUIRE(cast().commands.size() == 1);
+    REQUIRE(runtime.effectCommands.attributeModifiers.size() == 1);
+    CHECK(runtime.effectCommands.attributeModifiers.front().amount == 30);
+    CHECK(runtime.effectCommands.attributeModifiers.front().expiresFrameExclusive == 61);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 100);
+    CHECK(cast(CastOriginKind::FreeRepeat).commands.empty());
+    REQUIRE(cast().commands.size() == 2);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 180);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 460);
+    CHECK(runtime.units.requireCore(4).vitals.hp == 200);
+    REQUIRE(cast().commands.size() == 1);
+    CHECK(runtime.effectCommands.attributeModifiers.size() == 1);
+    CHECK(runtime.effectCommands.attributeModifiers.front().expiresFrameExclusive == 64);
+    runtime.units.requireCore(3).alive = false;
+    runtime.units.requireCore(4).alive = false;
+    REQUIRE(cast().commands.size() == 1);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 260);
+    runtime.units.requireCore(3).alive = true;
+    REQUIRE(cast().commands.size() == 1);
+    REQUIRE(cast().commands.size() == 2);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 340);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 620);
+}
+
+TEST_CASE("Yang finger heals once per natural cast by capped distinct enemy count",
+          "[battle][effect][lore-equipment][tianlong]")
+{
+    auto runtime = runtimeWithTwoUnits();
+    runtime.units.requireCore(1).vitals = {600, 1000, 100, 100};
+    runtime.units.append(runtimeUnit(3, 0, 300, 2000));
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 一陽濟世, 每名敵人治療百分比: 3, 敵人數上限: 3}]"),
+        effects, rules, nextId, "測試"));
+    for (const auto& rule : rules)
+        runtime.effectRules.append(binding(EffectSourceKind::EquipmentSynergy, 900, 1, 0), rule);
+    int ordinal{};
+    const auto settle = [&](std::set<int> hits, CastOriginKind origin = CastOriginKind::Normal)
+    {
+        auto provenance = ultimateCast(++ordinal);
+        provenance.origin = origin;
+        CastAggregateEventData payload;
+        payload.provenance = provenance;
+        payload.aggregate.distinctHitUnitIds = std::move(hits);
+        auto result = BattleEffectEventBridge{}.dispatch(runtime,
+            {.frame = ordinal, .eventOrdinal = static_cast<std::uint64_t>(ordinal), .ownerUnitId = 1},
+            EffectEvent::CastSettled, std::move(payload));
+        BattleEffectCommandSystem{}.reduce(runtime, result.commands);
+        return result;
+    };
+    CHECK(settle({}).commands.empty());
+    REQUIRE(settle({2, 2, 2}).commands.size() == 1);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 360);
+    REQUIRE(settle({2, 4}).commands.size() == 1);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 480);
+    REQUIRE(settle({2, 4, 5, 6}, CastOriginKind::Ultimate).commands.size() == 1);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 660);
+    CHECK(settle({2, 4, 5}, CastOriginKind::FreeRepeat).commands.empty());
+    CHECK(settle({2, 4, 5}, CastOriginKind::AssistedAttack).commands.empty());
+    runtime.units.requireCore(1).vitals.hp = 100;
+    REQUIRE(settle({2}).commands.size() == 1);
+    CHECK(runtime.units.requireCore(1).vitals.hp == 130);
+    CHECK(runtime.units.requireCore(3).vitals.hp == 660);
+}

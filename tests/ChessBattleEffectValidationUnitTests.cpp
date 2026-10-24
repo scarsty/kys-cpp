@@ -17,6 +17,23 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("Periodic event offsets require a valid every-N period", "[battle][effects][schema][tianlong]")
+{
+    EffectRule rule{.id = EffectRuleId{1}, .event = EffectEvent::UltimateCommitted,
+        .everyNthEvent = 2, .eventOrdinalOffset = 1, .naturalCastsOnly = true,
+        .actions = {EffectAction{ChangeResourceAction{.resource = BattleResource::Hp,
+            .amount = {.flat = 10}, .kind = ResourceChangeKind::Restore}}}};
+    std::string error;
+    REQUIRE(validateEffectRule(rule, error));
+    rule.eventOrdinalOffset = -1;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    rule.eventOrdinalOffset = 2;
+    CHECK_FALSE(validateEffectRule(rule, error));
+    rule.eventOrdinalOffset = 1;
+    rule.everyNthEvent = 0;
+    CHECK_FALSE(validateEffectRule(rule, error));
+}
+
 TEST_CASE("Source shield caps require a positive limit on a combat shield grant",
           "[battle][effects][schema][afflicted-shield]")
 {

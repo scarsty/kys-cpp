@@ -771,10 +771,10 @@ bool conditionSatisfied(const EffectCondition& condition,
                         bool selectionAvailable)
 {
     return std::visit(Overloaded{
-        [&](const IsUltimateCondition&)
+        [&](const IsUltimateCondition& value)
         {
             const auto* cast = effectCastProvenance(context);
-            return cast && cast->ultimate;
+            return cast && cast->ultimate == value.expected;
         },
         [&](const CastUsesEffectSourceMagicCondition&)
         {
@@ -1468,7 +1468,7 @@ bool requiresExactRuntimePhaseQuery(const EffectRule& rule)
         }
         if (const auto* cast = std::get_if<ModifyCastAction>(&action.value))
         {
-            return cast->rangeMode == CastRangeMode::Ranged
+            return (cast->rangeMode && cast->rangeMode != CastRangeMode::Preserve)
                 || cast->projectileSpeedPct > 0
                 || cast->minimumSelectDistance > 0
                 || cast->additionalProjectiles > 0
@@ -3703,7 +3703,7 @@ void evaluateOrdinaryRule(
     if (bound.rule().everyNthEvent > 0)
     {
         ++runtime.eligibleEventCount;
-        if (runtime.eligibleEventCount % bound.rule().everyNthEvent != 0)
+        if ((runtime.eligibleEventCount + bound.rule().eventOrdinalOffset) % bound.rule().everyNthEvent != 0)
         {
             return;
         }

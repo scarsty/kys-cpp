@@ -886,6 +886,15 @@ BattleEffectCastPreparation BattleEffectAttackCastSystem::prepareCast(
         skill.forceRanged = true;
         skill.rangedStyle = true;
     }
+    else if (result.rangeMode == CastRangeMode::Melee)
+    {
+        auto& skill = selectedSkill(input, ultimate);
+        skill.attackAreaType = 0;
+        skill.selectDistance = 1;
+        skill.forceRanged = false;
+        skill.rangedStyle = false;
+        skill.reach = input.unit.meleeAttackReach;
+    }
     return result;
 }
 
