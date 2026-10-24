@@ -93,9 +93,8 @@ ChessShopSlotAnalysis queryChessShopSlot(
 
     auto projected = state;
     std::vector<ChessSemanticEvent> projectedEvents;
-    if (ChessManagementRules::canGrantPiece(projected, content, role->ID))
+    if (ChessManagementRules::resolvePurchase(projected, content, slotIndex, projectedEvents) == ChessRuleErrorCode::None)
     {
-        ChessManagementRules::grantPiece(projected, content, role->ID, projectedEvents);
         result.projectedResult = ChessProjectedPurchaseResult::AddOneStar;
         for (const auto& event : projectedEvents)
         {
@@ -114,12 +113,10 @@ ChessShopSlotAnalysis queryChessShopSlot(
     }
     for (const auto& combo : content.combos())
     {
-        if (!std::ranges::contains(combo.memberRoleIds, role->ID))
-        {
-            continue;
-        }
         const auto current = evaluateChessComboProgress(state, content, combo);
         const auto afterPurchase = evaluateChessComboProgress(projected, content, combo);
+        if (!std::ranges::contains(combo.memberRoleIds, role->ID)
+            && current.effectiveCount == afterPurchase.effectiveCount) continue;
         result.synergies.push_back({
             combo.id,
             combo.name,

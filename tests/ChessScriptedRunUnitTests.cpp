@@ -57,6 +57,7 @@ std::shared_ptr<const ChessGameContent> scriptedContent()
     magic.SelectDistance = 4;
     data.magics.emplace(magic.ID, magic);
     data.poolRoleIds.push_back(role.ID);
+    Test::addCampaignTestMaps(data);
     return std::make_shared<const ChessGameContent>(std::move(data));
 }
 

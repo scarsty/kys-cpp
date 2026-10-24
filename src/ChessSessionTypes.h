@@ -18,7 +18,8 @@
 namespace KysChess
 {
 
-inline constexpr int kChessFormationSlotCount = 10;
+inline constexpr int kChessFormationSlotCount = 11;
+inline constexpr int kChessMaximumBaseDeployment = 10;
 
 enum class ChessSessionPhase : std::uint16_t
 {
@@ -354,6 +355,12 @@ struct ChessGameplayObservation
     int experienceForNextLevel{};
     int level{};
     int maximumDeployment{};
+    int baseDeployment{};
+    int deploymentBonus{};
+    int deployedCount{};
+    int deploymentOverflow{};
+    std::vector<std::string> deploymentBonusSources;
+    std::string deploymentReadinessReason;
     int maximumBanCount{};
     int fight{};
     bool campaignComplete{};

@@ -70,6 +70,7 @@ ChessNonBattleRuleKind chessNonBattleRuleKind(const ChessNonBattleRule& rule)
             if constexpr (std::is_same_v<T, VictoryGoldRule>) return ChessNonBattleRuleKind::VictoryGold;
             if constexpr (std::is_same_v<T, FreeShopRefreshRule>) return ChessNonBattleRuleKind::FreeShopRefresh;
             if constexpr (std::is_same_v<T, BattleMapChoiceRule>) return ChessNonBattleRuleKind::BattleMapChoice;
+            if constexpr (std::is_same_v<T, DeploymentCapacityRule>) return ChessNonBattleRuleKind::DeploymentCapacity;
             if constexpr (std::is_same_v<T, FightWinGrowthRule>) return ChessNonBattleRuleKind::FightWinGrowth;
         },
         rule);
@@ -162,6 +163,12 @@ std::optional<ChessNonBattleRule> parseChessNonBattleRule(
             }
             return FreeShopRefreshRule{};
         }
+        if (type == "出戰加員")
+        {
+            static constexpr std::array allowed{std::string_view{"類型"}};
+            if (!rejectUnknownFields(node, allowed, context, diagnostics)) return std::nullopt;
+            return DeploymentCapacityRule{};
+        }
         if (type == "戰場選擇")
         {
             static constexpr std::array allowed{std::string_view{"類型"}};
@@ -245,6 +252,10 @@ std::string chessNonBattleRuleDescription(const ChessNonBattleRule& rule, bool c
             if constexpr (std::is_same_v<T, BattleMapChoiceRule>)
             {
                 return compact ? "戰前：可選戰場" : "戰鬥開始前可從合適的戰場中選擇一個";
+            }
+            if constexpr (std::is_same_v<T, DeploymentCapacityRule>)
+            {
+                return compact ? "出戰上限+1" : "整備時出戰上限增加一名";
             }
             if constexpr (std::is_same_v<T, FightWinGrowthRule>)
             {

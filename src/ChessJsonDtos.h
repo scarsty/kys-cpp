@@ -702,6 +702,12 @@ struct ObservationDto
     int experience_for_next_level{};
     int level{};
     int maximum_deployment{};
+    int base_deployment{};
+    int deployment_bonus{};
+    int deployed_count{};
+    int deployment_overflow{};
+    std::vector<std::string> deployment_bonus_sources;
+    std::string deployment_readiness_reason;
     std::optional<int> current_ban_count;
     std::optional<int> maximum_ban_count;
     std::optional<int> remaining_ban_capacity;

@@ -31,7 +31,7 @@ inline std::string_view chessActionDescription(ChessActionType type)
     case ChessActionType::ChooseReward: return "選擇目前獎勵選項";
     case ChessActionType::StartChallenge: return "依遠征名稱開始挑戰，不使用額外英文 ID";
     case ChessActionType::FinishRun: return "結束已通關的本局";
-    case ChessActionType::SetFormation: return "設定完整十格出戰陣形並保留空位";
+    case ChessActionType::SetFormation: return "設定完整十一格出戰陣形並保留空位";
     case ChessActionType::ChooseLateBloomer: return "晚成每局選定一枚持有棋子；達到三星與指定勝場後突破四星，選擇不可更換";
     }
     std::unreachable();

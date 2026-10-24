@@ -19,6 +19,26 @@
 namespace KysChess::Test
 {
 
+inline void addCampaignTestMaps(ChessGameContentData& data)
+{
+    for (int id : {6, 17})
+    {
+        ChessBattleMapDefinition map;
+        map.id = id;
+        map.battlefieldId = id;
+        for (int i = 0; i < 20; ++i)
+        {
+            map.enemyX.push_back(40 - i);
+            map.enemyY.push_back(40);
+        }
+        data.battleMaps.emplace(id, std::move(map));
+        ChessBattlefieldDefinition field;
+        field.id = id;
+        field.layers.assign(2 * 64 * 64, 0);
+        data.battlefields.emplace(id, std::move(field));
+    }
+}
+
 inline void enableFastTestBattle(
     ChessGameContentData& data,
     ChessRoleDefinition& role)
@@ -71,6 +91,7 @@ inline std::shared_ptr<const ChessGameContent> managementContent(
     enableFastTestBattle(data, role);
     data.roles.emplace(role.ID, role);
     data.poolRoleIds.push_back(role.ID);
+    addCampaignTestMaps(data);
     return std::make_shared<const ChessGameContent>(
         std::move(data),
         std::move(gameVersion));
@@ -131,7 +152,7 @@ inline std::shared_ptr<const ChessGameContent> configuredMapChoiceContent(
         {CountsAsComboRule{"配置選圖羈絆"}},
     });
 
-    for (const int mapId : {7, 8})
+    for (const int mapId : {6, 17})
     {
         ChessBattleMapDefinition map;
         map.id = mapId;
@@ -183,6 +204,7 @@ inline std::shared_ptr<const ChessGameContent> singlePieceChallengeContent(int t
     challenge.name = "單騎遠征";
     challenge.enemies.push_back({role.ID, 1});
     data.balance.challenges.push_back(std::move(challenge));
+    addCampaignTestMaps(data);
     return std::make_shared<const ChessGameContent>(std::move(data));
 }
 
@@ -334,6 +356,7 @@ inline std::shared_ptr<const ChessGameContent> syntheticContent(
     }
     data.balance.challenges.push_back(std::move(challenge));
 
+    addCampaignTestMaps(data);
     // PvP 用戰場：戰鬥地圖 133 搭配戰場 21 的全可走空場地，
     // 供 ChessPvpMapLayout 座標直接擺子。
     ChessBattleMapDefinition pvpMap;

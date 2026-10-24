@@ -327,7 +327,8 @@ TEST_CASE("shop purchases merge deterministically and stale slots reject", "[che
 
     const auto first = session.submitAndDrain(buySlot(0));
     REQUIRE(first.accepted);
-    REQUIRE(first.events.size() == 1);
+    REQUIRE_FALSE(first.events.empty());
+    CHECK(session.state().roster.at(1).deployed);
     CHECK(first.events[0].type == ChessSemanticEventType::ChessPurchased);
     CHECK(first.events[0].secondaryId == 10);
     CHECK(first.events[0].value == 1);
@@ -349,7 +350,7 @@ TEST_CASE("shop purchases merge deterministically and stale slots reject", "[che
     CHECK(third.events[1].merge->consumedInstanceIds == std::vector<int>{1, 2, 3});
     CHECK(third.events[1].primaryId == 4);
     CHECK(third.events[1].merge->inheritedFightsWon == 0);
-    CHECK_FALSE(third.events[1].merge->deployed);
+    CHECK(third.events[1].merge->deployed);
     CHECK(third.events[1].merge->transferredEquipmentInstanceIds.empty());
     CHECK_FALSE(third.events[1].merge->recursiveMergeFollowed);
     REQUIRE(session.state().roster.size() == 1);

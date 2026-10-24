@@ -72,6 +72,7 @@ enum class ChessPvpSaveError
     SnapshotHashMismatch,
     InvalidFormation,
     NoDeployedPieces,
+    DeploymentLimitExceeded,
 };
 
 struct ChessPvpSaveVerificationResult

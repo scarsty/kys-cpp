@@ -85,8 +85,8 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(
                 ? std::format("主線勝利結算利息：目前存款 × {}%，小數捨去，上限 {} 金；不是每次刷新或每場遠征都發放。", balance.interestPercent, balance.interestMax)
                 : "本難度不計存款利息。", Tone::Information},
             {std::format("主線金幣隨進度成長，強敵額外 +{} 金；頂列「金幣與利息」會列出本關預計收入及下一個利息門檻。", balance.bossRewardBonus)},
-            {std::format("最高 {} 級；出戰容量隨等級增加，最多 {} 人；候補可放 {} 人，開戰至少需要 {} 人。",
-                balance.maxLevel + 1, ChessManagementRules::maximumDeploymentAtLevel(content, balance.maxLevel), balance.benchSize, balance.minBattleSize)},
+            {std::format("最高 {} 級；等級出戰容量最多 {} 人，智將五人門檻另加一名；候補可放 {} 人，開戰至少需要一名且不可超員。",
+                balance.maxLevel + 1, ChessManagementRules::maximumDeploymentAtLevel(content, balance.maxLevel), balance.benchSize)},
             {"頂列「等級與經驗」可比較目前與下一級的商店機率；費用色彩與棋子名稱一致。"},
             {"鎖定商店可保留目前商品到下一回合；合成、出售及經驗支出都會影響後續購買安排。"},
         }},

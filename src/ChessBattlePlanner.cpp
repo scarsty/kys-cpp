@@ -2,6 +2,7 @@
 
 #include "BattleSetupFactory.h"
 #include "ChessBattleMapCatalog.h"
+#include "ChessPvp.h"
 #include "ChessCombo.h"
 #include "ChessManagementRules.h"
 
@@ -622,6 +623,7 @@ void finishPreparation(
         content,
         allyRequiredSlots,
         enemyRequiredSlots);
+    assert(!battle.mapCandidates.empty());
     const bool canChooseMap = chessRosterHasActiveManagementRule(
         state,
         content,
@@ -641,6 +643,55 @@ void finishPreparation(
         random.nextBounded(ChessRngStream::BattleSeed, static_cast<std::uint64_t>(UINT_MAX) + 1));
 }
 
+}
+
+std::vector<int> ChessBattlePlanner::fittingMaps(const ChessSessionState& state,
+    const ChessGameContent& content, const BalanceConfig::ChallengeDef* challenge)
+{
+    const auto allies = prepareRosterPreview(state, content);
+    const int enemyCount = challenge ? static_cast<int>(challenge->enemies.size())
+        : static_cast<int>(campaignSlots(state, content).size());
+    return ChessBattleMapCatalog::fittingMapIds(content,
+        BattleSetupFactory::requiredFormationSlots(allies, 0), enemyCount);
+}
+
+bool ChessBattlePlanner::chosenMapFits(const PreparedChessBattle& battle, const ChessGameContent& content)
+{
+    if (battle.kind == PreparedChessBattleKind::Standalone)
+    {
+        if (battle.chosenMapId < 0 && battle.mapCandidates.empty()) return true;
+        if (battle.layout == PreparedChessBattleLayout::PvpArena)
+        {
+            std::string error;
+            return battle.chosenMapId == ChessPvpMapLayout::BattleId
+                && BattleSetupFactory::requiredFormationSlots(battle, 0) <= kChessFormationSlotCount
+                && BattleSetupFactory::requiredFormationSlots(battle, 1) <= kChessFormationSlotCount
+                && ChessPvpMapLayout::validate(content, error);
+        }
+        return BattleSetupFactory::mapCanFit(content, battle.chosenMapId,
+            BattleSetupFactory::requiredFormationSlots(battle, 0), BattleSetupFactory::requiredFormationSlots(battle, 1));
+    }
+    const auto fitting = ChessBattleMapCatalog::fittingMapIds(content,
+        BattleSetupFactory::requiredFormationSlots(battle, 0), BattleSetupFactory::requiredFormationSlots(battle, 1));
+    return std::ranges::contains(fitting, battle.chosenMapId);
+}
+
+bool ChessBattlePlanner::preparedRosterIsReady(const ChessSessionState& state, const ChessGameContent& content)
+{
+    if (!state.preparedBattle) return false;
+    const auto& battle = *state.preparedBattle;
+    if (battle.kind == PreparedChessBattleKind::Standalone) return true;
+    if (ChessManagementRules::deploymentReadiness(state, content) != ChessRuleErrorCode::None) return false;
+    const auto expected = prepareRosterPreview(state, content);
+    std::vector<PreparedChessBattleUnit> frozen;
+    for (auto unit : battle.units)
+        if (unit.team == 0) { unit.x = unit.y = 0; frozen.push_back(std::move(unit)); }
+    if (frozen != expected.units || battle.comboModifiersByTeam[0] != expected.comboModifiersByTeam[0]) return false;
+    const auto maps = ChessBattleMapCatalog::fittingMapIds(content,
+        BattleSetupFactory::requiredFormationSlots(battle, 0), BattleSetupFactory::requiredFormationSlots(battle, 1));
+    if (battle.mapCandidates.empty() || !std::ranges::all_of(battle.mapCandidates,
+        [&](int id) { return std::ranges::contains(maps, id); })) return false;
+    return battle.chosenMapId < 0 || std::ranges::contains(battle.mapCandidates, battle.chosenMapId);
 }
 
 void ChessBattlePlanner::applyPlayerTalents(PreparedChessBattle& battle,

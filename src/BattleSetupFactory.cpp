@@ -125,7 +125,7 @@ const ChessBattleMapDefinition* battleMapDefinition(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content)
 {
-    assert(prepared.chosenMapId >= 0 || content.battleMaps().empty()
+    assert(prepared.chosenMapId >= 0
         || (prepared.kind == PreparedChessBattleKind::Standalone && prepared.mapCandidates.empty()));
     const auto found = content.battleMaps().find(prepared.chosenMapId);
     return found == content.battleMaps().end() ? nullptr : &found->second;
@@ -181,6 +181,22 @@ void appendDefinitions(
     setup.magicEffectDefinitions = content.magicEffects();
 }
 
+}
+
+bool BattleSetupFactory::mapCanFit(const ChessGameContent& content, int mapId,
+    int allyRequiredSlots, int enemyRequiredSlots)
+{
+    const auto found = content.battleMaps().find(mapId);
+    if (found == content.battleMaps().end()) return false;
+    const auto& map = found->second;
+    int allyCapacity = static_cast<int>(std::min(map.teammateX.size(), map.teammateY.size()));
+    int enemyCapacity = static_cast<int>(std::min(map.enemyX.size(), map.enemyY.size()));
+    if (const auto* catalog = ChessBattleMapCatalog::find(mapId))
+    {
+        allyCapacity = static_cast<int>(catalog->teammatePositions.size());
+        enemyCapacity = std::min(enemyCapacity, catalog->enemyCapacity);
+    }
+    return allyRequiredSlots <= allyCapacity && enemyRequiredSlots <= enemyCapacity;
 }
 
 int BattleSetupFactory::requiredFormationSlots(
@@ -449,6 +465,8 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
             {
                 enemyClonePositions.push_back({map->enemyX[index], map->enemyY[index]});
             }
+            enemyClonePositions.insert(enemyClonePositions.end(),
+                catalogMap->enemyClonePositions.begin(), catalogMap->enemyClonePositions.end());
             appendCloneCells(enemyClonePositions, 1);
         }
     }

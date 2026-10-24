@@ -105,6 +105,7 @@ const std::array<Point, kChessFormationSlotCount>& ChessPvpMapLayout::localForma
         {24, 24},
         {24, 29},
         {24, 35},
+        {24, 32},
     }};
     return positions;
 }
@@ -337,6 +338,11 @@ void ChessPvpSaveVerifier::finishAudit()
         return;
     }
 
+    if (ChessManagementRules::deploymentReadiness(reconstructed.state(), *content_) == ChessRuleErrorCode::DeploymentLimitExceeded)
+    {
+        fail(ChessPvpSaveError::DeploymentLimitExceeded, "匯入陣容出戰人數超過上限；請先恢復羈絆或減少出戰人數");
+        return;
+    }
     result_.composition = extractChessPvpComposition(reconstructed);
     if (result_.composition.pieces.empty())
     {

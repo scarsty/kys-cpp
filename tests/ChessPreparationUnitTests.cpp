@@ -1,11 +1,217 @@
 #include "ChessPreparationModel.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessSessionCheckpoint.h"
+#include "ChessGameQueries.h"
+#include "ChessMenuFormatting.h"
+#include "ChessBattlePlanner.h"
+#include "BattleSetupFactory.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 using namespace KysChess;
 using namespace KysChess::Test;
+
+namespace
+{
+ChessGameContentData capacityTestData()
+{
+    ChessGameContentData data;
+    data.balance.initialMoney = 100;
+    data.balance.minBattleSize = 4;
+    data.balance.maxLevel = 9;
+    data.balance.expTable = std::vector<int>(10, 5);
+    data.balance.buyExpAmount = 5;
+    data.balance.enemyTable = {{{1, 1}}};
+    data.balance.talents.emplace(ChessTalentId::DivineArms, ChessTalentDefinition{});
+    data.balance.talents.emplace(ChessTalentId::Alliance,
+        ChessTalentDefinition{.selectedComboBonus = 1, .reducedThresholdMinimum = 6, .thresholdReduction = 1});
+    for (auto& weights : data.balance.shopWeights) weights = {100, 0, 0, 0, 0};
+    for (int id = 1; id <= 30; ++id)
+    {
+        ChessRoleDefinition role;
+        role.ID = id;
+        role.Name = std::format("容量測試{}", id);
+        role.Cost = 1;
+        role.MaxHP = 100;
+        data.roles.emplace(id, role);
+        data.poolRoleIds.push_back(id);
+    }
+    ComboDef combo;
+    combo.id = 0;
+    combo.name = "容量測試羈絆";
+    combo.memberRoleIds = {1, 2, 3, 4, 5};
+    combo.thresholds.push_back({.count = 5, .managementRules = {DeploymentCapacityRule{}}});
+    data.combos.push_back(std::move(combo));
+    data.items.emplace(500, ChessItemDefinition{.id = 500});
+    data.items.emplace(501, ChessItemDefinition{.id = 501});
+    data.equipment.push_back({500, 1, 0, {}, {CountsAsComboRule{"容量測試羈絆"}}});
+    data.equipment.push_back({501, 2, 0});
+    BalanceConfig::ChallengeDef challenge;
+    challenge.name = "容量測試遠征";
+    challenge.enemies.push_back({1, 1});
+    data.balance.challenges.push_back(std::move(challenge));
+    addCampaignTestMaps(data);
+    return data;
+}
+
+ChessSessionState capacityTestState(int count)
+{
+    ChessSessionState state;
+    state.options.talent = state.talent;
+    state.level = count > 5 ? 9 : 3;
+    state.money = 100;
+    for (int id = 1; id <= count; ++id)
+        state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = id, .deployed = true});
+    state.nextChessInstanceId = count + 1;
+    ChessManagementRules::maintainFormation(state);
+    return state;
+}
+}
+
+TEST_CASE("deployment capacity uses the resulting lineup and alliance points", "[chess][preparation][capacity]")
+{
+    const ChessGameContent content(capacityTestData());
+    auto state = capacityTestState(4);
+    state.roster.emplace(5, ChessSessionPiece{.instanceId = 5, .roleId = 5});
+    state.roster.emplace(6, ChessSessionPiece{.instanceId = 6, .roleId = 6});
+    CHECK(ChessManagementRules::maximumDeployment(state, content) == 4);
+    CHECK(ChessManagementRules::validate(state, content, chessPreparationDeployment(state, 6)) == ChessRuleErrorCode::DeploymentLimitExceeded);
+    const auto fifth = chessPreparationDeployment(state, 5);
+    REQUIRE(ChessManagementRules::validate(state, content, fifth) == ChessRuleErrorCode::None);
+    ChessRunRandom random(1);
+    std::vector<ChessSemanticEvent> events;
+    ChessManagementRules::apply(state, content, random, fifth, events);
+    CHECK(ChessManagementRules::maximumDeployment(state, content) == 5);
+    CHECK(ChessManagementRules::deploymentReadiness(state, content) == ChessRuleErrorCode::None);
+    const auto xp = buildChessBuyExpDeploymentPreview(state, content);
+    REQUIRE(xp.next);
+    CHECK(xp.current == 5);
+    CHECK(*xp.next == 6);
+    ChessManagementRules::gainExperience(state, content, 5);
+    CHECK(ChessManagementRules::maximumDeployment(state, content) == *xp.next);
+    ChessManagementRules::apply(state, content, random, chessPreparationDeployment(state, 5), events);
+    CHECK(ChessManagementRules::maximumDeployment(state, content) == 5);
+    state.talent = ChessTalentId::Alliance;
+    state.selectedTalentComboId = 0;
+    CHECK(evaluateChessComboProgress(state, content, content.combos()[0]).effectiveCount == 5);
+    CHECK(ChessManagementRules::maximumDeployment(state, content) == 6);
+}
+
+TEST_CASE("full bench replacement preserves its slot and overflow can be saved and repaired", "[chess][preparation][capacity][save]")
+{
+    const auto content = std::make_shared<const ChessGameContent>(capacityTestData());
+    ChessGameSession session(content, 42);
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    checkpoint.state = capacityTestState(11);
+    checkpoint.state.difficulty = content->difficulty();
+    for (int id = 20; id < 30; ++id)
+        checkpoint.state.roster.emplace(id, ChessSessionPiece{.instanceId = id, .roleId = id, .star = 3});
+    checkpoint.state.nextChessInstanceId = 30;
+    std::swap(checkpoint.state.formationSlots[4], checkpoint.state.formationSlots[10]);
+    REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+    const auto beforeSlots = session.state().formationSlots;
+    const auto replace = chessPreparationReplacement(session.state(), 20, 5);
+    REQUIRE(session.submitAndDrain(replace).accepted);
+    CHECK(session.observe().deployedCount == 11);
+    CHECK(session.observe().deploymentOverflow == 1);
+    CHECK(session.state().formationSlots[10] == 20);
+    for (int i = 0; i < 10; ++i) CHECK(session.state().formationSlots[i] == beforeSlots[i]);
+    CHECK(session.validateAction({ChessActionType::PrepareBattle}) == ChessRuleErrorCode::DeploymentLimitExceeded);
+    ChessAction challenge;
+    challenge.type = ChessActionType::StartChallenge;
+    challenge.challengeName = "容量測試遠征";
+    CHECK(session.validateAction(challenge) == ChessRuleErrorCode::DeploymentLimitExceeded);
+    const auto saved = ChessSessionCheckpoint::capture(session, 2);
+    ChessCheckpointError error;
+    const auto parsed = ChessSessionCheckpoint::parseJson(saved.serializeJson(), error);
+    REQUIRE(parsed);
+    REQUIRE(parsed->restore(session) == ChessCheckpointError::None);
+    CHECK(session.observe().deploymentOverflow == 1);
+    REQUIRE(session.submitAndDrain(chessPreparationReplacement(session.state(), 5, 20)).accepted);
+    CHECK(session.observe().deploymentOverflow == 0);
+    REQUIRE(session.submitAndDrain({ChessActionType::PrepareBattle}).accepted);
+    const auto prepared = session.state().preparedBattle;
+    REQUIRE(prepared);
+    REQUIRE(prepared->chosenMapId >= 0);
+    CHECK(std::ranges::count(prepared->units, 0, &PreparedChessBattleUnit::team) == 11);
+    CHECK(std::ranges::count(prepared->units, 1, &PreparedChessBattleUnit::team) == 1);
+    const auto frozen = ChessSessionCheckpoint::capture(session, 3);
+    const auto loaded = ChessSessionCheckpoint::parseJson(frozen.serializeJson(), error);
+    REQUIRE(loaded);
+    REQUIRE(loaded->restore(session) == ChessCheckpointError::None);
+    CHECK(session.state().preparedBattle == prepared);
+    CHECK(session.validateAction({ChessActionType::StartBattle}) == ChessRuleErrorCode::None);
+}
+
+TEST_CASE("purchase preview and commit share self enabling placement and inherited capacity loss", "[chess][preparation][capacity][shop]")
+{
+    const ChessGameContent content(capacityTestData());
+    auto state = capacityTestState(4);
+    state.shop = {{5, 1}};
+    const auto preview = queryChessShopSlot(state, content, 0);
+    REQUIRE(preview.purchaseError == ChessRuleErrorCode::None);
+    REQUIRE(preview.synergies.size() == 1);
+    CHECK(preview.synergies[0].afterPurchase == 5);
+    std::vector<ChessSemanticEvent> events;
+    int id{};
+    REQUIRE(ChessManagementRules::resolvePurchase(state, content, 0, events, &id) == ChessRuleErrorCode::None);
+    CHECK(state.roster.at(id).deployed);
+    CHECK(ChessManagementRules::maximumDeployment(state, content) == 5);
+
+    state = capacityTestState(11);
+    state.roster.erase(5);
+    state.roster.emplace(12, ChessSessionPiece{.instanceId = 12, .roleId = 12, .deployed = true});
+    state.roster.at(6).weaponInstanceId = 1;
+    state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 500, 6});
+    state.roster.emplace(13, ChessSessionPiece{.instanceId = 13, .roleId = 6, .weaponInstanceId = 2});
+    state.equipmentInventory.emplace(2, ChessEquipmentInstance{2, 501, 13});
+    state.nextChessInstanceId = 14;
+    state.shop = {{6, 1}};
+    ChessManagementRules::maintainFormation(state);
+    REQUIRE(ChessManagementRules::maximumDeployment(state, content) == 11);
+    events.clear();
+    REQUIRE(ChessManagementRules::resolvePurchase(state, content, 0, events, &id) == ChessRuleErrorCode::None);
+    CHECK(state.roster.at(id).star == 2);
+    CHECK(state.roster.at(id).deployed);
+    CHECK(state.roster.at(id).weaponInstanceId == 2);
+    CHECK(state.equipmentInventory.at(1).assignedChessInstanceId == -1);
+    CHECK(ChessManagementRules::deploymentReadiness(state, content) == ChessRuleErrorCode::DeploymentLimitExceeded);
+    for (int n = 20; n < 30; ++n)
+        state.roster.emplace(n, ChessSessionPiece{.instanceId = n, .roleId = n, .star = 3});
+    state.nextChessInstanceId = 30;
+    state.shop = {{30, 1}};
+    const auto before = state;
+    events.clear();
+    CHECK(ChessManagementRules::resolvePurchase(state, content, 0, events) == ChessRuleErrorCode::BenchFull);
+    CHECK(state == before);
+    CHECK(events.empty());
+}
+
+TEST_CASE("no fitting campaign map rejects preparation without consuming state or random", "[chess][preparation][map]")
+{
+    auto data = capacityTestData();
+    data.battleMaps.erase(17);
+    data.balance.enemyTable = {std::vector<BalanceConfig::EnemySlot>(12, {1, 1})};
+    auto raw = data.battleMaps.at(6);
+    raw.id = 701;
+    raw.teammateX.resize(11);
+    raw.teammateY.resize(11);
+    data.battleMaps.emplace(raw.id, raw);
+    const auto content = std::make_shared<const ChessGameContent>(std::move(data));
+    ChessGameSession session(content, 70);
+    auto checkpoint = ChessSessionCheckpoint::capture(session, 1);
+    checkpoint.state = capacityTestState(1);
+    checkpoint.state.difficulty = content->difficulty();
+    std::swap(checkpoint.state.formationSlots[0], checkpoint.state.formationSlots[10]);
+    REQUIRE(checkpoint.restore(session) == ChessCheckpointError::None);
+    const auto before = session.state();
+    const auto random = session.random().state();
+    CHECK(session.submitAndDrain({ChessActionType::PrepareBattle}).error == ChessRuleErrorCode::InvalidMap);
+    CHECK(session.state() == before);
+    CHECK(session.random().state() == random);
+    CHECK(ChessBattlePlanner::fittingMaps(session.state(), *content).empty());
+    CHECK(BattleSetupFactory::requiredFormationSlots(ChessBattlePlanner::prepareRosterPreview(session.state(), *content), 0) == 11);
+}
 
 TEST_CASE("preparation keeps active synergy overflow ahead of incomplete synergies", "[chess][preparation]")
 {
@@ -126,7 +332,7 @@ TEST_CASE("preparation follows actual recursive merge events and inherited equip
     CHECK(std::ranges::count(result.events, ChessSemanticEventType::ChessMerged, &ChessSemanticEvent::type) == 2);
 }
 
-TEST_CASE("preparation purchase does not bypass bench capacity for automatic deployment", "[chess][preparation]")
+TEST_CASE("purchase places directly on the board with a full bench", "[chess][preparation]")
 {
     const auto content = managementContent();
     ChessSessionState state;
@@ -137,7 +343,13 @@ TEST_CASE("preparation purchase does not bypass bench capacity for automatic dep
     ChessAction action;
     action.type = ChessActionType::BuyShopSlot;
     CHECK(ChessManagementRules::maximumDeployment(state, *content) > 0);
-    CHECK(ChessManagementRules::validate(state, *content, action) == ChessRuleErrorCode::BenchFull);
+    CHECK(ChessManagementRules::validate(state, *content, action) == ChessRuleErrorCode::None);
+    state.nextChessInstanceId = content->balance().benchSize + 1;
+    std::vector<ChessSemanticEvent> events;
+    int id{};
+    REQUIRE(ChessManagementRules::resolvePurchase(state, *content, 0, events, &id) == ChessRuleErrorCode::None);
+    CHECK(state.roster.at(id).deployed);
+    CHECK(state.roster.size() == content->balance().benchSize + 1);
 }
 
 TEST_CASE("preparation rejects movement into a full destination without changing the session", "[chess][preparation][session]")

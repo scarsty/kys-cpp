@@ -199,4 +199,14 @@ inline ChessAction chessPreparationDeployment(const ChessSessionState& state, in
     return action;
 }
 
+inline ChessAction chessPreparationReplacement(const ChessSessionState& state, int incomingId, int outgoingId)
+{
+    ChessAction action;
+    action.type = ChessActionType::SetDeployment;
+    for (const auto& [id, piece] : state.roster)
+        if (piece.deployed && id != outgoingId) action.chessInstanceIds.push_back(id);
+    action.chessInstanceIds.push_back(incomingId);
+    return action;
+}
+
 } // namespace KysChess

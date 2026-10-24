@@ -39,7 +39,7 @@ std::shared_ptr<const ChessGameContent> battleContent()
     data.poolRoleIds = {20};
 
     ChessBattleMapDefinition map;
-    map.id = 7;
+    map.id = 6;
     map.battlefieldId = 3;
     map.teammateRoleIds = std::vector<int>(10, 0);
     map.enemyRoleIds = std::vector<int>(20, 0);
@@ -50,8 +50,8 @@ std::shared_ptr<const ChessGameContent> battleContent()
     }
     for (int index = 0; index < 20; ++index)
     {
-        map.enemyX.push_back(40 - index);
-        map.enemyY.push_back(40);
+        map.enemyX.push_back(50 - index);
+        map.enemyY.push_back(59);
     }
     data.battleMaps.emplace(map.id, map);
     ChessBattlefieldDefinition field;
@@ -89,7 +89,7 @@ void addPlannerRole(ChessGameContentData& data, int roleId, int tier, std::strin
 void addPlannerMap(ChessGameContentData& data)
 {
     ChessBattleMapDefinition map;
-    map.id = 7;
+    map.id = 6;
     map.battlefieldId = 3;
     map.teammateRoleIds = std::vector<int>(10, -1);
     map.enemyRoleIds = std::vector<int>(20, -1);
@@ -100,8 +100,8 @@ void addPlannerMap(ChessGameContentData& data)
     }
     for (int index = 0; index < 20; ++index)
     {
-        map.enemyX.push_back(40 - index);
-        map.enemyY.push_back(40);
+        map.enemyX.push_back(50 - index);
+        map.enemyY.push_back(59);
     }
     data.battleMaps.emplace(map.id, std::move(map));
     ChessBattlefieldDefinition field;
@@ -215,12 +215,12 @@ TEST_CASE("battle planning captures the complete pre-draw checkpoint", "[chess][
     REQUIRE(prepared.units.size() == 2);
     CHECK(prepared.units[0].unitId == 1);
     CHECK(prepared.units[1].unitId == 2);
-    CHECK(prepared.units[0].x == 20);
-    CHECK(prepared.units[0].y == 20);
-    CHECK(prepared.units[1].x == 40);
-    CHECK(prepared.units[1].y == 40);
-    CHECK(prepared.mapCandidates == std::vector<int>{7});
-    CHECK(prepared.chosenMapId == 7);
+    CHECK(prepared.units[0].x == ChessBattleMapCatalog::find(6)->teammatePositions[0].x);
+    CHECK(prepared.units[0].y == ChessBattleMapCatalog::find(6)->teammatePositions[prepared.units[0].formationSlot].y);
+    CHECK(prepared.units[1].x == 50);
+    CHECK(prepared.units[1].y == 59);
+    CHECK(prepared.mapCandidates == std::vector<int>{6});
+    CHECK(prepared.chosenMapId == 6);
     CHECK(random.streamState(ChessRngStream::EnemyLineup).rawDrawCount > 0);
     CHECK(random.streamState(ChessRngStream::MapSelection).rawDrawCount == 1);
     CHECK(random.streamState(ChessRngStream::BattleSeed).rawDrawCount > 0);
@@ -238,8 +238,8 @@ TEST_CASE("campaign battle planning preserves persistent empty formation slots",
 
     REQUIRE(prepared.units.size() == 2);
     CHECK(prepared.units[0].formationSlot == 9);
-    CHECK(prepared.units[0].x == 29);
-    CHECK(prepared.units[0].y == 20);
+    CHECK(prepared.units[0].x == ChessBattleMapCatalog::find(6)->teammatePositions[9].x);
+    CHECK(prepared.units[0].y == ChessBattleMapCatalog::find(6)->teammatePositions[prepared.units[0].formationSlot].y);
 }
 
 TEST_CASE("configured map choice effect controls whether preparation requires a decision", "[chess][planner][map][config]")
@@ -255,7 +255,7 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
 
         const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);
 
-        CHECK(prepared.mapCandidates == std::vector<int>{7, 8});
+        CHECK(prepared.mapCandidates == std::vector<int>{6, 17});
         CHECK(std::ranges::contains(prepared.mapCandidates, prepared.chosenMapId));
         CHECK(random.streamState(ChessRngStream::MapSelection).rawDrawCount == 1);
     }
@@ -269,7 +269,7 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
 
         const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);
 
-        CHECK(prepared.mapCandidates == std::vector<int>{7, 8});
+        CHECK(prepared.mapCandidates == std::vector<int>{6, 17});
         CHECK(prepared.chosenMapId == -1);
         CHECK(random.streamState(ChessRngStream::MapSelection).rawDrawCount == 0);
     }
@@ -293,7 +293,7 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
         ChessRunRandom random(100);
         const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);
 
-        CHECK(prepared.mapCandidates == std::vector<int>{7, 8});
+        CHECK(prepared.mapCandidates == std::vector<int>{6, 17});
         CHECK(prepared.chosenMapId == -1);
         CHECK(random.streamState(ChessRngStream::MapSelection).rawDrawCount == 0);
     }
@@ -447,7 +447,7 @@ TEST_CASE("setup factory applies formation before runtime initialization", "[che
     CHECK(firstResult.digest == secondResult.digest);
     CHECK(firstResult.summary.outcome == Battle::BattleOutcome::Timeout);
 }
-TEST_CASE("non-curated map catalogs fall back to the largest combined capacity", "[chess][planner][battle][map]")
+TEST_CASE("normal map selection never falls back to raw map data", "[chess][planner][battle][map]")
 {
     ChessGameContentData data;
     for (const auto [id, allyCapacity, enemyCapacity] : std::vector<std::tuple<int, int, int>>{
@@ -466,5 +466,66 @@ TEST_CASE("non-curated map catalogs fall back to the largest combined capacity",
     }
     const ChessGameContent content(std::move(data));
 
-    CHECK(ChessBattleMapCatalog::fittingMapIds(content, 8, 8) == std::vector<int>{702});
+    CHECK(ChessBattleMapCatalog::fittingMapIds(content, 8, 8).empty());
+    CHECK(ChessBattleMapCatalog::fittingMapIds(content, 1, 1).empty());
+}TEST_CASE("eleven piece maps retain existing clone candidates before authored supplemental cells", "[chess][planner][map][clone]")
+{
+    ChessGameContentData data;
+    Test::addCampaignTestMaps(data);
+    ChessBattleMapDefinition pvp;
+    pvp.id = ChessPvpMapLayout::BattleId;
+    pvp.battlefieldId = ChessPvpMapLayout::BattlefieldId;
+    data.battleMaps.emplace(pvp.id, pvp);
+    ChessBattlefieldDefinition field;
+    field.id = ChessPvpMapLayout::BattlefieldId;
+    field.layers.assign(2 * 64 * 64, 0);
+    data.battlefields.emplace(field.id, std::move(field));
+    ChessRoleDefinition role;
+    role.ID = 10;
+    role.Cost = 1;
+    role.MaxHP = 100;
+    data.roles.emplace(role.ID, role);
+    ComboDef combo;
+    combo.id = 0;
+    combo.memberRoleIds = {10};
+    EffectRule clones;
+    clones.id = EffectRuleId{1};
+    clones.event = EffectEvent::BattleInitialized;
+    clones.actions.push_back({StateMachineAction{GenerateClonesAction{3}}});
+    combo.thresholds.push_back({.count = 1, .rules = {clones}});
+    data.combos.push_back(std::move(combo));
+    const ChessGameContent content(std::move(data));
+    for (bool arena : {false, true})
+    {
+        PreparedChessBattle battle;
+        battle.kind = PreparedChessBattleKind::Standalone;
+        battle.layout = arena ? PreparedChessBattleLayout::PvpArena : PreparedChessBattleLayout::Standard;
+        battle.chosenMapId = arena ? ChessPvpMapLayout::BattleId : 6;
+        for (int team = 0; team < 2; ++team)
+            for (int i = 0; i < (arena || team == 0 ? 11 : 10); ++i)
+                battle.units.push_back({.unitId = static_cast<int>(battle.units.size()) + 1,
+                    .roleId = 10, .team = team, .formationSlot = i});
+        auto input = BattleSetupFactory::build(battle, content, 1);
+        if (!arena)
+        {
+            const auto& supplemental = ChessBattleMapCatalog::find(6)->enemyClonePositions;
+            std::vector<std::pair<int, int>> enemyCells;
+            for (const auto& cell : input.setup.cloneCells)
+                if (cell.team == 1) enemyCells.emplace_back(cell.x, cell.y);
+            REQUIRE(enemyCells.size() == 3);
+            for (int i = 0; i < 3; ++i) CHECK(enemyCells[i] == std::pair{supplemental[i].x, supplemental[i].y});
+        }
+        const auto result = HeadlessBattleRunner::run(std::move(input));
+        CHECK(std::ranges::count(result.finalRuntime.units.cores(), 0, [](const auto& unit) { return unit.team; }) == 14);
+        CHECK(std::ranges::count(result.finalRuntime.units.cores(), 1, [](const auto& unit) { return unit.team; }) == (arena ? 14 : 13));
+    }
+    PreparedChessBattle fewerEnemies;
+    fewerEnemies.kind = PreparedChessBattleKind::Standalone;
+    fewerEnemies.chosenMapId = 6;
+    fewerEnemies.units = {{.unitId = 1, .roleId = 10, .team = 0}, {.unitId = 2, .roleId = 10, .team = 1}};
+    const auto input = BattleSetupFactory::build(fewerEnemies, content, 1);
+    const auto firstEnemyCell = std::ranges::find(input.setup.cloneCells, 1, [](const auto& cell) { return cell.team; });
+    REQUIRE(firstEnemyCell != input.setup.cloneCells.end());
+    CHECK(firstEnemyCell->x == content.battleMaps().at(6).enemyX[1]);
+    CHECK(firstEnemyCell->y == content.battleMaps().at(6).enemyY[1]);
 }

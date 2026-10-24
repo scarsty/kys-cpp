@@ -1,6 +1,7 @@
 #include "ChessManagementRules.h"
 
 #include "ChessRewardRules.h"
+#include "ChessCombo.h"
 
 #include <algorithm>
 #include <array>
@@ -35,6 +36,20 @@ std::set<int> deployedIds(const ChessSessionState& state)
         }
     }
     return result;
+}
+
+void setDeployment(ChessSessionState& state, const std::vector<int>& ids)
+{
+    const std::set<int> selected(ids.begin(), ids.end());
+    std::vector<int> incoming;
+    for (const int id : ids)
+        if (!state.roster.at(id).deployed) incoming.push_back(id);
+    auto next = incoming.begin();
+    for (int& id : state.formationSlots)
+        if (id >= 0 && !selected.contains(id))
+            id = next == incoming.end() ? -1 : *next++;
+    for (auto& [id, piece] : state.roster) piece.deployed = selected.contains(id);
+    ChessManagementRules::maintainFormation(state);
 }
 
 const EquipmentDef* equipmentDefinition(const ChessGameContent& content, int itemId)
@@ -295,13 +310,38 @@ void ChessManagementRules::refreshShop(
 
 int ChessManagementRules::maximumDeployment(const ChessSessionState& state, const ChessGameContent& content)
 {
-    return maximumDeploymentAtLevel(content, state.level);
+    return maximumDeploymentAtLevel(content, state.level)
+        + (chessRosterHasActiveManagementRule(state, content, ChessNonBattleRuleKind::DeploymentCapacity) ? 1 : 0);
+}
+
+std::vector<std::string> ChessManagementRules::deploymentBonusSources(
+    const ChessSessionState& state, const ChessGameContent& content)
+{
+    std::vector<std::string> result;
+    for (const auto& combo : content.combos())
+    {
+        const auto progress = evaluateChessComboProgress(state, content, combo);
+        if (progress.activeThresholdIndex < 0) continue;
+        const auto& rules = combo.thresholds[progress.activeThresholdIndex].managementRules;
+        if (std::ranges::any_of(rules, [](const auto& rule) { return std::holds_alternative<DeploymentCapacityRule>(rule); }))
+            result.push_back(combo.name);
+    }
+    return result;
+}
+
+ChessRuleErrorCode ChessManagementRules::deploymentReadiness(
+    const ChessSessionState& state, const ChessGameContent& content)
+{
+    const int count = deployedCount(state);
+    if (count == 0) return ChessRuleErrorCode::DeploymentRequired;
+    return count > maximumDeployment(state, content)
+        ? ChessRuleErrorCode::DeploymentLimitExceeded : ChessRuleErrorCode::None;
 }
 
 int ChessManagementRules::maximumDeploymentAtLevel(const ChessGameContent& content, int level)
 {
     return std::min(
-        kChessFormationSlotCount,
+        kChessMaximumBaseDeployment,
         std::max(level + 1, content.balance().minBattleSize));
 }
 
@@ -410,10 +450,7 @@ bool ChessManagementRules::formationIsValid(
 void ChessManagementRules::maintainFormation(ChessSessionState& state)
 {
     assert(deployedCount(state) <= kChessFormationSlotCount);
-    if (state.formationSlots.size() != kChessFormationSlotCount)
-    {
-        state.formationSlots.assign(kChessFormationSlotCount, -1);
-    }
+    assert(state.formationSlots.size() == kChessFormationSlotCount);
 
     std::set<int> placed;
     for (int& id : state.formationSlots)
@@ -476,28 +513,9 @@ ChessRuleErrorCode ChessManagementRules::validate(
         return ChessRuleErrorCode::None;
     case ChessActionType::BuyShopSlot:
     {
-        if (action.shopSlot < 0 || action.shopSlot >= static_cast<int>(state.shop.size()))
-        {
-            return ChessRuleErrorCode::InvalidShopSlot;
-        }
-        const auto& slot = state.shop[action.shopSlot];
-        if (slot.roleId < 0)
-        {
-            return ChessRuleErrorCode::EmptyShopSlot;
-        }
-        if (!content.role(slot.roleId))
-        {
-            return ChessRuleErrorCode::InvalidRole;
-        }
-        if (state.money < pieceValue(content, slot.roleId, 1))
-        {
-            return ChessRuleErrorCode::InsufficientGold;
-        }
-        if (!canGrantPiece(state, content, slot.roleId))
-        {
-            return ChessRuleErrorCode::BenchFull;
-        }
-        return ChessRuleErrorCode::None;
+        auto projected = state;
+        std::vector<ChessSemanticEvent> events;
+        return resolvePurchase(projected, content, action.shopSlot, events);
     }
     case ChessActionType::SellChess:
         return state.roster.contains(action.chessInstanceId)
@@ -517,7 +535,7 @@ ChessRuleErrorCode ChessManagementRules::validate(
         {
             return ChessRuleErrorCode::DuplicateIdentifier;
         }
-        if (ids.size() > static_cast<std::size_t>(maximumDeployment(state, content)))
+        if (ids.size() > kChessFormationSlotCount)
         {
             return ChessRuleErrorCode::DeploymentLimitExceeded;
         }
@@ -528,6 +546,11 @@ ChessRuleErrorCode ChessManagementRules::validate(
                 return ChessRuleErrorCode::UnknownChessInstance;
             }
         }
+        auto projected = state;
+        setDeployment(projected, action.chessInstanceIds);
+        if (ids.size() > static_cast<std::size_t>(deployedCount(state))
+            && ids.size() > static_cast<std::size_t>(maximumDeployment(projected, content)))
+            return ChessRuleErrorCode::DeploymentLimitExceeded;
         if (state.roster.size() - ids.size() > static_cast<std::size_t>(balance.benchSize))
         {
             return ChessRuleErrorCode::BenchFull;
@@ -683,12 +706,8 @@ void ChessManagementRules::apply(
         return;
     case ChessActionType::BuyShopSlot:
     {
-        auto& slot = state.shop[action.shopSlot];
-        const int roleId = slot.roleId;
-        const int cost = pieceValue(content, roleId, 1);
-        state.money -= cost;
-        slot.roleId = -1;
-        grantPiece(state, content, roleId, events, cost);
+        const auto error = resolvePurchase(state, content, action.shopSlot, events);
+        assert(error == ChessRuleErrorCode::None);
         return;
     }
     case ChessActionType::SellChess:
@@ -722,13 +741,8 @@ void ChessManagementRules::apply(
     }
     case ChessActionType::SetDeployment:
     {
-        std::set<int> selected(action.chessInstanceIds.begin(), action.chessInstanceIds.end());
-        for (auto& [id, piece] : state.roster)
-        {
-            piece.deployed = selected.contains(id);
-        }
-        maintainFormation(state);
-        events.push_back({ChessSemanticEventType::DeploymentChanged, {}, {}, static_cast<int>(selected.size()), {}});
+        setDeployment(state, action.chessInstanceIds);
+        events.push_back({ChessSemanticEventType::DeploymentChanged, {}, {}, static_cast<int>(action.chessInstanceIds.size()), {}});
         return;
     }
     case ChessActionType::SetFormation:
@@ -846,13 +860,50 @@ int ChessManagementRules::grantPiece(
     piece.roleId = roleId;
     piece.star = star;
     state.roster.emplace(piece.instanceId, piece);
+    const auto eventStart = events.size();
     events.push_back({ChessSemanticEventType::ChessPurchased, piece.instanceId, roleId, eventValue});
     std::vector<StarMilestone> milestones{{roleId, 0, star}};
     mergeAvailablePieces(state, content, roleId, milestones, events);
     resolveStarMilestones(state, content, milestones, events);
     resolveLateBloomerEvolution(state, content, events);
     maintainFormation(state);
-    return piece.instanceId;
+    int result = piece.instanceId;
+    for (std::size_t i = eventStart; i < events.size(); ++i)
+        if (events[i].merge && std::ranges::contains(events[i].merge->consumedInstanceIds, result))
+            result = events[i].primaryId;
+    assert(state.roster.contains(result));
+    return result;
+}
+
+ChessRuleErrorCode ChessManagementRules::resolvePurchase(
+    ChessSessionState& state, const ChessGameContent& content, int shopSlot,
+    std::vector<ChessSemanticEvent>& events, int* resultingInstanceId)
+{
+    if (shopSlot < 0 || shopSlot >= static_cast<int>(state.shop.size())) return ChessRuleErrorCode::InvalidShopSlot;
+    const int roleId = state.shop[shopSlot].roleId;
+    if (roleId < 0) return ChessRuleErrorCode::EmptyShopSlot;
+    if (!content.role(roleId)) return ChessRuleErrorCode::InvalidRole;
+    const int cost = pieceValue(content, roleId, 1);
+    if (state.money < cost) return ChessRuleErrorCode::InsufficientGold;
+    auto projected = state;
+    std::vector<ChessSemanticEvent> projectedEvents;
+    const int id = grantPiece(projected, content, roleId, projectedEvents, cost);
+    if (!projected.roster.at(id).deployed && deployedCount(projected) < kChessFormationSlotCount)
+    {
+        projected.roster.at(id).deployed = true;
+        if (deployedCount(projected) > maximumDeployment(projected, content))
+            projected.roster.at(id).deployed = false;
+        else
+            projectedEvents.push_back({ChessSemanticEventType::DeploymentChanged, {}, {}, deployedCount(projected)});
+    }
+    if (benchCount(projected) > content.balance().benchSize) return ChessRuleErrorCode::BenchFull;
+    maintainFormation(projected);
+    projected.money -= cost;
+    projected.shop[shopSlot].roleId = -1;
+    state = std::move(projected);
+    events.insert(events.end(), projectedEvents.begin(), projectedEvents.end());
+    if (resultingInstanceId) *resultingInstanceId = id;
+    return ChessRuleErrorCode::None;
 }
 
 bool ChessManagementRules::canGrantPiece(

@@ -204,7 +204,9 @@ std::string ChessObservationText::format(
                     content.balance().tierPrices[entry.tier - 1]);
         }
     }
-    text += std::format("棋子（出戰上限{}）：\n", observation.maximumDeployment);
+    text += std::format("棋子（出戰{}/{}，等級{} + 羈絆{}，超出{}）：\n", observation.deployedCount,
+        observation.maximumDeployment, observation.baseDeployment, observation.deploymentBonus, observation.deploymentOverflow);
+    if (!observation.deploymentReadinessReason.empty()) text += observation.deploymentReadinessReason + "\n";
     for (const auto& piece : observation.roster)
     {
         text += std::format(

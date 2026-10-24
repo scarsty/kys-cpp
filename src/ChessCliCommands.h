@@ -39,7 +39,7 @@ inline constexpr std::array<ChessCliActionCommand, 21> kChessCliActionCommands{{
     {ChessActionType::ChooseReward, "reward", "<獎勵 ID>"},
     {ChessActionType::StartChallenge, "challenge", "<遠征名稱>"},
     {ChessActionType::FinishRun, "finish", {}},
-    {ChessActionType::SetFormation, "formation", "<十格棋子 ID,...>"},
+    {ChessActionType::SetFormation, "formation", "<十一格棋子 ID,...>"},
     {ChessActionType::ChooseLateBloomer, "train", "<棋子 ID>"},
 }};
 

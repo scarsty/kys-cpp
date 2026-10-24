@@ -38,6 +38,11 @@ public:
         std::vector<ChessSemanticEvent>& events);
 
     static int maximumDeployment(const ChessSessionState& state, const ChessGameContent& content);
+    static ChessRuleErrorCode deploymentReadiness(const ChessSessionState& state, const ChessGameContent& content);
+    static std::vector<std::string> deploymentBonusSources(const ChessSessionState& state, const ChessGameContent& content);
+    // 購買預覽與提交共同使用，不消耗隨機數；失敗時不改動狀態。
+    static ChessRuleErrorCode resolvePurchase(ChessSessionState& state, const ChessGameContent& content,
+        int shopSlot, std::vector<ChessSemanticEvent>& events, int* resultingInstanceId = nullptr);
     static int experienceForNextLevel(const ChessSessionState& state, const ChessGameContent& content);
     static bool gainExperience(
         ChessSessionState& state,

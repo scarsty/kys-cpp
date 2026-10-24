@@ -1187,6 +1187,7 @@ std::string_view pvpSaveValidationStep(ChessPvpSaveError error)
     case ChessPvpSaveError::SnapshotHashMismatch: return "比對存檔完整性";
     case ChessPvpSaveError::InvalidFormation: return "檢查陣形";
     case ChessPvpSaveError::NoDeployedPieces: return "檢查出戰棋子";
+    case ChessPvpSaveError::DeploymentLimitExceeded: return "調整出戰人數";
     }
     std::unreachable();
 }
@@ -1707,6 +1708,12 @@ void ChessGuiSessionAdapter::showSystemMenu()
 
 void ChessGuiSessionAdapter::showOfflineBattle()
 {
+    const auto readiness = ChessManagementRules::deploymentReadiness(session_.state(), session_.content());
+    if (readiness != ChessRuleErrorCode::None)
+    {
+        showChessMessage(ChessGameSession::errorDescription(readiness));
+        return;
+    }
     if (session_.state().phase != ChessSessionPhase::Management)
     {
         showChessMessage("離線對戰只能在整備階段使用");
@@ -1727,7 +1734,7 @@ void ChessGuiSessionAdapter::showOfflineBattle()
             session_.state(),
             session_.state().formationSlots));
         auto local = extractChessPvpComposition(session_);
-        const bool canStart = !local.pieces.empty()
+        const bool canStart = ChessManagementRules::deploymentReadiness(session_.state(), session_.content()) == ChessRuleErrorCode::None
             && opponent
             && ChessManagementRules::formationIsValid(
                 session_.state(),
@@ -2502,7 +2509,7 @@ bool ChessGuiSessionAdapter::openPreparationCommand(ChessContextMenuAction comma
             assert(result.accepted);
             if (drainPreparedBattle() == ChessGuiFlowResult::Aborted) return true;
         }
-        else showChessMessage("出戰棋子不足，請先選擇出戰陣容");
+        else showChessMessage(ChessGameSession::errorDescription(session_.validateAction({ChessActionType::PrepareBattle})));
         break;
     case ChessContextMenuAction::ManageBans: showBanManagement(); break;
     case ChessContextMenuAction::RerollBattleSeed: showEnemyReroll(); break;

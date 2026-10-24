@@ -152,7 +152,7 @@ std::string actionDescription(
         return std::format("開始遠征「{}」", action.challengeName);
     case ChessActionType::FinishRun: return "結束本局";
     case ChessActionType::SetFormation:
-        return std::format("調整十格陣形 {}", integerList(action.chessInstanceIds));
+        return std::format("調整十一格陣形 {}", integerList(action.chessInstanceIds));
     }
     std::unreachable();
 }

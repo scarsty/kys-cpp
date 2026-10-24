@@ -412,7 +412,7 @@ TEST_CASE("map decision point and selected map persist in checkpoint replay", "[
     REQUIRE(session.submitAndDrain(prepare).accepted);
     REQUIRE(session.state().preparedBattle);
     CHECK(session.state().preparedBattle->chosenMapId == -1);
-    CHECK(session.state().preparedBattle->mapCandidates == std::vector<int>{7, 8});
+    CHECK(session.state().preparedBattle->mapCandidates == std::vector<int>{6, 17});
 
     const auto pendingPayload = ChessSessionCheckpoint::capture(session, 1, "待選戰場").serializeJson();
     ChessCheckpointError error;
@@ -421,19 +421,19 @@ TEST_CASE("map decision point and selected map persist in checkpoint replay", "[
     CHECK(error == ChessCheckpointError::None);
     REQUIRE(pending->state.preparedBattle);
     CHECK(pending->state.preparedBattle->chosenMapId == -1);
-    CHECK(pending->state.preparedBattle->mapCandidates == std::vector<int>{7, 8});
+    CHECK(pending->state.preparedBattle->mapCandidates == std::vector<int>{6, 17});
 
     ChessAction choose;
     choose.type = ChessActionType::ChooseMap;
-    choose.mapId = 8;
+    choose.mapId = 17;
     REQUIRE(session.submitAndDrain(choose).accepted);
     const auto selectedPayload = ChessSessionCheckpoint::capture(session, 2, "已選戰場").serializeJson();
     const auto selected = ChessSessionCheckpoint::parseJson(selectedPayload, error);
     REQUIRE(selected);
     CHECK(error == ChessCheckpointError::None);
     REQUIRE(selected->state.preparedBattle);
-    CHECK(selected->state.preparedBattle->chosenMapId == 8);
+    CHECK(selected->state.preparedBattle->chosenMapId == 17);
     REQUIRE_FALSE(selected->replay.decisions.empty());
     CHECK(selected->replay.decisions.back().action.type == ChessActionType::ChooseMap);
-    CHECK(selected->replay.decisions.back().action.mapId == 8);
+    CHECK(selected->replay.decisions.back().action.mapId == 17);
 }

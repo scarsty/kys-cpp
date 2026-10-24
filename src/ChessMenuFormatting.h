@@ -102,7 +102,9 @@ inline ChessBuyExpDeploymentPreview buildChessBuyExpDeploymentPreview(
     assert(state.level < content.balance().maxLevel);
     ChessBuyExpDeploymentPreview preview;
     preview.current = ChessManagementRules::maximumDeployment(state, content);
-    const int next = ChessManagementRules::maximumDeploymentAtLevel(content, state.level + 1);
+    auto nextState = state;
+    ++nextState.level;
+    const int next = ChessManagementRules::maximumDeployment(nextState, content);
     if (next > preview.current)
     {
         preview.next = next;

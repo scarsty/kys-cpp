@@ -35,6 +35,8 @@ public:
     ~ChessGameSession();
 
     ChessGameplayObservation observe() const;
+    static std::string errorDescription(ChessRuleErrorCode error);
+    ChessRuleErrorCode validateAction(const ChessAction& action) const;
     std::vector<ChessLegalActionDescriptor> legalActions() const;
     ChessActionResult beginAction(const ChessAction& action);
     ChessAutomaticAdvanceResult advanceAutomatic(int frameBudget);
@@ -65,8 +67,6 @@ private:
         const ChessGameContent& content,
         std::uint64_t rootSeed,
         const ChessSessionOptions& options);
-    static std::string errorDescription(ChessRuleErrorCode error);
-    ChessRuleErrorCode validateAction(const ChessAction& action) const;
     void applyAction(const ChessAction& action, std::vector<ChessSemanticEvent>& events);
     ChessActionResult finalizeAction(
         ChessSessionPhase phase,

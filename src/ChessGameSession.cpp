@@ -234,6 +234,13 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.experienceForNextLevel = ChessManagementRules::experienceForNextLevel(state_, *content_);
     observation.level = state_.level;
     observation.maximumDeployment = ChessManagementRules::maximumDeployment(state_, *content_);
+    observation.baseDeployment = ChessManagementRules::maximumDeploymentAtLevel(*content_, state_.level);
+    observation.deploymentBonus = observation.maximumDeployment - observation.baseDeployment;
+    observation.deployedCount = static_cast<int>(std::ranges::count_if(state_.roster, [](const auto& entry) { return entry.second.deployed; }));
+    observation.deploymentOverflow = std::max(0, observation.deployedCount - observation.maximumDeployment);
+    observation.deploymentBonusSources = ChessManagementRules::deploymentBonusSources(state_, *content_);
+    const auto readiness = ChessManagementRules::deploymentReadiness(state_, *content_);
+    if (readiness != ChessRuleErrorCode::None) observation.deploymentReadinessReason = errorDescription(readiness);
     observation.maximumBanCount = ChessManagementRules::maximumBanCount(state_, *content_);
     observation.fight = state_.fight;
     observation.campaignComplete = state_.campaignComplete;
@@ -317,7 +324,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
             }
             result.push_back(std::move(swap));
         }
-        if (state_.preparedBattle->chosenMapId >= 0 || state_.preparedBattle->mapCandidates.empty())
+        if (validateAction({ChessActionType::StartBattle}) == ChessRuleErrorCode::None)
         {
             result.push_back({ChessActionType::StartBattle});
         }
@@ -387,7 +394,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
     auto deployment = selectionAction(
         ChessActionType::SetDeployment,
         0,
-        ChessManagementRules::maximumDeployment(state_, *content_));
+        kChessFormationSlotCount);
     for (const auto& [id, piece] : state_.roster)
     {
         sell.candidateIds.push_back(id);
@@ -527,14 +534,14 @@ std::string ChessGameSession::errorDescription(ChessRuleErrorCode error)
     case ChessRuleErrorCode::BenchFull: return "備戰區已滿";
     case ChessRuleErrorCode::UnknownChessInstance: return "棋子實例不存在";
     case ChessRuleErrorCode::DuplicateIdentifier: return "識別碼重複";
-    case ChessRuleErrorCode::DeploymentLimitExceeded: return "出戰人數超過上限";
+    case ChessRuleErrorCode::DeploymentLimitExceeded: return "出戰人數超過上限；恢復羈絆或減少出戰人數後即可開戰";
     case ChessRuleErrorCode::MaximumLevel: return "已達最高等級";
     case ChessRuleErrorCode::InvalidRole: return "角色資料不存在";
     case ChessRuleErrorCode::BanLimitReached: return "禁棋數量已達上限";
     case ChessRuleErrorCode::RoleNotSeen: return "尚未遇過此角色";
     case ChessRuleErrorCode::RoleAlreadyBanned: return "此角色已被禁用";
     case ChessRuleErrorCode::DeploymentRequired: return "出戰人數不足";
-    case ChessRuleErrorCode::InvalidMap: return "戰場選項不存在";
+    case ChessRuleErrorCode::InvalidMap: return "沒有可容納目前陣容的有效戰場";
     case ChessRuleErrorCode::InvalidSwap: return "佈陣交換無效";
     case ChessRuleErrorCode::UnknownEquipmentInstance: return "裝備實例不存在";
     case ChessRuleErrorCode::InvalidEquipment: return "裝備資料不存在";
@@ -554,9 +561,6 @@ std::string ChessGameSession::errorDescription(ChessRuleErrorCode error)
 
 ChessRuleErrorCode ChessGameSession::validateAction(const ChessAction& action) const
 {
-    const auto deployedCount = static_cast<int>(std::ranges::count_if(state_.roster, [](const auto& entry) {
-        return entry.second.deployed;
-    }));
     if (state_.phase == ChessSessionPhase::Management)
     {
         if (action.type == ChessActionType::PrepareBattle)
@@ -565,22 +569,22 @@ ChessRuleErrorCode ChessGameSession::validateAction(const ChessAction& action) c
             {
                 return ChessRuleErrorCode::CampaignAlreadyComplete;
             }
-            return deployedCount == 0
-                ? ChessRuleErrorCode::DeploymentRequired
-                : ChessRuleErrorCode::None;
+            const auto readiness = ChessManagementRules::deploymentReadiness(state_, *content_);
+            if (readiness != ChessRuleErrorCode::None) return readiness;
+            return ChessBattlePlanner::fittingMaps(state_, *content_).empty()
+                ? ChessRuleErrorCode::InvalidMap : ChessRuleErrorCode::None;
         }
         if (action.type == ChessActionType::StartChallenge)
         {
-            if (deployedCount == 0)
-            {
-                return ChessRuleErrorCode::DeploymentRequired;
-            }
-            return std::ranges::contains(
+            const auto readiness = ChessManagementRules::deploymentReadiness(state_, *content_);
+            if (readiness != ChessRuleErrorCode::None) return readiness;
+            const auto challenge = std::ranges::find(
                 content_->balance().challenges,
                 action.challengeName,
-                &BalanceConfig::ChallengeDef::name)
-                ? ChessRuleErrorCode::None
-                : ChessRuleErrorCode::UnknownChallenge;
+                &BalanceConfig::ChallengeDef::name);
+            if (challenge == content_->balance().challenges.end()) return ChessRuleErrorCode::UnknownChallenge;
+            return ChessBattlePlanner::fittingMaps(state_, *content_, &*challenge).empty()
+                ? ChessRuleErrorCode::InvalidMap : ChessRuleErrorCode::None;
         }
         if (action.type == ChessActionType::FinishRun)
         {
@@ -601,6 +605,9 @@ ChessRuleErrorCode ChessGameSession::validateAction(const ChessAction& action) c
             return state_.preparedBattle->chosenMapId < 0
                 && !state_.preparedBattle->mapCandidates.empty()
                 && std::ranges::contains(state_.preparedBattle->mapCandidates, action.mapId)
+                && BattleSetupFactory::mapCanFit(*content_, action.mapId,
+                    BattleSetupFactory::requiredFormationSlots(*state_.preparedBattle, 0),
+                    BattleSetupFactory::requiredFormationSlots(*state_.preparedBattle, 1))
                 ? ChessRuleErrorCode::None
                 : ChessRuleErrorCode::InvalidMap;
         }
@@ -632,8 +639,8 @@ ChessRuleErrorCode ChessGameSession::validateAction(const ChessAction& action) c
             {
                 return ChessRuleErrorCode::UnsupportedAction;
             }
-            return state_.preparedBattle->chosenMapId >= 0
-                || state_.preparedBattle->mapCandidates.empty()
+            return ChessBattlePlanner::preparedRosterIsReady(state_, *content_)
+                && ChessBattlePlanner::chosenMapFits(*state_.preparedBattle, *content_)
                 ? ChessRuleErrorCode::None
                 : ChessRuleErrorCode::InvalidMap;
         }

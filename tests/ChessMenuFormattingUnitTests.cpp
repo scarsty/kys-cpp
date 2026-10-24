@@ -290,7 +290,7 @@ TEST_CASE("game guide derives economy equipment and reward details from content"
     CHECK(contains("棋子與升星", "生命 +12、攻擊 +1、防禦 +1、兵器熟練度 +0.5、輕功 +0.25"));
     CHECK(contains("金幣與等級", "開局 23 金；刷新商店 5 金；購買經驗 7 金換 9 點"));
     CHECK(contains("金幣與等級", "15%，小數捨去，上限 6 金"));
-    CHECK(contains("金幣與等級", "最高 9 級；出戰容量隨等級增加，最多 9 人；候補可放 12 人"));
+    CHECK(contains("金幣與等級", "最高 9 級；等級出戰容量最多 9 人，智將五人門檻另加一名；候補可放 12 人"));
     CHECK(contains("裝備與內功", "共 2 次，最早第 4 關，最高 4 階"));
     CHECK(contains("裝備與內功", "通過第 13 關後"));
     CHECK(contains("裝備與內功", "每件 37 金"));

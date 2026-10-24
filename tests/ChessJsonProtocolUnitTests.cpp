@@ -1,3 +1,4 @@
+#include "ChessBattlePlanner.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessJsonProtocol.h"
 #include "ChessJsonCodec.h"
@@ -162,6 +163,7 @@ TEST_CASE("autosave records only completed campaign and challenge reward flows",
     expedition.enemies = {{enemy.ID, 1}};
     expedition.rewards = {{BalanceConfig::ChallengeRewardType::GetPiece, 1}};
     data.balance.challenges.push_back(std::move(expedition));
+    addCampaignTestMaps(data);
     const auto content = std::make_shared<const ChessGameContent>(std::move(data));
 
     struct AutosaveFile
@@ -473,7 +475,7 @@ TEST_CASE("JSON protocol prepared battle inspection layers positioning and metad
         CHECK(session->observe().stateHash == beforeInspection);
     }
     REQUIRE(parseResponse(protocol.handleLine(
-        R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":7}}})")).ok);
+        R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":6}}})")).ok);
     const auto summary = parseResponse(protocol.handleLine(
         R"({"id":8,"method":"inspect_prepared_battle","params":{}})"));
     const auto compact = parseResponse(protocol.handleLine(
@@ -918,7 +920,7 @@ TEST_CASE("JSON protocol publishes authoritative action cardinalities",
     CHECK(buy.maximum_selection == 1);
     const auto& deployment = requireLegalAction(management, "set_deployment");
     CHECK(deployment.minimum_selection == 0);
-    CHECK(deployment.maximum_selection == 2);
+    CHECK(deployment.maximum_selection == kChessFormationSlotCount);
 
     const auto content = configuredMapChoiceContent();
     ChessJsonProtocol protocol(content);
@@ -940,13 +942,15 @@ TEST_CASE("JSON protocol publishes authoritative action cardinalities",
     CHECK(equip.maximum_selection == 1);
 
     auto preparedCheckpoint = ChessSessionCheckpoint::capture(*session, 2);
-    PreparedChessBattle prepared;
+    preparedCheckpoint.state.level = 1;
+    preparedCheckpoint.state.roster.at(1).deployed = true;
+    preparedCheckpoint.state.roster.emplace(2, ChessSessionPiece{2, 10, 1, true});
+    ChessManagementRules::maintainFormation(preparedCheckpoint.state);
+    auto prepared = ChessBattlePlanner::prepareRosterPreview(preparedCheckpoint.state, *content);
+    prepared.kind = PreparedChessBattleKind::Campaign;
     prepared.stableBattleId = "cardinality";
-    prepared.mapCandidates = {7, 8};
-    prepared.units = {
-        {1, 1, 10, 0},
-        {2, 2, 10, 0},
-    };
+    prepared.mapCandidates = {6, 17};
+    prepared.units.push_back({3, -1, 20, 1});
     preparedCheckpoint.state.phase = ChessSessionPhase::BattlePreparation;
     preparedCheckpoint.state.options.positionSwapEnabled = true;
     preparedCheckpoint.state.preparedBattle = std::move(prepared);
@@ -1223,7 +1227,7 @@ TEST_CASE("JSON protocol battle preparation and start summaries stay bounded",
     CHECK(prepared.result->str.contains("\"prepared_battle\""));
 
     REQUIRE(parseResponse(protocol.handleLine(
-        R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":7}}})")).ok);
+        R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":6}}})")).ok);
     const auto started = parseResponse(protocol.handleLine(
         R"({"id":8,"method":"act","params":{"action":{"type":"start_battle"}}})"));
     REQUIRE(started.ok);

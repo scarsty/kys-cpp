@@ -114,7 +114,7 @@ std::shared_ptr<const ChessGameContent> talentContent(int luckPerRefresh = 1)
         data.combos.push_back(std::move(combo));
     }
     ChessBattleMapDefinition map;
-    map.id = 7;
+    map.id = 6;
     map.battlefieldId = 7;
     map.teammateRoleIds = std::vector<int>(10, -1);
     map.enemyRoleIds = std::vector<int>(20, -1);

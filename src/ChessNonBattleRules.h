@@ -38,6 +38,11 @@ struct BattleMapChoiceRule
     bool operator==(const BattleMapChoiceRule&) const = default;
 };
 
+struct DeploymentCapacityRule
+{
+    bool operator==(const DeploymentCapacityRule&) const = default;
+};
+
 struct FightWinGrowthRule
 {
     int maxHp{};
@@ -52,6 +57,7 @@ using ChessNonBattleRule = std::variant<
     VictoryGoldRule,
     FreeShopRefreshRule,
     BattleMapChoiceRule,
+    DeploymentCapacityRule,
     FightWinGrowthRule>;
 
 enum class ChessNonBattleRuleKind
@@ -60,6 +66,7 @@ enum class ChessNonBattleRuleKind
     VictoryGold,
     FreeShopRefresh,
     BattleMapChoice,
+    DeploymentCapacity,
     FightWinGrowth,
 };
 

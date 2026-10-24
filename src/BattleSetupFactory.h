@@ -12,6 +12,8 @@ namespace KysChess
 class BattleSetupFactory
 {
 public:
+    static bool mapCanFit(const ChessGameContent& content, int mapId,
+        int allyRequiredSlots, int enemyRequiredSlots);
     static int requiredFormationSlots(
         const PreparedChessBattle& prepared,
         int team);

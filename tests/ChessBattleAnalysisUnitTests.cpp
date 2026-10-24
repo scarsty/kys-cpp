@@ -15,6 +15,7 @@ TEST_CASE("battle analysis exports effect lifecycle types and stack attribution"
     using namespace KysChess::Battle;
     const auto content = managementContent();
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     HeadlessBattleResult battle;
     auto source = BattleLogTest::reportUnit(1, 10, 0, 0, "施術者");
     auto target = BattleLogTest::reportUnit(2, 10, 1, 0, "目標");
@@ -70,6 +71,7 @@ TEST_CASE("battle report keeps poison payloads applications and MP drains indepe
     using namespace KysChess::Battle;
     const auto content = managementContent();
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     HeadlessBattleResult battle;
     battle.summary.outcome = BattleOutcome::PlayerVictory;
     for (int id : {1, 2, 3})

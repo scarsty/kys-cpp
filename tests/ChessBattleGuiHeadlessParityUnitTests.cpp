@@ -260,6 +260,7 @@ TEST_CASE("prebattle presentation facts come from the shared initialized battle 
     CHECK(selectedMagics[1].first->ID == 102);
 
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     prepared.chosenMapId = -1;
     prepared.battleSeed = 123;
     prepared.units.push_back({1, 1, 10, 0, 2, 501, 502});
@@ -325,6 +326,7 @@ TEST_CASE("equal-power magic tie uses the same highest-ID ultimate in runtime an
     CHECK(selected.back().first->ID == 102);
 
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     prepared.chosenMapId = -1;
     prepared.units.push_back({1, 1, 10, 0, 1});
     const auto input = BattleSetupFactory::build(prepared, content, kChessBattleFrameLimit);
@@ -343,6 +345,7 @@ TEST_CASE("incremental GUI drain and headless runner consume identical shared in
 {
     const auto content = parityContent();
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     prepared.chosenMapId = -1;
     prepared.battleSeed = 123;
     prepared.units.push_back({1, 1, 10, 0});

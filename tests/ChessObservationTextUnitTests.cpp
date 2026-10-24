@@ -48,6 +48,7 @@ TEST_CASE("ASCII board preserves coordinates and stable unit tokens", "[chess][t
 {
     const auto content = managementContent();
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     prepared.stableBattleId = "test";
     prepared.battleSeed = 12;
     prepared.units.push_back({1, 1, 10, 0, 1});
@@ -62,6 +63,7 @@ TEST_CASE("ASCII board preserves coordinates and stable unit tokens", "[chess][t
 TEST_CASE("battle text uses semantic IDs and omits movement traces", "[chess][text][battle]")
 {
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     prepared.units.push_back({1, 1, 10, 0});
     prepared.units.push_back({2, -1, 20, 1});
     const std::vector<Battle::BattleDigestEvent> events{

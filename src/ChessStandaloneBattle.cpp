@@ -88,28 +88,6 @@ std::shared_ptr<const ChessGameContent> contentForRequest(
     return std::make_shared<const ChessGameContent>(std::move(data), source.gameVersion());
 }
 
-bool mapCanFit(
-    const ChessGameContent& content,
-    int mapId,
-    int allyRequiredSlots,
-    int enemyRequiredSlots)
-{
-    const auto found = content.battleMaps().find(mapId);
-    if (found == content.battleMaps().end())
-    {
-        return false;
-    }
-    const auto& map = found->second;
-    int allyCapacity = std::min(map.teammateX.size(), map.teammateY.size());
-    int enemyCapacity = std::min(map.enemyX.size(), map.enemyY.size());
-    if (const auto* catalog = ChessBattleMapCatalog::find(mapId))
-    {
-        allyCapacity = static_cast<int>(catalog->teammatePositions.size());
-        enemyCapacity = std::min(enemyCapacity, catalog->enemyCapacity);
-    }
-    return allyRequiredSlots <= allyCapacity && enemyRequiredSlots <= enemyCapacity;
-}
-
 bool validatePiece(
     const ChessStandaloneBattlePiece& piece,
     const ChessGameContent& content,
@@ -203,7 +181,7 @@ bool validateTeamFormation(
     }
     if (team.formationSlots.size() != kChessFormationSlotCount)
     {
-        error = std::format("{}陣形必須包含十格", name);
+        error = std::format("{}陣形必須包含十一格", name);
         return false;
     }
     std::set<int> pieceIds;
@@ -337,7 +315,7 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
             || request.teams[0].formationSlots.empty()
             || request.teams[1].formationSlots.empty())
         {
-            error = "PvP 競技場需要戰場 133 與雙方完整十格陣形";
+            error = "PvP 競技場需要戰場 133 與雙方完整十一格陣形";
             return std::nullopt;
         }
         std::string layoutError;
@@ -351,7 +329,7 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
     }
     else if (request.mapId)
     {
-        if (!mapCanFit(
+        if (!BattleSetupFactory::mapCanFit(
                 *content,
                 *request.mapId,
                 allyRequiredSlots,
@@ -370,7 +348,7 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
                  allyRequiredSlots,
                  enemyRequiredSlots))
         {
-            if (mapCanFit(
+            if (BattleSetupFactory::mapCanFit(
                     *content,
                     mapId,
                     allyRequiredSlots,

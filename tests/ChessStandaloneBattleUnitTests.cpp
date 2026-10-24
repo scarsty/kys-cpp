@@ -279,7 +279,7 @@ TEST_CASE("standalone battle surrender completes immediately as defeat", "[chess
 TEST_CASE("standalone battle allows enemy counts supported by battle map", "[chess][standalone]")
 {
     auto request = basicRequest();
-    request.mapId.reset();
+    request.mapId = 7;
     request.teams[1].pieces.assign(12, ChessStandaloneBattlePiece{20});
 
     std::string error;

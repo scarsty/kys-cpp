@@ -871,6 +871,12 @@ ObservationDto observationDto(
     dto.experience_for_next_level = observation.experienceForNextLevel;
     dto.level = observation.level;
     dto.maximum_deployment = observation.maximumDeployment;
+    dto.base_deployment = observation.baseDeployment;
+    dto.deployment_bonus = observation.deploymentBonus;
+    dto.deployed_count = observation.deployedCount;
+    dto.deployment_overflow = observation.deploymentOverflow;
+    dto.deployment_bonus_sources = observation.deploymentBonusSources;
+    dto.deployment_readiness_reason = observation.deploymentReadinessReason;
     dto.fight = observation.fight;
     dto.campaign_complete = observation.campaignComplete;
     dto.interest_gold = observation.interestGold;
@@ -1208,11 +1214,8 @@ std::string legalActionExampleJson(
         action.chessInstanceId = descriptor.candidateIds.front();
         break;
     case ChessActionType::SetDeployment:
-        action.chessInstanceIds.assign(
-            descriptor.candidateIds.begin(),
-            descriptor.candidateIds.begin() + std::min<std::size_t>(
-                descriptor.candidateIds.size(),
-                static_cast<std::size_t>(descriptor.maximumSelection)));
+        for (const auto& [id, piece] : session.state().roster)
+            if (piece.deployed) action.chessInstanceIds.push_back(id);
         break;
     case ChessActionType::SetFormation:
         action.chessInstanceIds = session.state().formationSlots;

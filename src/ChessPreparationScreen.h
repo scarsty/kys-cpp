@@ -115,6 +115,9 @@ private:
     int guideStep_ = -1;
     bool benchNames_ = false;
     int benchPage_{};
+    int replacementIncomingId_ = -1;
+    int replacementTargetId_ = -1;
+    int replacementPreviewId_ = -1;
     int shopPage_{};
     int listPage_{};
     int textPage_{};

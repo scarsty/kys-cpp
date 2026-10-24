@@ -404,6 +404,7 @@ TEST_CASE("hidden combo keeps both shield resources and activates effects on nor
     data.combos = std::move(combos);
     const ChessGameContent content(std::move(data));
     PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Standalone;
     prepared.units = {{.unitId = 1, .roleId = 20, .team = 1}};
     auto input = BattleSetupFactory::build(prepared, content, 100);
     auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));

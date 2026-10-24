@@ -2,6 +2,7 @@
 
 #include "ChessGameSession.h"
 #include "ChessManagementRules.h"
+#include "ChessBattlePlanner.h"
 #include <glaze/json.hpp>
 
 #include <cassert>
@@ -69,6 +70,9 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
         return ChessCheckpointError::UnrepresentableSnapshot;
     }
     int chosenCount{};
+    if (state.phase == ChessSessionPhase::BattlePreparation
+        && !ChessBattlePlanner::preparedRosterIsReady(state, *session.content_))
+        return ChessCheckpointError::UnrepresentableSnapshot;
     for (const auto& [id, piece] : state.roster)
     {
         if (piece.luckStacks < 0

@@ -29,7 +29,7 @@ TEST_CASE("challenge enemy inspection initializes each configured star and equip
 
     PreparedChessBattle battle;
     battle.kind = PreparedChessBattleKind::Challenge;
-    battle.chosenMapId = 7;
+    battle.chosenMapId = 6;
     battle.units = {{1, -1, 10, 1, 1}, {2, -1, 10, 1, 3, 500}, {3, -1, 20, 1, 2}};
     const auto actual = analyzePreparedChessBattle(battle, *content, kChessBattleFrameLimit);
     for (int i = 0; i < 3; ++i)
@@ -44,11 +44,11 @@ TEST_CASE("battle result retains both dense rosters and ranks skill contribution
 {
     const auto content = configuredMapChoiceContent();
     PreparedChessBattle prepared;
-    prepared.chosenMapId = 7;
+    prepared.chosenMapId = 6;
     prepared.units = {{1, 1, 10, 0, 2, 500}, {2, 2, 20, 1}};
     BattlePostBattleSummary summary;
     for (int side = 0; side < 2; ++side)
-        for (int index = 0; index < 13; ++index)
+        for (int index = 0; index < 14; ++index)
         {
             BattlePostBattleUnitSummary unit;
             unit.identity = {side * 100 + index, side == 0 ? 10 : 20, side, 0, "測試棋子"};
@@ -76,7 +76,7 @@ TEST_CASE("battle result retains both dense rosters and ranks skill contribution
     CHECK(teams[1].talent == ChessTalentId::Alliance);
     for (const auto& team : teams)
     {
-        REQUIRE(team.units.size() == 13);
+        REQUIRE(team.units.size() == 14);
         CHECK(team.survivors == 1);
         CHECK(team.units.back().weaponName == "配置選圖劍");
     }
@@ -101,7 +101,7 @@ TEST_CASE("battle result omits synergies below the first threshold", "[chess][re
 {
     const auto content = configuredMapChoiceContent();
     PreparedChessBattle prepared;
-    prepared.chosenMapId = 7;
+    prepared.chosenMapId = 6;
     prepared.units = {{1, 1, 10, 0}, {2, 2, 20, 1}};
     BattlePostBattleSummary summary;
     BattlePostBattleUnitSummary dead;
@@ -125,8 +125,8 @@ PreparedChessBattle analysisBattle()
     PreparedChessBattle prepared;
     prepared.kind = PreparedChessBattleKind::Campaign;
     prepared.stableBattleId = "campaign:1";
-    prepared.chosenMapId = 7;
-    prepared.mapCandidates = {7, 8};
+    prepared.chosenMapId = 6;
+    prepared.mapCandidates = {6, 17};
     prepared.battleSeed = 123;
     prepared.units = {
         {1, 41, 10, 0, 1, -1, -1, 0},
@@ -185,7 +185,7 @@ TEST_CASE("prepared battle analysis uses final formation and initialized runtime
 
     REQUIRE(analysis.combatInitialized);
     CHECK(analysis.identity.stableBattleId == "campaign:1");
-    CHECK(analysis.identity.chosenMapName == chessBattleMapDisplayName(*content, 7));
+    CHECK(analysis.identity.chosenMapName == chessBattleMapDisplayName(*content, 6));
     REQUIRE(analysis.units.size() == 3);
     REQUIRE(analysis.allySynergies.size() == 1);
     CHECK(analysis.allySynergies.front().name == "配置選圖羈絆");

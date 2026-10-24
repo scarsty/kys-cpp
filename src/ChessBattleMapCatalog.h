@@ -15,6 +15,7 @@ struct ChessBattleMapCatalogEntry
     std::vector<Point> teammatePositions;
     std::vector<Point> allyClonePositions;
     std::string_view name;
+    std::vector<Point> enemyClonePositions;
 };
 
 class ChessBattleMapCatalog

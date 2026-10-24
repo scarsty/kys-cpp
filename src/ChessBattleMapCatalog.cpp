@@ -2,7 +2,6 @@
 #include "ChessPvp.h"
 
 #include <algorithm>
-#include <tuple>
 
 namespace KysChess
 {
@@ -14,9 +13,10 @@ const std::vector<ChessBattleMapCatalogEntry>& ChessBattleMapCatalog::entries()
             6,
             10,
             {{30, 39}, {32, 37}, {32, 34}, {28, 32}, {22, 21}, {22, 18},
-             {32, 36}, {32, 35}, {22, 20}, {22, 19}},
+             {32, 36}, {32, 35}, {22, 20}, {22, 19}, {32, 38}},
             {{31, 39}, {31, 38}, {31, 37}},
             "迷洞巷戰",
+            {{23, 35}, {24, 35}, {24, 37}},
         },
         // 暫停輪替：敵軍從四面包圍我方，開局過於困難。
         // {
@@ -31,65 +31,73 @@ const std::vector<ChessBattleMapCatalogEntry>& ChessBattleMapCatalog::entries()
             17,
             13,
             {{29, 20}, {31, 23}, {33, 26}, {32, 20}, {34, 23}, {35, 20},
-             {34, 20}, {33, 23}, {33, 20}, {32, 23}},
+             {34, 20}, {33, 23}, {33, 20}, {32, 23}, {31, 20}},
             {{35, 21}, {34, 21}, {35, 22}},
             "雙線迎擊",
+            {{19, 33}, {20, 33}, {20, 35}},
         },
         {
             21,
             10,
             {{33, 27}, {34, 25}, {34, 30}, {35, 27}, {35, 29}, {35, 24},
-             {35, 25}, {34, 27}, {35, 30}, {35, 28}},
+             {35, 25}, {34, 27}, {35, 30}, {35, 28}, {34, 26}},
             {{36, 26}, {36, 27}, {34, 28}},
             "庭院圍戰",
+            {{28, 26}, {28, 28}, {28, 30}},
         },
         {
             24,
             11,
             {{35, 32}, {35, 28}, {35, 26}, {35, 34}, {35, 36}, {35, 24},
-             {35, 35}, {35, 33}, {35, 27}, {35, 25}},
+             {35, 35}, {35, 33}, {35, 27}, {35, 25}, {35, 30}},
             {{36, 32}, {36, 31}, {36, 28}},
             "長廊固守",
+            {{23, 26}, {23, 30}, {23, 34}},
         },
         {
             26,
             11,
             {{30, 29}, {33, 28}, {32, 33}, {34, 31}, {36, 28}, {36, 35},
-             {35, 28}, {34, 28}, {37, 35}, {37, 28}},
+             {35, 28}, {34, 28}, {37, 35}, {37, 28}, {33, 32}},
             {{35, 29}, {35, 30}, {35, 31}},
             "側殿突圍",
+            {{24, 23}, {25, 24}, {26, 23}},
         },
         {
             54,
             15,
             {{24, 27}, {24, 29}, {24, 25}, {24, 31}, {24, 23}, {24, 33},
-             {24, 32}, {24, 30}, {24, 28}, {24, 26}},
+             {24, 32}, {24, 30}, {24, 28}, {24, 26}, {24, 24}},
             {{25, 27}, {25, 29}, {25, 31}},
             "長廊夾擊",
+            {{14, 26}, {14, 27}, {14, 28}},
         },
         {
             56,
             20,
             {{17, 29}, {18, 29}, {19, 29}, {20, 29}, {21, 29}, {22, 29},
-             {23, 29}, {16, 29}, {22, 30}, {22, 28}},
+             {23, 29}, {16, 29}, {22, 30}, {22, 28}, {23, 30}},
             {{19, 30}, {20, 30}, {21, 30}},
             "山門死戰",
+            {{11, 28}, {12, 28}, {13, 28}},
         },
         {
             60,
             10,
             {{32, 20}, {36, 17}, {35, 20}, {36, 24}, {38, 20}, {41, 20},
-             {40, 20}, {39, 20}, {37, 20}, {36, 20}},
+             {40, 20}, {39, 20}, {37, 20}, {36, 20}, {36, 22}},
             {{33, 20}, {34, 20}, {36, 21}},
             "散陣遭遇",
+            {{17, 22}, {17, 23}, {17, 25}},
         },
         {
             80,
             14,
             {{32, 34}, {32, 31}, {32, 28}, {32, 25}, {32, 22}, {32, 19},
-             {32, 33}, {32, 32}, {32, 30}, {32, 29}},
+             {32, 33}, {32, 32}, {32, 30}, {32, 29}, {32, 27}},
             {{31, 32}, {31, 31}, {31, 30}},
             "狹道拒守",
+            {{20, 32}, {21, 35}, {22, 32}},
         },
     };
     return maps;
@@ -108,66 +116,14 @@ std::vector<int> ChessBattleMapCatalog::fittingMapIds(
     int enemyCount)
 {
     std::vector<int> result;
-    std::vector<const ChessBattleMapCatalogEntry*> availableCuratedMaps;
     for (const auto& map : entries())
     {
-        if (!content.battleMaps().contains(map.battleId))
-        {
-            continue;
-        }
-        availableCuratedMaps.push_back(&map);
-        if (static_cast<int>(map.teammatePositions.size()) >= allyCount
-            && map.enemyCapacity >= enemyCount)
-        {
+        const auto found = content.battleMaps().find(map.battleId);
+        if (found != content.battleMaps().end()
+            && static_cast<int>(map.teammatePositions.size()) >= allyCount
+            && map.enemyCapacity >= enemyCount
+            && static_cast<int>(std::min(found->second.enemyX.size(), found->second.enemyY.size())) >= enemyCount)
             result.push_back(map.battleId);
-        }
-    }
-    if (!result.empty())
-    {
-        return result;
-    }
-
-    if (!availableCuratedMaps.empty())
-    {
-        const auto best = std::ranges::max_element(availableCuratedMaps, {}, [](const auto* map) {
-            return std::tuple{
-                std::min(static_cast<int>(map->teammatePositions.size()), 10),
-                map->enemyCapacity,
-            };
-        });
-        result.push_back((*best)->battleId);
-        return result;
-    }
-
-    int bestMapId = -1;
-    int bestCapacity = -1;
-    for (const auto& [id, map] : content.battleMaps())
-    {
-        // 十面埋伏已暫停輪替，原始資料的後備選圖也必須排除。
-        if (id == 13 || id == ChessPvpMapLayout::BattleId)
-        {
-            continue;
-        }
-        const int allyCapacity = static_cast<int>(std::min(
-            map.teammateX.size(),
-            map.teammateY.size()));
-        const int enemyCapacity = static_cast<int>(std::min(
-            map.enemyX.size(),
-            map.enemyY.size()));
-        if (allyCapacity >= allyCount && enemyCapacity >= enemyCount)
-        {
-            result.push_back(id);
-        }
-        const int capacity = allyCapacity + enemyCapacity;
-        if (capacity > bestCapacity)
-        {
-            bestCapacity = capacity;
-            bestMapId = id;
-        }
-    }
-    if (result.empty() && bestMapId >= 0)
-    {
-        result.push_back(bestMapId);
     }
     return result;
 }
