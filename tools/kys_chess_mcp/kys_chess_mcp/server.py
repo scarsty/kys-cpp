@@ -250,7 +250,7 @@ class CliSession:
             "session_lost": session_lost,
         }
 
-    def _reload_runtime_if_changed(self, request_id: int) -> dict[str, Any] | None:
+    def _reload_runtime_if_changed(self, request_id: int, *, new_game: bool = False) -> dict[str, Any] | None:
         try:
             requested = self._runtime_resolver.resolve()
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
@@ -258,7 +258,7 @@ class CliSession:
             return None
         if requested == self._deployment:
             return None
-        if requested == self._blocked_deployment:
+        if requested == self._blocked_deployment and not new_game:
             return None
         self._blocked_deployment = None
 
@@ -282,7 +282,7 @@ class CliSession:
         self._has_active_session = False
         try:
             self._start_process(requested)
-            if session_checkpointed:
+            if session_checkpointed and not new_game:
                 self._restore_reload_checkpoint()
         except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as error:
             try:
@@ -306,7 +306,7 @@ class CliSession:
             "status": "succeeded",
             "previous": self._deployment_summary(previous),
             "current": self._deployment_summary(requested),
-            "session_restored": session_checkpointed,
+            "session_restored": session_checkpointed and not new_game,
             "tools_changed": previous_tool_catalog != self._tool_catalog,
         }
         self._last_runtime_reload = details
@@ -351,7 +351,7 @@ class CliSession:
         with self._lock:
             request_id = self._next_id
             self._next_id += 1
-            runtime_reload = self._reload_runtime_if_changed(request_id)
+            runtime_reload = self._reload_runtime_if_changed(request_id, new_game=method == "new")
             if runtime_reload and runtime_reload.get("error_code"):
                 return runtime_reload
             if method == "get_diagnostics":

@@ -5,13 +5,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ROOT / "tools" / "kys_chess_mcp"
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from kys_chess_mcp.server import CliSession, dispatch_mcp_tool, mcp_tools
+from kys_chess_mcp.server import CliSession, RuntimeReloadError, dispatch_mcp_tool, mcp_tools
 
 
 CLI = Path(os.environ.get("KYS_CHESS_CLI", ROOT / "x64" / "Debug" / "kys_chess_cli.exe"))
@@ -305,6 +306,33 @@ class McpAdapterTests(unittest.TestCase):
                 self.assertFalse(reloaded["runtime_reload"]["session_restored"])
                 self.assertEqual(reloaded["runtime_reload"]["current"]["activation"], "activation-2")
                 self.assertNotEqual(adapter._process.pid, previous_pid)
+
+    def test_new_game_uses_updated_runtime_after_incompatible_checkpoint_rollback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "current.json"
+            write_deployment_manifest(manifest, "old-rules", CLI)
+            with CliSession(deployment_manifest=manifest, save_dir=root / "saves") as adapter:
+                self.assertTrue(adapter.request("new", {"seed": "0x0000000000000049"})["ok"])
+                write_deployment_manifest(manifest, "new-rules", CLI)
+                restore = adapter._restore_reload_checkpoint
+
+                def restore_compatible_checkpoint():
+                    if adapter._deployment.version == "new-rules":
+                        raise RuntimeReloadError("測試：規則內容不相容")
+                    restore()
+
+                with patch.object(adapter, "_restore_reload_checkpoint", side_effect=restore_compatible_checkpoint):
+                    rejected = adapter.request("observe")
+                    self.assertEqual(rejected["runtime_reload"]["status"], "rolled_back")
+                    self.assertFalse(rejected["session_lost"])
+                    created = adapter.request("new", {"seed": "0x0000000000000050"})
+
+                self.assertTrue(created["ok"])
+                self.assertEqual(created["runtime_reload"]["current"]["version"], "new-rules")
+                self.assertFalse(created["runtime_reload"]["session_restored"])
+                self.assertEqual(created["result"]["game_state"]["fight"], 0)
+                self.assertEqual(created["result"]["game_state"]["roster"], [])
 
     def test_runtime_deployment_failure_rolls_back_the_active_state(self):
         with tempfile.TemporaryDirectory() as directory:
