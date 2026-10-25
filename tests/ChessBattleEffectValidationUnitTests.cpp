@@ -17,6 +17,17 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("Shared status capacity requires an existing producer rule", "[chess][effects][damage-block][recovery]")
+{
+    auto definition = parsedMagicDefinition(42,
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 4}]");
+    std::string error;
+    REQUIRE(validateEffectRules(definition.rules, error));
+    definition.rules.back().statusProducerFamilyRuleId = EffectRuleId{999};
+    CHECK_FALSE(validateEffectRules(definition.rules, error));
+    CHECK(error.contains("共用狀態容量"));
+}
+
 TEST_CASE("Periodic event offsets require a valid every-N period", "[battle][effects][schema][tianlong]")
 {
     EffectRule rule{.id = EffectRuleId{1}, .event = EffectEvent::UltimateCommitted,

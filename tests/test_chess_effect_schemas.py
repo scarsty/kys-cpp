@@ -59,6 +59,19 @@ class NamedEffectSchemaTests(unittest.TestCase):
         self.assertEqual(schema["$defs"]["出招護盾"]["required"], ["類型"])
         self.assertEqual(schema["$defs"]["出招護盾"]["properties"]["固定護盾"]["default"], 0)
 
+    def test_opening_damage_blocks_require_a_valid_recovery_interval(self):
+        validator = jsonschema.Draft202012Validator(self.schema("magic_effects"))
+
+        def document(effect):
+            return {"絕招": [{"武功": 42, "名稱": "抵擋測試", "效果": [effect]}]}
+
+        effect = {"類型": "開場傷害抵擋", "抵擋次數": 2}
+        self.assertTrue(list(validator.iter_errors(document(effect))))
+        for interval in (0, 4, 1000000):
+            validator.validate(document({**effect, "恢復間隔幀數": interval}))
+        for interval in (-1, 1000001, "90"):
+            self.assertTrue(list(validator.iter_errors(document({**effect, "恢復間隔幀數": interval}))))
+
 
 if __name__ == "__main__":
     unittest.main()

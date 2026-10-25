@@ -474,6 +474,7 @@ ChessSha256 actionContentHash(const EffectAction& action)
 
 using RuleContentView = std::tuple<
     std::uint64_t,
+    std::optional<std::uint64_t>,
     int,
     int,
     int,
@@ -501,6 +502,8 @@ std::vector<RuleContentView> effectRuleContentViews(
     {
         result.emplace_back(
             rule.id.value,
+            rule.statusProducerFamilyRuleId
+                ? std::optional{rule.statusProducerFamilyRuleId->value} : std::nullopt,
             static_cast<int>(rule.event),
             static_cast<int>(rule.observation),
             static_cast<int>(rule.castMatch),

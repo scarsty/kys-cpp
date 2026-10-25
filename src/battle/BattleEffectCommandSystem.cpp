@@ -1910,13 +1910,15 @@ BattleStatusProducerProvenance BattleEffectCommandSystem::statusProducerProvenan
     const auto behaviorActionOrder = metadata.statusContribution
         ? metadata.authoredActionOrder
         : 0;
-    return makeBattleStatusProducerProvenance(
+    auto provenance = makeBattleStatusProducerProvenance(
         metadata.binding,
         metadata.ruleId,
         metadata.ruleOrder,
         producerActionOrder,
         metadata.behaviorRuleOrder,
         behaviorActionOrder);
+    provenance.producerFamily.ruleId = metadata.statusProducerFamilyRuleId.value_or(metadata.ruleId);
+    return provenance;
 }
 
 BattleStatusApplyResult BattleEffectCommandSystem::applyStatusCommand(

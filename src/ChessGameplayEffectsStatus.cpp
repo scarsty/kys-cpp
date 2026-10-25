@@ -304,6 +304,20 @@ struct StackDeathPoisonExplosion final : GameplayEffectDefinition
     }
 };
 
+ApplyStatusAction damageBlockCharges(int count, int limit)
+{
+    return ApplyStatusAction{
+        .status = BattleStatusKind::DamageBlockLayer,
+        .quantity = AddDamageBlockCharges{.count = count, .limit = limit},
+        .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
+            .rules = {EffectRule{
+                .id = EffectRuleId{1},
+                .event = EffectEvent::StatusPersistent,
+                .observation = EffectObservationScope::StatusHolderEventSource,
+                .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
+                .actions = {EffectAction{.value = BlockPositiveDamageAction{}}}}}})};
+}
+
 struct CastStackDamageBlocks final : GameplayEffectDefinition
 {
     int 每次抵擋數{};
@@ -317,16 +331,7 @@ struct CastStackDamageBlocks final : GameplayEffectDefinition
     {
         return {EffectRule{
             .event = EffectEvent::AttackCommitted,
-            .actions = {EffectAction{
-                .value = ApplyStatusAction{
-                    .status = BattleStatusKind::DamageBlockLayer,
-                    .quantity = AddDamageBlockCharges{.count = 每次抵擋數, .limit = 抵擋上限},
-                    .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
-                        .rules = {EffectRule{.id = EffectRuleId{.value = 1},
-                                             .event = EffectEvent::StatusPersistent,
-                                             .observation = EffectObservationScope::StatusHolderEventSource,
-                                             .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
-                                             .actions = {EffectAction{.value = BlockPositiveDamageAction{}}}}}})}}}}};
+            .actions = {EffectAction{.value = damageBlockCharges(每次抵擋數, 抵擋上限)}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
@@ -1163,31 +1168,41 @@ struct DamageInvincibility final : GameplayEffectDefinition
 struct InitialDamageBlocks final : GameplayEffectDefinition
 {
     int 抵擋次數{};
+    int 恢復間隔幀數{};
     static constexpr std::string_view Name = "開場傷害抵擋";
-    static constexpr auto Parameters = std::array<Parameter<InitialDamageBlocks>, 1>{
-        {Parameter<InitialDamageBlocks>{{"抵擋次數", 1, 1000}, &InitialDamageBlocks::抵擋次數}}};
+    static constexpr auto Parameters = std::array<Parameter<InitialDamageBlocks>, 2>{
+        {Parameter<InitialDamageBlocks>{{"抵擋次數", 1, 1000}, &InitialDamageBlocks::抵擋次數},
+         Parameter<InitialDamageBlocks>{{"恢復間隔幀數", 0, 1000000}, &InitialDamageBlocks::恢復間隔幀數}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {EffectRule{
-            .actions = {EffectAction{
-                .value = ApplyStatusAction{
-                    .status = BattleStatusKind::DamageBlockLayer,
-                    .quantity = SetDamageBlockCharges{.count = 抵擋次數},
-                    .behavior = std::make_shared<StatusBehaviorDefinition>(StatusBehaviorDefinition{
-                        .rules = {EffectRule{.id = EffectRuleId{.value = 1},
-                                             .event = EffectEvent::StatusPersistent,
-                                             .observation = EffectObservationScope::StatusHolderEventSource,
-                                             .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
-                                             .actions = {EffectAction{.value = BlockPositiveDamageAction{}}}}}})}}}}};
+        std::vector<EffectRule> rules{EffectRule{
+            .id = EffectRuleId{1},
+            .actions = {EffectAction{.value = damageBlockCharges(抵擋次數, 抵擋次數)}}}};
+        if (恢復間隔幀數 > 0)
+        {
+            rules.push_back(EffectRule{
+                .id = EffectRuleId{2},
+                .statusProducerFamilyRuleId = EffectRuleId{1},
+                .event = EffectEvent::FrameAdvanced,
+                .intervalFrames = 恢復間隔幀數,
+                .actions = {EffectAction{.value = damageBlockCharges(1, 抵擋次數)}}});
+        }
+        return rules;
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("開場獲得{}次傷害抵擋；每次抵擋一次大於零的非處決傷害", 抵擋次數);
+            auto description = std::format("開場獲得{}次傷害抵擋", 抵擋次數);
+            if (恢復間隔幀數 > 0)
+                description += std::format("；每{}幀恢復1次，最多{}次", 恢復間隔幀數, 抵擋次數);
+            return description + "；每次抵擋一次大於零的非處決傷害；已有無敵時不消耗次數，各來源獨立計算，每次傷害只消耗一個來源的1次抵擋";
         }
-        return std::format("開場：抵擋{}次傷害", 抵擋次數);
+        auto description = std::format("開場：抵擋{}次傷害", 抵擋次數);
+        if (恢復間隔幀數 > 0)
+            description += std::format("；每{}幀：恢復1次，上限{}次", 恢復間隔幀數, 抵擋次數);
+        return description;
     }
 };
 

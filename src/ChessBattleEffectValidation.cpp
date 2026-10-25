@@ -2441,6 +2441,12 @@ bool validateEffectRules(std::span<const EffectRule> rules, std::string& error)
     for (const auto& rule : rules)
     {
         if (!validateEffectRule(rule, error)) return false;
+        if (rule.statusProducerFamilyRuleId
+            && std::ranges::find(rules, *rule.statusProducerFamilyRuleId, &EffectRule::id) == rules.end())
+        {
+            error = "共用狀態容量必須參照同一來源中存在的規則";
+            return false;
+        }
     }
     return true;
 }

@@ -148,6 +148,18 @@ BattleRuntimeState initializedVerticalSliceState(BattleRuntimeSessionCreationInp
     return creation.session.runtime();
 }
 
+int damageBlockChargeCount(const BattleRuntimeState& state, std::optional<EffectRuleId> family = {})
+{
+    int total{};
+    for (const auto& status : state.units.require(0).status.effects.statuses)
+    {
+        if (status.kind == BattleStatusKind::DamageBlockLayer
+            && (!family || status.producerFamily->ruleId == *family))
+            total += status.stacks;
+    }
+    return total;
+}
+
 std::optional<BattlePresentationFrame> runUntil(
     BattleRuntimeState& state,
     int maximumFrames,
@@ -215,6 +227,30 @@ BattleRuntimeSessionCreationInput singleUltimateInput(
     target.stats.defence = 100;
     input.units.push_back(target);
     input.setup.magicEffectDefinitions.push_back(std::move(definition));
+    return input;
+}
+
+BattleRuntimeSessionCreationInput damageBlockRecoveryInput(std::string_view effects)
+{
+    auto input = basicSessionInput();
+    input.units[0].vitals.hp = input.units[0].vitals.maxHp = 1000;
+    input.units[1].vitals.hp = input.units[1].vitals.maxHp = 10000;
+    input.units[0].stats = {100, 30, 10};
+    input.units[1].motion.position = {220, 100, 0};
+    input.units[0].vitals.mp = input.units[0].vitals.maxMp;
+    equipVerticalSliceUltimate(input, input.units[0], 42);
+    input.units[0].armorId = 9000;
+    input.setup.allyRoster.push_back({.unitId = 0, .realRoleId = 0, .star = 1, .armorId = 9000});
+    input.setup.equipmentDefinitions.push_back({
+        .itemId = 9000, .equipType = 1,
+        .rules = KysChess::Test::parsedMagicDefinition(42, effects).rules});
+    for (const auto& unit : input.units)
+    {
+        input.setup.units.push_back({
+            .unitId = unit.unitId, .realRoleId = unit.realRoleId, .team = unit.team, .star = 1,
+            .baseMaxHp = unit.vitals.maxHp, .baseAttack = unit.stats.attack,
+            .baseDefence = unit.stats.defence, .baseSpeed = unit.stats.speed});
+    }
     return input;
 }
 
@@ -1076,6 +1112,132 @@ TEST_CASE("BattleRuntimeScenario_HitDebuffModifiesDamageAndHealTransactions", "[
     CHECK(healed.calculatedAmount == 1000);
     CHECK(healed.modifiedAmount == 250);
     CHECK(healed.appliedAmount == 250);
+}
+
+TEST_CASE("Opening damage blocks recover on schedule after exhaustion and stay within their initial capacity",
+          "[battle][scenario][damage-block][recovery]")
+{
+    auto input = damageBlockRecoveryInput(
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 4}]");
+    for (auto& unit : input.units) unit.frozen = unit.frozenMax = 1000;
+    auto state = initializedVerticalSliceState(std::move(input));
+    const auto charges = [&] { return damageBlockChargeCount(state); };
+    BattleFrameRunner runner;
+    const auto advanceTo = [&](int frame)
+    {
+        while (state.movement.frame < frame) runner.runFrame(state);
+    };
+
+    REQUIRE(charges() == 2);
+    state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    runner.runFrame(state);
+    CHECK(charges() == 1);
+    advanceTo(3);
+    CHECK(charges() == 1);
+    advanceTo(4);
+    CHECK(charges() == 2);
+    advanceTo(12);
+    CHECK(charges() == 2);
+
+    for (int i = 0; i < 3; ++i)
+        state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    runner.runFrame(state);
+    CHECK(charges() == 0);
+    CHECK(state.units.requireCore(0).vitals.hp == 990);
+    advanceTo(15);
+    CHECK(charges() == 0);
+    advanceTo(16);
+    CHECK(charges() == 1);
+    advanceTo(20);
+    CHECK(charges() == 2);
+    advanceTo(28);
+    CHECK(charges() == 2);
+}
+
+TEST_CASE("Timed invincibility preserves opening damage blocks while recovery continues",
+          "[battle][scenario][damage-block][recovery][invincibility]")
+{
+    auto input = damageBlockRecoveryInput(
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 4}]");
+    for (auto& unit : input.units) unit.frozen = unit.frozenMax = 1000;
+    auto state = initializedVerticalSliceState(std::move(input));
+    const auto charges = [&] { return damageBlockChargeCount(state); };
+    BattleFrameRunner runner;
+    state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    runner.runFrame(state);
+    REQUIRE(charges() == 1);
+    state.units.requireCore(0).invincible = 6;
+    for (int i = 0; i < 5; ++i)
+    {
+        state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+        runner.runFrame(state);
+        CHECK(charges() == (state.movement.frame < 4 ? 1 : 2));
+        CHECK(state.units.requireCore(0).vitals.hp == 1000);
+    }
+    state.units.requireCore(0).invincible = 0;
+    state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    runner.runFrame(state);
+    CHECK(charges() == 1);
+    CHECK(state.units.requireCore(0).vitals.hp == 1000);
+}
+
+TEST_CASE("Opening damage block sources recover separately and consume only one charge per hit",
+          "[battle][scenario][damage-block][recovery][sources]")
+{
+    auto input = damageBlockRecoveryInput(R"(
+- {類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 4}
+- {類型: 開場傷害抵擋, 抵擋次數: 3, 恢復間隔幀數: 6}
+)");
+    for (auto& unit : input.units) unit.frozen = unit.frozenMax = 1000;
+    auto state = initializedVerticalSliceState(std::move(input));
+    const auto charges = [&](std::uint64_t family) { return damageBlockChargeCount(state, EffectRuleId{family}); };
+    BattleFrameRunner runner;
+    REQUIRE(charges(0) == 2);
+    REQUIRE(charges(2) == 3);
+    state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    runner.runFrame(state);
+    CHECK(charges(0) == 1);
+    CHECK(charges(2) == 3);
+    for (int i = 0; i < 4; ++i)
+        state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    runner.runFrame(state);
+    CHECK(charges(0) == 0);
+    CHECK(charges(2) == 0);
+    while (state.movement.frame < 4) runner.runFrame(state);
+    CHECK(charges(0) == 1);
+    CHECK(charges(2) == 0);
+    while (state.movement.frame < 6) runner.runFrame(state);
+    CHECK(charges(0) == 1);
+    CHECK(charges(2) == 1);
+    while (state.movement.frame < 24) runner.runFrame(state);
+    CHECK(charges(0) == 2);
+    CHECK(charges(2) == 3);
+    CHECK(state.units.requireCore(0).vitals.hp == 1000);
+}
+
+TEST_CASE("Opening recovery does not refill or cap cast-generated damage blocks from the same source",
+          "[battle][scenario][damage-block][recovery][sources][cast]")
+{
+    auto input = damageBlockRecoveryInput(R"(
+- {類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 60}
+- {類型: 出招累積傷害抵擋, 每次抵擋數: 3, 抵擋上限: 3}
+)");
+    input.units[1].frozen = input.units[1].frozenMax = 1000;
+    auto state = initializedVerticalSliceState(std::move(input));
+    const auto charges = [&](std::uint64_t family) { return damageBlockChargeCount(state, EffectRuleId{family}); };
+    REQUIRE(runUntil(state, 100, [&](const auto&, const auto&) { return charges(2) == 3; }));
+    CHECK(charges(0) == 2);
+    state.units.require(0).status.effects.setFrames(BattleStatusKind::Stun, 1000, 1000);
+    for (int i = 0; i < 3; ++i)
+        state.nextFrame.queueDamage(scenarioPreResolvedDamage(1, 0, 10));
+    BattleFrameRunner runner;
+    runner.runFrame(state);
+    CHECK(charges(0) == 0);
+    CHECK(charges(2) == 2);
+    while (state.movement.frame < 180) runner.runFrame(state);
+    CHECK(charges(0) == 2);
+    CHECK(charges(2) == 2);
+    CHECK(state.units.requireCore(0).vitals.hp == 1000);
 }
 
 TEST_CASE("BattleHealSystem_DispatchesStatusOnlyHealEventsAndHonorsContributionLiveness",

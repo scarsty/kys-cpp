@@ -424,6 +424,7 @@ struct EffectCommandMetadata
 {
     EffectSourceBinding binding;
     EffectRuleId ruleId;
+    std::optional<EffectRuleId> statusProducerFamilyRuleId;
     EffectEvent event{};
     std::uint32_t ruleOrder{};
     // Stable identity of the authored action within the rule. Unlike

@@ -1791,6 +1791,7 @@ struct CommandEmitter
         auto metadata = EffectCommandMetadata{
             .binding = bound.binding,
             .ruleId = bound.rule().id,
+            .statusProducerFamilyRuleId = bound.rule().statusProducerFamilyRuleId,
             .event = context.event,
             .ruleOrder = bound.order,
             .authoredActionOrder = authoredActionOrder,

@@ -7,6 +7,60 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("Opening damage blocks share recovery capacity only within their own effect",
+          "[chess][effects][named][damage-block][recovery]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id = 200;
+    REQUIRE(parseGameplayEffects(YAML::Load(R"(
+- {類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 4}
+- {類型: 開場傷害抵擋, 抵擋次數: 3, 恢復間隔幀數: 6}
+- {類型: 出招累積傷害抵擋, 每次抵擋數: 1, 抵擋上限: 5}
+)"), effects, rules, id, "抵擋恢復測試"));
+
+    REQUIRE(rules.size() == 5);
+    CHECK(rules[1].statusProducerFamilyRuleId == rules[0].id);
+    CHECK(rules[3].statusProducerFamilyRuleId == rules[2].id);
+    CHECK(rules[1].statusProducerFamilyRuleId != rules[3].statusProducerFamilyRuleId);
+    CHECK_FALSE(rules[4].statusProducerFamilyRuleId);
+    CHECK(rules[1].intervalFrames == 4);
+    CHECK(rules[3].intervalFrames == 6);
+    const auto& recovery = std::get<ApplyStatusAction>(rules[1].actions.front().value);
+    CHECK(std::get<AddDamageBlockCharges>(recovery.quantity) == (AddDamageBlockCharges{1, 2}));
+
+    const auto doubled = doubledGameplayEffectRules(effects, rules);
+    CHECK(doubled[1].statusProducerFamilyRuleId == rules[0].id);
+    CHECK(doubled[3].statusProducerFamilyRuleId == rules[2].id);
+    CHECK(doubled[1].intervalFrames == 4);
+
+    const auto full = effects.front()->describe(EffectDescriptionStyle::Full);
+    CHECK(full.contains("每4幀恢復1次，最多2次"));
+    CHECK(full.contains("已有無敵時不消耗次數"));
+    CHECK(full.contains("各來源獨立計算"));
+    CHECK(effects.front()->describe(EffectDescriptionStyle::Compact).contains("每4幀：恢復1次，上限2次"));
+}
+
+TEST_CASE("Opening damage block recovery can be disabled and rejects invalid intervals",
+          "[chess][effects][named][damage-block][recovery]")
+{
+    const auto disabled = parsedMagicDefinition(42,
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 0}]");
+    REQUIRE(disabled.rules.size() == 1);
+    CHECK(disabled.rules.front().event == EffectEvent::BattleInitialized);
+
+    for (const auto* yaml : {
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2}]",
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: -1}]",
+        "[{類型: 開場傷害抵擋, 抵擋次數: 2, 恢復間隔幀數: 1000001}]"})
+    {
+        std::vector<GameplayEffect> effects;
+        std::vector<EffectRule> rules;
+        std::uint64_t id{};
+        REQUIRE_FALSE(parseGameplayEffects(YAML::Load(yaml), effects, rules, id, "無效恢復間隔"));
+    }
+}
+
 TEST_CASE("假死復甦 exposes its delay, restored HP, and revival stun", "[chess][effects][named][feigned-death]")
 {
     std::vector<GameplayEffect> effects;

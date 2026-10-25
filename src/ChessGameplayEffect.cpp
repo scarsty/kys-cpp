@@ -38,7 +38,11 @@ std::vector<EffectRule> doubledGameplayEffectRules(
         result.insert(result.end(), std::make_move_iterator(compiled.begin()), std::make_move_iterator(compiled.end()));
     }
     assert(result.size() == originalRules.size());
-    for (std::size_t i = 0; i < result.size(); ++i) result[i].id = originalRules[i].id;
+    for (std::size_t i = 0; i < result.size(); ++i)
+    {
+        result[i].id = originalRules[i].id;
+        result[i].statusProducerFamilyRuleId = originalRules[i].statusProducerFamilyRuleId;
+    }
     return result;
 }
 
@@ -116,6 +120,16 @@ bool parseGameplayEffects(const YAML::Node& node, std::vector<GameplayEffect>& e
             auto effect = found->create(values);
             auto compiled = effect->buildRules();
             assert(!compiled.empty());
+            // 玩法定義使用效果內的規則 ID；綁定前將容量參照轉成全域規則 ID。
+            for (auto& rule : compiled)
+            {
+                if (!rule.statusProducerFamilyRuleId) continue;
+                const auto producer = std::ranges::find(
+                    compiled, *rule.statusProducerFamilyRuleId, &EffectRule::id);
+                assert(producer != compiled.end());
+                rule.statusProducerFamilyRuleId = EffectRuleId{
+                    id + static_cast<std::uint64_t>(producer - compiled.begin())};
+            }
             for (auto& rule : compiled) { rule.id = EffectRuleId{id++}; }
             parsedRules.insert(
                 parsedRules.end(), std::make_move_iterator(compiled.begin()), std::make_move_iterator(compiled.end()));

@@ -1218,6 +1218,8 @@ struct EffectActivationLimit
 struct EffectRule
 {
     EffectRuleId id;
+    // 同一效果的不同觸發規則可共用指定規則的狀態容量，來源與執行順序仍各自保留。
+    std::optional<EffectRuleId> statusProducerFamilyRuleId;
     EffectEvent event{};
     EffectObservationScope observation = EffectObservationScope::Owner;
     EffectCastMatch castMatch = EffectCastMatch::BoundMagic;
