@@ -452,7 +452,7 @@ ChessSha256 actionContentHash(const EffectAction& action)
             else if constexpr (std::is_same_v<T, ModifyCastAction>)
                 return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
                     typed.mpCost ? std::optional{ effectNumberContentHash(*typed.mpCost) } : std::nullopt,
-                    typed.rangeMode, typed.projectileSpeedPct, typed.minimumSelectDistance,
+                    typed.rangeMode, typed.projectileSpeedPct, typed.selectDistanceOverride,
                     typed.additionalProjectiles, static_cast<int>(typed.mobility),
                     typed.autoUltimate ? std::optional{ chessBeveSha256("KYS_EFFECT_AUTO_CAST",
                         typed.autoUltimate->consumeMp, typed.autoUltimate->announce) } : std::nullopt,

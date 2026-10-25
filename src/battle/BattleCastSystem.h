@@ -83,6 +83,8 @@ struct BattleCastGeometry
     int dashHitFrameStep{};
 };
 
+double battleProjectileTravelDistance(const BattleCastGeometry& geometry, int selectDistance);
+
 struct BattleCastConfig
 {
     std::array<int, 4> castFrames{};

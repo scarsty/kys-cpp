@@ -1,5 +1,7 @@
 #include "BattleGeometry.h"
+#include "BattleCastSystem.h"
 
+#include <algorithm>
 #include <cassert>
 
 namespace KysChess::Battle
@@ -38,6 +40,35 @@ BattleMovementConfig deriveMovementConfig(const BattleMovementGeometry& geometry
 }
 
 }  // namespace
+
+double battleAttackReach(
+    BattleOperationType operation,
+    int selectDistance,
+    const BattleMovementConfig& movement,
+    const BattleCastGeometry& cast,
+    double meleeAttackHitRadius,
+    double heavyAttackReach)
+{
+    double reach{};
+    switch (operation)
+    {
+    case BattleOperationType::Melee:
+        reach = movement.meleeAttackReach;
+        break;
+    case BattleOperationType::TrackingProjectile:
+        reach = heavyAttackReach;
+        break;
+    case BattleOperationType::RangedProjectile:
+    {
+        const double safetyMargin = meleeAttackHitRadius - movement.tileWidth / 2.0;
+        reach = std::max(movement.tileWidth * 2.0,
+            cast.projectileSpawnOffset + battleProjectileTravelDistance(cast, selectDistance) - safetyMargin);
+        break;
+    }
+    default: assert(false); break;
+    }
+    return std::min(movement.maxRangedReach, reach);
+}
 
 BattleGeometry::BattleGeometry(BattleMovementGeometry geometry)
     : source_(geometry),

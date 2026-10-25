@@ -5,10 +5,14 @@
 #include "ChessUiCommon.h"
 #include "ChessPresentationHelpers.h"
 #include "ChessMenuFormatting.h"
+#include "BattlefieldData.h"
 #include "battle/BattleCombatIntent.h"
+#include "battle/BattleGeometry.h"
+#include "battle/BattleRuntimeRules.h"
 
 #include <array>
 #include <format>
+#include <string_view>
 
 namespace KysChess
 {
@@ -24,6 +28,7 @@ struct ChessCharacterEntry
     bool ultimate{};
     bool active{};
     std::optional<Battle::BattleOperationType> combatOperation;
+    std::optional<double> attackReachPixels;
     std::string tooltip;
     std::vector<PanelTextSourceRow> details;
 };
@@ -112,6 +117,7 @@ inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameCont
         .roleId = roleId, .headId = role->HeadID, .cost = role->Cost, .star = star, .name = role->Name,
     };
     const auto abilities = chessAbilitiesForRoleStar(content, *role, star, EffectDescriptionStyle::Compact);
+    const auto rules = Battle::makeHadesBattleRuntimeRules(BattlefieldData::TileWidth, BattlefieldData::CoordinateCount);
     for (const auto& ability : abilities)
     {
         ChessCharacterEntry entry{.id = ability.magicId, .title = ability.name,
@@ -121,29 +127,38 @@ inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameCont
         assert(magic);
         const auto operation = Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(magic->AttackAreaType);
         entry.combatOperation = operation;
+        std::string_view attackType{};
+        std::string_view attackDescription{};
         switch (operation)
         {
         case Battle::BattleOperationType::Melee:
-            entry.tooltip = entry.ultimate ? "輕擊：強化攻擊，追加近身濺射"
-                : "輕擊：每第三下近戰強化追擊";
+            attackType = "輕擊";
+            attackDescription = entry.ultimate ? "強化攻擊，追加近身濺射"
+                : "每第三下近戰強化追擊";
             break;
         case Battle::BattleOperationType::TrackingProjectile:
-            entry.tooltip = entry.ultimate ? "重擊：發射兩枚追蹤彈"
-                : "重擊：發射一枚追蹤彈";
+            attackType = "重擊";
+            attackDescription = entry.ultimate ? "發射兩枚追蹤彈"
+                : "發射一枚追蹤彈";
             break;
         case Battle::BattleOperationType::RangedProjectile:
-            entry.tooltip = entry.ultimate ? "遠程：穿透，附三枚35%側彈"
-                : "遠程：穿透，附兩枚20%側彈";
+            attackType = "遠程";
+            attackDescription = entry.ultimate ? "穿透，附三枚35%側彈"
+                : "穿透，附兩枚20%側彈";
             break;
         default: assert(false); break;
         }
+        const double reach = Battle::battleAttackReach(operation, magic->SelectDistance,
+            rules.movementConfig, rules.castGeometry, rules.meleeAttackHitRadius, rules.action.heavyAttackReach);
+        entry.attackReachPixels = reach;
+        entry.tooltip = std::format("{} · 射程{:.0f}像素，{}", attackType, reach, attackDescription);
         if (entry.ultimate)
         {
             const auto effects = panelTextRowsForEffectDescription(ability.effects);
             entry.details.insert(entry.details.end(), effects.begin(), effects.end());
         }
-        entry.details.push_back({.text = entry.tooltip, .spacingBefore = entry.details.empty() ? 0 : 12,
-            .tone = PanelTextTone::Context});
+        entry.details.push_back({.text = std::format("{} · {}", attackType, attackDescription),
+            .spacingBefore = entry.details.empty() ? 0 : 12});
         result.abilities.push_back(std::move(entry));
     }
     for (int slot = 0; slot < 2; ++slot)

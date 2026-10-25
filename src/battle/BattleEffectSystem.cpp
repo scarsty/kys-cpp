@@ -1470,7 +1470,7 @@ bool requiresExactRuntimePhaseQuery(const EffectRule& rule)
         {
             return (cast->rangeMode && cast->rangeMode != CastRangeMode::Preserve)
                 || cast->projectileSpeedPct > 0
-                || cast->minimumSelectDistance > 0
+                || cast->selectDistanceOverride > 0
                 || cast->additionalProjectiles > 0
                 || cast->mobility != CastMobilityPolicy::Preserve;
         }
@@ -3294,7 +3294,7 @@ ModifyCastEffectCommand prepareModifyCast(
         .mpCost = mpCost,
         .rangeMode = action.rangeMode,
         .projectileSpeedPct = action.projectileSpeedPct,
-        .minimumSelectDistance = action.minimumSelectDistance,
+        .selectDistanceOverride = action.selectDistanceOverride,
         .additionalProjectiles = action.additionalProjectiles,
         .mobility = action.mobility,
         .autoUltimate = action.autoUltimate,

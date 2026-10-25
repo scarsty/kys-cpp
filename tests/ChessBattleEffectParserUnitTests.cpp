@@ -7,6 +7,30 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
+TEST_CASE("高速遠程攻擊 uses an explicit positive range", "[chess][effects][named][ranged]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(
+        "[{類型: 高速遠程攻擊, 彈速百分比: 275, 射程格數: 4}]"),
+        effects, rules, id, "固定射程測試"));
+    REQUIRE(effects.size() == 1);
+    REQUIRE(rules.size() == 1);
+    const auto& action = std::get<ModifyCastAction>(rules.front().actions.front().value);
+    CHECK(action.rangeMode == CastRangeMode::Ranged);
+    CHECK(action.selectDistanceOverride == 4);
+    CHECK(action.projectileSpeedPct == 275);
+    CHECK(effects.front()->describe(EffectDescriptionStyle::Compact).contains("射程4格"));
+    CHECK(effects.front()->describe(EffectDescriptionStyle::Full).contains("選擇距離為4格"));
+
+    effects.clear();
+    rules.clear();
+    REQUIRE_FALSE(parseGameplayEffects(YAML::Load(
+        "[{類型: 高速遠程攻擊, 彈速百分比: 275, 射程格數: 0}]"),
+        effects, rules, id, "無效固定射程"));
+}
+
 TEST_CASE("Opening damage blocks share recovery capacity only within their own effect",
           "[chess][effects][named][damage-block][recovery]")
 {

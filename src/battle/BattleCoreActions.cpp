@@ -3,6 +3,7 @@
 #include "BattleEffectAttackCastSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleFrameContext.h"
+#include "BattleGeometry.h"
 #include "BattleLogSegments.h"
 #include "BattleMath.h"
 #include "BattleMovementPhysics.h"
@@ -365,23 +366,9 @@ bool runtimeBattleRangedStyle(const BattleActionSkillSeed& skill, bool forceRang
             || runtimeForcedRangedMagic(skill, forceRanged));
 }
 
-int runtimeEffectiveProjectileSelectDistance(
-    const BattleActionSkillSeed& skill,
-    bool forcedRanged,
-    int forcedRangedMinSelectDistance)
-{
-    int selectDistance = std::max(1, skill.selectDistance);
-    if (forcedRanged && (skill.attackAreaType == 0 || skill.attackAreaType == 3))
-    {
-        selectDistance = std::max(selectDistance, std::max(1, forcedRangedMinSelectDistance));
-    }
-    return selectDistance;
-}
-
 double runtimeBattleBlinkReach(
     const BattleActionSkillSeed& skill,
     bool forceRanged,
-    int forcedRangedMinSelectDistance,
     const BattleMovementConfig& movementConfig,
     const BattleActionRulesConfig& actionRules,
     const BattleCastGeometry& geometry)
@@ -394,8 +381,7 @@ double runtimeBattleBlinkReach(
     {
         return std::max(
             movementConfig.tileWidth * 3.0,
-            static_cast<double>(std::max(1, forcedRangedMinSelectDistance))
-                * movementConfig.tileWidth);
+            static_cast<double>(skill.selectDistance) * movementConfig.tileWidth);
     }
     if (skill.attackAreaType == 3)
     {
@@ -404,8 +390,7 @@ double runtimeBattleBlinkReach(
     if (skill.attackAreaType == 1 || skill.attackAreaType == 2)
     {
         const double reach = geometry.projectileSpawnOffset
-            + geometry.projectileBaseTravel
-            + (skill.selectDistance - 1) * geometry.projectileTravelPerSelectDistance;
+            + battleProjectileTravelDistance(geometry, skill.selectDistance);
         return std::min(movementConfig.maxRangedReach, reach - 10.0);
     }
     return std::max(
@@ -416,8 +401,6 @@ double runtimeBattleBlinkReach(
 double runtimeEffectiveBattleReach(
     const BattleActionSkillSeed& skill,
     bool forceRanged,
-    int forcedRangedMinSelectDistance,
-    int projectileSpeedMultiplierPct,
     const BattleMovementConfig& movementConfig,
     double meleeAttackHitRadius,
     const BattleActionRulesConfig& actionRules,
@@ -425,28 +408,13 @@ double runtimeEffectiveBattleReach(
 {
     if (skill.id < 0)
     {
-        return movementConfig.tileWidth * 2.0;
+        return std::min(movementConfig.maxRangedReach, movementConfig.tileWidth * 2.0);
     }
-    if (runtimeProjectileStyleMagic(skill, forceRanged))
-    {
-        const int selectDistance = runtimeEffectiveProjectileSelectDistance(
-            skill,
-            runtimeForcedRangedMagic(skill, forceRanged),
-            forcedRangedMinSelectDistance);
-        const double projectileReach = geometry.projectileSpawnOffset
-            + (geometry.projectileBaseTravel + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance)
-                * projectileSpeedMultiplierPct / 100.0;
-        const double rangedAttackSafetyMargin = meleeAttackHitRadius
-            - movementConfig.tileWidth / 2.0;
-        return std::max(
-            movementConfig.tileWidth * 2.0,
-            projectileReach - rangedAttackSafetyMargin);
-    }
-    if (skill.attackAreaType == 3)
-    {
-        return actionRules.heavyAttackReach;
-    }
-    return movementConfig.meleeAttackReach;
+    const auto operation = runtimeProjectileStyleMagic(skill, forceRanged)
+        ? BattleOperationType::RangedProjectile
+        : skill.attackAreaType == 3 ? BattleOperationType::TrackingProjectile : BattleOperationType::Melee;
+    return battleAttackReach(operation, skill.selectDistance, movementConfig, geometry,
+        meleeAttackHitRadius, actionRules.heavyAttackReach);
 }
 
 RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
@@ -462,52 +430,51 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
         return profile;
     }
 
-    constexpr int DefaultForcedRangedMinSelectDistance = 6;
+    constexpr int DefaultForcedRangedSelectDistance = 6;
     const auto queriedPolicies = precomputedPolicies
         ? RuntimeCastPolicies{}
         : runtimeCastPoliciesForSkill(state, unit, seed.id, ultimate);
     const auto& policies = precomputedPolicies ? *precomputedPolicies : queriedPolicies;
     profile.forceMelee = policies.rangeOverride
         && policies.rangeOverride->rangeMode == CastRangeMode::Melee;
-    std::optional<BattleActionSkillSeed> meleeSeed;
-    if (profile.forceMelee)
-    {
-        meleeSeed.emplace(seed);
-        meleeSeed->attackAreaType = 0;
-        meleeSeed->selectDistance = 1;
-    }
-    const auto& effectiveSeed = meleeSeed ? *meleeSeed : seed;
     profile.forceRanged = policies.rangeOverride
         && policies.rangeOverride->rangeMode == CastRangeMode::Ranged;
-    const int forcedRangedMinSelectDistance = policies.rangeOverride
-            && policies.rangeOverride->minimumSelectDistance > 0
-        ? std::max(1, policies.rangeOverride->minimumSelectDistance)
-        : DefaultForcedRangedMinSelectDistance;
-    const bool forcedRangedMagic = runtimeForcedRangedMagic(effectiveSeed, profile.forceRanged);
-    profile.effectiveSelectDistance = runtimeEffectiveProjectileSelectDistance(
-        effectiveSeed,
-        forcedRangedMagic,
-        forcedRangedMinSelectDistance);
+    std::optional<BattleActionSkillSeed> adjustedSeed;
+    if (profile.forceMelee || profile.forceRanged)
+    {
+        adjustedSeed.emplace(seed);
+        if (profile.forceMelee)
+        {
+            adjustedSeed->attackAreaType = 0;
+            adjustedSeed->selectDistance = 1;
+        }
+        else if (policies.rangeOverride->selectDistanceOverride > 0)
+        {
+            adjustedSeed->selectDistance = policies.rangeOverride->selectDistanceOverride;
+        }
+        else if (runtimeForcedRangedMagic(seed, profile.forceRanged))
+        {
+            adjustedSeed->selectDistance = std::max(
+                seed.selectDistance, DefaultForcedRangedSelectDistance);
+        }
+    }
+    const auto& effectiveSeed = adjustedSeed ? *adjustedSeed : seed;
+    profile.effectiveSelectDistance = effectiveSeed.selectDistance;
     profile.projectileSpeedMultiplierPct = policies.rangeOverride
             && policies.rangeOverride->projectileSpeedPct > 0
         ? policies.rangeOverride->projectileSpeedPct
         : 100;
-    profile.reach = std::min(
-        runtimeEffectiveBattleReach(
-            effectiveSeed,
-            profile.forceRanged,
-            forcedRangedMinSelectDistance,
-            profile.projectileSpeedMultiplierPct,
-            state.movement.config,
-            state.attacks.hitRadius,
-            state.action.actionRules,
-            state.action.castGeometry),
-        state.movement.config.maxRangedReach);
+    profile.reach = runtimeEffectiveBattleReach(
+        effectiveSeed,
+        profile.forceRanged,
+        state.movement.config,
+        state.attacks.hitRadius,
+        state.action.actionRules,
+        state.action.castGeometry);
     profile.rangedStyle = runtimeBattleRangedStyle(effectiveSeed, profile.forceRanged);
     profile.blinkReach = runtimeBattleBlinkReach(
         effectiveSeed,
         profile.forceRanged,
-        forcedRangedMinSelectDistance,
         state.movement.config,
         state.action.actionRules,
         state.action.castGeometry);

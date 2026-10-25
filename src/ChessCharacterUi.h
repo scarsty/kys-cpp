@@ -248,16 +248,38 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
                 .frame = {x + width - navWidth, bodyY, navWidth, headingHeight},
                 .icon = Icon::Right, .entryStep = 1, .tooltip = std::string("下一項") + names[state.section]});
             entry(selected, {x + navWidth + 4, bodyY, width - navWidth * 2 - 8, headingHeight}, 20, true);
-            int textY = bodyY + headingHeight + 8;
+            const int textY = bodyY + headingHeight + 8;
             auto rows = selected.details;
+            std::optional<std::size_t> rangeRow;
+            if (selected.attackReachPixels)
+            {
+                assert(!rows.empty());
+                rangeRow = rows.size() - 1;
+                const int spacingBefore = std::exchange(rows.back().spacingBefore, 0);
+                rows.insert(rows.end() - 1, {
+                    .text = std::format("射程 {:.0f}像素", *selected.attackReachPixels),
+                    .spacingBefore = spacingBefore,
+                    .spacingAfter = 4,
+                });
+            }
             const int availableHeight = footerY - textY - 8
                 - ((state.section == 2 && character.equipmentEditable) || state.section == 3 ? 52 : 0);
             const auto pages = paginatePanelText(rows, width - 8, textSize, availableHeight);
             pageCount = static_cast<int>(pages.size());
             state.page = std::clamp(state.page, 0, pageCount - 1);
             for (const auto& line : pages[state.page])
-                text(line.text, x + line.indentPixels, textY + line.y,
+            {
+                const int lineX = x + line.indentPixels, lineY = textY + line.y;
+                if (rangeRow == line.sourceRow)
+                {
+                    const int valueX = lineX + line.fontSize * 2 + 8;
+                    text("射程", lineX, lineY, line.fontSize, muted, width - line.indentPixels);
+                    text(std::format("{:.0f}像素", *selected.attackReachPixels), valueX, lineY,
+                        line.fontSize, gold, width - (valueX - x));
+                }
+                else text(line.text, lineX, lineY,
                     line.fontSize, panelTextColor(line.tone), width - line.indentPixels);
+            }
             if (state.section == 2 && character.equipmentEditable)
                 content.controls.push_back({.frame = {x, footerY - 52, width, 44},
                     .label = selected.id < 0 ? "選擇裝備" : "更換裝備", .icon = Icon::Bag,

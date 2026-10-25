@@ -15,6 +15,15 @@
 namespace KysChess::Battle
 {
 
+double battleProjectileTravelDistance(const BattleCastGeometry& geometry, int selectDistance)
+{
+    assert(selectDistance > 0);
+    assert(geometry.projectileBaseTravel > 0.0);
+    assert(geometry.projectileTravelPerSelectDistance > 0.0);
+    return geometry.projectileBaseTravel
+        + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance;
+}
+
 BattleCastStart beginTrackedRootCastAttacks(
     BattleCastLifecycle& lifecycle,
     const BattleCastDecision& decision,
@@ -295,17 +304,10 @@ int mpDeltaForCast(const BattleCastInput& input, bool ultimate)
     return ultimate ? -input.unit.maxMp : input.config.normalCastMpDelta;
 }
 
-int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int selectDistance)
+int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int selectDistance, double speed)
 {
-    assert(selectDistance > 0);
-    assert(geometry.projectileSpeed > 0.0);
-    assert(geometry.projectileSpawnOffset > 0.0);
-    assert(geometry.projectileBaseTravel > 0.0);
-    assert(geometry.projectileTravelPerSelectDistance > 0.0);
-    const double reach = geometry.projectileSpawnOffset
-        + geometry.projectileBaseTravel
-        + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance;
-    return static_cast<int>((reach - geometry.projectileSpawnOffset) / geometry.projectileSpeed);
+    assert(speed > 0.0);
+    return std::max(1, static_cast<int>(battleProjectileTravelDistance(geometry, selectDistance) / speed));
 }
 
 double projectileSpeedForSkill(const BattleCastGeometry& geometry, const BattleCastSkillState& skill)
@@ -409,7 +411,8 @@ void applyOperationShape(BattleAttackSpawnRequest& request,
             facing,
             projectileSpeedForSkill(geometry, selectedSkill),
             config.minimumFacingNorm);
-        request.initial.totalFrame = projectileFramesForSelectDistance(geometry, selectedSkill.selectDistance);
+        request.initial.totalFrame = projectileFramesForSelectDistance(
+            geometry, selectedSkill.selectDistance, projectileSpeedForSkill(geometry, selectedSkill));
         request.initial.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
         break;
     case BattleOperationType::Dash:

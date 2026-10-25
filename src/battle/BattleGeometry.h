@@ -5,6 +5,17 @@
 namespace KysChess::Battle
 {
 
+struct BattleCastGeometry;
+enum class BattleOperationType;
+
+double battleAttackReach(
+    BattleOperationType operation,
+    int selectDistance,
+    const BattleMovementConfig& movement,
+    const BattleCastGeometry& cast,
+    double meleeAttackHitRadius,
+    double heavyAttackReach);
+
 class BattleGeometry
 {
 public:

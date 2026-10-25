@@ -976,11 +976,11 @@ struct ChanceSpiralBleedAttack final : GameplayEffectDefinition
 struct FastRangedAttack final : GameplayEffectDefinition
 {
     int 彈速百分比{};
-    int 最小射程格數{};
+    int 射程格數{};
     static constexpr std::string_view Name = "高速遠程攻擊";
     static constexpr auto Parameters = std::array<Parameter<FastRangedAttack>, 2>{
         {Parameter<FastRangedAttack>{{"彈速百分比", 0, 1000000}, &FastRangedAttack::彈速百分比},
-         Parameter<FastRangedAttack>{{"最小射程格數", 0, 1000000}, &FastRangedAttack::最小射程格數}}};
+         Parameter<FastRangedAttack>{{"射程格數", 1, 1000000}, &FastRangedAttack::射程格數}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -988,15 +988,15 @@ struct FastRangedAttack final : GameplayEffectDefinition
             EffectRule{.event = EffectEvent::CastPlanned,
                        .actions = {EffectAction{.value = ModifyCastAction{.rangeMode = CastRangeMode::Ranged,
                                                                           .projectileSpeedPct = 彈速百分比,
-                                                                          .minimumSelectDistance = 最小射程格數}}}}};
+                                                                          .selectDistanceOverride = 射程格數}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("武功改為遠程攻擊，彈道速度為{}%，最小選擇距離為{}格", 彈速百分比, 最小射程格數);
+            return std::format("武功改為遠程攻擊，彈道速度為{}%，選擇距離為{}格", 彈速百分比, 射程格數);
         }
-        return std::format("改為遠程：彈速{}%，最小射程{}格", 彈速百分比, 最小射程格數);
+        return std::format("改為遠程：彈速{}%，射程{}格", 彈速百分比, 射程格數);
     }
 };
 

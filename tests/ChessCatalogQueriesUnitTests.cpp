@@ -460,7 +460,15 @@ TEST_CASE("character inspector uses chess attacks and limits effects to the ulti
         const auto effectRows = effectDescriptionTextRows(compact.back().effects);
         REQUIRE_FALSE(effectRows.empty());
         CHECK(character.abilities[1].details.front().text == effectRows.front());
-        CHECK(character.abilities[1].details.back().tone == PanelTextTone::Context);
+        CHECK(character.abilities[1].details.back().tone == PanelTextTone::Body);
+        const int reach = area == 0 ? 99 : area == 3 ? 144 : 306;
+        for (const auto& ability : character.abilities)
+        {
+            CHECK(ability.tooltip.contains(std::format("射程{}像素", reach)));
+            CHECK(ability.attackReachPixels == reach);
+            CHECK_FALSE(ability.tooltip.contains(';'));
+            CHECK_FALSE(ability.tooltip.contains("；"));
+        }
         if (area == 1 || area == 2)
         {
             CHECK(character.abilities[0].details.back().text.contains("兩枚20%"));

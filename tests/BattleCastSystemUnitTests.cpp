@@ -848,7 +848,7 @@ TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]
     }
 }
 
-TEST_CASE("BattleCastSystem_RangedSideProjectilesUseProjectileSpeedMultiplier", "[battle][cast]")
+TEST_CASE("BattleCastSystem_RangedSpeedShortensFlightWithoutExtendingTravel", "[battle][cast]")
 {
     auto input = basicInput();
     input.normalSkill = skill(121, 1, 400.0);
@@ -863,6 +863,10 @@ TEST_CASE("BattleCastSystem_RangedSideProjectilesUseProjectileSpeedMultiplier", 
 
     REQUIRE(result.decision.operationType == BattleOperationType::RangedProjectile);
     REQUIRE(result.attackSpawnRequests.size() == 3);
+    const auto& main = result.attackSpawnRequests[0].initial;
+    CHECK(main.velocity.norm() == Catch::Approx(24.0f));
+    CHECK(main.totalFrame == 12);
+    CHECK(main.velocity.norm() * main.totalFrame == Catch::Approx(288.0f));
     CHECK(result.attackSpawnRequests[1].initial.velocity.norm() == Catch::Approx(10.0f));
     CHECK(result.attackSpawnRequests[2].initial.velocity.norm() == Catch::Approx(9.0f));
 }

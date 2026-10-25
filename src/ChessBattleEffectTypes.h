@@ -928,7 +928,7 @@ struct ModifyCastAction
     std::optional<EffectNumber> mpCost;
     std::optional<CastRangeMode> rangeMode;
     int projectileSpeedPct = 0;
-    int minimumSelectDistance = 0;
+    int selectDistanceOverride = 0;
     int additionalProjectiles = 0;
     CastMobilityPolicy mobility = CastMobilityPolicy::Preserve;
     std::optional<AutoUltimateCastRequest> autoUltimate;

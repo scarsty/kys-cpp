@@ -352,7 +352,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeKeepsRangedMovementProfile", "[bat
     ModifyCastAction forceRanged;
     forceRanged.rangeMode = CastRangeMode::Ranged;
     forceRanged.projectileSpeedPct = 500;
-    forceRanged.minimumSelectDistance = 10;
+    forceRanged.selectDistanceOverride = 10;
     addTestOwnerRule(
         state,
         0,
@@ -390,7 +390,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedAreaSkillKeepsExtendedMovementProfile",
     ModifyCastAction forceRanged;
     forceRanged.rangeMode = CastRangeMode::Ranged;
     forceRanged.projectileSpeedPct = 500;
-    forceRanged.minimumSelectDistance = 10;
+    forceRanged.selectDistanceOverride = 10;
     addTestOwnerRule(
         state,
         0,
@@ -411,6 +411,105 @@ TEST_CASE("BattleFrameRunner_ForcedRangedAreaSkillKeepsExtendedMovementProfile",
     CHECK(pending->operationType == BattleOperationType::RangedProjectile);
 }
 
+
+TEST_CASE("BattleFrameRunner_FastRangedUsesExplicitRangeForEverySkillShape", "[battle][core][runtime]")
+{
+    struct RangeCase
+    {
+        int range{};
+        int speedPct{};
+        double reach{};
+        int flightFrames{};
+    };
+    for (const auto rangeCase : { RangeCase{4, 250, 306.0, 9},
+                                  RangeCase{5, 300, 342.0, 9},
+                                  RangeCase{6, 200, 378.0, 15},
+                                  RangeCase{7, 150, 414.0, 22},
+                                  RangeCase{10, 500, 480.0, 8} })
+    {
+        for (int shape : { 0, 1, 2, 3 })
+        {
+            for (int originalRange : { 1, 8 })
+            {
+                DYNAMIC_SECTION("range=" << rangeCase.range << ", shape=" << shape
+                                << ", original=" << originalRange)
+                {
+                    BattleRuntimeState state;
+                    configureRuntimeMovement(state, worldWith({
+                        unit(0, 0, { 10, 20, 0 }),
+                        unit(1, 1, { 260, 20, 0 }),
+                    }));
+                    state.attacks = attackWorld();
+                    seedRuntimeUnitsFromWorld(state);
+                    auto cast = frameCastInput(0, 1);
+                    cast.normalSkill.attackAreaType = shape;
+                    cast.normalSkill.selectDistance = originalRange;
+                    configureRuntimeActionPlan(state, cast);
+                    ModifyCastAction forceRanged;
+                    forceRanged.rangeMode = CastRangeMode::Ranged;
+                    forceRanged.projectileSpeedPct = rangeCase.speedPct;
+                    forceRanged.selectDistanceOverride = rangeCase.range;
+                    addTestOwnerRule(state, 0, 9300, 1, EffectEvent::CastPlanned,
+                                     EffectActionValue{ forceRanged });
+                    state.units.requireCore(0).animation.cooldown = 0;
+
+                    runBattleFrame(state);
+
+                    const auto& caster = state.units.requireCore(0);
+                    CHECK(caster.style == CombatStyle::Ranged);
+                    CHECK(caster.reach == Catch::Approx(rangeCase.reach));
+                    CHECK(caster.motion.position.x == Catch::Approx(10.0));
+                    const auto* pending = state.units.require(0).pendingCast();
+                    REQUIRE(pending != nullptr);
+                    CHECK(pending->operationType == BattleOperationType::RangedProjectile);
+                    CHECK(pending->skillPlan.selectDistance == rangeCase.range);
+
+                    preparePendingCastCommitFrame(state, 0, pending->operationType, pending->castFrame);
+                    runBattleFrame(state);
+
+                    const auto main = std::ranges::find_if(state.attacks.attacks, [](const auto& attack) {
+                        return attack.state.attackSourceUnitId == 0
+                            && attack.state.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit;
+                    });
+                    REQUIRE(main != state.attacks.attacks.end());
+                    CHECK(main->state.velocity.norm() == Catch::Approx(12.0 * rangeCase.speedPct / 100.0));
+                    CHECK(main->state.totalFrame == rangeCase.flightFrames);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("BattleFrameRunner_FastRangedAdvancesWhenOutsideExplicitRange", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 2304, 720, 0 }),
+        unit(1, 1, { 2714, 720, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.selectDistance = 8;
+    configureRuntimeActionPlan(state, cast);
+    state.movementPhysics.terrain.tileWidth = SceneTileWidth;
+    state.movementPhysics.terrain.coordCount = BattleCoordCount;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth * 1.5;
+    state.movementPhysics.terrain.walkableByCell.assign(BattleCoordCount * BattleCoordCount, 1);
+    state.units.requireCore(0).animation.cooldown = 0;
+    ModifyCastAction forceRanged;
+    forceRanged.rangeMode = CastRangeMode::Ranged;
+    forceRanged.projectileSpeedPct = 300;
+    forceRanged.selectDistanceOverride = 5;
+    addTestOwnerRule(state, 0, 9300, 1, EffectEvent::CastPlanned, EffectActionValue{ forceRanged });
+
+    runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).reach == Catch::Approx(342.0));
+    CHECK(state.units.requireCore(0).motion.position.x > 2304.0f);
+    CHECK(state.units.require(0).pendingCast() == nullptr);
+}
 
 TEST_CASE("BattleFrameRunner_AreaSkillUsesHeavyReachForMovementAndCast", "[battle][core][runtime]")
 {

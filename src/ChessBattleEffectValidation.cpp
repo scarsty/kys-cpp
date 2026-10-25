@@ -1504,7 +1504,7 @@ bool validateActionPayload(
                 if (!typed.mpCost
                     && !typed.rangeMode
                     && typed.projectileSpeedPct == 0
-                    && typed.minimumSelectDistance == 0
+                    && typed.selectDistanceOverride == 0
                     && typed.additionalProjectiles == 0
                     && typed.mobility == CastMobilityPolicy::Preserve
                     && !typed.autoUltimate
@@ -1513,9 +1513,9 @@ bool validateActionPayload(
                     return reject("修改施放至少需要一項變更");
                 if (typed.mpCost && !validateEffectNumberAtEvent(*typed.mpCost, event, context, error)) return false;
                 if (typed.projectileSpeedPct < 0
-                    || typed.minimumSelectDistance < 0
+                    || typed.selectDistanceOverride < 0
                     || typed.additionalProjectiles < 0)
-                    return reject("施放彈道速度、最小選擇距離與追加彈道數不可為負數");
+                    return reject("施放彈道速度、選擇距離與追加彈道數不可為負數");
             }
             else if constexpr (std::is_same_v<T, StateMachineAction>)
             {
@@ -1734,7 +1734,7 @@ bool isActionAllowedAtEvent(const EffectAction& action, EffectEvent event, std::
                     && !typed.mpCost
                     && !typed.rangeMode
                     && typed.projectileSpeedPct == 0
-                    && typed.minimumSelectDistance == 0
+                    && typed.selectDistanceOverride == 0
                     && typed.additionalProjectiles == 0
                     && typed.mobility == CastMobilityPolicy::Preserve
                     && !typed.autoUltimate
@@ -1747,7 +1747,7 @@ bool isActionAllowedAtEvent(const EffectAction& action, EffectEvent event, std::
                     && !typed.mpCost
                     && !typed.rangeMode
                     && typed.projectileSpeedPct == 0
-                    && typed.minimumSelectDistance == 0
+                    && typed.selectDistanceOverride == 0
                     && typed.additionalProjectiles == 0
                     && typed.mobility == CastMobilityPolicy::Preserve
                     && !typed.replacementPattern
@@ -1783,7 +1783,7 @@ ExactRuntimeActionClass exactRuntimeActionClass(const EffectAction& action)
         {
             const bool exact = (typed.rangeMode && typed.rangeMode != CastRangeMode::Preserve)
                 || typed.projectileSpeedPct > 0
-                || typed.minimumSelectDistance > 0
+                || typed.selectDistanceOverride > 0
                 || typed.additionalProjectiles > 0
                 || typed.mobility != CastMobilityPolicy::Preserve;
             if (!exact)
