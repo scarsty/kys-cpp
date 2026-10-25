@@ -49,6 +49,8 @@ python tools/pack_chess_smap_zip.py
 
 特效與原有法術共用 `resource/eft/`，每組是一個 ZIP，使用既有貼圖載入流程：
 
+格擋使用 `eft211.zip` 的半透明護盾，閃避使用 `eft212.zip` 的風痕。兩組各有 `0.webp` 至 `17.webp` 與 `index.txt`，每張圖片播放一個戰鬥幀，18 幀後結束。格擋錨點為 `(72, 80)`，閃避為 `(90, 90)`；透明度與動畫均已製作在圖片中。原稿留在專案外的 `../asset-sources/`，正式 ZIP 放在 `work/game-dev/resource/eft/`，沿用資源複製與 WebAssembly 清單流程。
+
 | 套件 | 用途 |
 | --- | --- |
 | `cue-positive` | 正面狀態與保護提示 |

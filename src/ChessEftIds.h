@@ -9,8 +9,8 @@ enum Id : int
     EFT_HEAL = 0,
     EFT_SHIELD_BLAST = 96,
     EFT_DEATH_BLAST = 54,
-    EFT_BLOCK = 74,
-    EFT_EVADE = 88,
+    EFT_BLOCK = 211,
+    EFT_EVADE = 212,
 };
 
 inline constexpr std::array<Id, 5> EFT_ALL = {

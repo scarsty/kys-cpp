@@ -393,7 +393,7 @@ bool tryResolveDodgeHit(
     }
 
     logEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
-    visualEvents.push_back(CoreDetail::roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreDetail::CoreRoleStatusEffectFrames));
+    visualEvents.push_back(CoreDetail::roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreDetail::CoreBlockAndEvadeEffectFrames));
     return true;
 }
 

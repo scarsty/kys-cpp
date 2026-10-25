@@ -1349,7 +1349,7 @@ void appendFrameDamagePreDeathLogEvents(
         frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
             transaction.defender.id,
             KysChess::EFT_BLOCK,
-            CoreDetail::CoreRoleStatusEffectFrames));
+            CoreDetail::CoreBlockAndEvadeEffectFrames));
         BattleLogEvent log;
         log.type = BattleLogEventType::Status;
         log.sourceUnitId = transaction.defender.id;
@@ -1780,7 +1780,7 @@ bool applyFrameDefenderBlockCommands(
         frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
             request.defenderUnitId,
             KysChess::EFT_BLOCK,
-            CoreDetail::CoreRoleStatusEffectFrames));
+            CoreDetail::CoreBlockAndEvadeEffectFrames));
         CoreDetail::appendStatusEventLog(
             frame.logEvents,
             request.defenderUnitId,
@@ -1793,7 +1793,7 @@ bool applyFrameDefenderBlockCommands(
         frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
             request.defenderUnitId,
             KysChess::EFT_BLOCK,
-            CoreDetail::CoreRoleStatusEffectFrames));
+            CoreDetail::CoreBlockAndEvadeEffectFrames));
         CoreDetail::appendStatusEventLog(
             frame.logEvents,
             request.defenderUnitId,

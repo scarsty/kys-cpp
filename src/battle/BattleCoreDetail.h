@@ -20,6 +20,7 @@ namespace KysChess::Battle::CoreDetail
 {
 
 inline constexpr int CoreRoleStatusEffectFrames = 48;
+inline constexpr int CoreBlockAndEvadeEffectFrames = 18;
 CastPlanEventData makeCastPlanEventData(
     int sourceUnitId,
     int magicId,

@@ -2,6 +2,7 @@
 #include "battle/BattleCoreDetail.h"
 #include "battle/BattleFrameContext.h"
 #include "BattleCoreTestHelpers.h"
+#include "ChessEftIds.h"
 
 #include "BattleLogTestHelpers.h"
 #include "BattleMovementTestHelpers.h"
@@ -31,6 +32,14 @@ using namespace BattlePresentationTest;
 
 namespace
 {
+void checkDefensiveReactionVisual(const BattlePresentationFrame& frame, int effectId)
+{
+    const auto effects = visualEventsFor(frame, BattleVisualEventType::RoleEffect, 1);
+    const auto effect = std::ranges::find(effects, effectId, &BattleVisualEvent::effectId);
+    REQUIRE(effect != effects.end());
+    CHECK(effect->durationFrames == 18);
+}
+
 BattleRuntimeState auraBattleState()
 {
     BattleRuntimeState state;
@@ -445,6 +454,7 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
         {
             return BattleLogTest::textOf(event) == "閃避了來襲攻擊";
         }));
+        checkDefensiveReactionVisual(result, EFT_EVADE);
     }
 
     SECTION("暴擊率與暴擊傷害")
@@ -496,6 +506,7 @@ TEST_CASE("BattleFrameRunner_TypedCombatRateAttributesReachRuntimeConsumers", "[
         {
             return BattleLogTest::textOf(event) == "格擋了本次攻擊";
         }));
+        checkDefensiveReactionVisual(result, EFT_BLOCK);
     }
 }
 
@@ -587,6 +598,7 @@ TEST_CASE("BattleFrameRunner_DualWieldBlockConsumesBlock", "[battle][core][runti
     REQUIRE(event != result.gameplayEvents.end());
     CHECK(event->targetUnitId == 1);
     CHECK(event->text == "互搏抵擋了本次傷害");
+    checkDefensiveReactionVisual(result, EFT_BLOCK);
     CHECK(std::ranges::any_of(result.logEvents, [](const BattleLogEvent& log)
         {
             return BattleLogTest::textOf(log) == "互搏抵擋了本次傷害";
