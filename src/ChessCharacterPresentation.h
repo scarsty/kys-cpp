@@ -124,16 +124,16 @@ inline ChessCharacterPresentation buildChessCharacterContent(const ChessGameCont
         switch (operation)
         {
         case Battle::BattleOperationType::Melee:
-            entry.tooltip = entry.ultimate ? "輕擊：強化攻擊，追加近身濺射。"
-                : "輕擊：每第三下近戰強化追擊。";
+            entry.tooltip = entry.ultimate ? "輕擊：強化攻擊，追加近身濺射"
+                : "輕擊：每第三下近戰強化追擊";
             break;
         case Battle::BattleOperationType::TrackingProjectile:
-            entry.tooltip = entry.ultimate ? "重擊：發射兩枚追蹤彈。"
-                : "重擊：發射一枚追蹤彈。";
+            entry.tooltip = entry.ultimate ? "重擊：發射兩枚追蹤彈"
+                : "重擊：發射一枚追蹤彈";
             break;
         case Battle::BattleOperationType::RangedProjectile:
-            entry.tooltip = entry.ultimate ? "遠程：穿透，附三枚35%側彈。"
-                : "遠程：穿透，附兩枚20%側彈。";
+            entry.tooltip = entry.ultimate ? "遠程：穿透，附三枚35%側彈"
+                : "遠程：穿透，附兩枚20%側彈";
             break;
         default: assert(false); break;
         }

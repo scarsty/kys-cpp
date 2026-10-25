@@ -39,7 +39,7 @@ struct SevenStarVolley final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("同門每出招{}次：全員劍氣合擊，武功威力{}", 出招次數, 武功威力);
-        return std::format("同羈絆成員共同累計出招{}次時，所有存活成員向觸發者的目標各發射一道追蹤劍氣，以發射者自身攻擊力及{}武功威力，依正常攻防公式計算物理傷害，可被閃避與格擋。合擊不打斷動作、不計入出招次數，也不觸發其他出招或命中效果。", 出招次數, 武功威力);
+        return std::format("同羈絆成員共同累計出招{}次時，所有存活成員向觸發者的目標各發射一道追蹤劍氣，以發射者自身攻擊力及{}武功威力，依正常攻防公式計算物理傷害，可被閃避與格擋；合擊不打斷動作、不計入出招次數，也不觸發其他出招或命中效果", 出招次數, 武功威力);
     }
 };
 
@@ -65,7 +65,7 @@ struct MemberDeathShield final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("每{}名同羈絆友軍陣亡：護盾+血上限{}%", 陣亡人數, 生命百分比);
 
-        return std::format("每{}名同羈絆友軍陣亡：自身獲得血上限{}%護盾。", 陣亡人數, 生命百分比);
+        return std::format("每{}名同羈絆友軍陣亡：自身獲得血上限{}%護盾", 陣亡人數, 生命百分比);
     }
 };
 
@@ -91,7 +91,7 @@ struct MemberDeathAttribute final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("同羈絆友軍陣亡：{}", compactAttributeDescription(屬性 == 0 ? BattleAttribute::Attack : BattleAttribute::Defence, 點數, false));
 
-        return std::format("同羈絆友軍陣亡：自身{}{:+}。", Choices[屬性], 點數);
+        return std::format("同羈絆友軍陣亡：自身{}{:+}", Choices[屬性], 點數);
     }
 };
 
@@ -122,7 +122,7 @@ struct LastComboMemberBerserk final : GameplayEffectDefinition
         const auto effect = berserkDescription(暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數);
         if (style == EffectDescriptionStyle::Compact)
             return std::format("同羈絆僅剩自身：{}；每場一次", effect);
-        return std::format("場上只剩最後一名此羈絆的棋子時，獲得「{}」。每場戰鬥觸發一次；吸血按實際造成的生命傷害計算。", effect);
+        return std::format("場上只剩最後一名此羈絆的棋子時，獲得「{}」；每場戰鬥觸發一次；吸血按實際造成的生命傷害計算", effect);
     }
 };
 
@@ -153,7 +153,7 @@ struct MultiTargetTeamHaste final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("一次出招命中至少{}名敵人後，全隊速度{:+}%，持續{}幀。重複觸發刷新持續時間。",
+            return std::format("一次出招命中至少{}名敵人後，全隊速度{:+}%，持續{}幀；重複觸發刷新持續時間",
                                命中人數,
                                速度百分比,
                                持續幀數);
@@ -193,7 +193,7 @@ struct ShareAllyDamageArea final : GameplayEffectDefinition
         {
             return std::format(
                 "出招建立半徑{}格的區域，持續{}幀；替區域內友軍承受傷害，轉移傷害減少{}%"
-                "。不替自身分擔，分擔傷害不再連鎖分擔；來源死亡時區域消失。",
+                "；不替自身分擔，分擔傷害不再連鎖分擔；來源死亡時區域消失",
                 半徑格數,
                 持續幀數,
                 轉移減傷百分比);
@@ -253,7 +253,7 @@ struct HitDisruptionArea final : GameplayEffectDefinition
             return std::format("命中：半徑{}格，{}幀；敵人速度{:+}%，敵方彈速{:+}%、彈道壓制{:+}%、禁止追蹤", 半徑格數, 持續幀數, 速度百分比, 彈速百分比, 彈道壓制百分比);
 
         return std::format(
-            "命中建立半徑{}格的區域，持續{}幀；敵人速度{:+}%，敵方彈速{:+}%、彈道壓制{:+}%，並禁止追蹤。",
+            "命中建立半徑{}格的區域，持續{}幀；敵人速度{:+}%，敵方彈速{:+}%、彈道壓制{:+}%，並禁止追蹤",
             半徑格數,
             持續幀數,
             速度百分比,
@@ -301,7 +301,7 @@ struct ProtectiveArea final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招建立半徑{}格的護陣，持續{}幀；友軍格擋率{:+}%且免疫擊退，敵人造成傷害{:+}%。來源死亡時護陣消失。",
+                "出招建立半徑{}格的護陣，持續{}幀；友軍格擋率{:+}%且免疫擊退，敵人造成傷害{:+}%；來源死亡時護陣消失",
                 半徑格數,
                 持續幀數,
                 格擋百分比,
@@ -349,7 +349,7 @@ struct LowHealthMemberTeamAttack final : GameplayEffectDefinition
         {
             return std::format(
                 "任一成員生命首次低於{}%時，其他存活的同羈絆友軍攻擊{:+}%，持續{}"
-                "幀。每名成員每場各觸發一次，同來源兩次觸發至少間隔200幀。",
+                "幀；每名成員每場各觸發一次，同來源兩次觸發至少間隔200幀",
                 生命門檻百分比,
                 攻擊百分比,
                 持續幀數);
@@ -388,11 +388,11 @@ struct HitOutgoingDamagePenalty final : GameplayEffectDefinition
         {
             if (style == EffectDescriptionStyle::Compact)
                 return std::format("主彈命中：目標傷害{:+}%，{}幀", 傷害百分比, 持續幀數);
-            return std::format("主彈命中：目標傷害{:+}%，持續{}幀；重複施加刷新時間。", 傷害百分比, 持續幀數);
+            return std::format("主彈命中：目標傷害{:+}%，持續{}幀；重複施加刷新時間", 傷害百分比, 持續幀數);
         }
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("造成生命傷害後，使目標造成傷害{:+}%，持續{}幀。在計算防禦前生效，各次施加獨立。",
+            return std::format("造成生命傷害後，使目標造成傷害{:+}%，持續{}幀；在計算防禦前生效，各次施加獨立",
                                傷害百分比,
                                持續幀數);
         }
@@ -427,7 +427,7 @@ struct AdaptToAttacker final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "每次被命中後，來自該攻擊者的技能傷害{:+}%，最多{}層。每名攻擊者分別累積，只降低持有者受到的傷害。",
+                "每次被命中後，來自該攻擊者的技能傷害{:+}%，最多{}層；每名攻擊者分別累積，只降低持有者受到的傷害",
                 每層承傷百分比,
                 層數上限);
         }
@@ -460,7 +460,7 @@ struct ReceivedHitDelayCounter final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("受擊：{}%機率攻擊者出招冷卻+{}%", 機率百分比, 冷卻百分比);
-        return std::format("受擊時有{}%機率，使攻擊者的出招冷卻延長{}%。", 機率百分比, 冷卻百分比);
+        return std::format("受擊時有{}%機率，使攻擊者的出招冷卻延長{}%", 機率百分比, 冷卻百分比);
     }
 };
 
@@ -487,7 +487,7 @@ struct HitDelayEnemyCooldown final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：{}%機率目標出招冷卻+{}%", 機率百分比, 冷卻百分比);
-        return std::format("攻擊有{}%機率使目標出招冷卻延長{}%。", 機率百分比, 冷卻百分比);
+        return std::format("攻擊有{}%機率使目標出招冷卻延長{}%", 機率百分比, 冷卻百分比);
     }
 };
 
@@ -516,7 +516,7 @@ struct AdaptDodgeToAttacker final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "每次被命中後，對該攻擊者的閃避率{:+}%，最多{}層。每名攻擊者分別累積。", 每層閃避百分比, 層數上限);
+                "每次被命中後，對該攻擊者的閃避率{:+}%，最多{}層；每名攻擊者分別累積", 每層閃避百分比, 層數上限);
         }
         return std::format("受擊：對該敵閃避{:+}%，上限{}層", 每層閃避百分比, 層數上限);
     }
@@ -554,7 +554,7 @@ struct WeakenStrongestEnemies final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "持續壓制最強的{}名敵人，使其攻擊{:+}、防禦{:+}。同來源最多累積10層，離開壓制目標後失效。",
+                "持續壓制最強的{}名敵人，使其攻擊{:+}、防禦{:+}；同來源最多累積10層，離開壓制目標後失效",
                 敵人數,
                 攻擊點數,
                 防禦點數);
@@ -582,7 +582,7 @@ struct PeriodicFreeUltimate final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("每{}幀：免費絕招", 間隔幀數);
-        return std::format("每{}幀免費施放絕招。", 間隔幀數);
+        return std::format("每{}幀免費施放絕招", 間隔幀數);
     }
 };
 
@@ -606,7 +606,7 @@ struct OpeningRangedReposition final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("開場：隨機遠程敵人挪至隨機同羈絆友軍身旁，眩暈{}幀", 眩暈幀數);
-        return std::format("開場時，全隊共同觸發一次：隨機選擇一名遠程敵人，挪至隨機一名存活同羈絆友軍身旁的空位，並使該敵人眩暈{}幀。", 眩暈幀數);
+        return std::format("開場時，全隊共同觸發一次：隨機選擇一名遠程敵人，挪至隨機一名存活同羈絆友軍身旁的空位，並使該敵人眩暈{}幀", 眩暈幀數);
     }
 };
 
@@ -626,7 +626,7 @@ struct RescueReposition final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("友軍受擊血量<25%：移至安全處、回血上限10%、無敵10幀；每場{}次", 次數);
-        return std::format("友軍受擊降至25%生命以下時，將其挪至安全位置，回復10%最大生命並獲得10幀無敵；每場最多{}次。",
+        return std::format("友軍受擊降至25%生命以下時，將其挪至安全位置，回復10%最大生命並獲得10幀無敵；每場最多{}次",
                            次數);
     }
 };
@@ -648,7 +648,7 @@ struct ExecuteReposition final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("敵人受傷血量<15%、附近無我方：拉近並普攻；每場{}次", 次數);
-        return std::format("敵人受傷降至15%生命以下且附近沒有我方角色時，將其拉至身旁並追加普通攻擊；每場最多{}次。",
+        return std::format("敵人受傷降至15%生命以下且附近沒有我方角色時，將其拉至身旁並追加普通攻擊；每場最多{}次",
                            次數);
     }
 };
@@ -678,7 +678,7 @@ struct RevolvingGuard final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("開場：{}層護身，上限{}；直接受擊耗一層減傷{}%，每{}幀回復{}層，毒與流血不耗層",
                 開場層數, 層數上限, 減傷百分比, 回復間隔幀數, 每次回復層數);
-        return std::format("開場{}層護身，上限{}；直接攻擊造成傷害時耗一層減傷{}%，每{}幀回復{}層。中毒與流血不消耗。",
+        return std::format("開場{}層護身，上限{}；直接攻擊造成傷害時耗一層減傷{}%，每{}幀回復{}層；中毒與流血不消耗",
             開場層數, 層數上限, 減傷百分比, 回復間隔幀數, 每次回復層數);
     }
 };

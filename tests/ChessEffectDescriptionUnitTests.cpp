@@ -1,4 +1,4 @@
-#include "ChessBattleEffectTestHelpers.h"
+#include "ChessEffectDescription.h"
 #include "ChessGameplayEffect.h"
 #include "battle/BattleEffectSystem.h"
 
@@ -8,7 +8,6 @@
 #include <regex>
 
 using namespace KysChess;
-using namespace KysChess::Test;
 
 namespace
 {
@@ -22,7 +21,7 @@ std::vector<GameplayEffect> configured(std::string_view yaml)
 }
 }
 
-TEST_CASE("Every registered compact effect follows the same wording conventions", "[chess][effects][description][catalog]")
+TEST_CASE("Every registered effect omits full stops and compact effects follow wording conventions", "[chess][effects][description][catalog]")
 {
     const std::regex periodicPrefix("^每[0-9]+幀[^：]");
     for (const auto& entry : gameplayEffectCatalog())
@@ -33,6 +32,14 @@ TEST_CASE("Every registered compact effect follows the same wording conventions"
 
         const auto checkDescription = [&] {
             const auto effect = entry.create(values);
+            for (const auto style : {EffectDescriptionStyle::Compact, EffectDescriptionStyle::Full})
+            {
+                const auto description = effect->describe(style);
+                INFO(entry.name << " | " << description);
+                CHECK_FALSE(description.empty());
+                CHECK_FALSE(description.contains("。"));
+                CHECK_FALSE(description.ends_with("；"));
+            }
             const auto text = joinEffectDescriptionRows(describeGameplayEffects(
                 std::span<const GameplayEffect>(&effect, 1), EffectDescriptionStyle::Compact));
             INFO(entry.name << " | " << text);
@@ -64,11 +71,11 @@ TEST_CASE("Descriptions belong to reusable effects and follow their parameters",
 {
     auto first = configured("[{類型: 技能增傷, 百分比: 15}]");
     auto second = configured("[{類型: 技能增傷, 百分比: 25}]");
-    CHECK(first.front()->describe(EffectDescriptionStyle::Compact) == "技能傷害+15%。");
-    CHECK(second.front()->describe(EffectDescriptionStyle::Compact) == "技能傷害+25%。");
+    CHECK(first.front()->describe(EffectDescriptionStyle::Compact) == "技能傷害+15%");
+    CHECK(second.front()->describe(EffectDescriptionStyle::Compact) == "技能傷害+25%");
     CHECK(joinEffectDescriptionRows(describeGameplayEffects(first, EffectDescriptionStyle::Compact))
         == "技能傷害+15%");
-    CHECK(first.front()->describe(EffectDescriptionStyle::Full) == "技能傷害+15%。");
+    CHECK(first.front()->describe(EffectDescriptionStyle::Full) == "技能傷害+15%");
 }
 
 TEST_CASE("Afflicted hit shield descriptions retain the cap and cast limit in one short sentence",
@@ -77,7 +84,7 @@ TEST_CASE("Afflicted hit shield descriptions retain the cap and cast limit in on
     const auto effect = configured(
         "[{類型: 命中負面敵人護盾, 生命百分比: 5, 護盾上限百分比: 20}]").front();
     CHECK(effect->describe(EffectDescriptionStyle::Full)
-        == "命中負面狀態敵人獲得最大生命5%護盾，累積上限20%，每招一次。");
+        == "命中負面狀態敵人獲得最大生命5%護盾，累積上限20%，每招一次");
     CHECK(effect->describe(EffectDescriptionStyle::Compact)
         == "命中：負面敵人→護盾+血上限5%，上限20%，每招一次");
 }
@@ -87,7 +94,7 @@ TEST_CASE("Combo point attack descriptions explain total points beyond the highe
 {
     const auto effect = configured("[{類型: 羈絆值攻擊加成, 每點攻擊: 13}]").front();
     CHECK(effect->describe(EffectDescriptionStyle::Full)
-        == "開戰時，攻擊增加此羈絆的總羈絆值×13，包含星級與天賦加點，超出最高門檻仍持續計算。");
+        == "開戰時，攻擊增加此羈絆的總羈絆值×13，包含星級與天賦加點，超出最高門檻仍持續計算");
     CHECK(effect->describe(EffectDescriptionStyle::Compact) == "攻擊+羈絆值×13");
 }
 
@@ -98,7 +105,7 @@ TEST_CASE("Low health combo attack descriptions specify other members",
         "[{類型: 成員低血全員增攻, 生命門檻百分比: 50, 攻擊百分比: 23, 持續幀數: 9}]").front();
     CHECK(effect->describe(EffectDescriptionStyle::Full)
         == "任一成員生命首次低於50%時，其他存活的同羈絆友軍攻擊+23%，持續9"
-           "幀。每名成員每場各觸發一次，同來源兩次觸發至少間隔200幀。");
+           "幀；每名成員每場各觸發一次，同來源兩次觸發至少間隔200幀");
     CHECK(effect->describe(EffectDescriptionStyle::Compact)
         == "任一成員首次血量<50%：其他同羈絆友軍+23%攻，9幀");
 }
@@ -109,8 +116,8 @@ TEST_CASE("Xuanming descriptions restrict reapplied poison to poisoned enemies",
     const auto effect = configured(
         "[{類型: 全體引毒再施毒, 中毒次數: 3, 生命傷害百分比: 4}]").front();
     CHECK(effect->describe(EffectDescriptionStyle::Full)
-        == "出招立即結算所有中毒敵人的剩餘中毒傷害，僅對這些敵人再施加持續90幀的中毒。"
-           "新中毒每30幀造成目標當前生命4%傷害，最低1點，共3次；取代原有中毒。");
+        == "出招立即結算所有中毒敵人的剩餘中毒傷害，僅對這些敵人再施加持續90幀的中毒；"
+           "新中毒每30幀造成目標當前生命4%傷害，最低1點，共3次；取代原有中毒");
     CHECK(effect->describe(EffectDescriptionStyle::Compact)
         == "出招：結算全敵剩餘毒傷，僅對中毒者再施毒90幀");
 }
@@ -146,7 +153,7 @@ TEST_CASE("Compact cards omit terminal punctuation and retain mechanical qualifi
     CHECK(rows[1] == "命中：禁療、速度-25%，90幀");
     CHECK(rows[2] == "出招：血比最低5名友軍，下次承傷≤血上限15%");
     const auto full = joinEffectDescriptionRows(describeGameplayEffects(effects, EffectDescriptionStyle::Full));
-    CHECK(full.find("在計算防禦前生效。") != std::string::npos);
+    CHECK(full.find("在計算防禦前生效") != std::string::npos);
     CHECK(full.find("無法恢復生命且速度降低25%") != std::string::npos);
     CHECK(full.find("每人抵擋一次傷害") != std::string::npos);
 }
@@ -159,7 +166,7 @@ TEST_CASE("Combo threshold descriptions append management rules after battle eff
     const auto full = effectDescriptionTextRows(describeGameplayEffectsAndManagementRules(
         effects, rules, EffectDescriptionStyle::Full));
     REQUIRE(full.size() == 3);
-    CHECK(full[0] == "技能傷害+15%。");
+    CHECK(full[0] == "技能傷害+15%");
     CHECK(full[1] == "勝利後獲得一次免費商店刷新；尚未使用時不重複累積");
     CHECK(full[2] == "戰鬥開始前可從合適的戰場中選擇一個");
 
@@ -227,8 +234,8 @@ TEST_CASE("Ratio descriptions reflect the actual integer combat result", "[chess
         {"[{類型: 失血固定承傷修正, 點數: -20}]", "-20點×失血比", "×-20點", 0, -10, -20},
         {"[{類型: 失血百分比承傷修正, 百分比: -14}]", "-14%×失血比", "×-14", 0, -7, -14},
         {"[{類型: 失血百分比承傷修正, 百分比: -28}]", "-28%×失血比", "×-28", 0, -14, -28},
-        {"[{類型: 內力比例技能增傷, 基礎傷害百分比: 100, 滿內增傷百分比: 35}]",
-            "100%至135%", "×35個百分點", 100, 117, 135},
+        {"[{類型: 內力比例技能增傷, 滿內增傷百分比: 35}]",
+            "技能傷害隨內力比例提高，最多+35%", "技能傷害隨內力比例提高，最多+35%", 100, 117, 135},
         {"[{類型: 失血固定承傷修正, 點數: 1}]", "+1點×失血比", "×1點", 0, 0, 1},
         {"[{類型: 失血百分比承傷修正, 百分比: 3}]", "+3%×失血比", "×3", 0, 1, 3},
     };
@@ -262,6 +269,6 @@ TEST_CASE("Short compact descriptions preserve full explanations and area qualif
     REQUIRE(rows.size() == 2);
     CHECK(rows[0] == "出招：全隊回30內");
     CHECK(rows[1] == "出招：目標周圍方形邊長5格，每星100純粹傷害");
-    CHECK(effects[0]->describe(EffectDescriptionStyle::Full) == "出招時全隊回復30內力。");
+    CHECK(effects[0]->describe(EffectDescriptionStyle::Full) == "出招時全隊回復30內力");
     CHECK(effects[1]->describe(EffectDescriptionStyle::Full).find("同次出招對每名目標最多生效一次") != std::string::npos);
 }

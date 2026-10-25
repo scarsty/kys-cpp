@@ -137,7 +137,7 @@ TEST_CASE("talent presentation exposes an equipment reward table and descriptive
 
     const auto divinePresentation = buildChessTalentPresentation(balance, ChessTalentId::DivineArms);
     CHECK(divinePresentation.description.contains("神兵說明來自設定"));
-    CHECK(divinePresentation.description.contains("\n神兵商店：第9關後開放，每件27金。"));
+    CHECK(divinePresentation.description.contains("\n神兵商店：第9關後開放，每件27金"));
     REQUIRE(divinePresentation.facts.size() == 5);
     CHECK(divinePresentation.facts[0].category == "基本");
     CHECK(divinePresentation.facts[0].label == "第3關");

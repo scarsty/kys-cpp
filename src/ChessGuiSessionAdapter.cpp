@@ -1402,7 +1402,7 @@ void ChessGuiSessionAdapter::showBanManagement()
         const auto observation = session_.observe();
         if (observation.seenRoles.empty())
         {
-            showChessMessage("尚未遇到可封禁的棋子；商店出現的角色會收錄到封禁清單。");
+            showChessMessage("尚未遇到可封禁的棋子；商店出現的角色會收錄到封禁清單");
             return;
         }
 

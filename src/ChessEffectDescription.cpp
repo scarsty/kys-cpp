@@ -15,8 +15,6 @@ RenderedEffectDescription describeGameplayEffects(std::span<const GameplayEffect
         assert(effect);
         auto text = effect->describe(style);
         assert(!text.empty());
-        if (style == EffectDescriptionStyle::Compact && text.ends_with("。"))
-            text.resize(text.size() - std::string_view("。").size());
         RenderedEffectDescriptionBlock block;
         block.rows.push_back({
             .kind = EffectDescriptionRowKind::Prose,

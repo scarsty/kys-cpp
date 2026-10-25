@@ -55,18 +55,18 @@ std::string ChessProgressionRules::lateBloomerReminder(const ChessSessionState& 
     const int remaining = remainingVictoryBattles(state, content);
     if (remaining >= talent.evolutionWarningBattles) return {};
     if (!state.lateBloomerSelectionUsed)
-        return std::format("晚成提醒：尚餘{}場主線與未通關遠征。請在棋子面板選定培養對象並讓其上陣，累積{}勝且達到三星後突破四星。", remaining, talent.evolutionWins);
+        return std::format("晚成提醒：尚餘{}場主線與未通關遠征；請在棋子面板選定培養對象並讓其上陣，累積{}勝且達到三星後突破四星", remaining, talent.evolutionWins);
     const auto chosen = std::ranges::find_if(state.roster, [](const auto& entry) { return entry.second.lateBloomerChosen; });
     if (chosen == state.roster.end() || chosen->second.star == 4) return {};
     const auto& piece = chosen->second;
     const auto& name = content.role(piece.roleId)->Name;
     const int needed = std::max(0, talent.evolutionWins - piece.fightsWon);
     if (needed > remaining)
-        return std::format("晚成提醒：{}還需{}勝，但主線與未通關遠征只餘{}場，已不足以完成培養。", name, needed, remaining);
+        return std::format("晚成提醒：{}還需{}勝，但主線與未通關遠征只餘{}場，已不足以完成培養", name, needed, remaining);
     if (needed == 0)
-        return std::format("晚成提醒：{}已達{}勝，合成至三星即可突破四星。", name, talent.evolutionWins);
+        return std::format("晚成提醒：{}已達{}勝，合成至三星即可突破四星", name, talent.evolutionWins);
     if (!piece.deployed)
-        return std::format("晚成提醒：尚餘{}場主線與未通關遠征。請將{}上陣，還需{}勝才能完成培養。", remaining, name, needed);
+        return std::format("晚成提醒：尚餘{}場主線與未通關遠征；請將{}上陣，還需{}勝才能完成培養", remaining, name, needed);
     return {};
 }
 

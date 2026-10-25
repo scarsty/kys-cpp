@@ -207,13 +207,13 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
 
     const auto equipment = chessEquipmentMetadata(content, 500);
     CHECK(effectDescriptionTextRows(equipment.specialEffects)
-        == std::vector<std::string>{"防禦+7。"});
+        == std::vector<std::string>{"防禦+7"});
     REQUIRE(equipment.specialEffects.sections.size() == 1);
     REQUIRE(equipment.specialEffects.sections[0].blocks.size() == 1);
     REQUIRE(equipment.specialEffects.sections[0].blocks[0].rows.size() == 1);
     const auto& specialEffectRow = equipment.specialEffects.sections[0].blocks[0].rows[0];
     CHECK(specialEffectRow.kind == EffectDescriptionRowKind::Prose);
-    CHECK(specialEffectRow.text == "防禦+7。");
+    CHECK(specialEffectRow.text == "防禦+7");
     CHECK(specialEffectRow.indent == 0);
     CHECK(specialEffectRow.breakBefore == EffectDescriptionSemanticBreak::None);
     CHECK(equipment.countsAsCombos == std::vector<std::string>{"共用羈絆"});
@@ -221,7 +221,7 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
     CHECK(equipment.characterBonuses.front().roleIds == std::vector<int>{10});
     CHECK(equipment.characterBonuses.front().roles == std::vector<std::string>{"共用查詢棋子"});
     CHECK(effectDescriptionTextRows(equipment.characterBonuses.front().effects)
-        == std::vector<std::string>{"速度+5。"});
+        == std::vector<std::string>{"速度+5"});
     CHECK(equipment.characterBonuses.front().countsAsCombos == std::vector<std::string>{"角色羈絆"});
 }
 
@@ -286,7 +286,7 @@ TEST_CASE("equipment hover uses configured effects and marks recipient-only bonu
         const auto rows = panelTextRowsForEquipment(metadata, recipient);
         REQUIRE(rows.size() == 6);
         CHECK(rows[0].tone == PanelTextTone::Heading);
-        CHECK(rows[1].text == "防禦+7。");
+        CHECK(rows[1].text == "防禦+7");
         CHECK(rows[1].tone == PanelTextTone::Effect);
         CHECK(rows[2].tone == PanelTextTone::Combo);
         const bool applicable = recipient != 20;
@@ -357,7 +357,7 @@ TEST_CASE("public effect catalog covers player rules by source and excludes NPC 
     CHECK(synergy->sourceName == "共用寶劍");
     CHECK(synergy->sourceContext.contains("共用查詢棋子專屬"));
     CHECK(effectDescriptionTextRows(synergy->effects)
-        == std::vector<std::string>{"速度+5。"});
+        == std::vector<std::string>{"速度+5"});
 
     const auto combo = std::ranges::find(
         catalog,

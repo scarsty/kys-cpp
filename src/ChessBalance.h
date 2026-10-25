@@ -271,7 +271,7 @@ inline ChessTalentPresentation buildChessTalentPresentation(
                 ? std::format("第{}關後開放", balance.legendaryShop.unlockFight)
                 : "目前未開放";
             appendDescriptionLine(std::format(
-                "神兵商店：{}，每件{}金。",
+                "神兵商店：{}，每件{}金",
                 shopUnlock,
                 balance.legendaryShop.price));
             result.facts.push_back({

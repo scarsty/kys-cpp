@@ -502,7 +502,7 @@ void ChessPreparationScreen::roster()
             settings.preparationSingleClick = singleClickMovement_;
             SystemSettings::getInstance()->update(settings);
             rebuild();
-        }, "開啟後單擊上陣或下陣；目的地滿員時無法移動。關閉則單擊查看、雙擊移動", true, singleClickMovement_);
+        }, "開啟後單擊上陣或下陣；目的地滿員時無法移動；關閉則單擊查看、雙擊移動", true, singleClickMovement_);
     iconButton("guide", {bench_.x + 244, bench_.y + 4, 46, 40}, Icon::Help, "", [this] {
         onPointerInputReset(); guideStep_ = 0; rebuild();
     }, "重看購買、調度與常用按鈕的操作導覽");
@@ -629,7 +629,7 @@ void ChessPreparationScreen::pieceInspector()
         const int target = replacementTargetId_ >= 0 ? replacementTargetId_ : replacementPreviewId_;
         const auto& state = session_.state();
         text("替換出戰", x, y, 24, gold);
-        auto rows = paragraph("點選要換下的出戰棋子；確認前不改動陣容。Esc 可取消。\n換入棋子繼承換出棋子的戰場位置。");
+        auto rows = paragraph("點選要換下的出戰棋子；確認前不改動陣容；Esc 可取消\n換入棋子繼承換出棋子的戰場位置");
         if (target >= 0)
         {
             auto projected = state;
@@ -668,7 +668,7 @@ void ChessPreparationScreen::pieceInspector()
     if (!role)
     {
         text("檢視器", x, y + 4, 24, gold);
-        prose(paragraph("選擇出戰、候補或商店的棋子，查看屬性、武學與羈絆。"), {x, y + 64, width, 160});
+        prose(paragraph("選擇出戰、候補或商店的棋子，查看屬性、武學與羈絆"), {x, y + 64, width, 160});
         iconButton("empty-equipment", {x, y + 250, width, 52}, Icon::Bag, "裝備行囊", [this] { navigate(View::Equipment); });
         iconButton("empty-combos", {x, y + 314, width, 52}, Icon::Link, "羈絆一覽", [this] { showChessComboOverview(session_.content(), session_.state()); rebuild(); });
         return;
@@ -812,7 +812,7 @@ void ChessPreparationScreen::equipmentInspector()
     if (selected != inventory.end()) listPage_ = static_cast<int>(selected - inventory.begin()) / pageSize;
     else equipmentId_ = inventory.empty() ? -1 : inventory[listPage_ * pageSize]->instanceId;
     if (inventory.empty())
-        text(std::format("尚無{}。可從關卡獎勵或神兵商店取得，再回到這裡裝備。", chessEquipmentTypeName(equipmentType_)),
+        text(std::format("尚無{}；可從關卡獎勵或神兵商店取得，再回到這裡裝備", chessEquipmentTypeName(equipmentType_)),
             x, y + 156, 20, muted, width, 4);
     for (int slot = 0; slot < pageSize; ++slot)
     {
@@ -1026,7 +1026,7 @@ void ChessPreparationScreen::footer()
     const int y = footer_.y + warningHeight + (footer_.h - warningHeight - 52) / 2;
     panel(footer_);
     if (warningHeight > 0)
-        text("出戰加成已失效。恢復羈絆或減少出戰人數後即可開戰。", footer_.x + 16, footer_.y + 4, 16, negative);
+        text("出戰加成已失效；恢復羈絆或減少出戰人數後即可開戰", footer_.x + 16, footer_.y + 4, 16, negative);
     constexpr int navigationWidth = 108;
     const auto slot = [y](int index) { return PanelFrame{112 + index * (navigationWidth + 8), y + 4, navigationWidth, 44}; };
     iconButton("expedition", slot(0), Icon::Expedition, "遠征", [this] { open(ChessContextMenuAction::ShowExpeditionChallenge); },
@@ -1082,10 +1082,10 @@ void ChessPreparationScreen::guide()
     });
     constexpr std::array titles{"點商店的金幣購買", "在出戰與候補之間移動", "刷新與鎖定商店", "準備好，就出戰"};
     constexpr std::array descriptions{
-        "下方就是真正的商店。點肖像查看資料，點金幣價格直接購買。\n有出戰空位時自動上陣，否則留在候補。這裡的操作會使用本局金幣。",
-        "單擊查看、雙擊移動。點候補列箭頭開啟單擊模式後，點棋子即可移動。\n出戰或候補已滿時無法移入；先騰出目的地空位，再移動棋子。",
-        "刷新圖示旁的 $ 是花費；手機點兩下確認刷新。鎖頭亮起時，下一關保留這批棋子。\n可以直接操作下方的真實按鈕，也可以按下一步繼續。",
-        "下方「包」是裝備行囊，「存／讀」是存讀檔。手機長按圖示查看說明，放開不執行。\n右側「進入戰鬥」開始出戰；候補列的問號可重新開啟導覽。"};
+        "下方就是真正的商店；點肖像查看資料，點金幣價格直接購買\n有出戰空位時自動上陣，否則留在候補；這裡的操作會使用本局金幣",
+        "單擊查看、雙擊移動；點候補列箭頭開啟單擊模式後，點棋子即可移動\n出戰或候補已滿時無法移入；先騰出目的地空位，再移動棋子",
+        "刷新圖示旁的 $ 是花費；手機點兩下確認刷新；鎖頭亮起時，下一關保留這批棋子\n可以直接操作下方的真實按鈕，也可以按下一步繼續",
+        "下方「包」是裝備行囊，「存／讀」是存讀檔；手機長按圖示查看說明，放開不執行\n右側「進入戰鬥」開始出戰；候補列的問號可重新開啟導覽"};
     text(titles[guideStep_], popup.x + 24, popup.y + 18, 24, gold);
     text(std::format("{} / 4", guideStep_ + 1), popup.x + popup.w - 118, popup.y + 22, 18, muted);
     iconButton("guide-dismiss", {popup.x + popup.w - 52, popup.y + 10, 40, 40}, Icon::Close, "",

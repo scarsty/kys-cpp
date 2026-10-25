@@ -439,9 +439,9 @@ void TitleScene::dealEvent(EngineEvent& e)
         // Difficulty selection before entering the game
         ScopedTitleArtHide hideTitleArt(hide_title_art_for_external_save_);
         auto diffMenu = std::make_shared<KysChess::ChessSelectionScreen>("選擇難度", std::vector<KysChess::ChessSelectionItem>{
-            {.title = "簡單", .subtitle = "初入江湖", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Book), .accent = KysChess::ChessUiStyle::positive, .summary = "固定棋池，熟悉招募與羈絆。"},
-            {.title = "標準", .subtitle = "行走江湖", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Formation), .summary = "透過禁棋調整棋池，打造自己的陣容。"},
-            {.title = "困難", .subtitle = "問鼎武林", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Mountain), .accent = KysChess::ChessUiStyle::negative, .summary = "更長的征途，更緊湊的金幣預算。"},
+            {.title = "簡單", .subtitle = "初入江湖", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Book), .accent = KysChess::ChessUiStyle::positive, .summary = "固定棋池，熟悉招募與羈絆"},
+            {.title = "標準", .subtitle = "行走江湖", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Formation), .summary = "透過禁棋調整棋池，打造自己的陣容"},
+            {.title = "困難", .subtitle = "問鼎武林", .image = KysChess::chessSelectionIcon(KysChess::ChessUiStyle::Icon::Mountain), .accent = KysChess::ChessUiStyle::negative, .summary = "更長的征途，更緊湊的金幣預算"},
         });
         diffMenu->setActionLabel("下一步");
         diffMenu->setShortChoiceMode();

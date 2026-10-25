@@ -33,7 +33,7 @@ struct SideAttacks final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招時追加{}道側翼攻擊，每道{}%傷害，展開{}度。側翼可觸發此來源的命中效果，不觸發其他追加攻擊。",
+                "出招時追加{}道側翼攻擊，每道{}%傷害，展開{}度；側翼可觸發此來源的命中效果，不觸發其他追加攻擊",
                 側翼數,
                 傷害百分比,
                 展開角度);
@@ -71,7 +71,7 @@ struct PiercingFan final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "改為{}道貫穿攻擊，每道{}%傷害，展開{}度；每名敵人最多命中一次。可觸發此來源的命中效果。",
+                "改為{}道貫穿攻擊，每道{}%傷害，展開{}度；每名敵人最多命中一次；可觸發此來源的命中效果",
                 彈道數,
                 傷害百分比,
                 展開角度);
@@ -107,7 +107,7 @@ struct CopyLivingAttack final : GameplayEffectDefinition
         {
             return std::format(
                 "施放絕招時，隨機複製其他存活角色的{}"
-                "個絕招攻擊。只複製攻擊本身，不複製其絕招效果；排除複製來源，避免遞迴複製。",
+                "個絕招攻擊；只複製攻擊本身，不複製其絕招效果；排除複製來源，避免遞迴複製",
                 來源數);
         }
         return std::format("絕招：追加隨機其他存活角色的{}個絕招攻擊，不含絕招效果", 來源數);
@@ -124,7 +124,7 @@ struct RangedAttack final : GameplayEffectDefinition
         return {EffectRule{.event = EffectEvent::CastPlanned,
                            .actions = {EffectAction{.value = ModifyCastAction{.rangeMode = CastRangeMode::Ranged}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override { return "武功改為遠程攻擊。";
+    std::string describe(EffectDescriptionStyle style) const override { return "武功改為遠程攻擊";
     }
 };
 
@@ -141,7 +141,7 @@ struct MeleeNormalAttack final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle) const override
     {
-        return "普通攻擊改為近戰，絕招保留原有攻擊方式。";
+        return "普通攻擊改為近戰，絕招保留原有攻擊方式";
     }
 };
 
@@ -164,7 +164,7 @@ struct HitIgnoreDefence final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("技能命中：忽略{}%防禦", 忽略防禦百分比);
-        return std::format("技能命中忽略目標{}%防禦。", 忽略防禦百分比);
+        return std::format("技能命中忽略目標{}%防禦", 忽略防禦百分比);
     }
 };
 
@@ -186,7 +186,7 @@ struct HitFlatSkillDamage final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("技能命中：固定傷害+{}點", 傷害點數);
-        return std::format("技能命中在計算防禦前附加{}點傷害。", 傷害點數);
+        return std::format("技能命中在計算防禦前附加{}點傷害", 傷害點數);
     }
 };
 
@@ -212,7 +212,7 @@ struct MissingHealthPureDamage final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：純粹加傷=攻×失血比例×{}%", 攻擊轉換百分比);
-        return std::format("命中追加純粹傷害，等於攻擊×已損生命比例×{}%。", 攻擊轉換百分比);
+        return std::format("命中追加純粹傷害，等於攻擊×已損生命比例×{}%", 攻擊轉換百分比);
     }
 };
 
@@ -244,7 +244,7 @@ struct ReceivedDamageCharge final : GameplayEffectDefinition
         {
             return std::format(
                 "記錄受到的最大單次技能生命傷害，下次出招命中時追加記錄值{}%"
-                "的純粹傷害。出招時取走記錄，此次出招首次命中後消耗；護盾吸收的傷害不計入。各來源獨立記錄。",
+                "的純粹傷害；出招時取走記錄，此次出招首次命中後消耗；護盾吸收的傷害不計入；各來源獨立記錄",
                 傷害轉換百分比);
         }
         return std::format("下次出招命中：追加最大單次技能承受血傷{}%純粹傷害", 傷害轉換百分比);
@@ -279,7 +279,7 @@ struct ChanceExecuteWounded final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "命中生命不高於{}%的敵人時，有{}%機率造成其最大生命{}%的處決傷害。同一次出招對每名敵人只判定一次。",
+                "命中生命不高於{}%的敵人時，有{}%機率造成其最大生命{}%的處決傷害；同一次出招對每名敵人只判定一次",
                 生命門檻百分比,
                 機率百分比,
                 處決生命百分比);
@@ -316,7 +316,7 @@ struct TargetSquarePureDamage final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("出招對目標周圍邊長{}格的方形區域造成每星{}純粹傷害。同次出招對每名目標最多生效一次。",
+            return std::format("出招對目標周圍邊長{}格的方形區域造成每星{}純粹傷害；同次出招對每名目標最多生效一次",
                                方形邊長,
                                每星傷害);
         }
@@ -343,7 +343,7 @@ struct ClearEnemyProjectiles final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("攻擊貫穿敵人，沿途清除敵方彈道，清除半徑為命中半徑的{}%。可以清除敵方絕招彈道。",
+            return std::format("攻擊貫穿敵人，沿途清除敵方彈道，清除半徑為命中半徑的{}%；可以清除敵方絕招彈道",
                                清除半徑百分比);
         }
         return std::format("攻擊貫穿、清除敵方彈道，清除半徑=命中半徑{}%", 清除半徑百分比);
@@ -380,7 +380,7 @@ struct DelayedSameTargetAttacks final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招後每隔{}幀向相同落點追加攻擊，共{}次，每次{}%傷害。追加攻擊可觸發此來源的命中效果。",
+                "出招後每隔{}幀向相同落點追加攻擊，共{}次，每次{}%傷害；追加攻擊可觸發此來源的命中效果",
                 間隔幀數,
                 追加次數,
                 傷害百分比);
@@ -413,7 +413,7 @@ struct AttackOrdinalStun final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("第{}道攻擊命中使目標眩暈{}幀。再次眩暈保留較長時間。", 第幾道攻擊, 持續幀數);
+            return std::format("第{}道攻擊命中使目標眩暈{}幀；再次眩暈保留較長時間", 第幾道攻擊, 持續幀數);
         }
         return std::format("第{}道命中：眩暈{}幀", 第幾道攻擊, 持續幀數);
     }
@@ -458,7 +458,7 @@ struct MatchingAllyFollowup final : GameplayEffectDefinition
         {
             return std::format(
                 "出招時，若有存活友軍使用相同武功，由該友軍追加{}%傷害攻擊；否則自身追加{}%"
-                "傷害攻擊。自身替代攻擊不觸發絕招效果。",
+                "傷害攻擊；自身替代攻擊不觸發絕招效果",
                 友軍傷害百分比,
                 自身傷害百分比);
         }
@@ -488,7 +488,7 @@ struct HitKnockback final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：擊退{}格", 距離格數);
 
-        return std::format("命中：擊退{}格，遇障礙停止。", 距離格數);
+        return std::format("命中：擊退{}格，遇障礙停止", 距離格數);
     }
 };
 
@@ -509,7 +509,7 @@ struct FixedCastMpCost final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：耗{}內", 消耗內力);
-        return std::format("出招消耗{}內力。", 消耗內力);
+        return std::format("出招消耗{}內力", 消耗內力);
     }
 };
 
@@ -539,7 +539,7 @@ struct FarthestPureTracking final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("出招向最遠敵人追加追蹤攻擊，造成每星{}純粹傷害。追加攻擊不觸發絕招效果。", 每星傷害);
+            return std::format("出招向最遠敵人追加追蹤攻擊，造成每星{}純粹傷害；追加攻擊不觸發絕招效果", 每星傷害);
         }
         return std::format("出招：追擊最遠敵人，每星{}純粹傷害", 每星傷害);
     }
@@ -580,7 +580,7 @@ struct HitPullStunGroup final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("命中時牽引{}格內最多{}名敵人{}格，並眩暈{}幀。包含原命中目標；牽引遇障礙停止。",
+            return std::format("命中時牽引{}格內最多{}名敵人{}格，並眩暈{}幀；包含原命中目標；牽引遇障礙停止",
                                半徑格數,
                                敵人數,
                                牽引格數,
@@ -628,8 +628,8 @@ struct BorrowEnemyEffects final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return "施放絕招時，依星級隨機借用1至2名敵人的絕招效果。每兩星增加一個來源，向上取整，最低1、最多2；不借用"
-                   "會造成遞迴複製或借用的效果。";
+            return "施放絕招時，依星級隨機借用1至2名敵人的絕招效果；每兩星增加一個來源，向上取整，最低1、最多2；不借用"
+                   "會造成遞迴複製或借用的效果";
         }
         return "絕招：本次出招依星級隨機借用1至2名敵人的絕招效果";
     }
@@ -656,7 +656,7 @@ struct ChanceRepeatCast final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("出招後有{}%機率免費追加相同出招。追加出招不再次觸發絕招效果。", 機率百分比);
+            return std::format("出招後有{}%機率免費追加相同出招；追加出招不再次觸發絕招效果", 機率百分比);
         }
         return std::format("出招：{}%機率免費再出招一次", 機率百分比);
     }
@@ -688,7 +688,7 @@ struct DelayedAlternateFollowup final : GameplayEffectDefinition
         {
             return std::format(
                 "出招{}幀後以{}%傷害追擊附近其他敵人；追擊時有{}%"
-                "機率獲得一次傷害抵擋。附近沒有其他敵人時追擊原目標，抵擋最多保留一次。",
+                "機率獲得一次傷害抵擋；附近沒有其他敵人時追擊原目標，抵擋最多保留一次",
                 延遲幀數,
                 傷害百分比,
                 抵擋機率百分比);
@@ -726,7 +726,7 @@ struct ChanceHitKnockback final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("命中有{}%機率將敵人擊退一段距離，並限制其移動{}幀。", 機率百分比, 鎖定幀數);
+            return std::format("命中有{}%機率將敵人擊退一段距離，並限制其移動{}幀", 機率百分比, 鎖定幀數);
         }
         return std::format("命中：{}%機率擊退敵人，移動受限{}幀", 機率百分比, 鎖定幀數);
     }
@@ -755,7 +755,7 @@ struct EveryNthHitDamage final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("每{}次命中，該次技能傷害為{}%。在計算防禦後生效。", 命中次數, 傷害百分比);
+            return std::format("每{}次命中，該次技能傷害為{}%；在計算防禦後生效", 命中次數, 傷害百分比);
         }
         return std::format("每{}次命中：該次技能傷害{}%", 命中次數, 傷害百分比);
     }
@@ -783,7 +783,7 @@ struct PoisonedTargetDamage final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("對中毒敵人造成傷害{:+}%。在最終傷害階段生效。", 百分比);
+            return std::format("對中毒敵人造成傷害{:+}%；在最終傷害階段生效", 百分比);
         }
         return std::format("對中毒敵人傷害{:+}%", 百分比);
     }
@@ -806,7 +806,7 @@ struct FlatDamageBonus final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("固定傷害{:+}點", 點數);
-        return std::format("造成傷害{:+}點，在計算防禦前生效。", 點數);
+        return std::format("造成傷害{:+}點，在計算防禦前生效", 點數);
     }
 };
 
@@ -838,7 +838,7 @@ struct ChanceExecuteAfterDamage final : GameplayEffectDefinition
             return std::format("命中：{}%機率處決傷後血量<{}%目標", 機率百分比, 生命門檻百分比);
 
         return std::format(
-            "命中有{}%機率在普通傷害結算後，處決生命低於最大生命{}%的目標。", 機率百分比, 生命門檻百分比);
+            "命中有{}%機率在普通傷害結算後，處決生命低於最大生命{}%的目標", 機率百分比, 生命門檻百分比);
     }
 };
 
@@ -870,7 +870,7 @@ struct ChanceCastEnemyHealthDamage final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招有{}%機率對所有敵人造成其當前生命{}%傷害，最低1點。此傷害不受一般傷害加減影響，也不觸發受傷無敵。",
+                "出招有{}%機率對所有敵人造成其當前生命{}%傷害，最低1點；此傷害不受一般傷害加減影響，也不觸發受傷無敵",
                 機率百分比,
                 生命百分比);
         }
@@ -893,7 +893,7 @@ struct SlidingAttack final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return "使用近戰武功時，可滑步接近近戰範圍外、滑步範圍內的敵人，沿途攻擊並追加一次武功攻擊。";
+            return "使用近戰武功時，可滑步接近近戰範圍外、滑步範圍內的敵人，沿途攻擊並追加一次武功攻擊";
         }
         return "近戰滑步：沿途攻擊，再追加1次武功";
     }
@@ -919,7 +919,7 @@ struct MissingHealthAttackDamage final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("技能傷害增加攻擊×已損生命比例×{}%點。在計算防禦前生效。", 攻擊百分比);
+            return std::format("技能傷害增加攻擊×已損生命比例×{}%點；在計算防禦前生效", 攻擊百分比);
         }
         return std::format("技能加傷=攻×失血比×{}%", 攻擊百分比);
     }
@@ -956,8 +956,8 @@ struct ChanceSpiralBleedAttack final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "出招有{}%機率追加{}道擴張螺旋攻擊，持續幀數為{}+星級×{}，命中施加{}層流血。流血每層每10幀造成目標最大生命1%"
-                "傷害，每次最低1點。",
+                "出招有{}%機率追加{}道擴張螺旋攻擊，持續幀數為{}+星級×{}，命中施加{}層流血；流血每層每10幀造成目標最大生命1%"
+                "傷害，每次最低1點",
                 機率百分比,
                 彈道數,
                 基礎幀數,
@@ -994,7 +994,7 @@ struct FastRangedAttack final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("武功改為遠程攻擊，彈道速度為{}%，最小選擇距離為{}格。", 彈速百分比, 最小射程格數);
+            return std::format("武功改為遠程攻擊，彈道速度為{}%，最小選擇距離為{}格", 彈速百分比, 最小射程格數);
         }
         return std::format("改為遠程：彈速{}%，最小射程{}格", 彈速百分比, 最小射程格數);
     }
@@ -1024,7 +1024,7 @@ struct ChanceHitTrackingAttack final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("命中時有{}%機率對附近敵人追加追蹤攻擊，造成{}%傷害。", 機率百分比, 傷害百分比);
+            return std::format("命中時有{}%機率對附近敵人追加追蹤攻擊，造成{}%傷害", 機率百分比, 傷害百分比);
         }
         return std::format("命中：{}%機率追擊附近敵人，{}%傷害", 機率百分比, 傷害百分比);
     }
@@ -1045,8 +1045,8 @@ struct BlinkAttack final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return "出招時瞬移至敵人附近攻擊，交替選擇隨機敵人與較脆弱的非無敵敵人。脆弱程度由最大生命與防禦判定。敵人"
-                   "附近須有可站立的空位。";
+            return "出招時瞬移至敵人附近攻擊，交替選擇隨機敵人與較脆弱的非無敵敵人；脆弱程度由最大生命與防禦判定；敵人"
+                   "附近須有可站立的空位";
         }
         return "出招：瞬移攻擊，隨機、脆弱敵人交替";
     }
@@ -1068,18 +1068,16 @@ struct CastClones final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：{}個分身", 分身數);
-        return std::format("出招生成{}個分身。", 分身數);
+        return std::format("出招生成{}個分身", 分身數);
     }
 };
 
 struct MpRatioDamage final : GameplayEffectDefinition
 {
-    int 基礎傷害百分比{};
     int 滿內增傷百分比{};
     static constexpr std::string_view Name = "內力比例技能增傷";
-    static constexpr auto Parameters = std::array<Parameter<MpRatioDamage>, 2>{
-        {Parameter<MpRatioDamage>{{"基礎傷害百分比", 0, 1000000}, &MpRatioDamage::基礎傷害百分比},
-         Parameter<MpRatioDamage>{{"滿內增傷百分比", 0, 1000000}, &MpRatioDamage::滿內增傷百分比}}};
+    static constexpr auto Parameters = std::array<Parameter<MpRatioDamage>, 1>{
+        {Parameter<MpRatioDamage>{{"滿內增傷百分比", 0, 1000000}, &MpRatioDamage::滿內增傷百分比}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -1087,22 +1085,13 @@ struct MpRatioDamage final : GameplayEffectDefinition
             .event = EffectEvent::HitBeforeDamage,
             .actions = {EffectAction{
                 .value = ModifyDamageAction{.amount = EffectNumber{.base = EffectNumberBase::SourceCurrentMpRatio,
-                                                                   .flat = 基礎傷害百分比,
+                                                                   .flat = 100,
                                                                    .percent = 滿內增傷百分比 * 100},
                                             .operation = DamageModifierOperation::Multiply}}}}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("技能傷害{}%至{}%（隨內力比例提高）", 基礎傷害百分比, 基礎傷害百分比 + 滿內增傷百分比);
-
-        auto text = std::format(
-            "技能傷害為{}%至{}%，當前內力比例越高，傷害越高。", 基礎傷害百分比, 基礎傷害百分比 + 滿內增傷百分比);
-        if (style == EffectDescriptionStyle::Full)
-        {
-            text += std::format("內力加成為當前內力比例×{}個百分點，向零取整。在計算防禦前生效。", 滿內增傷百分比);
-        }
-        return text;
+        return std::format("技能傷害隨內力比例提高，最多+{}%", 滿內增傷百分比);
     }
 };
 
@@ -1130,7 +1119,7 @@ struct BouncingAttacks final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：{}%機率彈射至附近另一名敵人，追加至多{}次", 機率百分比, 追加命中次數);
-        return std::format("攻擊命中時有{}%機率彈射至附近另一名敵人，最多追加命中{}次。", 機率百分比, 追加命中次數);
+        return std::format("攻擊命中時有{}%機率彈射至附近另一名敵人，最多追加命中{}次", 機率百分比, 追加命中次數);
     }
 };
 
@@ -1151,7 +1140,7 @@ struct AdditionalUltimateProjectiles final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("絕招：追加{}道彈道", 彈道數);
-        return std::format("絕招追加{}道彈道。", 彈道數);
+        return std::format("絕招追加{}道彈道", 彈道數);
     }
 };
 
@@ -1189,7 +1178,7 @@ struct DeathExplosionTracking final : GameplayEffectDefinition
         {
             return std::format(
                 "死亡時對{}格內最多{}名敵人發射追蹤攻擊，造成自身最大生命{}%的物理傷害並眩暈{}"
-                "幀。包含仍存活的攻擊者；最低1傷害，不受一般傷害加減影響，也不觸發受傷無敵。",
+                "幀；包含仍存活的攻擊者；最低1傷害，不受一般傷害加減影響，也不觸發受傷無敵",
                 範圍格數,
                 目標數,
                 生命傷害百分比,
@@ -1232,7 +1221,7 @@ struct FiveWheelVolley final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle) const override
     {
-        return std::format("每{}次出招：向至多{}名敵人各發一輪，造成{}%攻擊傷害；每敵至多一輪，不觸發其他攻擊效果。",
+        return std::format("每{}次出招：向至多{}名敵人各發一輪，造成{}%攻擊傷害；每敵至多一輪，不觸發其他攻擊效果",
             出招次數, 目標數, 傷害百分比);
     }
 };

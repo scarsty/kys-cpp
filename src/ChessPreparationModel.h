@@ -19,14 +19,14 @@ inline std::string chessLateBloomerSelectionDescription(const ChessGameContent& 
     const auto* role = content.role(piece.roleId);
     assert(role);
     std::string text = std::format(
-        "選定這枚{}作為本局唯一培養對象，選定後不可更換。\n"
-        "目前{}星、{}勝；達到三星與{}勝後自動突破四星，沿用一般升星加成。\n"
-        "勝場包含已有勝場、出戰的主線勝利及遠征首次通關；合成取最高勝場並保留培養資格。\n"
-        "第二枚同名棋子不會獲得資格；出售不退還選擇機會。",
+        "選定這枚{}作為本局唯一培養對象，選定後不可更換\n"
+        "目前{}星、{}勝；達到三星與{}勝後自動突破四星，沿用一般升星加成\n"
+        "勝場包含已有勝場、出戰的主線勝利及遠征首次通關；合成取最高勝場並保留培養資格\n"
+        "第二枚同名棋子不會獲得資格；出售不退還選擇機會",
         role->Name, piece.star, piece.fightsWon, talent.evolutionWins);
     const int shield = talent.evolutionStatusShields.at(role->Cost - 1);
     if (shield > 0)
-        text += std::format("\n突破後每次開戰獲得{}幀狀態護盾，可抵銷負面狀態的持續時間。", shield);
+        text += std::format("\n突破後每次開戰獲得{}幀狀態護盾，可抵銷負面狀態的持續時間", shield);
     return text;
 }
 

@@ -72,7 +72,7 @@ struct CastCleanse final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return Team ? "出招：全隊解控、解除僵直" : "出招：清除負面";
 
-        return Team ? "出招解除全隊控制與當前僵直，保留當前位置與動作。" : "出招清除自身所有負面效果。";
+        return Team ? "出招解除全隊控制與當前僵直，保留當前位置與動作" : "出招清除自身所有負面效果";
     }
 };
 
@@ -115,7 +115,7 @@ struct CastRestoreAndHeal final : GameplayEffectDefinition
         {
             return std::format(
                 "出招時，自身與內力最低的{}名友軍回復{}內力；回復後滿內力者再回復每星{}"
-                "生命。不包含自身在友軍名額內，先回內再判斷是否滿內。",
+                "生命；不包含自身在友軍名額內，先回內再判斷是否滿內",
                 友軍數,
                 回復內力,
                 每星治療);
@@ -164,7 +164,7 @@ struct CastStackPureDamage final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：疊{}層，上限{}層；每層命中+{}純粹傷害", 每次層數, 層數上限, 每層純粹傷害);
 
-        return std::format("出招疊{}層（上限{}）；每層命中+{}純粹傷害。此來源獨立累積層數。",
+        return std::format("出招疊{}層（上限{}）；每層命中+{}純粹傷害；此來源獨立累積層數",
             每次層數, 層數上限, 每層純粹傷害);
     }
 };
@@ -189,7 +189,7 @@ struct CastTeamMp final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：全隊回{}內", 回復內力);
-        return std::format("出招時全隊回復{}內力。", 回復內力);
+        return std::format("出招時全隊回復{}內力", 回復內力);
     }
 };
 
@@ -216,7 +216,7 @@ struct TransferEnemyMp final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("出招時，從內力最高的敵人轉移{}內力給內力最低的友軍。", 轉移內力);
+            return std::format("出招時，從內力最高的敵人轉移{}內力給內力最低的友軍", 轉移內力);
         }
         return std::format("出招：轉移{}內力，敵方最高→友方最低", 轉移內力);
     }
@@ -251,7 +251,7 @@ struct HealAndCleanseLowest final : GameplayEffectDefinition
     {
         return std::format("出招：血比最低{}名友軍，回血{}，清除{}個負面{}", 友軍數,
             recoveryDescription(固定治療, 每星治療, 生命治療百分比), 淨化數,
-            style == EffectDescriptionStyle::Full ? "；優先清除剩餘時間最長的負面效果。" : "");
+            style == EffectDescriptionStyle::Full ? "；優先清除剩餘時間最長的負面效果" : "");
     }
 };
 
@@ -279,7 +279,7 @@ struct CastDamageShield final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "一次出招結束時，將此次造成的最大單次技能生命傷害的{}%轉為護盾。各次出招分別記錄，結算後清空。",
+                "一次出招結束時，將此次造成的最大單次技能生命傷害的{}%轉為護盾；各次出招分別記錄，結算後清空",
                 護盾轉換百分比);
         }
         return std::format("出招結束：本次最大單次技能血傷{}%轉護盾", 護盾轉換百分比);
@@ -311,7 +311,7 @@ struct HealRemovePoisonBleed final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-            "出招時，生命比例最低的{}名友軍回復最大生命的{}%，並移除中毒與流血。", 友軍數, 生命治療百分比);
+            "出招時，生命比例最低的{}名友軍回復最大生命的{}%，並移除中毒與流血", 友軍數, 生命治療百分比);
         }
         return std::format(
             "出招：血比最低{}名友軍回血上限{}%，解毒、止血", 友軍數, 生命治療百分比);
@@ -341,7 +341,7 @@ struct ReceivedDamageShield final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Full)
         {
             return std::format(
-                "記錄受到的最大單次技能生命傷害，下次出招時將記錄值的{}%轉為護盾。結算後清空，護盾吸收的傷害不計入。",
+                "記錄受到的最大單次技能生命傷害，下次出招時將記錄值的{}%轉為護盾；結算後清空，護盾吸收的傷害不計入",
                 護盾轉換百分比);
         }
         return std::format("下次出招：最大單次技能承受血傷{}%轉護盾", 護盾轉換百分比);
@@ -368,7 +368,7 @@ struct SkillLifeSteal final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("造成技能傷害後，回復實際生命傷害的{}%。護盾吸收部分不計入治療量。", 吸血百分比);
+            return std::format("造成技能傷害後，回復實際生命傷害的{}%；護盾吸收部分不計入治療量", 吸血百分比);
         }
         return std::format("技能吸血{}%", 吸血百分比);
     }
@@ -395,7 +395,7 @@ struct HitMpRecovery final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：回{}內", 內力);
-        return std::format("有效命中後回復{}內力。", 內力);
+        return std::format("有效命中後回復{}內力", 內力);
     }
 };
 
@@ -421,7 +421,7 @@ struct PeriodicHealthRecovery final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("每{}幀：回血上限{}%", 間隔幀數, 生命百分比);
-        return std::format("每{}幀回復最大生命的{}%。", 間隔幀數, 生命百分比);
+        return std::format("每{}幀回復最大生命的{}%", 間隔幀數, 生命百分比);
     }
 };
 
@@ -470,7 +470,7 @@ struct LowHealthEmergencyHeal final : GameplayEffectDefinition
         const auto berserk = Berserk
             ? "；" + berserkDescription(暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數) : "";
         if (style == EffectDescriptionStyle::Full)
-            return std::format("生命首次低於{}%時，回復最大生命的{}%{}。每場觸發一次。", 生命門檻百分比, 治療生命百分比, berserk);
+            return std::format("生命首次低於{}%時，回復最大生命的{}%{}；每場觸發一次", 生命門檻百分比, 治療生命百分比, berserk);
         return std::format("首次血量<{}%：回血上限{}%{}", 生命門檻百分比, 治療生命百分比, berserk);
     }
 };
@@ -496,7 +496,7 @@ struct HitStealMp final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：奪{}內", 內力);
-        return std::format("有效命中後，從目標奪取{}內力。", 內力);
+        return std::format("有效命中後，從目標奪取{}內力", 內力);
     }
 };
 
@@ -520,7 +520,7 @@ struct KillHeal final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("擊殺：回血上限{}%", 生命百分比);
-        return std::format("擊殺敵人後回復最大生命的{}%。", 生命百分比);
+        return std::format("擊殺敵人後回復最大生命的{}%", 生命百分比);
     }
 };
 
@@ -551,7 +551,7 @@ struct HealingAura final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Full)
         {
-            return std::format("每{}幀為{}格內其他友軍回復{}生命。不治療自身。", 間隔幀數, 半徑格數, 治療點數);
+            return std::format("每{}幀為{}格內其他友軍回復{}生命；不治療自身", 間隔幀數, 半徑格數, 治療點數);
         }
         return std::format("每{}幀：{}格內其他友軍回{}血", 間隔幀數, 半徑格數, 治療點數);
     }
@@ -590,7 +590,7 @@ struct CooldownAura final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("每{}幀：{}格內其他友軍當前冷卻-{}%", 間隔幀數, 半徑格數, 冷卻百分比);
 
-        return std::format("每{}幀：{}格內其他友軍當前冷卻-{}%；不影響自身。", 間隔幀數, 半徑格數, 冷卻百分比);
+        return std::format("每{}幀：{}格內其他友軍當前冷卻-{}%；不影響自身", 間隔幀數, 半徑格數, 冷卻百分比);
     }
 };
 
@@ -616,7 +616,7 @@ struct ChanceCastTeamMp final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：{}%機率全隊回{}內", 機率百分比, 內力);
-        return std::format("出招有{}%機率使全隊回復{}內力。", 機率百分比, 內力);
+        return std::format("出招有{}%機率使全隊回復{}內力", 機率百分比, 內力);
     }
 };
 
@@ -643,7 +643,7 @@ struct ChanceCastTeamShield final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：{}%機率全隊護盾≥{}", 機率百分比, 護盾點數);
-        return std::format("出招有{}%機率使全隊護盾至少為{}。", 機率百分比, 護盾點數);
+        return std::format("出招有{}%機率使全隊護盾至少為{}", 機率百分比, 護盾點數);
     }
 };
 
@@ -666,7 +666,7 @@ struct HitHeal final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：回{}血", 生命);
-        return std::format("有效命中後回復{}生命。", 生命);
+        return std::format("有效命中後回復{}生命", 生命);
     }
 };
 
@@ -696,7 +696,7 @@ struct HitAfflictedShield final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：負面敵人→護盾+血上限{}%，上限{}%，每招一次", 生命百分比, 護盾上限百分比);
-        return std::format("命中負面狀態敵人獲得最大生命{}%護盾，累積上限{}%，每招一次。", 生命百分比, 護盾上限百分比);
+        return std::format("命中負面狀態敵人獲得最大生命{}%護盾，累積上限{}%，每招一次", 生命百分比, 護盾上限百分比);
     }
 };
 
@@ -722,7 +722,7 @@ struct DeathHealMembers final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("陣亡：其他羈絆成員回血上限{}%", 生命百分比);
-        return std::format("自身死亡時，其他羈絆成員回復各自最大生命的{}%，最低1點。", 生命百分比);
+        return std::format("自身死亡時，其他羈絆成員回復各自最大生命的{}%，最低1點", 生命百分比);
     }
 };
 
@@ -744,7 +744,7 @@ struct UltimateReadyTeamHeal final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("絕招就緒：全隊回{}血", 生命);
-        return std::format("絕招冷卻完成時，全隊回復{}生命。", 生命);
+        return std::format("絕招冷卻完成時，全隊回復{}生命", 生命);
     }
 };
 
@@ -772,7 +772,7 @@ struct ChanceHitTeamHeal final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("命中：{}%機率全隊回血上限{}%", 機率百分比, 生命百分比);
-        return std::format("有效命中後，有{}%機率使全隊回復各自最大生命的{}%。", 機率百分比, 生命百分比);
+        return std::format("有效命中後，有{}%機率使全隊回復各自最大生命的{}%", 機率百分比, 生命百分比);
     }
 };
 
@@ -796,7 +796,7 @@ struct CastDrainEnemyMp final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招：全敵失{}內", 內力);
-        return std::format("出招使所有敵人失去{}內力。", 內力);
+        return std::format("出招使所有敵人失去{}內力", 內力);
     }
 };
 
@@ -819,7 +819,7 @@ struct InitialHealthShield final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("開場：護盾=血上限{}%", 生命百分比);
-        return std::format("開場獲得最大生命{}%的護盾。", 生命百分比);
+        return std::format("開場獲得最大生命{}%的護盾", 生命百分比);
     }
 };
 
@@ -847,7 +847,7 @@ struct ClearMelodyShield final : GameplayEffectDefinition
     }
     std::string describe(EffectDescriptionStyle) const override
     {
-        return std::format("每{}次出招：最低生命比例友軍獲最大生命{}%護盾，可選自身；持續至耗盡，同來源補滿不疊加。",
+        return std::format("每{}次出招：最低生命比例友軍獲最大生命{}%護盾，可選自身；持續至耗盡，同來源補滿不疊加",
             出招次數, 生命護盾百分比);
     }
 };
@@ -874,7 +874,7 @@ struct BrahmaShield final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("絕招：護盾=血上限{}%，同來源補滿不疊加", 生命護盾百分比);
-        return std::format("自主施放絕招時獲得最大生命{}%護盾，持續至耗盡；同來源補滿不疊加。", 生命護盾百分比);
+        return std::format("自主施放絕招時獲得最大生命{}%護盾，持續至耗盡；同來源補滿不疊加", 生命護盾百分比);
     }
 };
 
@@ -914,7 +914,7 @@ struct WitheringBloomMeditation final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("絕招：枯／榮交替，先枯；枯減傷{}%／{}幀，榮自身及另一最低血比友軍回血{}%", 減傷百分比, 持續幀數, 生命治療百分比);
-        return std::format("自主施放絕招時交替觸發枯與榮，首次為枯。枯：自身減傷{}%，持續{}幀；榮：自身與另一名生命比例最低的友軍各回復其最大生命{}%。", 減傷百分比, 持續幀數, 生命治療百分比);
+        return std::format("自主施放絕招時交替觸發枯與榮，首次為枯；枯：自身減傷{}%，持續{}幀；榮：自身與另一名生命比例最低的友軍各回復其最大生命{}%", 減傷百分比, 持續幀數, 生命治療百分比);
     }
 };
 
@@ -950,7 +950,7 @@ struct YangFingerSalvation final : GameplayEffectDefinition
     {
         if (style == EffectDescriptionStyle::Compact)
             return std::format("出招結束：每命中1名不同敵人，最低血比友軍回血{}%，最多{}敵，可選自身", 每名敵人治療百分比, 敵人數上限);
-        return std::format("自主出招結束時，每命中一名不同敵人，為生命比例最低的友軍回復其最大生命{}%，最多計算{}名敵人，可選自身；同一敵人不重複計數。", 每名敵人治療百分比, 敵人數上限);
+        return std::format("自主出招結束時，每命中一名不同敵人，為生命比例最低的友軍回復其最大生命{}%，最多計算{}名敵人，可選自身；同一敵人不重複計數", 每名敵人治療百分比, 敵人數上限);
     }
 };
 
@@ -975,7 +975,7 @@ struct PoisonConversion final : GameplayEffectDefinition
         if (style == EffectDescriptionStyle::Compact)
             return std::format("自身毒傷{}%轉為吸血並等量扣傷；任意{}幀共用上限為血上限{}%，受禁療減療影響",
                 毒傷轉化百分比, 治療上限窗口幀數, 治療上限生命百分比);
-        return std::format("自身毒傷{}%轉為回血並等量扣除毒傷；任意{}幀內共回復至多血上限{}%。受禁療減療影響，未轉化部分仍造成傷害。",
+        return std::format("自身毒傷{}%轉為回血並等量扣除毒傷；任意{}幀內共回復至多血上限{}%；受禁療減療影響，未轉化部分仍造成傷害",
             毒傷轉化百分比, 治療上限窗口幀數, 治療上限生命百分比);
     }
 };
