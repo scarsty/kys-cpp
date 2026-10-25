@@ -915,13 +915,9 @@ struct MissingHealthAttackDamage final : GameplayEffectDefinition
                                                           .multiplierBase = EffectNumberBase::SourceMissingHpRatio,
                                                           .percent = 攻擊百分比}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override
+    std::string describe(EffectDescriptionStyle) const override
     {
-        if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("技能傷害增加攻擊×已損生命比例×{}%點；在計算防禦前生效", 攻擊百分比);
-        }
-        return std::format("技能加傷=攻×失血比×{}%", 攻擊百分比);
+        return std::format("依失血比例增加技能傷害，最高追加攻擊的{}%", 攻擊百分比);
     }
 };
 

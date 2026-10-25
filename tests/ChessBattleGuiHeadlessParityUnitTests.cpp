@@ -7,7 +7,9 @@
 #include "ChessBattleOverviewLayout.h"
 #include "ChessCatalogQueries.h"
 #include "HeadlessBattleRunner.h"
+#include "ScenePreloader.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace KysChess;
@@ -125,6 +127,93 @@ TEST_CASE("prebattle overview fits 13 pieces per side without overlapping synerg
     }
     CHECK(Layout::details.y + Layout::details.h <= Layout::proceed.y);
     CHECK(Layout::proceed.y + Layout::proceed.h <= 720);
+}
+
+TEST_CASE("prebattle loading credits cached assets ahead of pending work and skips their loaders",
+          "[chess][battle][gui][preview][loading]")
+{
+    ScenePreloader::LoadQueue queue;
+    std::vector<int> loaded;
+    const auto load = [&](int id) {
+        return [&, id] { loaded.push_back(id); return ScenePreloader::LoadProgress{1, 1}; };
+    };
+    queue.add("cached portrait", load(1), {1, 1});
+    queue.add("missing equipment", load(2));
+    queue.add("cached synergy", load(3), {1, 1});
+    queue.add("missing animation", load(4));
+    queue.add("cached audio", load(5), {1, 1});
+
+    CHECK(loaded.empty());
+    CHECK(queue.fraction() == Catch::Approx(3.0 / 5));
+    CHECK(queue.currentLabel() == "missing equipment");
+    queue.advance();
+    CHECK(loaded == std::vector<int>{2});
+    CHECK(queue.fraction() == Catch::Approx(4.0 / 5));
+    CHECK(queue.currentLabel() == "missing animation");
+    queue.advance();
+    CHECK(loaded == std::vector<int>{2, 4});
+    CHECK(queue.complete());
+    CHECK(queue.fraction() == 1.0);
+}
+
+TEST_CASE("prebattle loading advances within partially cached animation groups",
+          "[chess][battle][gui][preview][loading]")
+{
+    ScenePreloader::LoadQueue queue;
+    std::size_t frame = 2;
+    queue.add("animation", [&] { return ScenePreloader::LoadProgress{++frame, 4}; }, {frame, 4});
+    queue.add("cached portrait", [] { FAIL("Cached portrait must not be loaded again"); return ScenePreloader::LoadProgress{}; }, {1, 1});
+
+    CHECK(queue.fraction() == Catch::Approx(0.75));
+    queue.advance();
+    CHECK_FALSE(queue.complete());
+    CHECK(queue.fraction() == Catch::Approx(0.875));
+    queue.advance();
+    CHECK(queue.complete());
+    CHECK(queue.fraction() == 1.0);
+}
+
+TEST_CASE("prebattle loading discovers uncached groups incrementally without reducing progress",
+          "[chess][battle][gui][preview][loading]")
+{
+    ScenePreloader::LoadQueue queue;
+    std::size_t calls{};
+    queue.add("cached icon", [] { return ScenePreloader::LoadProgress{1, 1}; }, {1, 1});
+    queue.add("undiscovered group", [&] { return ScenePreloader::LoadProgress{calls++, 3}; });
+    queue.add("empty group", [] { return ScenePreloader::LoadProgress{0, 0}; });
+
+    CHECK(queue.fraction() == Catch::Approx(1.0 / 3));
+    queue.advance();
+    CHECK(queue.fraction() == Catch::Approx(1.0 / 3));
+    for (int frame = 1; frame <= 3; ++frame)
+    {
+        queue.advance();
+        CHECK(queue.fraction() == Catch::Approx((1.0 + frame / 3.0) / 3));
+    }
+    CHECK(queue.currentLabel() == "empty group");
+    queue.advance();
+    CHECK(queue.complete());
+    CHECK(queue.fraction() == 1.0);
+}
+
+TEST_CASE("an entirely cached preload still waits for the ready frame before accepting input",
+          "[chess][battle][gui][preview][loading][lifecycle]")
+{
+    ScenePreloader::LoadQueue queue;
+    CHECK(queue.complete());
+    CHECK(queue.fraction() == 1.0);
+    queue.add("cached resources", [] { FAIL("Cached resources must not be loaded again"); return ScenePreloader::LoadProgress{}; }, {1, 1});
+    CHECK(queue.complete());
+
+    ChessGuiPreBattleFlow flow;
+    const auto load = [&] { return queue.complete(); };
+    CHECK_FALSE(flow.runLoadBatch(load));
+    flow.markFramePresented();
+    REQUIRE(flow.runLoadBatch(load));
+    CHECK(flow.assetsLoaded());
+    CHECK_FALSE(flow.interactive());
+    flow.markFramePresented();
+    CHECK(flow.interactive());
 }
 
 TEST_CASE("GUI battle captures completion after terminal presentation sets its result",

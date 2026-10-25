@@ -922,13 +922,10 @@ struct MissingHealthFlatReduction final : GameplayEffectDefinition
                     .perspective = DamageModifierPerspective::Incoming,
                     .amount = EffectNumber{.base = EffectNumberBase::SourceMissingHpRatio, .percent = 點數 * 100}}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override
+    std::string describe(EffectDescriptionStyle) const override
     {
         const auto magnitude = 點數 < 0 ? -點數 : 點數;
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("技能承傷{:+}點×失血比", 點數);
-        return std::format("依已損生命比例，承受技能傷害最多{}{}點；修正量為已損生命比例×{}點，向零取整；在計算防禦前生效",
-            點數 < 0 ? "減少" : "增加", magnitude, 點數);
+        return std::format("依失血比例{}技能承傷，最多{}點", 點數 < 0 ? "減少" : "增加", magnitude);
     }
 };
 
@@ -951,13 +948,10 @@ struct MissingHealthPercentReduction final : GameplayEffectDefinition
                     .amount = EffectNumber{.base = EffectNumberBase::SourceMissingHpRatio, .percent = 百分比 * 100},
                     .operation = DamageModifierOperation::PercentAdd}}}}};
     }
-    std::string describe(EffectDescriptionStyle style) const override
+    std::string describe(EffectDescriptionStyle) const override
     {
         const auto magnitude = 百分比 < 0 ? -百分比 : 百分比;
-        if (style == EffectDescriptionStyle::Compact)
-            return std::format("技能承傷{:+}%×失血比", 百分比);
-        return std::format("依已損生命比例，承受技能傷害最多{}{}%；百分比修正量為已損生命比例×{}，向零取整；在計算防禦前生效",
-            百分比 < 0 ? "減少" : "增加", magnitude, 百分比);
+        return std::format("依失血比例{}技能承傷，最多{}%", 百分比 < 0 ? "減少" : "增加", magnitude);
     }
 };
 

@@ -283,6 +283,16 @@ void Audio::playWav(WAV w, int volume, int track_num)
     }
 }
 
+bool Audio::isBattleAudioPreloaded(int music_id, const std::vector<int>& atk_ids, const std::vector<int>& eff_ids) const
+{
+    if (music_id >= 0 && !music_.contains(music_id)) return false;
+    for (const int id : atk_ids)
+        if (id >= 0 && !asound_.contains(id)) return false;
+    for (const int id : eff_ids)
+        if (id >= 0 && !esound_.contains(id)) return false;
+    return true;
+}
+
 void Audio::preloadBattleAudio(int music_id, const std::vector<int>& atk_ids, const std::vector<int>& eff_ids)
 {
     if (music_id >= 0 && music_.find(music_id) == music_.end())

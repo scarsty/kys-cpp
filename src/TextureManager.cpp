@@ -542,6 +542,19 @@ TextureWarpper* TextureManager::getTexture(const std::string& path, int num)
     return t;
 }
 
+TextureWarpper* TextureManager::findTexture(const std::string& path, int num) const
+{
+    const auto* group = findTextureGroup(path);
+    if (!group || num < 0 || num >= group->group_.size()) return nullptr;
+    return group->group_[num];
+}
+
+const TextureGroup* TextureManager::findTextureGroup(const std::string& path) const
+{
+    const auto found = map_.find(path);
+    return found != map_.end() && found->second.inited_ ? &found->second : nullptr;
+}
+
 int TextureManager::getTextureGroupCount(const std::string& path)
 {
     auto& v = getInstance()->map_[path];

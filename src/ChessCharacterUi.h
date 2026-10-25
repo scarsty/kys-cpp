@@ -68,9 +68,20 @@ inline void drawChessCharacterEntry(const ChessCharacterEntry& entry, SDL_Rect f
             : *entry.combatOperation == Battle::BattleOperationType::TrackingProjectile ? Icon::HeavyStrike : Icon::RangedStrike;
         asset("chess-preparation", iconId(symbol), {valueX, valueY + (valueSize - styleSize) / 2, styleSize, styleSize}, false, muted);
     }
-    label(value, valueSize, valueX + styleWidth, valueY, muted,
+    label(value, valueSize, valueX + styleWidth, valueY,
+        entry.imageGroup == "chess-synergies" && entry.active ? positive : muted,
         (stacked ? frame.x + frame.w - x : valueWidth) - styleWidth);
 }
+inline void drawChessCharacterSynergyIcon(const ChessCharacterEntry& entry, SDL_Rect frame)
+{
+    using namespace ChessUiStyle;
+    const int iconSize = std::min(28, frame.h - 8);
+    asset(entry.imageGroup, entry.imageId,
+        {frame.x + 2, frame.y + (frame.h - iconSize) / 2, iconSize, iconSize});
+    label(entry.value, 16, frame.x + 34, frame.y + (frame.h - 16) / 2,
+        entry.active ? positive : muted, frame.w - 34);
+}
+
 struct ChessInspectorControl
 {
     SDL_Rect frame{};
@@ -170,13 +181,23 @@ inline ChessInspectorContent composeChessCharacterInspector(const ChessCharacter
                 .equipmentSlot = pick ? std::optional(slot) : std::nullopt});
         }
         top += 58;
-        const int synergyColumns = 2;
-        for (int i = 0; i < std::min(4, static_cast<int>(character.synergies.size())); ++i)
+        const int synergyCount = static_cast<int>(character.synergies.size());
+        const bool compactSynergies = synergyCount > 4;
+        const int synergyColumns = compactSynergies ? 3 : 2;
+        const int synergyRowHeight = compactSynergies ? std::min(52, 104 / ((synergyCount + 2) / 3)) : 52;
+        for (int i = 0; i < synergyCount; ++i)
         {
             const SDL_Rect area{x + i % synergyColumns * (width + 8) / synergyColumns,
-                top + i / synergyColumns * 52, (width + 8) / synergyColumns - 8, 50};
-            entry(character.synergies[i], area, 18, true);
-            content.controls.push_back({.frame = area, .section = 3, .entry = i});
+                top + i / synergyColumns * synergyRowHeight,
+                (width + 8) / synergyColumns - 8, synergyRowHeight - 2};
+            if (compactSynergies)
+            {
+                const auto synergy = character.synergies[i];
+                content.drawings.push_back([=] { drawChessCharacterSynergyIcon(synergy, area); });
+            }
+            else entry(character.synergies[i], area, 18, true);
+            content.controls.push_back({.frame = area, .section = 3, .entry = i,
+                .tooltip = character.synergies[i].tooltip});
         }
         const int actionHeight = 44;
         const int actionY = frame.y + frame.h - actionHeight - 12;

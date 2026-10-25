@@ -484,7 +484,7 @@ TEST_CASE("character inspector uses chess attacks and limits effects to the ulti
                 CHECK_FALSE(row.text.contains("沒有額外配置"));
             }
         REQUIRE(character.synergies.size() == 1);
-        CHECK(character.synergies[0].tooltip.empty());
+        CHECK_FALSE(character.synergies[0].tooltip.empty());
         CHECK(character.synergies[0].id == content.combos().front().id);
     }
 }
@@ -555,8 +555,8 @@ TEST_CASE("enemy character inspector shares equipment and skills while using ene
         const auto metadata = std::ranges::find(analysis.enemySynergies, entry.id, &ChessComboMetadata::comboId);
         REQUIRE(metadata != analysis.enemySynergies.end());
         CHECK(entry.active);
-        CHECK(entry.value == metadata->progressCount);
-        CHECK(entry.tooltip.empty());
+        CHECK(entry.value == chessComboCountWithoutStatus(*metadata));
+        CHECK_FALSE(entry.tooltip.empty());
         CHECK(entry.imageGroup == "chess-synergies");
         CHECK(entry.imageId == (entry.id == 3 ? 13 : 14));
     }

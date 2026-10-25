@@ -581,8 +581,7 @@ void ChessSelectionScreen::drawOverviewBody(SDL_Rect frame, int fontSize)
                     const SDL_Rect area{x + 64 + n % perLine * 90, bodyY + line.y - 3 + n / perLine * 40, 88, 38};
                     controlSurface(area, {.hovered = contains(area, PointerInput::instance().logicalPointerUiPosition()),
                         .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
-                    asset(entry.imageGroup, entry.imageId, {area.x + 2, area.y + 5, 28, 28});
-                    label(entry.value, 16, area.x + 34, area.y + 10, positive, 56);
+                    drawChessCharacterSynergyIcon(entry, area);
                     control(area, [this, id = entry.id] { items_[selected_].openCombo(id); });
                     controls_.back().tooltip = entry.tooltip;
                 }

@@ -1,6 +1,7 @@
 #include "ChessReplayJson.h"
 
 #include "ChessReplayHash.h"
+#include "ChessRuntimeConstants.h"
 
 #include <glaze/json.hpp>
 
@@ -323,7 +324,9 @@ std::string chessActionPayloadSchema(ChessActionType type)
     case ChessActionType::SetShopLocked: return R"({"type":"set_shop_locked","locked":"布林值"})";
     case ChessActionType::SellChess: return R"({"type":"sell_chess","chess_instance_id":"整數"})";
     case ChessActionType::SetDeployment: return R"({"type":"set_deployment","chess_instance_ids":"整數陣列"})";
-    case ChessActionType::SetFormation: return R"({"type":"set_formation","chess_instance_ids":"十個棋子實例 ID 或 -1"})";
+    case ChessActionType::SetFormation:
+        return std::format(R"({{"type":"set_formation","chess_instance_ids":"{} 個棋子實例 ID 或 -1"}})",
+            kChessFormationSlotCount);
     case ChessActionType::ChooseLateBloomer: return R"({"type":"choose_late_bloomer","chess_instance_id":"整數"})";
     case ChessActionType::AddBan: return R"({"type":"add_ban","role_id":"整數"})";
     case ChessActionType::Equip: return R"({"type":"equip","equipment_instance_id":"整數","target_chess_instance_id":"整數"})";

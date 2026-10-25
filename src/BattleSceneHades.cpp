@@ -3343,19 +3343,24 @@ void BattleSceneHades::renderExtraRoleInfo(
             Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
 
-        const int dualWieldBlocks = [&]()
+        const bool hasDamageBlocks = [&]()
         {
             const auto* runtime = activeRuntimeSession();
             if (!runtime)
             {
-                return 0;
+                return false;
             }
-            return runtime->runtime().units.require(unit.id).damage.dualWieldBlocksRemaining;
+            const auto& record = runtime->runtime().units.require(unit.id);
+            return record.damage.dualWieldBlocksRemaining > 0
+                || std::ranges::any_of(record.status.effects.statuses, [](const auto& status)
+                {
+                    return status.kind == KysChess::BattleStatusKind::DamageBlockLayer && status.stacks > 0;
+                });
         }();
-        bool hasDamageProtection = unit.invincible > 0 || dualWieldBlocks > 0;
+        const bool hasDamageProtection = unit.invincible > 0 || hasDamageBlocks;
         if (hasDamageProtection)
         {
-            Color protectionColor = dualWieldBlocks > 0
+            Color protectionColor = hasDamageBlocks
                 ? Color{ 135, 215, 255, 255 }
                 : Color{ 255, 170, 95, 255 };
             renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, protectionColor, 220);

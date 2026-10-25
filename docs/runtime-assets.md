@@ -39,6 +39,8 @@ python tools/pack_chess_smap_zip.py
 
 生成原稿、提示、符號對照與打包腳本保存在 `tmp/asset-sources/synergy-icons/`；小尺寸預覽與驗證畫面放在 `output/synergy-icons/`。來源與正式圖片套件均不加入版本控制。整備的啟動羈絆列、羈絆清單與詳情共用此套件。
 
+密宗沿用 `13.webp`，以交叉金剛杵剪影取代原蒙古馬頭。新原稿、提示與單張替換腳本保存在專案外的 `../asset-sources/chess-synergies/`；執行 `python ../asset-sources/chess-synergies/pack-mizong.py work/game-dev/resource/chess-synergies.zip` 可按上述規格重新打包，保留其他圖示。
+
 ## 棋局戰鬥特效
 
 ### 棋子狀態圖示

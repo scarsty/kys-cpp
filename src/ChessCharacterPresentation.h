@@ -92,19 +92,21 @@ inline std::array<std::pair<std::string, int>, 10> chessCharacterStats(const Che
 inline ChessCharacterEntry chessCharacterSynergyEntry(const ComboDef& combo, const ChessComboMetadata& metadata)
 {
     ChessCharacterEntry entry{.id = combo.id, .title = combo.name,
-        .value = chessComboCountWithoutStatus(metadata) + (metadata.active ? " ✓" : ""),
+        .value = chessComboCountWithoutStatus(metadata),
         .imageGroup = "chess-synergies", .imageId = combo.iconId, .active = metadata.active};
     if (!metadata.thresholds.empty())
     {
         const auto& threshold = metadata.thresholds[metadata.active ? metadata.activeThresholdIndex : 0];
         entry.details.push_back({.text = std::format("{}點 · {} {}", threshold.requiredCount, threshold.name,
-                metadata.active ? "✓" : "未啟動"),
+                metadata.active ? "已啟動" : "未啟動"),
             .spacingAfter = 8, .tone = metadata.active ? PanelTextTone::Effect : PanelTextTone::Inactive});
         auto effects = panelTextRowsForEffectDescription(threshold.effects);
         if (!metadata.active)
             for (auto& row : effects) row.tone = PanelTextTone::Inactive;
         entry.details.insert(entry.details.end(), effects.begin(), effects.end());
     }
+    entry.tooltip = entry.title + " · " + entry.value;
+    for (const auto& row : entry.details) entry.tooltip += "\n" + row.text;
     return entry;
 }
 

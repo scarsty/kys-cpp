@@ -820,6 +820,7 @@ public:
     void recordRuntimeRuleActivation(const EffectSourceBinding& binding,
                                      EffectRuleId ruleId,
                                      int frame);
+    void resetOwnerBattleActivationCounts(int ownerUnitId);
     bool blinkAttackUsesWeakestTarget(int ownerUnitId) const;
     void advanceBlinkAttackTargetMode(int ownerUnitId);
     std::int64_t stateValue(const EffectSourceBinding& binding,

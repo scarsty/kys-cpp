@@ -415,13 +415,27 @@ void ChessPreparationScreen::roster()
     panel(team_);
     panel(bench_);
     const int deployed = static_cast<int>(std::ranges::count(observation_.roster, true, &ChessSessionPiece::deployed));
-    text(std::format("出戰 {}/{}{}", deployed, observation_.maximumDeployment,
-        observation_.deploymentOverflow > 0 ? std::format(" · 超出{}", observation_.deploymentOverflow) : ""),
-        team_.x + 12, team_.y + 14, observation_.deploymentOverflow > 0 ? 18 : 24,
-        observation_.deploymentOverflow > 0 ? negative : gold);
-    button("deployment-info", {team_.x + 8, team_.y + 4, 160, 36}, "",
-        [this] { navigate(View::Information, -1, "level"); },
-        std::format("等級名額 {} + 羈絆加成 {} = {}", observation_.baseDeployment, observation_.deploymentBonus, observation_.maximumDeployment));
+    const auto deployedLabel = std::format("出戰 {}/", deployed);
+    const auto capacityLabel = std::to_string(observation_.maximumDeployment);
+    const int capacityX = team_.x + 12 + Font::getTextDrawSize(deployedLabel) * 12;
+    const int capacityWidth = Font::getTextDrawSize(capacityLabel) * 12;
+    const Color deploymentColor = observation_.deploymentOverflow > 0 ? negative : gold;
+    const Color capacityColor = observation_.deploymentOverflow > 0 ? negative
+        : observation_.deploymentBonus > 0 ? positive : gold;
+    button("deployment-info", {capacityX - 6, team_.y + 4, std::max(36, capacityWidth + 12), 40}, "",
+        [this] { navigate(View::Information, -1, "level"); });
+    auto& capacityTooltip = controls_.back().tooltipRows;
+    capacityTooltip.push_back({.text = std::format("等級名額 {}", observation_.baseDeployment)});
+    if (observation_.deploymentBonus > 0)
+    {
+        capacityTooltip.push_back({.text = std::format("{} +{} · 出戰上限 {}",
+            observation_.deploymentBonusSources.front(), observation_.deploymentBonus, observation_.maximumDeployment),
+            .tone = PanelTextTone::Effect});
+    }
+    if (observation_.deploymentOverflow > 0)
+        capacityTooltip.push_back({.text = std::format("超出 {} 名；恢復羈絆或減少出戰人數後即可開戰", observation_.deploymentOverflow)});
+    text(deployedLabel, team_.x + 12, team_.y + 14, 24, deploymentColor);
+    text(capacityLabel, capacityX, team_.y + 14, 24, capacityColor);
     auto combos = chessPreparationCombos(session_.state(), session_.content());
     std::erase_if(combos, [](const auto& combo) { return !combo.progress.active; });
     constexpr int columns = 8;
@@ -439,6 +453,7 @@ void ChessPreparationScreen::roster()
         }
         const auto& [definition, progress] = combos[i];
         const auto& combo = *definition;
+        const bool grantsCapacity = std::ranges::contains(observation_.deploymentBonusSources, combo.name);
         const auto metadata = chessComboMetadata(session_.content(), combo, progress.physicalCount, progress.effectiveCount,
             progress.activeThresholdIndex, progress.nextThresholdIndex, progress.contributions,
             EffectDescriptionStyle::Compact, progress.requiredCounts);
@@ -452,14 +467,14 @@ void ChessPreparationScreen::roster()
             .spacingAfter = 6, .tone = PanelTextTone::Heading});
         const auto effects = panelTextRowsForEffectDescription(threshold.effects);
         tooltipRows.insert(tooltipRows.end(), effects.begin(), effects.end());
-        synergyIcon(combo.iconId, {chip.x, chip.y + 2, 36, 36}, gold);
+        synergyIcon(combo.iconId, {chip.x, chip.y + 2, 36, 36}, grantsCapacity ? positive : gold);
         const auto count = progress.isAntiCombo ? std::format("獨/{}", progress.displayTargetCount)
             : std::format("{}/{}", progress.effectiveCount, progress.displayTargetCount);
         const int countSize = std::min(22, (chip.w - 38) * 2 / Font::getTextDrawSize(count));
-        text(count, chip.x + 38, chip.y + (chip.h - countSize) / 2, countSize, ink);
+        text(count, chip.x + 38, chip.y + (chip.h - countSize) / 2, countSize, grantsCapacity ? positive : ink);
     }
     iconButton("all-combos", {team_.x + 8, team_.y + 44, 150, 40}, Icon::Link,
-        observation_.deploymentBonus > 0 ? observation_.deploymentBonusSources.front() + " +1 ›" : std::format("啟動 {} ›", combos.size()),
+        std::format("啟動 {} ›", combos.size()),
         [this] { showChessComboOverview(session_.content(), session_.state()); rebuild(); }, "查看全部羈絆與門檻，包含尚未啟動的羈絆");
     if (combos.empty()) text("尚無羈絆啟動", team_.x + 186, team_.y + 18, 18, muted);
     const int gap = 8;
@@ -477,18 +492,6 @@ void ChessPreparationScreen::roster()
         const int id = visibleFormation[slot];
         if (id >= 0) pieceCard(session_.state().roster.at(id), frame, false);
         else drawings_.push_back([frame] { fill(frame, {12, 11, 10, 32}, 4); });
-    }
-    if (slots < kChessFormationSlotCount)
-    {
-        PanelFrame frame{team_.x + 12 + (slots % cardColumns) * (width + gap), top + (slots / cardColumns) * (height + gap), width, height};
-        // 五人時下一格放在標題內，避免製造空的第二排。
-        if (slots == 5 || slots == 10) frame = {team_.x + 126, team_.y + 4, 40, 40};
-        const bool canLevel = observation_.level < session_.content().balance().maxLevel;
-        iconButton("next-slot", frame, Icon::Lock, "",
-            [this, canLevel] {
-                if (canLevel) navigate(View::Information, -1, "level");
-                else { showChessComboOverview(session_.content(), session_.state()); rebuild(); }
-            }, canLevel ? "查看升級與出戰名額" : "啟動智將五人門檻可增加一名出戰名額");
     }
     const auto& bench = rosterOrder_.bench;
     const int pages = std::max(1, (static_cast<int>(bench.size()) + 9) / 10);

@@ -107,6 +107,9 @@ public:
     void renderTexture(const std::string& path, int num, int x, int y, const RenderInfo& info = {}, int w = -1, int h = -1);
 
     TextureWarpper* getTexture(const std::string& path, int num);
+    // 僅查閱快取，不初始化群組或載入貼圖。
+    TextureWarpper* findTexture(const std::string& path, int num) const;
+    const TextureGroup* findTextureGroup(const std::string& path) const;
     int getTextureGroupCount(const std::string& path);
     TextureGroup* getTextureGroup(const std::string& path);
     void setLoadFromPath(int l) { load_from_path_ = l; }

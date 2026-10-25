@@ -2607,6 +2607,21 @@ void BattleEffectRuleStore::recordRuntimeRuleActivation(
     }
 }
 
+void BattleEffectRuleStore::resetOwnerBattleActivationCounts(int ownerUnitId)
+{
+    assert(ownerUnitId >= 0);
+    for (auto& bound : rules_)
+    {
+        if (bound.binding.ownerUnitId == ownerUnitId
+            && !bound.castScope
+            && bound.rule().event != EffectEvent::BattleInitialized
+            && bound.rule().maxActivations > 0)
+        {
+            bound.runtime.activationCount = {};
+        }
+    }
+}
+
 bool BattleEffectRuleStore::blinkAttackUsesWeakestTarget(int ownerUnitId) const
 {
     assert(ownerUnitId >= 0);

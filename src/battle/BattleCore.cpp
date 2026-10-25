@@ -415,6 +415,8 @@ void advanceFeignedDeaths(BattleRuntimeState& state, BattleFrameContext& frame, 
         unit.animation = {};
         unit.animation.actType = -1;
         record.clearFrozen();
+        // 僅重設效果規則次數；賭運與假死本身的每戰使用狀態保留。
+        state.effectRules.resetOwnerBattleActivationCounts(unit.id);
 
         auto log = CoreDetail::makeEffectLogEvent(state, recovery.binding, unit.id, frameNumber);
         log.statusId = BattleStatusSemanticId::Revived;
@@ -780,7 +782,7 @@ void updateFrameBattleResultAfterDamage(BattleRuntimeState& state, BattleFrameCo
     std::optional<int> aliveTeam;
     for (const auto& record : state.units.all())
     {
-        if (!record.core.alive && record.core.feignedDeathFrames == 0) continue;
+        if (!record.core.alive) continue;
         if (aliveTeam && *aliveTeam != record.core.team)
         {
             return;

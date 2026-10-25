@@ -224,27 +224,26 @@ TEST_CASE("Ratio descriptions reflect the actual integer combat result", "[chess
     struct Sample
     {
         std::string_view yaml;
-        std::string_view compactFragment;
-        std::string_view fullFragment;
+        std::string_view descriptionFragment;
         int emptyResult{};
         int halfResult{};
         int fullResult{};
     };
     const Sample samples[]{
-        {"[{類型: 失血固定承傷修正, 點數: -20}]", "-20點×失血比", "×-20點", 0, -10, -20},
-        {"[{類型: 失血百分比承傷修正, 百分比: -14}]", "-14%×失血比", "×-14", 0, -7, -14},
-        {"[{類型: 失血百分比承傷修正, 百分比: -28}]", "-28%×失血比", "×-28", 0, -14, -28},
+        {"[{類型: 失血固定承傷修正, 點數: -20}]", "依失血比例減少技能承傷，最多20點", 0, -10, -20},
+        {"[{類型: 失血百分比承傷修正, 百分比: -14}]", "依失血比例減少技能承傷，最多14%", 0, -7, -14},
+        {"[{類型: 失血百分比承傷修正, 百分比: -28}]", "依失血比例減少技能承傷，最多28%", 0, -14, -28},
         {"[{類型: 內力比例技能增傷, 滿內增傷百分比: 35}]",
-            "技能傷害隨內力比例提高，最多+35%", "技能傷害隨內力比例提高，最多+35%", 100, 117, 135},
-        {"[{類型: 失血固定承傷修正, 點數: 1}]", "+1點×失血比", "×1點", 0, 0, 1},
-        {"[{類型: 失血百分比承傷修正, 百分比: 3}]", "+3%×失血比", "×3", 0, 1, 3},
+            "技能傷害隨內力比例提高，最多+35%", 100, 117, 135},
+        {"[{類型: 失血固定承傷修正, 點數: 1}]", "依失血比例增加技能承傷，最多1點", 0, 0, 1},
+        {"[{類型: 失血百分比承傷修正, 百分比: 3}]", "依失血比例增加技能承傷，最多3%", 0, 1, 3},
     };
     for (const auto& sample : samples)
     {
         INFO(sample.yaml);
         const auto effect = configured(sample.yaml).front();
-        CHECK(effect->describe(EffectDescriptionStyle::Compact).find(sample.compactFragment) != std::string::npos);
-        CHECK(effect->describe(EffectDescriptionStyle::Full).find(sample.fullFragment) != std::string::npos);
+        CHECK(effect->describe(EffectDescriptionStyle::Compact).find(sample.descriptionFragment) != std::string::npos);
+        CHECK(effect->describe(EffectDescriptionStyle::Full).find(sample.descriptionFragment) != std::string::npos);
         const auto rules = effect->buildRules();
         const auto& amount = std::get<ModifyDamageAction>(rules.front().actions.front().value).amount;
         owner.hp = 100;

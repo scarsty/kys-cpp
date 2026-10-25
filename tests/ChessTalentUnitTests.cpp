@@ -334,8 +334,14 @@ TEST_CASE("talent identity round trips checkpoints replay headers and hashes", "
         changed.roster.at(1).luckStacks = 1;
         CHECK(chessStateHash(changed, session.random()) != beforeLuck);
     }
-    const auto easy = Test::managementContent(10, Difficulty::Easy);
-    CHECK_THROWS_AS(ChessGameSession(easy, 1, {.talent = ChessTalentId::Gambler}), std::invalid_argument);
+}
+
+TEST_CASE("session rejects talents unavailable in its content", "[chess][talent]")
+{
+    const auto content = Test::managementContent(10, Difficulty::Easy);
+    const ChessSessionOptions options{.talent = ChessTalentId::Gambler};
+    REQUIRE_FALSE(content->balance().allowsTalent(*options.talent));
+    CHECK_THROWS_AS(std::make_unique<ChessGameSession>(content, 1, options), std::invalid_argument);
 }
 
 TEST_CASE("opening bans preserve first shop until finished then refresh once", "[chess][talent][gambler]")

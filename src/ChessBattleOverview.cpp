@@ -19,7 +19,6 @@
 #include <array>
 #include <chrono>
 #include <format>
-#include <functional>
 #include <set>
 
 namespace KysChess
@@ -35,12 +34,34 @@ bool contains(SDL_Rect frame, SDL_FPoint point)
         && point.y >= frame.y && point.y < frame.y + frame.h;
 }
 
-struct LoadStep
+struct TextureLoadBatch
 {
-    std::string label;
-    // 每次只載入一個資源；回傳 true 表示此階段完成。
-    std::function<bool()> advance;
+    explicit TextureLoadBatch(std::vector<TextureWarpper*> textures)
+        : pending(std::move(textures)), total(pending.size())
+    {
+        std::erase_if(pending, [](const auto* texture) { return !texture || texture->loaded; });
+    }
+
+    ScenePreloader::LoadProgress progress() const { return {total - pending.size() + index, total}; }
+
+    ScenePreloader::LoadProgress advance()
+    {
+        pending[index++]->load();
+        return progress();
+    }
+
+    std::vector<TextureWarpper*> pending;
+    std::size_t total{};
+    std::size_t index{};
 };
+
+bool loadedAsset(const std::string& group, int id, SDL_Rect frame)
+{
+    const auto* texture = TextureManager::getInstance()->findTexture(group, id);
+    if (!texture || !texture->loaded || !texture->tex[0]) return false;
+    asset(group, id, frame);
+    return true;
+}
 
 class BattleOverview : public RunNode
 {
@@ -74,13 +95,13 @@ public:
         constexpr int statusWidth = 876;
         if (!flow_.assetsLoaded())
         {
-            const auto& stage = loads_[loadIndex_];
             label("正在載入戰鬥 · 請稍候", Type::pageTitle, statusX, 657, context, statusWidth);
-            label(std::format("{} · 資源階段 {} / {}", stage.label, loadIndex_ + 1, loads_.size()),
+            label(std::format("{} · 載入進度 {}%", loads_.complete() ? "資源已就緒" : loads_.currentLabel(),
+                    static_cast<int>(loads_.fraction() * 100)),
                 Type::metadata, statusX, 685, ink, statusWidth);
             Engine::getInstance()->fillColor(activeFill, statusX, 705, statusWidth, 3);
             Engine::getInstance()->fillColor(context, statusX, 705,
-                static_cast<int>(statusWidth * loadIndex_ / loads_.size()), 3);
+                static_cast<int>(statusWidth * loads_.fraction()), 3);
         }
         else label(tapAnywhereEnabled()
             ? (session_.state().options.positionSwapEnabled ? "載入完成 · 點擊任意處進入佈陣 · Enter 繼續"
@@ -98,11 +119,12 @@ public:
     {
         if (flow_.runLoadBatch([this] {
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(6);
-            do
+            while (!loads_.complete())
             {
-                if (loads_[loadIndex_].advance()) ++loadIndex_;
-            } while (loadIndex_ < loads_.size() && std::chrono::steady_clock::now() < deadline);
-            return loadIndex_ == loads_.size();
+                loads_.advance();
+                if (std::chrono::steady_clock::now() >= deadline) break;
+            }
+            return loads_.complete();
         }))
         {
 #ifdef __EMSCRIPTEN__
@@ -204,8 +226,7 @@ private:
     ChessPreparedBattleAnalysis analysis_;
     std::array<std::vector<const ChessPreparedBattleUnitAnalysis*>, 2> teams_;
     std::array<int, 2> synergyPage_{};
-    std::vector<LoadStep> loads_;
-    std::size_t loadIndex_{};
+    ScenePreloader::LoadQueue loads_;
     ChessGuiPreBattleFlow flow_;
     std::vector<Control> controls_;
     int pressed_ = -1;
@@ -246,37 +267,61 @@ private:
             if (effect >= 0) groups.insert(std::format("eft/eft{:03}", effect));
         for (const auto effect : EFT_ALL) groups.insert(std::format("eft/eft{:03}", std::to_underlying(effect)));
         for (const std::string_view path : Battle::BattleEffectVisualPaths) groups.emplace(path);
-        for (const auto& path : groups)
-            loads_.push_back({path.starts_with("fight/") ? "棋子動作" : "武學特效", [path, frame = -1, count = 0]() mutable {
-                auto* textures = TextureManager::getInstance();
-                if (frame < 0) { count = textures->getTextureGroupCount(path); frame = 0; return count == 0; }
-                if (auto* texture = textures->getTexture(path, frame)) texture->load();
-                return ++frame == count;
-            }});
+        for (const auto& path : groups) textureGroupLoad(path.starts_with("fight/") ? "棋子動作" : "武學特效", path);
         for (int effect = 0; effect < 5; ++effect) textureLoad("受擊特效", std::format("eft/bld{:03}", effect), 0);
         const auto map = session_.content().battleMaps().find(analysis_.identity.chosenMapId);
         assert(map != session_.content().battleMaps().end());
         const int battlefield = session_.state().preparedBattle->layout == PreparedChessBattleLayout::PvpArena
             ? ChessPvpMapLayout::BattlefieldId : map->second.battlefieldId;
-        loads_.push_back({"戰場地形", [battlefield, assets = std::vector<std::pair<std::string, int>>{}, index = -1]() mutable {
-            if (index < 0) { assets = ScenePreloader::battlefieldAssets(battlefield); index = 0; return assets.empty(); }
-            const auto& [group, id] = assets[index];
-            if (auto* texture = TextureManager::getInstance()->getTexture(group, id)) texture->load();
-            return ++index == static_cast<int>(assets.size());
-        }});
-        loads_.push_back({"戰場音樂", [id = map->second.musicId] { Audio::getInstance()->preloadBattleAudio(id, {}, {}); return true; }});
+        loads_.add("戰場地形", [battlefield, batch = std::optional<TextureLoadBatch>{}]() mutable {
+            if (!batch)
+            {
+                std::vector<TextureWarpper*> textures;
+                for (const auto& [group, id] : ScenePreloader::battlefieldAssets(battlefield))
+                    textures.push_back(TextureManager::getInstance()->getTexture(group, id));
+                batch.emplace(std::move(textures));
+                return batch->progress();
+            }
+            return batch->advance();
+        });
+        audioLoad("戰場音樂", map->second.musicId, {}, {});
         for (const int id : analysis_.presentationAssets.attackSoundIds)
-            loads_.push_back({"攻擊音效", [id] { Audio::getInstance()->preloadBattleAudio(-1, {id}, {}); return true; }});
+            audioLoad("攻擊音效", -1, {id}, {});
         for (const int id : analysis_.presentationAssets.effectIds)
-            loads_.push_back({"武學音效", [id] { Audio::getInstance()->preloadBattleAudio(-1, {}, {id}); return true; }});
+            audioLoad("武學音效", -1, {}, {id});
     }
 
     void textureLoad(const std::string& title, const std::string& group, int id)
     {
-        loads_.push_back({title, [group, id] {
+        const auto* cached = TextureManager::getInstance()->findTexture(group, id);
+        loads_.add(title, [group, id] {
             if (auto* texture = TextureManager::getInstance()->getTexture(group, id)) texture->load();
-            return true;
-        }});
+            return ScenePreloader::LoadProgress{1, 1};
+        }, {cached && cached->loaded ? 1u : 0u, 1});
+    }
+
+    void textureGroupLoad(const std::string& title, const std::string& path)
+    {
+        std::optional<TextureLoadBatch> batch;
+        if (const auto* group = TextureManager::getInstance()->findTextureGroup(path)) batch.emplace(group->group_);
+        const auto progress = batch ? batch->progress() : ScenePreloader::LoadProgress{};
+        loads_.add(title, [path, batch = std::move(batch)]() mutable {
+            if (!batch)
+            {
+                batch.emplace(TextureManager::getInstance()->getTextureGroup(path)->group_);
+                return batch->progress();
+            }
+            return batch->advance();
+        }, progress);
+    }
+
+    void audioLoad(const std::string& title, int music, std::vector<int> attacks, std::vector<int> effects)
+    {
+        const bool cached = Audio::getInstance()->isBattleAudioPreloaded(music, attacks, effects);
+        loads_.add(title, [music, attacks = std::move(attacks), effects = std::move(effects)] {
+            Audio::getInstance()->preloadBattleAudio(music, attacks, effects);
+            return ScenePreloader::LoadProgress{1, 1};
+        }, {cached ? 1u : 0u, 1});
     }
 
     void drawTeam(int side)
@@ -298,7 +343,7 @@ private:
             if (selected || (flow_.interactive() && !tapAnywhereEnabled() && contains(row, pointer))) panel(row.x, row.y, row.w, row.h, activeFill);
             else if (i % 2 == 0) panel(row.x, row.y, row.w, row.h, quietFill);
             controls_.push_back({row, Target{Kind::Unit, side, i}, {}});
-            if (flow_.assetsLoaded()) asset("head", unit.headId, {x, row.y + 1, 24, 24});
+            loadedAsset("head", unit.headId, {x, row.y + 1, 24, 24});
             const auto* role = session_.content().role(unit.roleId);
             label(unit.name, 18, x + 32, row.y + 3, chessPieceTierColor(role->Cost), 132);
             label(std::format("★{}", unit.star), 17, x + 170, row.y + 4, gold, 44);
@@ -312,8 +357,7 @@ private:
                 const auto rect = Layout::equipment(side, i, slot);
                 if (item >= 0)
                 {
-                    if (flow_.assetsLoaded()) asset("item", item, rect);
-                    else label("◇", 16, rect.x + 4, rect.y + 2, gold, 24);
+                    if (!loadedAsset("item", item, rect)) label("◇", 16, rect.x + 4, rect.y + 2, gold, 24);
                     controls_.push_back({rect, Target{Kind::Equipment, side, i, slot}, {}});
                 }
                 else label("—", 14, rect.x + 4, rect.y + 4, muted, 24);
@@ -326,7 +370,7 @@ private:
             const auto& combo = combos[start + i];
             const auto rect = Layout::synergy(side, i);
             const auto definition = std::ranges::find(session_.content().combos(), combo.comboId, &ComboDef::id);
-            if (flow_.assetsLoaded()) asset("chess-synergies", definition->iconId, {rect.x, rect.y, 24, 24});
+            loadedAsset("chess-synergies", definition->iconId, {rect.x, rect.y, 24, 24});
             const int threshold = combo.nextThresholdIndex >= 0 ? combo.nextThresholdIndex : static_cast<int>(combo.thresholds.size()) - 1;
             label(std::format("{}/{}", combo.effectiveCount, combo.thresholds[threshold].requiredCount), 15,
                 rect.x + 26, rect.y + 4, positive, 42);
