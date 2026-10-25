@@ -48,6 +48,11 @@ New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
 Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
+Invoke-ProjectPython -ProjectDir $paths.ProjectDir -ArgumentList @(
+    (Join-Path $paths.WasmDir 'compress_wasm.py'),
+    (Join-Path $distDir 'kyschess.wasm')
+)
+Remove-Item -LiteralPath (Join-Path $distDir 'kyschess.wasm')
 foreach ($assetName in Get-WasmSiteAssetNames)
 {
     Copy-Item -Force (Join-Path $paths.WasmDir $assetName) $distDir

@@ -285,6 +285,10 @@ function Invoke-WasmConfigureBuild
         Write-Host ''
         Write-Host '=== Building ==='
         Invoke-NativeCommand -FilePath 'emmake' -ArgumentList @('ninja')
+        Invoke-ProjectPython -ProjectDir (Split-Path -Parent $WasmDir) -ArgumentList @(
+            (Join-Path $WasmDir 'compress_wasm.py'),
+            (Join-Path $BuildDir 'kyschess.wasm')
+        )
     }
     finally
     {
@@ -354,6 +358,7 @@ function Get-WasmBuildArtifactNames
 function Get-WasmSiteAssetNames
 {
     @(
+        'wasm-loader.js'
         'favicon.png'
         'apple-touch-icon.png'
         'icon-192.png'
@@ -365,7 +370,9 @@ function Get-WasmSiteAssetNames
 function Get-WasmDeploymentArtifactNames
 {
     'index.html'
-    Get-WasmBuildArtifactNames
+    Get-WasmBuildArtifactNames | ForEach-Object {
+        if ($_ -eq 'kyschess.wasm') { "$_.gz" } else { $_ }
+    }
     Get-WasmSiteAssetNames
     'kys/game/music/mid.sf3'
     'kys/game/music/mid.sf3.gz'
@@ -433,6 +440,15 @@ function Assert-WasmDeploymentDirectory
         Ensure-PathExists -Path $artifactPath -Message "WASM deployment artifact missing: $artifactPath"
     }
 
+    if (Test-Path (Join-Path $DistDir 'kyschess.wasm'))
+    {
+        throw 'WASM deployment must contain only the gzip executable, not kyschess.wasm.'
+    }
+    if ((Get-Item (Join-Path $DistDir 'kyschess.wasm.gz')).Length -gt 25MB)
+    {
+        throw 'Compressed WASM exceeds the Cloudflare Pages 25 MiB asset limit.'
+    }
+
     $indexPath = Join-Path $DistDir 'index.html'
     Assert-WasmPromoPageContent -Content (Get-Content -Raw $indexPath) -Source $indexPath
 }
@@ -457,6 +473,15 @@ function Assert-WasmDeploymentArchive
             {
                 throw "WASM package is missing deployment artifact: $artifactName"
             }
+        }
+
+        if ($null -ne $archive.GetEntry('kyschess.wasm'))
+        {
+            throw 'WASM package must contain only the gzip executable, not kyschess.wasm.'
+        }
+        if ($archive.GetEntry('kyschess.wasm.gz').Length -gt 25MB)
+        {
+            throw 'Compressed WASM exceeds the Cloudflare Pages 25 MiB asset limit.'
         }
 
         $indexEntry = $archive.GetEntry('index.html')

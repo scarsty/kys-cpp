@@ -98,3 +98,5 @@ set_target_properties(kyschess PROPERTIES LINK_DEPENDS "${CMAKE_SOURCE_DIR}/shel
 
 # Output .html so emscripten generates the .js and .wasm alongside it
 set_target_properties(kyschess PROPERTIES SUFFIX ".html")
+
+configure_file(wasm-loader.js wasm-loader.js COPYONLY)
