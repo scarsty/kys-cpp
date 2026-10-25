@@ -72,6 +72,7 @@ ChessNonBattleRuleKind chessNonBattleRuleKind(const ChessNonBattleRule& rule)
             if constexpr (std::is_same_v<T, BattleMapChoiceRule>) return ChessNonBattleRuleKind::BattleMapChoice;
             if constexpr (std::is_same_v<T, DeploymentCapacityRule>) return ChessNonBattleRuleKind::DeploymentCapacity;
             if constexpr (std::is_same_v<T, FightWinGrowthRule>) return ChessNonBattleRuleKind::FightWinGrowth;
+            if constexpr (std::is_same_v<T, HighTierNeigongDoublingRule>) return ChessNonBattleRuleKind::HighTierNeigongDoubling;
         },
         rule);
 }
@@ -178,6 +179,12 @@ std::optional<ChessNonBattleRule> parseChessNonBattleRule(
             }
             return BattleMapChoiceRule{};
         }
+        if (type == "高階內功效果翻倍")
+        {
+            static constexpr std::array allowed{std::string_view{"類型"}};
+            if (!rejectUnknownFields(node, allowed, context, diagnostics)) return std::nullopt;
+            return HighTierNeigongDoublingRule{};
+        }
         if (type == "勝場成長")
         {
             static constexpr std::array allowed{
@@ -267,6 +274,10 @@ std::string chessNonBattleRuleDescription(const ChessNonBattleRule& rule, bool c
                     ? std::format("每勝：{}", joinParts(parts, "、"))
                     : std::format("本羈絆成員每個勝場使{}", joinParts(parts, "、"));
             }
+            if constexpr (std::is_same_v<T, HighTierNeigongDoublingRule>)
+            {
+                return "本羈絆成員的紫色／傳說內功效果翻倍";
+            }
         },
         rule);
 }
@@ -282,6 +293,13 @@ std::vector<std::string> countsAsComboNames(std::span<const ChessNonBattleRule> 
         }
     }
     return result;
+}
+
+bool doublesHighTierNeigong(std::span<const ChessNonBattleRule> rules)
+{
+    return std::ranges::any_of(rules, [](const auto& rule) {
+        return std::holds_alternative<HighTierNeigongDoublingRule>(rule);
+    });
 }
 
 FightWinGrowthRule sumFightWinGrowth(std::span<const ChessNonBattleRule> rules)

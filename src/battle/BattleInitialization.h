@@ -55,6 +55,7 @@ struct BattleSetupComboThreshold
     int count = 0;
     std::vector<EffectRule> rules;
     FightWinGrowthRule fightWinGrowth;
+    bool doubleHighTierNeigong = false;
 };
 
 struct BattleSetupComboDefinition
@@ -87,6 +88,8 @@ struct BattleSetupNeigongDefinition
 {
     int magicId = -1;
     std::vector<EffectRule> rules;
+    int tier{};
+    std::vector<EffectRule> doubledRules;
 };
 
 struct BattleSetupRosterUnit

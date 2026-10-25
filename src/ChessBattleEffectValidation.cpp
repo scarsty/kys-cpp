@@ -326,7 +326,7 @@ bool validateEffectNumberAtEvent(
     if (needsCurrentCooldown
         && !effectNumberBaseAllowedAtEvent(EffectNumberBase::TargetCurrentCooldown, event))
     {
-        error = "目標目前冷卻公式需要每幀或傷害結算事件";
+        error = "目標目前冷卻公式需要每幀、傷害結算或陣亡事件";
         return false;
     }
     if (event == EffectEvent::StatusPersistent

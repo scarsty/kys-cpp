@@ -336,3 +336,70 @@ TEST_CASE("Lore equipment tuning rejects invalid windows and accepts activation 
         {類型: 五輪齊發, 出招次數: 1, 目標數: 5, 傷害百分比: 40}
     ])"), effects, rules, id, "測試"));
 }
+
+TEST_CASE("Neigong doubling scales magnitudes once while preserving original definitions and rule identities",
+          "[chess][effects][named][neigong][regression]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t nextRuleId = 100;
+    REQUIRE(parseGameplayEffects(YAML::Load(R"(
+- {類型: 生命上限加成, 點數: 123}
+- {類型: 防禦加成, 點數: 17}
+- {類型: 技能增傷, 百分比: 19}
+- {類型: 攻擊加成, 點數: 23}
+- {類型: 速度加成, 點數: 29}
+- {類型: 閃避率加成, 百分比: 31}
+- {類型: 生命上限百分比加成, 百分比: 37}
+- {類型: 僵直抗性加成, 百分比: 41}
+- {類型: 攻擊百分比加成, 百分比: 43}
+- {類型: 暴擊率加成, 百分比: 47}
+- {類型: 防禦百分比加成, 百分比: 53}
+- {類型: 固定承傷修正, 點數: -59}
+- {類型: 擊殺回血, 生命百分比: 61}
+- {類型: 命中忽略防禦, 忽略防禦百分比: 67}
+- {類型: 機率命中擊退, 機率百分比: 71, 距離像素: 73, 鎖定幀數: 79}
+)"), effects, rules, nextRuleId, "內功強度測試"));
+    const auto doubled = doubledGameplayEffectRules(effects, rules);
+    REQUIRE(doubled.size() == rules.size());
+    const std::array expected{123, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53};
+    for (std::size_t i = 0; i < expected.size(); ++i)
+    {
+        CHECK(std::get<ModifyAttributeAction>(doubled[i].actions.front().value).amount.flat == expected[i] * 2);
+        CHECK(std::get<ModifyAttributeAction>(rules[i].actions.front().value).amount.flat == expected[i]);
+    }
+    CHECK(std::get<ModifyDamageAction>(doubled[11].actions.front().value).amount.flat == -118);
+    CHECK(std::get<ChangeResourceAction>(doubled[12].actions.front().value).amount.percent == 122);
+    CHECK(std::get<ModifyDamageAction>(doubled[13].actions.front().value).amount.flat == 134);
+    CHECK(doubled[14].chancePct == 100);
+    CHECK(rules[14].chancePct == 71);
+    const auto& movement = std::get<ForceMoveAction>(doubled[14].actions.front().value);
+    CHECK(movement.distancePixels == 146);
+    CHECK(movement.lockFrames == 158);
+    for (std::size_t i = 0; i < rules.size(); ++i)
+    {
+        CHECK(doubled[i].id == rules[i].id);
+        CHECK(doubled[i].event == rules[i].event);
+        CHECK(doubled[i].maxActivations == rules[i].maxActivations);
+        CHECK(doubled[i].intervalFrames == rules[i].intervalFrames);
+        CHECK(doubled[i].actions.size() == rules[i].actions.size());
+    }
+    // 每次從不可變的原始定義編譯，另一隊與下一場不會再次翻倍。
+    const auto again = doubledGameplayEffectRules(effects, rules);
+    CHECK(std::get<ModifyAttributeAction>(again.front().actions.front().value).amount.flat == 246);
+    const auto plain = effects.front()->buildRules();
+    CHECK(std::get<ModifyAttributeAction>(plain.front().actions.front().value).amount.flat == 123);
+}
+
+TEST_CASE("High tier neigong doubling is an explicit setup rule with a player description",
+          "[chess][effects][named][neigong][management]")
+{
+    const auto rule = parseChessNonBattleRule(YAML::Load("{類型: 高階內功效果翻倍}"),
+        [](std::string_view text) { return std::string(text); }, "內功規則測試", {});
+    REQUIRE(rule);
+    CHECK(chessNonBattleRuleKind(*rule) == ChessNonBattleRuleKind::HighTierNeigongDoubling);
+    const std::array rules{*rule};
+    CHECK(doublesHighTierNeigong(rules));
+    CHECK_FALSE(doublesHighTierNeigong({}));
+    CHECK(chessNonBattleRuleDescription(*rule).contains("紫色／傳說內功效果翻倍"));
+}

@@ -584,6 +584,10 @@ NonBattleRuleContentView nonBattleRuleContentView(const ChessNonBattleRule& rule
             {
                 return {static_cast<int>(ChessNonBattleRuleKind::DeploymentCapacity), {}, 1, 0, 0};
             }
+            else if constexpr (std::is_same_v<T, HighTierNeigongDoublingRule>)
+            {
+                return {static_cast<int>(ChessNonBattleRuleKind::HighTierNeigongDoubling), {}, 0, 0, 0};
+            }
             else
             {
                 static_assert(std::is_same_v<T, FightWinGrowthRule>);

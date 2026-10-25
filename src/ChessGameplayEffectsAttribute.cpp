@@ -291,7 +291,7 @@ struct DefenceBonus final : GameplayEffectDefinition
     int 點數{};
     static constexpr std::string_view Name = "防禦加成";
     static constexpr auto Parameters = std::array<Parameter<DefenceBonus>, 1>{
-        {Parameter<DefenceBonus>{{"點數", -1000000, 1000000}, &DefenceBonus::點數}}};
+        {Parameter<DefenceBonus>{{"點數", -1000000, 1000000}, &DefenceBonus::點數, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -312,7 +312,7 @@ struct FlatDamageReduction final : GameplayEffectDefinition
     int 點數{};
     static constexpr std::string_view Name = "固定承傷修正";
     static constexpr auto Parameters = std::array<Parameter<FlatDamageReduction>, 1>{
-        {Parameter<FlatDamageReduction>{{"點數", -1000000, 1000000}, &FlatDamageReduction::點數}}};
+        {Parameter<FlatDamageReduction>{{"點數", -1000000, 1000000}, &FlatDamageReduction::點數, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -372,7 +372,7 @@ struct MaxHealthBonus final : GameplayEffectDefinition
     int 點數{};
     static constexpr std::string_view Name = "生命上限加成";
     static constexpr auto Parameters = std::array<Parameter<MaxHealthBonus>, 1>{
-        {Parameter<MaxHealthBonus>{{"點數", -1000000, 1000000}, &MaxHealthBonus::點數}}};
+        {Parameter<MaxHealthBonus>{{"點數", -1000000, 1000000}, &MaxHealthBonus::點數, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -392,7 +392,7 @@ struct AttackPercentBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "攻擊百分比加成";
     static constexpr auto Parameters = std::array<Parameter<AttackPercentBonus>, 1>{
-        {Parameter<AttackPercentBonus>{{"百分比", -1000000, 1000000}, &AttackPercentBonus::百分比}}};
+        {Parameter<AttackPercentBonus>{{"百分比", -1000000, 1000000}, &AttackPercentBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -414,7 +414,7 @@ struct SpeedBonus final : GameplayEffectDefinition
     int 點數{};
     static constexpr std::string_view Name = "速度加成";
     static constexpr auto Parameters
-        = std::array<Parameter<SpeedBonus>, 1>{{Parameter<SpeedBonus>{{"點數", -1000000, 1000000}, &SpeedBonus::點數}}};
+        = std::array<Parameter<SpeedBonus>, 1>{{Parameter<SpeedBonus>{{"點數", -1000000, 1000000}, &SpeedBonus::點數, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -431,7 +431,7 @@ struct StaggerResistanceBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "僵直抗性加成";
     static constexpr auto Parameters = std::array<Parameter<StaggerResistanceBonus>, 1>{
-        {Parameter<StaggerResistanceBonus>{{"百分比", -1000000, 1000000}, &StaggerResistanceBonus::百分比}}};
+        {Parameter<StaggerResistanceBonus>{{"百分比", -1000000, 1000000}, &StaggerResistanceBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -524,7 +524,7 @@ struct AttackBonus final : GameplayEffectDefinition
     int 點數{};
     static constexpr std::string_view Name = "攻擊加成";
     static constexpr auto Parameters = std::array<Parameter<AttackBonus>, 1>{
-        {Parameter<AttackBonus>{{"點數", -1000000, 1000000}, &AttackBonus::點數}}};
+        {Parameter<AttackBonus>{{"點數", -1000000, 1000000}, &AttackBonus::點數, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -568,7 +568,7 @@ struct DefencePercentBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "防禦百分比加成";
     static constexpr auto Parameters = std::array<Parameter<DefencePercentBonus>, 1>{
-        {Parameter<DefencePercentBonus>{{"百分比", -1000000, 1000000}, &DefencePercentBonus::百分比}}};
+        {Parameter<DefencePercentBonus>{{"百分比", -1000000, 1000000}, &DefencePercentBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -590,7 +590,7 @@ struct DodgeBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "閃避率加成";
     static constexpr auto Parameters = std::array<Parameter<DodgeBonus>, 1>{
-        {Parameter<DodgeBonus>{{"百分比", -1000000, 1000000}, &DodgeBonus::百分比}}};
+        {Parameter<DodgeBonus>{{"百分比", -1000000, 1000000}, &DodgeBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -630,7 +630,7 @@ struct MaxHealthPercentBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "生命上限百分比加成";
     static constexpr auto Parameters = std::array<Parameter<MaxHealthPercentBonus>, 1>{
-        {Parameter<MaxHealthPercentBonus>{{"百分比", -1000000, 1000000}, &MaxHealthPercentBonus::百分比}}};
+        {Parameter<MaxHealthPercentBonus>{{"百分比", -1000000, 1000000}, &MaxHealthPercentBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -646,62 +646,44 @@ struct MaxHealthPercentBonus final : GameplayEffectDefinition
     }
 };
 
+template <bool Percent, bool IncludeDefence = false>
 struct LowHealthAttack final : GameplayEffectDefinition
 {
     int 生命門檻百分比{};
-    int 攻擊點數{};
-    static constexpr std::string_view Name = "低血攻擊加成";
-    static constexpr auto Parameters = std::array<Parameter<LowHealthAttack>, 2>{
-        {Parameter<LowHealthAttack>{{"生命門檻百分比", 0, 1000000}, &LowHealthAttack::生命門檻百分比},
-         Parameter<LowHealthAttack>{{"攻擊點數", -1000000, 1000000}, &LowHealthAttack::攻擊點數}}};
+    int 加成{};
+    static constexpr std::string_view Name = IncludeDefence
+        ? (Percent ? "低血攻防百分比加成" : "低血攻防加成")
+        : (Percent ? "低血攻擊百分比加成" : "低血攻擊加成");
+    static constexpr auto Parameters = std::array<Parameter<LowHealthAttack>, 2>{{
+        {{"生命門檻百分比", 0, 1000000}, &LowHealthAttack::生命門檻百分比},
+        {{IncludeDefence ? (Percent ? "攻防百分比" : "攻防點數") : (Percent ? "攻擊百分比" : "攻擊點數"),
+            -1000000, 1000000}, &LowHealthAttack::加成}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        return {
-            EffectRule{.event = EffectEvent::FrameAdvanced,
-                       .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
-                       .actions = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                               .amount = EffectNumber{.flat = 攻擊點數},
-                                                                               .durationFrames = 1,
-                                                                               .stack = EffectStackPolicy::Refresh}}}}};
-    }
-    std::string describe(EffectDescriptionStyle style) const override
-    {
-        if (style == EffectDescriptionStyle::Full)
+        ModifyAttributeAction bonus{
+            .attribute = BattleAttribute::Attack,
+            .amount = EffectNumber{.flat = 加成},
+            .operation = Percent ? AttributeOperation::PercentAdd : AttributeOperation::FlatAdd,
+            .durationFrames = 1,
+            .stack = EffectStackPolicy::Refresh};
+        std::vector<EffectAction> actions{EffectAction{.value = bonus}};
+        if constexpr (IncludeDefence)
         {
-            return std::format("生命低於{}%時，攻擊{:+}。離開低血狀態即失去加成。", 生命門檻百分比, 攻擊點數);
+            bonus.attribute = BattleAttribute::Defence;
+            actions.push_back(EffectAction{.value = bonus});
         }
-        return std::format("血量<{}%：{:+}攻", 生命門檻百分比, 攻擊點數);
-    }
-};
-
-struct LowHealthAttackPercent final : GameplayEffectDefinition
-{
-    int 生命門檻百分比{};
-    int 攻擊百分比{};
-    static constexpr std::string_view Name = "低血攻擊百分比加成";
-    static constexpr auto Parameters = std::array<Parameter<LowHealthAttackPercent>, 2>{
-        {Parameter<LowHealthAttackPercent>{{"生命門檻百分比", 0, 1000000}, &LowHealthAttackPercent::生命門檻百分比},
-         Parameter<LowHealthAttackPercent>{{"攻擊百分比", -1000000, 1000000}, &LowHealthAttackPercent::攻擊百分比}}};
-    std::string_view name() const override { return Name; }
-    std::vector<EffectRule> buildRules() const override
-    {
         return {EffectRule{.event = EffectEvent::FrameAdvanced,
-                           .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
-                           .actions
-                           = {EffectAction{.value = ModifyAttributeAction{.attribute = BattleAttribute::Attack,
-                                                                          .amount = EffectNumber{.flat = 攻擊百分比},
-                                                                          .operation = AttributeOperation::PercentAdd,
-                                                                          .durationFrames = 1,
-                                                                          .stack = EffectStackPolicy::Refresh}}}}};
+            .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
+            .actions = std::move(actions)}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        const auto bonus = std::format("{}{}", compactAttributeDescription(BattleAttribute::Attack, 加成, Percent),
+            IncludeDefence ? "、" + compactAttributeDescription(BattleAttribute::Defence, 加成, Percent) : "");
         if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("生命低於{}%時，攻擊{:+}%。離開低血狀態即失去加成。", 生命門檻百分比, 攻擊百分比);
-        }
-        return std::format("血量<{}%：{:+}%攻", 生命門檻百分比, 攻擊百分比);
+            return std::format("生命低於{}%時，{}。離開低血狀態即失去加成。", 生命門檻百分比, bonus);
+        return std::format("血量<{}%：{}", 生命門檻百分比, bonus);
     }
 };
 
@@ -710,7 +692,7 @@ struct SkillDamageBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "技能增傷";
     static constexpr auto Parameters = std::array<Parameter<SkillDamageBonus>, 1>{
-        {Parameter<SkillDamageBonus>{{"百分比", -1000000, 1000000}, &SkillDamageBonus::百分比}}};
+        {Parameter<SkillDamageBonus>{{"百分比", -1000000, 1000000}, &SkillDamageBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -772,7 +754,7 @@ struct CriticalBonus final : GameplayEffectDefinition
     int 百分比{};
     static constexpr std::string_view Name = "暴擊率加成";
     static constexpr auto Parameters = std::array<Parameter<CriticalBonus>, 1>{
-        {Parameter<CriticalBonus>{{"百分比", -1000000, 1000000}, &CriticalBonus::百分比}}};
+        {Parameter<CriticalBonus>{{"百分比", -1000000, 1000000}, &CriticalBonus::百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -1118,8 +1100,10 @@ void appendAttributeEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<DodgeBonus>());
     entries.push_back(registration<CriticalAfterDodge>());
     entries.push_back(registration<MaxHealthPercentBonus>());
-    entries.push_back(registration<LowHealthAttack>());
-    entries.push_back(registration<LowHealthAttackPercent>());
+    entries.push_back(registration<LowHealthAttack<false>>());
+    entries.push_back(registration<LowHealthAttack<true>>());
+    entries.push_back(registration<LowHealthAttack<false, true>>());
+    entries.push_back(registration<LowHealthAttack<true, true>>());
     entries.push_back(registration<SkillDamageBonus>());
     entries.push_back(registration<KillAttackBonus>());
     entries.push_back(registration<ReceivedDamagePercent>());

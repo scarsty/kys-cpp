@@ -110,46 +110,19 @@ struct LastComboMemberBerserk final : GameplayEffectDefinition
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
-        auto behavior = std::make_shared<StatusBehaviorDefinition>();
-        behavior->rules = {EffectRule{
-            .id = EffectRuleId{1},
-            .event = EffectEvent::DamageResolved,
-            .observation = EffectObservationScope::StatusHolderEventSource,
-            .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
-            .conditions = {DamagePerspectiveCondition{}, DamageOriginIsAttackCondition{}},
-            .actions = {EffectAction{.value = ChangeResourceAction{
-                .amount = EffectNumber{.base = EffectNumberBase::FinalHpDamage, .percent = 吸血百分比},
-                .healKind = EffectHealKind::Lifesteal}}}}};
-
         return {EffectRule{
             .event = EffectEvent::AllyDied,
             .selector = EffectSelector{.kind = EffectSelectorKind::ComboMembers, .team = EffectTeamFilter::Ally},
             .conditions = {EventTargetBelongsToBoundSourceCondition{}, SourceIsLastAliveComboMemberCondition{}},
             .maxActivations = 1,
-            .actions = {
-                EffectAction{.value = ModifyAttributeAction{
-                    .attribute = BattleAttribute::CriticalChance,
-                    .amount = EffectNumber{.flat = 暴擊百分比},
-                    .operation = AttributeOperation::PercentagePointAdd,
-                    .durationFrames = 持續幀數}},
-                EffectAction{.value = ModifyAttributeAction{
-                    .attribute = BattleAttribute::CooldownReduction,
-                    .amount = EffectNumber{.flat = 冷卻縮減百分比},
-                    .operation = AttributeOperation::PercentagePointAdd,
-                    .durationFrames = 持續幀數}},
-                EffectAction{.value = ApplyStatusAction{
-                    .status = BattleStatusKind::Berserk,
-                    .durationFrames = 持續幀數,
-                    .reapplication = StatusReapplicationPolicy::RefreshDuration,
-                    .behavior = std::move(behavior)}}}}};
+            .actions = berserkActions(暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數)}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        const auto effect = berserkDescription(暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數);
         if (style == EffectDescriptionStyle::Compact)
-            return std::format("同羈絆僅剩自身：狂暴，暴擊+{}%、冷卻-{}%、吸血{}%，{}幀；每場一次",
-                暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數);
-        return std::format("場上只剩最後一名此羈絆的棋子時，獲得「狂暴」：暴擊率增加{}%、冷卻縮減增加{}%，攻擊吸血{}%，持續{}幀。每場戰鬥觸發一次；吸血按實際造成的生命傷害計算。",
-            暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數);
+            return std::format("同羈絆僅剩自身：{}；每場一次", effect);
+        return std::format("場上只剩最後一名此羈絆的棋子時，獲得「{}」。每場戰鬥觸發一次；吸血按實際造成的生命傷害計算。", effect);
     }
 };
 

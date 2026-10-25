@@ -110,7 +110,7 @@ constexpr EffectEventCapabilities effectEventCapabilities(EffectEvent event)
     case EffectEvent::UnitDied:
     case EffectEvent::AllyDied:
         return C::DamageOrigin | C::CastProvenance | C::AttackContext
-            | C::TransactionTarget | C::Death | C::EventSource;
+            | C::TransactionTarget | C::Death | C::EventSource | C::CurrentCooldown;
     case EffectEvent::StatusPersistent:
         return effectCapability(C::None);
     }

@@ -46,9 +46,13 @@ struct GameplayEffectRegistration
     std::string_view name;
     std::span<const GameplayEffectParameter> parameters;
     GameplayEffect (*create)(std::span<const int> values);
+    GameplayEffect (*doubled)(const GameplayEffectDefinition& original);
 };
 
 std::span<const GameplayEffectRegistration> gameplayEffectCatalog();
+
+std::vector<EffectRule> doubledGameplayEffectRules(
+    std::span<const GameplayEffect> effects, std::span<const EffectRule> originalRules);
 
 bool parseGameplayEffects(const YAML::Node& node, std::vector<GameplayEffect>& effects, std::vector<EffectRule>& rules,
                           std::uint64_t& nextRuleId, const std::string& context,

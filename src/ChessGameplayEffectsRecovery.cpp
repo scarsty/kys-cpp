@@ -425,31 +425,53 @@ struct PeriodicHealthRecovery final : GameplayEffectDefinition
     }
 };
 
+template <bool Berserk = false>
 struct LowHealthEmergencyHeal final : GameplayEffectDefinition
 {
     int 生命門檻百分比{};
     int 治療生命百分比{};
-    static constexpr std::string_view Name = "低血緊急回血";
-    static constexpr auto Parameters = std::array<Parameter<LowHealthEmergencyHeal>, 2>{
-        {Parameter<LowHealthEmergencyHeal>{{"生命門檻百分比", 0, 1000000}, &LowHealthEmergencyHeal::生命門檻百分比},
-         Parameter<LowHealthEmergencyHeal>{{"治療生命百分比", 0, 1000000}, &LowHealthEmergencyHeal::治療生命百分比}}};
+    int 暴擊百分比{};
+    int 冷卻縮減百分比{};
+    int 吸血百分比{};
+    int 持續幀數{};
+    static constexpr std::string_view Name = Berserk ? "低血緊急回血狂暴" : "低血緊急回血";
+    static constexpr auto Parameters = []
+    {
+        if constexpr (Berserk)
+            return std::array<Parameter<LowHealthEmergencyHeal>, 6>{{
+                {{"生命門檻百分比", 0, 1000000}, &LowHealthEmergencyHeal::生命門檻百分比},
+                {{"治療生命百分比", 0, 1000000}, &LowHealthEmergencyHeal::治療生命百分比},
+                {{"暴擊百分比", 0, 1000000}, &LowHealthEmergencyHeal::暴擊百分比},
+                {{"冷卻縮減百分比", 0, 1000000}, &LowHealthEmergencyHeal::冷卻縮減百分比},
+                {{"吸血百分比", 0, 1000000}, &LowHealthEmergencyHeal::吸血百分比},
+                {{"持續幀數", 1, 1000000}, &LowHealthEmergencyHeal::持續幀數}}};
+        else
+            return std::array<Parameter<LowHealthEmergencyHeal>, 2>{{
+                {{"生命門檻百分比", 0, 1000000}, &LowHealthEmergencyHeal::生命門檻百分比},
+                {{"治療生命百分比", 0, 1000000}, &LowHealthEmergencyHeal::治療生命百分比}}};
+    }();
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
+        std::vector<EffectAction> actions{EffectAction{.value = ChangeResourceAction{
+            .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp, .percent = 治療生命百分比}}}};
+        if constexpr (Berserk)
+        {
+            auto berserk = berserkActions(暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數, true);
+            actions.insert(actions.end(), std::make_move_iterator(berserk.begin()), std::make_move_iterator(berserk.end()));
+        }
         return {EffectRule{.event = EffectEvent::FrameAdvanced,
-                           .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
-                           .maxActivations = 1,
-                           .actions = {EffectAction{.value = ChangeResourceAction{
-                                                        .amount = EffectNumber{.base = EffectNumberBase::TargetMaxHp,
-                                                                               .percent = 治療生命百分比}}}}}};
+            .conditions = {SourceHpRatioBelowCondition{.percent = 生命門檻百分比}},
+            .maxActivations = 1,
+            .actions = std::move(actions)}};
     }
     std::string describe(EffectDescriptionStyle style) const override
     {
+        const auto berserk = Berserk
+            ? "；" + berserkDescription(暴擊百分比, 冷卻縮減百分比, 吸血百分比, 持續幀數) : "";
         if (style == EffectDescriptionStyle::Full)
-        {
-            return std::format("生命首次低於{}%時，回復最大生命的{}%。每場觸發一次。", 生命門檻百分比, 治療生命百分比);
-        }
-        return std::format("首次血量<{}%：回血上限{}%", 生命門檻百分比, 治療生命百分比);
+            return std::format("生命首次低於{}%時，回復最大生命的{}%{}。每場觸發一次。", 生命門檻百分比, 治療生命百分比, berserk);
+        return std::format("首次血量<{}%：回血上限{}%{}", 生命門檻百分比, 治療生命百分比, berserk);
     }
 };
 
@@ -483,7 +505,7 @@ struct KillHeal final : GameplayEffectDefinition
     int 生命百分比{};
     static constexpr std::string_view Name = "擊殺回血";
     static constexpr auto Parameters
-        = std::array<Parameter<KillHeal>, 1>{{Parameter<KillHeal>{{"生命百分比", 0, 1000000}, &KillHeal::生命百分比}}};
+        = std::array<Parameter<KillHeal>, 1>{{Parameter<KillHeal>{{"生命百分比", 0, 1000000}, &KillHeal::生命百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -985,7 +1007,8 @@ void appendRecoveryEffects(std::vector<GameplayEffectRegistration>& entries)
     entries.push_back(registration<SkillLifeSteal>());
     entries.push_back(registration<HitMpRecovery>());
     entries.push_back(registration<PeriodicHealthRecovery>());
-    entries.push_back(registration<LowHealthEmergencyHeal>());
+    entries.push_back(registration<LowHealthEmergencyHeal<>>());
+    entries.push_back(registration<LowHealthEmergencyHeal<true>>());
     entries.push_back(registration<HitStealMp>());
     entries.push_back(registration<KillHeal>());
     entries.push_back(registration<HealingAura>());

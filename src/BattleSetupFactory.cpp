@@ -1,5 +1,6 @@
 #include "BattleSetupFactory.h"
 #include "ChessBattleMapCatalog.h"
+#include "ChessGameplayEffect.h"
 #include "ChessPvp.h"
 #include "battle/BattleFacing.h"
 
@@ -149,6 +150,7 @@ void appendDefinitions(
                 threshold.count,
                 threshold.rules,
                 sumFightWinGrowth(threshold.managementRules),
+                doublesHighTierNeigong(threshold.managementRules),
             });
         }
         setup.comboDefinitions.push_back(std::move(definition));
@@ -176,6 +178,9 @@ void appendDefinitions(
         setup.neigongDefinitions.push_back({
             neigong.magicId,
             neigong.rules,
+            neigong.tier,
+            (neigong.tier == 3 || neigong.tier == 4)
+                ? doubledGameplayEffectRules(neigong.effects, neigong.rules) : std::vector<EffectRule>{},
         });
     }
     setup.magicEffectDefinitions = content.magicEffects();

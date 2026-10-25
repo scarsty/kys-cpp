@@ -1449,10 +1449,18 @@ TEST_CASE("Last combo member gains a single timed berserk window with attack lif
     CHECK(dispatchDeath(kill(5), 1).commands.empty());
     const auto lastMemberDeath = kill(3);
     CHECK(dispatchDeath(kill(6), 2).commands.empty());
+    auto& survivor = runtime.units.require(1);
+    survivor.core.animation.cooldown = 77;
+    const auto stunned = BattleStatusSystem(runtime.status.config).apply(
+        survivor.statusDamageState(), {.kind = BattleStatusKind::Stun, .durationFrames = 45});
+    survivor.writeStatusDamageResult(stunned.target);
+    REQUIRE(survivor.status.effects.has(BattleStatusKind::Stun));
     const auto activated = dispatchDeath(lastMemberDeath, 2);
-    REQUIRE(activated.commands.size() == 3);
+    REQUIRE(activated.commands.size() == 5);
     for (const auto& command : activated.commands) CHECK(command.metadata.targetUnitId == 1);
     BattleEffectCommandSystem().reduce(runtime, activated.commands);
+    CHECK(survivor.core.animation.cooldown == 0);
+    CHECK_FALSE(survivor.status.effects.has(BattleStatusKind::Stun));
     CHECK(runtime.units.require(1).status.effects.remainingFrames(BattleStatusKind::Berserk) == 90);
     CHECK(battleStatusLabel(BattleStatusKind::Berserk) == "狂暴");
     CHECK_FALSE(runtime.units.require(2).status.effects.has(BattleStatusKind::Berserk));
@@ -2379,4 +2387,124 @@ TEST_CASE("Yang finger heals once per natural cast by capped distinct enemy coun
     REQUIRE(settle({2}).commands.size() == 1);
     CHECK(runtime.units.requireCore(1).vitals.hp == 130);
     CHECK(runtime.units.requireCore(3).vitals.hp == 660);
+}
+
+TEST_CASE("Emergency berserk heals once below its threshold and shares the timed Mingjiao effects",
+          "[battle][effect][bridge][berserk][regression]")
+{
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(R"(
+- 類型: 低血緊急回血狂暴
+  生命門檻百分比: 20
+  治療生命百分比: 20
+  暴擊百分比: 100
+  冷卻縮減百分比: 30
+  吸血百分比: 100
+  持續幀數: 50
+)"), effects, rules, id, "低血狂暴測試"));
+    auto runtime = runtimeWithTwoUnits();
+    auto& owner = runtime.units.require(1);
+    owner.core.vitals = {200, 1000, 100, 100};
+    owner.core.animation.cooldown = 83;
+    const auto stunned = BattleStatusSystem(runtime.status.config).apply(
+        owner.statusDamageState(), {.kind = BattleStatusKind::Stun, .durationFrames = 80});
+    owner.writeStatusDamageResult(stunned.target);
+    runtime.effectRules.append(binding(EffectSourceKind::Combo, 7, 1, 0), rules);
+    const auto advance = [&](int frame)
+    {
+        BattleEffectEventBridge bridge;
+        const auto event = bridge.makeEvent(runtime,
+            {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1},
+            EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
+        auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
+        BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
+        return dispatched.commands.size();
+    };
+    CHECK(advance(1) == 0);
+    CHECK(owner.status.effects.has(BattleStatusKind::Stun));
+    owner.core.vitals.hp = 199;
+    CHECK(advance(2) == 6);
+    CHECK(owner.core.vitals.hp == 399);
+    CHECK(owner.core.animation.cooldown == 0);
+    CHECK_FALSE(owner.status.effects.has(BattleStatusKind::Stun));
+    // 與完整幀流程相同：每幀開始效果先結算，再遞減狀態計時。
+    BattleStatusSystem(runtime.status.config).tick(runtime.units);
+    CHECK(owner.status.effects.remainingFrames(BattleStatusKind::Berserk) == 50);
+    CHECK_FALSE(runtime.units.require(2).status.effects.has(BattleStatusKind::Berserk));
+    const auto attribute = [&](BattleAttribute kind, int frame) {
+        return BattleEffectCommandSystem::queryAttribute(runtime,
+            {.unitId = 1, .attribute = kind, .baseValue = 0, .frame = frame});
+    };
+    CHECK(attribute(BattleAttribute::CriticalChance, 2) == 100);
+    CHECK(attribute(BattleAttribute::CooldownReduction, 2) == 30);
+    const auto attackDamage = [&] (int frame) {
+        const auto self = makeEffectUnitSnapshot(runtime, owner);
+        const auto enemy = makeEffectUnitSnapshot(runtime, runtime.units.require(2));
+        return BattleEffectEventBridge().dispatch(runtime,
+            {.frame = frame, .eventOrdinal = 100, .ownerUnitId = 1}, EffectEvent::DamageResolved,
+            DamageResultEventData{
+                .origin = EffectAttackDamageOrigin{attackProvenance(ultimateCast(1))},
+                .attackerBefore = self, .defenderBefore = enemy, .defenderAfter = enemy,
+                .resolvedDamage = 100, .finalHpDamage = 60, .damageKind = BattleDamageKind::Skill});
+    };
+    auto healed = attackDamage(2);
+    REQUIRE(healed.commands.size() == 1);
+    CHECK(std::get<ChangeResourceEffectCommand>(healed.commands.front().value).resolvedAmount() == 60);
+    BattleEffectCommandSystem().reduce(runtime, healed.commands);
+    CHECK(owner.core.vitals.hp == 459);
+    owner.core.vitals.hp = 100;
+    CHECK(advance(3) == 0);
+    CHECK(owner.core.vitals.hp == 100);
+    for (int elapsed = 0; elapsed < 49; ++elapsed) BattleStatusSystem(runtime.status.config).tick(runtime.units);
+    CHECK(owner.status.effects.remainingFrames(BattleStatusKind::Berserk) == 1);
+    CHECK(attribute(BattleAttribute::CriticalChance, 51) == 100);
+    BattleStatusSystem(runtime.status.config).tick(runtime.units);
+    CHECK_FALSE(owner.status.effects.has(BattleStatusKind::Berserk));
+    CHECK(attribute(BattleAttribute::CriticalChance, 52) == 0);
+    CHECK(attribute(BattleAttribute::CooldownReduction, 52) == 0);
+    CHECK(attackDamage(52).commands.empty());
+    CHECK(advance(52) == 0);
+}
+
+TEST_CASE("Low health combat bonuses use strict thresholds and expire after recovery",
+          "[battle][effect][bridge][low-health][regression]")
+{
+    const bool percent = GENERATE(false, true);
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(percent
+        ? "[{類型: 低血攻防百分比加成, 生命門檻百分比: 50, 攻防百分比: 50}]"
+        : "[{類型: 低血攻防加成, 生命門檻百分比: 50, 攻防點數: 50}]"),
+        effects, rules, id, "低血攻防測試"));
+    auto runtime = runtimeWithTwoUnits();
+    auto& owner = runtime.units.require(1);
+    owner.core.vitals = {50, 100, 0, 0};
+    runtime.effectRules.append(binding(EffectSourceKind::Combo, 7, 1, 0), rules);
+    const auto advance = [&](int frame) {
+        BattleEffectEventBridge bridge;
+        const auto event = bridge.makeEvent(runtime,
+            {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame), .ownerUnitId = 1},
+            EffectEvent::FrameAdvanced, FrameTickEventData{.deltaFrames = 1});
+        auto dispatched = bridge.dispatchFrameAdvanced(runtime, event);
+        BattleEffectCommandSystem().reduce(runtime, dispatched.commands);
+    };
+    const auto value = [&](BattleAttribute kind, int frame) {
+        return BattleEffectCommandSystem::queryAttribute(runtime,
+            {.unitId = 1, .attribute = kind, .baseValue = 120, .frame = frame});
+    };
+    advance(1);
+    CHECK(value(BattleAttribute::Attack, 1) == 120);
+    owner.core.vitals.hp = 49;
+    advance(2);
+    CHECK(value(BattleAttribute::Attack, 2) == (percent ? 180 : 170));
+    CHECK(value(BattleAttribute::Defence, 2) == (percent ? 180 : 170));
+    advance(3);
+    CHECK(value(BattleAttribute::Attack, 3) == (percent ? 180 : 170));
+    owner.core.vitals.hp = 50;
+    advance(4);
+    CHECK(value(BattleAttribute::Attack, 4) == 120);
+    CHECK(value(BattleAttribute::Defence, 4) == 120);
 }

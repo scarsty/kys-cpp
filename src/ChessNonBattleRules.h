@@ -52,13 +52,19 @@ struct FightWinGrowthRule
     bool operator==(const FightWinGrowthRule&) const = default;
 };
 
+struct HighTierNeigongDoublingRule
+{
+    bool operator==(const HighTierNeigongDoublingRule&) const = default;
+};
+
 using ChessNonBattleRule = std::variant<
     CountsAsComboRule,
     VictoryGoldRule,
     FreeShopRefreshRule,
     BattleMapChoiceRule,
     DeploymentCapacityRule,
-    FightWinGrowthRule>;
+    FightWinGrowthRule,
+    HighTierNeigongDoublingRule>;
 
 enum class ChessNonBattleRuleKind
 {
@@ -68,6 +74,7 @@ enum class ChessNonBattleRuleKind
     BattleMapChoice,
     DeploymentCapacity,
     FightWinGrowth,
+    HighTierNeigongDoubling,
 };
 
 ChessNonBattleRuleKind chessNonBattleRuleKind(const ChessNonBattleRule& rule);
@@ -83,5 +90,7 @@ std::string chessNonBattleRuleDescription(const ChessNonBattleRule& rule, bool c
 std::vector<std::string> countsAsComboNames(std::span<const ChessNonBattleRule> rules);
 
 FightWinGrowthRule sumFightWinGrowth(std::span<const ChessNonBattleRule> rules);
+
+bool doublesHighTierNeigong(std::span<const ChessNonBattleRule> rules);
 
 }  // namespace KysChess

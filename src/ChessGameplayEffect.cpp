@@ -25,6 +25,23 @@ std::span<const GameplayEffectRegistration> gameplayEffectCatalog()
     return entries;
 }
 
+std::vector<EffectRule> doubledGameplayEffectRules(
+    std::span<const GameplayEffect> effects, std::span<const EffectRule> originalRules)
+{
+    std::vector<EffectRule> result;
+    for (const auto& effect : effects)
+    {
+        const auto catalog = gameplayEffectCatalog();
+        const auto found = std::ranges::find(catalog, effect->name(), &GameplayEffectRegistration::name);
+        assert(found != catalog.end());
+        auto compiled = found->doubled(*effect)->buildRules();
+        result.insert(result.end(), std::make_move_iterator(compiled.begin()), std::make_move_iterator(compiled.end()));
+    }
+    assert(result.size() == originalRules.size());
+    for (std::size_t i = 0; i < result.size(); ++i) result[i].id = originalRules[i].id;
+    return result;
+}
+
 bool parseGameplayEffects(const YAML::Node& node, std::vector<GameplayEffect>& effects, std::vector<EffectRule>& rules,
                           std::uint64_t& nextRuleId, const std::string& context, const ChessDiagnosticSink& diagnostics)
 {

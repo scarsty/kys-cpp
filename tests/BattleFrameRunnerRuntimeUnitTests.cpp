@@ -15,6 +15,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
 #include <array>
@@ -2917,4 +2918,63 @@ TEST_CASE("Huagong follows actual poison ticks and expires after one hundred fra
     state.units.requireCore(1).vitals.mp = 40;
     runBattleFrame(state);
     CHECK(state.units.requireCore(1).vitals.mp == 40);
+}
+
+TEST_CASE("Emergency berserk keeps lifesteal and attributes aligned through every intended combat frame",
+          "[battle][frame-runner][berserk][regression]")
+{
+    const int duration = GENERATE(1, 50);
+    std::vector<GameplayEffect> effects;
+    std::vector<EffectRule> rules;
+    std::uint64_t id{};
+    REQUIRE(parseGameplayEffects(YAML::Load(std::format(
+        "[{{類型: 低血緊急回血狂暴, 生命門檻百分比: 20, 治療生命百分比: 20, "
+        "暴擊百分比: 100, 冷卻縮減百分比: 30, 吸血百分比: 100, 持續幀數: {}}}]", duration)),
+        effects, rules, id, "狂暴幀流程測試"));
+    auto state = runtimeFrameState();
+    auto& owner = state.units.require(0);
+    owner.core.vitals = {199, 1000, 20, 100};
+    owner.core.animation.cooldown = 80;
+    appendStatus(owner.status.effects, BattleStatusKind::Stun, 80);
+    state.effectRules.append({.kind = EffectSourceKind::Combo, .sourceId = 7, .ownerUnitId = 0}, rules);
+    const int firstFrame = state.movement.frame + 1;
+    const auto attribute = [&](BattleAttribute kind) {
+        return BattleEffectCommandSystem::queryAttribute(state,
+            {.unitId = 0, .attribute = kind, .baseValue = 0, .frame = state.movement.frame});
+    };
+    const auto lifesteal = [&] {
+        const auto self = makeEffectUnitSnapshot(state, owner);
+        const auto enemy = makeEffectUnitSnapshot(state, state.units.require(1));
+        return BattleEffectEventBridge().dispatch(state,
+            {.frame = state.movement.frame, .eventOrdinal = 100, .ownerUnitId = 0},
+            EffectEvent::DamageResolved,
+            DamageResultEventData{
+                .origin = EffectAttackDamageOrigin{BattleAttackProvenance{
+                    .cast = {.rootCastId = BattleCastId{1}, .castId = BattleCastId{1},
+                        .sourceUnitId = 0, .magicId = 43, .ultimate = true, .origin = CastOriginKind::Ultimate},
+                    .attackId = BattleAttackId{1}}},
+                .attackerBefore = self, .defenderBefore = enemy, .defenderAfter = enemy,
+                .resolvedDamage = 10, .finalHpDamage = 10, .damageKind = BattleDamageKind::Skill});
+    };
+    for (int elapsed = 0; elapsed < duration; ++elapsed)
+    {
+        runBattleFrame(state);
+        INFO("持續 " << duration << " 幀，已過 " << elapsed << " 幀");
+        REQUIRE(state.movement.frame == firstFrame + elapsed);
+        CHECK(owner.status.effects.remainingFrames(BattleStatusKind::Berserk) == duration - elapsed);
+        CHECK(attribute(BattleAttribute::CriticalChance) == 100);
+        CHECK(attribute(BattleAttribute::CooldownReduction) == 30);
+        auto healed = lifesteal();
+        REQUIRE(healed.commands.size() == 1);
+        CHECK(std::get<ChangeResourceEffectCommand>(healed.commands.front().value).resolvedAmount() == 10);
+        BattleEffectCommandSystem().reduce(state, healed.commands);
+    }
+    CHECK(owner.core.animation.cooldown == 0);
+    CHECK_FALSE(owner.status.effects.has(BattleStatusKind::Stun));
+    CHECK(owner.core.vitals.hp == 399 + duration * 10);
+    runBattleFrame(state);
+    CHECK_FALSE(owner.status.effects.has(BattleStatusKind::Berserk));
+    CHECK(attribute(BattleAttribute::CriticalChance) == 0);
+    CHECK(attribute(BattleAttribute::CooldownReduction) == 0);
+    CHECK(lifesteal().commands.empty());
 }

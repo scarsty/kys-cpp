@@ -4,6 +4,7 @@
 #include "ChessGameplayEffect.h"
 
 #include <array>
+#include <algorithm>
 #include <cassert>
 #include <format>
 #include <limits>
@@ -35,6 +36,8 @@ template <class T> struct Parameter
 {
     GameplayEffectParameter info;
     int T::* member;
+    // 只標記效果強度；觸發門檻、週期與選項不隨內功翻倍改變。
+    bool doubled = false;
 };
 
 template <class T> GameplayEffectRegistration registration()
@@ -54,7 +57,63 @@ template <class T> GameplayEffectRegistration registration()
                 auto effect = std::make_shared<T>();
                 for (std::size_t i = 0; i < T::Parameters.size(); ++i) { effect.get()->*T::Parameters[i].member = values[i]; }
                 return effect;
+            },
+            [](const GameplayEffectDefinition& original) -> GameplayEffect
+            {
+                auto effect = std::make_shared<T>(static_cast<const T&>(original));
+                for (const auto& parameter : T::Parameters)
+                {
+                    if (parameter.doubled)
+                    {
+                        auto& value = effect.get()->*parameter.member;
+                        value = std::clamp(value * 2, parameter.info.minimum, parameter.info.maximum);
+                    }
+                }
+                return effect;
             }};
+}
+
+inline std::vector<EffectAction> berserkActions(
+    int criticalPercent, int cooldownPercent, int lifestealPercent, int frames, bool appliedBeforeStatusTick = false)
+{
+    auto behavior = std::make_shared<StatusBehaviorDefinition>();
+    behavior->rules = {EffectRule{
+        .id = EffectRuleId{1},
+        .event = EffectEvent::DamageResolved,
+        .observation = EffectObservationScope::StatusHolderEventSource,
+        .selector = EffectSelector{.kind = EffectSelectorKind::StatusHolder},
+        .conditions = {DamagePerspectiveCondition{}, DamageOriginIsAttackCondition{}},
+        .actions = {EffectAction{.value = ChangeResourceAction{
+            .amount = EffectNumber{.base = EffectNumberBase::FinalHpDamage, .percent = lifestealPercent},
+            .healKind = EffectHealKind::Lifesteal}}}}};
+    return {
+        EffectAction{.value = ChangeResourceAction{
+            .resource = BattleResource::ActiveCooldown,
+            .amount = EffectNumber{.base = EffectNumberBase::TargetCurrentCooldown, .percent = 100},
+            .kind = ResourceChangeKind::Remove}},
+        EffectAction{.value = RemoveStatusAction{.statuses = {BattleStatusKind::Stun}}},
+        EffectAction{.value = ModifyAttributeAction{
+            .attribute = BattleAttribute::CriticalChance,
+            .amount = EffectNumber{.flat = criticalPercent},
+            .operation = AttributeOperation::PercentagePointAdd,
+            .durationFrames = frames}},
+        EffectAction{.value = ModifyAttributeAction{
+            .attribute = BattleAttribute::CooldownReduction,
+            .amount = EffectNumber{.flat = cooldownPercent},
+            .operation = AttributeOperation::PercentagePointAdd,
+            .durationFrames = frames}},
+        EffectAction{.value = ApplyStatusAction{
+            .status = BattleStatusKind::Berserk,
+            // 每幀開始的效果會在同幀遞減狀態計時，補回該次 tick，與屬性到期幀一致。
+            .durationFrames = frames + (appliedBeforeStatusTick ? 1 : 0),
+            .reapplication = StatusReapplicationPolicy::RefreshDuration,
+            .behavior = std::move(behavior)}}};
+}
+
+inline std::string berserkDescription(int criticalPercent, int cooldownPercent, int lifestealPercent, int frames)
+{
+    return std::format("狂暴：清空冷卻與眩暈，暴擊+{}%、冷卻-{}%、攻擊吸血{}%，{}幀",
+        criticalPercent, cooldownPercent, lifestealPercent, frames);
 }
 
 inline ChangeResourceAction recoveryAmount(BattleResource resource, int flat, int perStar, int maxHpPercent,

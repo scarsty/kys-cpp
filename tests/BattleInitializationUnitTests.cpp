@@ -1498,7 +1498,7 @@ TEST_CASE("Alliance Mingjiao counts real and equipment members for deaths and la
             const auto buffs = bridge.dispatch(runtime,
                 {.frame = frame, .eventOrdinal = static_cast<std::uint64_t>(frame * 10 + ownerId), .ownerUnitId = ownerId},
                 EffectEvent::AllyDied, death);
-            REQUIRE(buffs.commands.size() == 2 + (survivingMemberIds.size() == 1 ? 3 : 0));
+            REQUIRE(buffs.commands.size() == 2 + (survivingMemberIds.size() == 1 ? 5 : 0));
             for (const auto& command : buffs.commands) CHECK(command.metadata.targetUnitId == ownerId);
             BattleEffectCommandSystem().reduce(runtime, buffs.commands);
         }
@@ -1613,7 +1613,7 @@ TEST_CASE("Alliance equipment membership excludes unequipped duplicates on eithe
             const auto buffs = bridge.dispatch(runtime,
                 {.frame = offset, .eventOrdinal = static_cast<std::uint64_t>(10 + offset), .ownerUnitId = base + 3},
                 EffectEvent::AllyDied, death);
-            REQUIRE(buffs.commands.size() == (offset == 2 ? 4 : 1));
+            REQUIRE(buffs.commands.size() == (offset == 2 ? 6 : 1));
             for (const auto& command : buffs.commands)
                 CHECK(command.metadata.targetUnitId == base + 3);
             BattleEffectCommandSystem().reduce(runtime, buffs.commands);
@@ -1711,5 +1711,54 @@ TEST_CASE("Shendiao low health buffs only other allied combo members including w
             CHECK(attack(1, 12) == 100);
         }
         CHECK(dispatch(204).commands.empty());
+    }
+}
+
+TEST_CASE("Six member inner force synergy doubles only owned high tier neigong for its contributors",
+          "[battle][initialization][neigong][regression]")
+{
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.setup.comboDefinitions.push_back({
+        .id = 7, .name = "內勁測試", .memberRoleIds = {1001, 1002, 1003, 1004, 1005, 1006},
+        .thresholds = {{.count = 6, .doubleHighTierNeigong = true}}});
+    input.setup.equipmentDefinitions.push_back({.itemId = 777, .countsAsComboNames = {"內勁測試"}});
+    const std::array<std::string, 4> configured{
+        "[{類型: 攻擊加成, 點數: 7}]", "[{類型: 防禦加成, 點數: 11}]",
+        "[{類型: 速度加成, 點數: 13}]", "[{類型: 生命上限加成, 點數: 17}]"};
+    std::uint64_t nextRuleId{};
+    for (int tier = 1; tier <= 4; ++tier)
+    {
+        std::vector<GameplayEffect> effects;
+        std::vector<EffectRule> rules;
+        REQUIRE(parseGameplayEffects(YAML::Load(configured[tier - 1]), effects, rules, nextRuleId, "內功翻倍測試"));
+        input.setup.neigongDefinitions.push_back({9000 + tier, rules, tier, doubledGameplayEffectRules(effects, rules)});
+        input.setup.obtainedNeigongMagicIdsByTeam[0].push_back(9000 + tier);
+        input.setup.obtainedNeigongMagicIdsByTeam[1].push_back(9000 + tier);
+    }
+    // 已定義但未獲得的高階內功不可套用。
+    auto unowned = input.setup.neigongDefinitions.back();
+    unowned.magicId = 9999;
+    input.setup.neigongDefinitions.push_back(std::move(unowned));
+    for (int id = 1; id <= 13; ++id)
+    {
+        const int team = id <= 8 ? 0 : 1;
+        const int roleId = id <= 6 ? 1000 + id : id <= 8 ? 2000 + id : 1000 + id - 8;
+        addInitializedRuntimeTestUnit(input, id, roleId, team, id, team * 2, Towards_RightDown);
+    }
+    // 裝備提供的羈絆成員與原生成員使用相同效果。
+    input.setup.allyRoster.back().weaponId = 777;
+    auto created = BattleRuntimeSession::createInitialized(std::move(input));
+    const auto& runtime = created.session.runtime();
+    for (int id = 1; id <= 13; ++id)
+    {
+        const auto& unit = runtime.units.requireCore(id);
+        const bool doubled = id <= 6 || id == 8;
+        INFO("棋子 " << id);
+        CHECK(unit.stats.attack == 37);
+        CHECK(unit.stats.defence == 31);
+        CHECK(unit.stats.speed == (doubled ? 66 : 53));
+        CHECK(unit.vitals.maxHp == (doubled ? 154 : 137));
+        CHECK(unit.vitals.hp == unit.vitals.maxHp);
     }
 }

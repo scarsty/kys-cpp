@@ -48,6 +48,7 @@ struct TeamResolvedSetup
     };
 
     std::map<int, FightWinGrowthRule> fightWinGrowthByUnitId;
+    std::set<int> doubledNeigongUnitIds;
     std::vector<ActiveComboRules> activeComboRules;
 };
 
@@ -164,6 +165,7 @@ TeamResolvedSetup resolveTeamSetup(
             for (const int unitId : contribution.unitIds)
             {
                 memberUnitIds.push_back(unitId);
+                if (threshold.doubleHighTierNeigong) resolved.doubledNeigongUnitIds.insert(unitId);
                 auto& growth = resolved.fightWinGrowthByUnitId[unitId];
                 growth.maxHp += threshold.fightWinGrowth.maxHp;
                 growth.attack += threshold.fightWinGrowth.attack;
@@ -235,7 +237,8 @@ void applyObtainedNeigongEffects(
     BattleEffectRuleStore& rules,
     const BattleRuntimeSetupSeed& setup,
     int team,
-    int unitId)
+    int unitId,
+    bool doubleHighTierNeigong)
 {
     assert(team >= 0 && team < static_cast<int>(setup.obtainedNeigongMagicIdsByTeam.size()));
     for (int magicId : setup.obtainedNeigongMagicIdsByTeam[team])
@@ -252,7 +255,8 @@ void applyObtainedNeigongEffects(
                 .ownerUnitId = unitId,
                 .sourceTeam = team,
             },
-            definition->rules);
+            doubleHighTierNeigong && (definition->tier == 3 || definition->tier == 4)
+                ? definition->doubledRules : definition->rules);
     }
 }
 
@@ -497,7 +501,8 @@ void BattleStartInitializationRun::initializeSeededUnits()
             effectRules_,
             setup_,
             seed.team,
-            seed.unitId);
+            seed.unitId,
+            resolved.doubledNeigongUnitIds.contains(seed.unitId));
 
         const int normalizedStar = normalizeBattleStar(rosterUnit ? rosterUnit->star : seed.star);
         const int fightsWon = rosterUnit ? rosterUnit->fightsWon : 0;

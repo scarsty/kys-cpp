@@ -150,7 +150,7 @@ struct HitIgnoreDefence final : GameplayEffectDefinition
     int 忽略防禦百分比{};
     static constexpr std::string_view Name = "命中忽略防禦";
     static constexpr auto Parameters = std::array<Parameter<HitIgnoreDefence>, 1>{
-        {Parameter<HitIgnoreDefence>{{"忽略防禦百分比", 0, 1000000}, &HitIgnoreDefence::忽略防禦百分比}}};
+        {Parameter<HitIgnoreDefence>{{"忽略防禦百分比", 0, 1000000}, &HitIgnoreDefence::忽略防禦百分比, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
@@ -707,9 +707,9 @@ struct ChanceHitKnockback final : GameplayEffectDefinition
     int 鎖定幀數{};
     static constexpr std::string_view Name = "機率命中擊退";
     static constexpr auto Parameters = std::array<Parameter<ChanceHitKnockback>, 3>{
-        {Parameter<ChanceHitKnockback>{{"機率百分比", 0, 100}, &ChanceHitKnockback::機率百分比},
-         Parameter<ChanceHitKnockback>{{"距離像素", 0, 1000000}, &ChanceHitKnockback::距離像素},
-         Parameter<ChanceHitKnockback>{{"鎖定幀數", 1, 1000000}, &ChanceHitKnockback::鎖定幀數}}};
+        {Parameter<ChanceHitKnockback>{{"機率百分比", 0, 100}, &ChanceHitKnockback::機率百分比, true},
+         Parameter<ChanceHitKnockback>{{"距離像素", 0, 1000000}, &ChanceHitKnockback::距離像素, true},
+         Parameter<ChanceHitKnockback>{{"鎖定幀數", 1, 1000000}, &ChanceHitKnockback::鎖定幀數, true}}};
     std::string_view name() const override { return Name; }
     std::vector<EffectRule> buildRules() const override
     {
