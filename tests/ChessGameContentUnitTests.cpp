@@ -462,13 +462,15 @@ TEST_CASE("synthetic content fingerprint includes the current gameplay schema", 
         == "059bd3d1d2a3209e315d2a771e0071dc108cd8f693dde46dc5d0e2b380a14f94");
 }
 
-TEST_CASE("0.2.20 only adds a forward compatibility exception for 0.2.19", "[chess][content][version]")
+TEST_CASE("0.2.22 only accepts 0.2.21 as an older compatible release", "[chess][content][version]")
 {
-    CHECK(chessGameVersionsCompatible("0.2.19", "0.2.20"));
-    CHECK_FALSE(chessGameVersionsCompatible("0.2.20", "0.2.19"));
-    CHECK_FALSE(chessGameVersionsCompatible("0.2.18", "0.2.20"));
-    CHECK_FALSE(chessGameVersionsCompatible("0.2.17", "0.2.20"));
-    CHECK_FALSE(chessGameVersionsCompatible("0.2.19", "0.2.21"));
+    CHECK(chessGameVersionsCompatible("0.2.21", "0.2.22"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.22", "0.2.21"));
+    for (const auto* version : {"0.2.17", "0.2.18", "0.2.19", "0.2.20"})
+        CHECK_FALSE(chessGameVersionsCompatible(version, "0.2.22"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.17", "0.2.18"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.19", "0.2.20"));
+    CHECK_FALSE(chessGameVersionsCompatible("0.2.21", "0.2.23"));
 }
 
 TEST_CASE("cosmetic combo icons do not change the gameplay content fingerprint", "[chess][content][combo][fingerprint]")

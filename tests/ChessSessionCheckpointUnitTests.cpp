@@ -153,9 +153,8 @@ TEST_CASE("direct restore accepts dev versions and rejects incompatible release 
 
 TEST_CASE("compatible releases load and continue saves with the original replay header", "[chess][checkpoint][save][version]")
 {
-    const auto [previousVersion, currentVersion] = GENERATE(
-        std::pair{"0.2.17", "0.2.18"},
-        std::pair{"0.2.19", "0.2.20"});
+    constexpr auto previousVersion = "0.2.21";
+    constexpr auto currentVersion = "0.2.22";
     const auto previousContent = managementContent(100, Difficulty::Normal, previousVersion);
     const auto currentContent = managementContent(100, Difficulty::Normal, currentVersion);
     ChessGameSession previous(previousContent, 77);

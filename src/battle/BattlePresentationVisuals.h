@@ -1,37 +1,16 @@
 #pragma once
 
 #include "BattlePresentation.h"
+#include "../ChessEftIds.h"
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cstdint>
 #include <optional>
-#include <string_view>
+#include <utility>
 
 namespace KysChess::Battle
 {
-
-inline constexpr char BattleCueVisualPathPrefix[] = "eft/cue-";
-inline constexpr char BattleCuePositiveVisualPath[] = "eft/cue-positive";
-inline constexpr char BattleCueCleanseVisualPath[] = "eft/cue-cleanse";
-inline constexpr char BattleAreaSandVisualPath[] = "eft/area-sand";
-inline constexpr char BattleAreaWardVisualPath[] = "eft/area-ward";
-inline constexpr char BattleAreaFireVisualPath[] = "eft/area-fire";
-inline constexpr char BattleCueSwordVisualPath[] = "eft/cue-sword";
-inline constexpr char BattleCueGuardianVisualPath[] = "eft/cue-guardian";
-inline constexpr char BattleCueFireVisualPath[] = "eft/cue-fire";
-
-inline constexpr std::array<std::string_view, 8> BattleEffectVisualPaths = {
-    BattleCuePositiveVisualPath,
-    BattleCueCleanseVisualPath,
-    BattleAreaSandVisualPath,
-    BattleAreaWardVisualPath,
-    BattleAreaFireVisualPath,
-    BattleCueSwordVisualPath,
-    BattleCueGuardianVisualPath,
-    BattleCueFireVisualPath,
-};
 
 inline constexpr int YellowSandWhipMagicId = 78;       // 黃沙萬里鞭
 inline constexpr int DemonSubduingStaffMagicId = 86;   // 伏魔杖法
@@ -48,16 +27,16 @@ inline constexpr std::optional<BattleAreaVisualStyle> battleAreaVisualStyleForMa
     }
 }
 
-inline constexpr const char* battleAreaVisualPath(BattleAreaVisualStyle style)
+inline constexpr int battleAreaEffectId(BattleAreaVisualStyle style)
 {
     switch (style)
     {
-    case BattleAreaVisualStyle::Sand: return BattleAreaSandVisualPath;
-    case BattleAreaVisualStyle::ProtectiveWard: return BattleAreaWardVisualPath;
-    case BattleAreaVisualStyle::Fire: return BattleAreaFireVisualPath;
+    case BattleAreaVisualStyle::Sand: return EFT_AREA_SAND;
+    case BattleAreaVisualStyle::ProtectiveWard: return EFT_AREA_WARD;
+    case BattleAreaVisualStyle::Fire: return EFT_AREA_FIRE;
     }
     assert(false);
-    return "";
+    std::unreachable();
 }
 
 inline constexpr std::uint8_t battleAreaVisualAlpha(

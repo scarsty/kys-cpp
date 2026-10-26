@@ -958,7 +958,7 @@ void BattleSceneHades::drawClassicView()
 
     for (const auto& area : area_effects_)
     {
-        const char* path = KysChess::Battle::battleAreaVisualPath(area.style);
+        const auto path = std::format("eft/eft{:03}", KysChess::Battle::battleAreaEffectId(area.style));
         const int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
         if (frameCount <= 0)
         {
@@ -1621,7 +1621,7 @@ void BattleSceneHades::drawPaperView()
 
     for (const auto& area : area_effects_)
     {
-        const char* path = KysChess::Battle::battleAreaVisualPath(area.style);
+        const auto path = std::format("eft/eft{:03}", KysChess::Battle::battleAreaEffectId(area.style));
         const int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
         if (frameCount <= 0)
         {

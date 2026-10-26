@@ -14,7 +14,6 @@
 #include "ScenePreloader.h"
 #include "SystemSettings.h"
 #include "battle/BattleCombatIntent.h"
-#include "battle/BattlePresentationVisuals.h"
 
 #include <array>
 #include <chrono>
@@ -247,9 +246,7 @@ private:
         for (const int effect : analysis_.presentationAssets.effectIds)
             if (effect >= 0) groups.insert(std::format("eft/eft{:03}", effect));
         for (const auto effect : EFT_ALL) groups.insert(std::format("eft/eft{:03}", std::to_underlying(effect)));
-        for (const std::string_view path : Battle::BattleEffectVisualPaths) groups.emplace(path);
         for (const auto& path : groups) textureGroupLoad(path.starts_with("fight/") ? "棋子動作" : "武學特效", path);
-        for (int effect = 0; effect < 5; ++effect) textureLoad("受擊特效", std::format("eft/bld{:03}", effect), 0);
         const auto map = session_.content().battleMaps().find(analysis_.identity.chosenMapId);
         assert(map != session_.content().battleMaps().end());
         const int battlefield = session_.state().preparedBattle->layout == PreparedChessBattleLayout::PvpArena

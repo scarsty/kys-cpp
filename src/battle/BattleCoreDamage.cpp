@@ -2319,8 +2319,7 @@ void applyDamageAndLifecycle(
             // 承傷沿用攻擊者記帳，但不是另一次攻擊，不重複觸發命中規則。
             appendFramePendingDamage(state, pendingDamage, redirected, presentation,
                 0, false, {}, EffectEnvironmentDamageOrigin{});
-            auto guardCue = roleEffectEvent(redirect->guardianUnitId, -1, 12);
-            guardCue.visualPath = BattleCueGuardianVisualPath;
+            auto guardCue = roleEffectEvent(redirect->guardianUnitId, KysChess::EFT_CUE_GUARDIAN, 12);
             guardCue.roleEffectType = BattleRoleEffectType::GuardianCue;
             frame.visualEvents.push_back(std::move(guardCue));
             appendStatusEventLog(frame.logEvents, redirect->guardianUnitId,

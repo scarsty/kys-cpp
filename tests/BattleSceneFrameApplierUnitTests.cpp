@@ -150,7 +150,9 @@ TEST_CASE("BattleSceneFrameApplier_CoalescesDamageSceneEffectsPerDamagedUnitPerF
     CHECK(fixture.hurtFlashTimers.at(1) == 15);
     REQUIRE(fixture.attackEffects.size() == 1);
     CHECK(fixture.attackEffects[0].FollowUnitId == 1);
-    CHECK(fixture.attackEffects[0].Path.starts_with("eft/bld"));
+    const auto& effect = fixture.attackEffects[0];
+    CHECK(std::ranges::any_of(KysChess::EFT_HIT, [&](auto id) { return id == effect.VisualEffectId; }));
+    CHECK(effect.Path == std::format("eft/eft{:03}", effect.VisualEffectId));
 }
 
 TEST_CASE("BattleSceneFrameApplier_AppliesUnitDeathCameraFreezeSlowShakeAndBattleEndState", "[battle][scene_frame_applier]")
@@ -239,7 +241,7 @@ TEST_CASE("BattleSceneFrameApplier_SemanticCuesPlayOnceWithoutStackingOrRestarti
     BattleVisualEvent cue;
     cue.type = BattleVisualEventType::RoleEffect;
     cue.targetUnitId = 1;
-    cue.visualPath = BattleCuePositiveVisualPath;
+    cue.effectId = KysChess::EFT_CUE_POSITIVE;
     cue.roleEffectType = BattleRoleEffectType::StatusCue;
     cue.durationFrames = 48;
     frame.visualEvents = { cue, cue };
@@ -249,7 +251,7 @@ TEST_CASE("BattleSceneFrameApplier_SemanticCuesPlayOnceWithoutStackingOrRestarti
     for (int i = 0; i < 9; ++i)
         advanceBattlePresentationEffects(fixture.attackEffects, true);
     // 相同提示換素材也不能繞過合併規則。
-    frame.visualEvents.front().visualPath = "alternate-status-art";
+    frame.visualEvents.front().effectId = KysChess::EFT_CUE_CLEANSE;
     fixture.applier.apply(frame, fixture.effects);
     REQUIRE(fixture.attackEffects.size() == 1);
     CHECK(fixture.attackEffects.front().Frame == 9);
@@ -279,7 +281,7 @@ TEST_CASE("BattleSceneFrameApplier_HealingRetainsOriginalDurationAndIndependentP
     CHECK(fixture.attackEffects.front().TotalFrame == 48);
     CHECK(fixture.attackEffects.front().TotalEffectFrame == 10);
     // 一般效果即使使用提示素材，仍保留原有播放規則。
-    frame.visualEvents.front().visualPath = BattleCuePositiveVisualPath;
+    frame.visualEvents.front().effectId = KysChess::EFT_CUE_POSITIVE;
     for (int i = 0; i < 10; ++i)
         advanceBattlePresentationEffects(fixture.attackEffects, true);
     REQUIRE(fixture.attackEffects.size() == 2);
@@ -298,7 +300,7 @@ TEST_CASE("BattleSceneFrameApplier_AppliesSemanticCuePathTintAndAreaSnapshot", "
     BattleVisualEvent cue;
     cue.type = BattleVisualEventType::RoleEffect;
     cue.targetUnitId = 1;
-    cue.visualPath = BattleCuePositiveVisualPath;
+    cue.effectId = KysChess::EFT_CUE_POSITIVE;
     cue.color = { 112, 224, 255, 235 };
     cue.durationFrames = 15;
     frame.visualEvents.push_back(cue);
@@ -319,7 +321,8 @@ TEST_CASE("BattleSceneFrameApplier_AppliesSemanticCuePathTintAndAreaSnapshot", "
     REQUIRE(fixture.attackEffects.size() == 1);
     const auto& effect = fixture.attackEffects.front();
     CHECK(effect.FollowUnitId == 1);
-    CHECK(effect.Path == BattleCuePositiveVisualPath);
+    CHECK(effect.Path == "eft/eft216");
+    CHECK(effect.VisualEffectId == KysChess::EFT_CUE_POSITIVE);
     CHECK(effect.Tint.r == 112);
     CHECK(effect.Tint.g == 224);
     CHECK(effect.Tint.b == 255);

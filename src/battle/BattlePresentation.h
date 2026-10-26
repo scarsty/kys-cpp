@@ -232,7 +232,6 @@ struct BattleVisualEvent
     int textMotionType = 0;
     std::string text;
     std::string skillName;
-    std::string visualPath;
     std::vector<BattleLogTextSegment> segments;
     BattlePresentationColor color;
     Pointf position;

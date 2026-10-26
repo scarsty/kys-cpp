@@ -315,16 +315,16 @@ BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
     switch (cue.family)
     {
     case BattleSemanticCueFamily::SwordIntent:
-        event.visualPath = BattleCueSwordVisualPath;
+        event.effectId = EFT_CUE_SWORD;
         event.color = {160, 225, 255, 255};
         event.durationFrames = 12;
         break;
     case BattleSemanticCueFamily::Positive:
-        event.visualPath = BattleCuePositiveVisualPath;
+        event.effectId = EFT_CUE_POSITIVE;
         event.color = { 255, 204, 96, 220 };
         break;
     case BattleSemanticCueFamily::Protection:
-        event.visualPath = BattleCuePositiveVisualPath;
+        event.effectId = EFT_CUE_POSITIVE;
         event.color = { 112, 224, 255, 210 };
         break;
     case BattleSemanticCueFamily::Poison:
@@ -334,7 +334,7 @@ BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
         assert(false && "負面狀態提示必須在排入佇列前被抑制");
         std::unreachable();
     case BattleSemanticCueFamily::Cleanse:
-        event.visualPath = BattleCueCleanseVisualPath;
+        event.effectId = EFT_CUE_CLEANSE;
         event.color = { 184, 255, 246, 205 };
         break;
     }
@@ -1740,8 +1740,7 @@ void appendAreaDamagePulses(BattleRuntimeState& state, BattleFrameContext& frame
             if (modifier.kind != AreaModifierKind::PeriodicDamage) continue;
             const int age = currentFrame - area.createdFrame;
             if (age <= 0 || age % modifier.intervalFrames != 0) continue;
-            auto pulse = roleEffectEvent(area.source.ownerUnitId, -1, 12);
-            pulse.visualPath = BattleCueFireVisualPath;
+            auto pulse = roleEffectEvent(area.source.ownerUnitId, EFT_CUE_FIRE, 12);
             pulse.roleEffectType = BattleRoleEffectType::FireCue;
             pulse.color = {255, 255, 255, 230};
             frame.visualEvents.push_back(std::move(pulse));

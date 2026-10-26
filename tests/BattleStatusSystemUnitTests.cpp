@@ -1638,7 +1638,7 @@ TEST_CASE("BattleFrameRunner_BlindedPreservesNeutralizeForceAndIncomingMiss", "[
                 [](const BattleVisualEvent& visual)
                 {
                     return visual.type == BattleVisualEventType::RoleEffect
-                        && visual.visualPath.starts_with(BattleCueVisualPathPrefix);
+                        && visual.roleEffectType != BattleRoleEffectType::Standard;
                 }));
         }
         REQUIRE(requireById(state.attacks.attacks, tracked.attackId).hitUnitIds.size() == 2);

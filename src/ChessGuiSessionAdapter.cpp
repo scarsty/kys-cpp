@@ -2110,6 +2110,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             });
         SessionMenuData data;
         data.actionLabel = "領取";
+        data.headerNote = std::format("持有 {} 金", session_.state().money);
+        if (std::ranges::any_of(availableOptions, [](const auto& option) { return option.goldCost > 0; }))
+            data.headerNote += " · 免費候選不扣款，額外候選需付費";
         for (const auto& option : availableOptions)
         {
             if (option.kind == ChessRewardKind::Equipment)
@@ -2186,7 +2189,12 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 }
                 data.cards.push_back(std::move(card));
             }
-            if (option.goldCost > 0) data.cards.back().subtitle = std::format("{} 金", option.goldCost);
+            auto& card = data.cards.back();
+            if (!card.subtitle.empty()) card.subtitle += " · ";
+            card.subtitle += option.goldCost > 0 ? std::format("額外候選 {} 金", option.goldCost) : "免費";
+            card.actionLabel = option.goldCost > 0
+                ? std::format("支付 {} 金", option.goldCost)
+                : "免費領取";
         }
         data.shortChoice = pending.kind == ChessRewardKind::ChallengeReward
             && availableOptions.size() <= 3;

@@ -411,7 +411,7 @@ std::vector<const BattleVisualEvent*> semanticCueEvents(
     for (const auto& event : frame.visualEvents)
     {
         if (event.type == BattleVisualEventType::RoleEffect
-            && event.visualPath.starts_with(BattleCueVisualPathPrefix))
+            && event.roleEffectType != BattleRoleEffectType::Standard)
         {
             events.push_back(&event);
         }
@@ -744,16 +744,16 @@ TEST_CASE("BattleFrameRunner_SuppressesDebuffCuesAndKeepsPositiveStatusColors", 
     struct Case
     {
         BattleStatusKind status{};
-        std::string_view path;
+        int effectId = -1;
         BattlePresentationColor color;
     };
     const std::array cases{
-        Case{ BattleStatusKind::Poison, {}, {} },
-        Case{ BattleStatusKind::Bleed, {}, {} },
-        Case{ BattleStatusKind::Stun, {}, {} },
-        Case{ BattleStatusKind::WitheredBone, {}, {} },
-        Case{ BattleStatusKind::DamageBlockLayer, BattleCuePositiveVisualPath, { 112, 224, 255, 210 } },
-        Case{ BattleStatusKind::BattleSpirit, BattleCuePositiveVisualPath, { 255, 204, 96, 220 } },
+        Case{ BattleStatusKind::Poison, -1, {} },
+        Case{ BattleStatusKind::Bleed, -1, {} },
+        Case{ BattleStatusKind::Stun, -1, {} },
+        Case{ BattleStatusKind::WitheredBone, -1, {} },
+        Case{ BattleStatusKind::DamageBlockLayer, EFT_CUE_POSITIVE, { 112, 224, 255, 210 } },
+        Case{ BattleStatusKind::BattleSpirit, EFT_CUE_POSITIVE, { 255, 204, 96, 220 } },
     };
 
     for (const auto& test : cases)
@@ -806,14 +806,14 @@ TEST_CASE("BattleFrameRunner_SuppressesDebuffCuesAndKeepsPositiveStatusColors", 
         const auto frame = runBattleFrame(state);
         const auto cues = semanticCueEvents(frame);
         CHECK(state.units.require(1).status.effects.has(test.status));
-        if (test.path.empty())
+        if (test.effectId < 0)
         {
             CHECK(cues.empty());
             continue;
         }
         REQUIRE(cues.size() == 1);
         CHECK(cues.front()->targetUnitId == 1);
-        CHECK(cues.front()->visualPath == test.path);
+        CHECK(cues.front()->effectId == test.effectId);
         CHECK(cues.front()->color.r == test.color.r);
         CHECK(cues.front()->color.g == test.color.g);
         CHECK(cues.front()->color.b == test.color.b);
@@ -853,7 +853,7 @@ TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndIniti
     const auto applied = runBattleFrame(state);
     const auto appliedCues = semanticCueEvents(applied);
     REQUIRE(appliedCues.size() == 1);
-    CHECK(appliedCues.front()->visualPath == BattleCuePositiveVisualPath);
+    CHECK(appliedCues.front()->effectId == EFT_CUE_POSITIVE);
     CHECK(appliedCues.front()->color.r == 112);
     CHECK(appliedCues.front()->color.g == 224);
     CHECK(appliedCues.front()->color.b == 255);
@@ -931,7 +931,7 @@ TEST_CASE("BattleFrameRunner_GuaranteedHitCuesEachRecipientWithoutRefreshFlash",
         for (const auto* cue : cues)
         {
             CHECK(cue->durationFrames == 12);
-            CHECK(cue->visualPath == BattleCueSwordVisualPath);
+            CHECK(cue->effectId == EFT_CUE_SWORD);
             CHECK(cue->color.r == 160);
             CHECK(cue->color.g == 225);
             CHECK(cue->color.b == 255);
@@ -983,7 +983,7 @@ TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][
         const auto removedFrame = runBattleFrame(state);
         const auto removed = semanticCueEvents(removedFrame);
         REQUIRE(removed.size() == 1);
-        CHECK(removed.front()->visualPath == BattleCueCleanseVisualPath);
+        CHECK(removed.front()->effectId == EFT_CUE_CLEANSE);
         CHECK(removed.front()->color.r == 184);
         CHECK(removed.front()->color.g == 255);
         CHECK(removed.front()->color.b == 246);

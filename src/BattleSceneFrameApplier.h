@@ -4,6 +4,7 @@
 #include "BattleSceneCamera.h"
 #include "BattleScenePresentationConstants.h"
 #include "BattleSceneUnitStore.h"
+#include "ChessEftIds.h"
 #include "Point.h"
 #include "Random.h"
 #include "battle/BattlePresentation.h"
@@ -240,7 +241,8 @@ void BattleSceneFrameApplier::applyDamageAndLifecycleEffects(
     {
         BattleAttackEffect effect;
         effect.FollowUnitId = unitId;
-        effect.Path = std::format("eft/bld{:03}", int(bindings_.random.rand() * 5));
+        effect.VisualEffectId = KysChess::EFT_HIT[int(bindings_.random.rand() * KysChess::EFT_HIT.size())];
+        effect.Path = std::format("eft/eft{:03}", effect.VisualEffectId);
         effect.TotalEffectFrame = effects.effectFrameCount(effect.Path);
         effect.TotalFrame = effect.TotalEffectFrame;
         effect.Frame = 0;
@@ -390,9 +392,7 @@ void BattleSceneFrameApplier::spawnRoleEffect(
     effect.FollowUnitId = event.targetUnitId;
     effect.Pos = { 0.0f, 0.0f, ROLE_STATUS_EFT_Z_OFFSET };
     effect.VisualEffectId = event.effectId;
-    effect.Path = event.visualPath.empty()
-        ? std::format("eft/eft{:03}", event.effectId)
-        : event.visualPath;
+    effect.Path = std::format("eft/eft{:03}", event.effectId);
     effect.RoleEffectType = event.roleEffectType;
     const bool isCue = event.roleEffectType != KysChess::Battle::BattleRoleEffectType::Standard;
     // 僅合併新增的語意提示；原有治療等 EFT 保留獨立播放。

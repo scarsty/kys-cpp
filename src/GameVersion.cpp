@@ -59,8 +59,7 @@ bool chessGameVersionsCompatible(std::string_view savedVersion, std::string_view
     return savedVersion == currentVersion
         || savedVersion == "dev"
         || currentVersion == "dev"
-        || (savedVersion == "0.2.17" && currentVersion == "0.2.18")
-        || (savedVersion == "0.2.19" && currentVersion == "0.2.20");
+        || (savedVersion == "0.2.21" && currentVersion == "0.2.22");
 }
 
 }

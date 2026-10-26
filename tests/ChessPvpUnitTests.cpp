@@ -131,9 +131,8 @@ TEST_CASE("usage traces retain the final PvP validation result after all observe
 
 TEST_CASE("compatible releases verify unchanged offline PvP saves", "[chess][pvp][save][version]")
 {
-    const auto [previousVersion, currentVersion] = GENERATE(
-        std::pair{"0.2.17", "0.2.18"},
-        std::pair{"0.2.19", "0.2.20"});
+    constexpr auto previousVersion = "0.2.21";
+    constexpr auto currentVersion = "0.2.22";
     const auto previous = checkpointFixture(Difficulty::Hard, previousVersion);
     const auto currentContent = previous.content->withGameVersion(currentVersion);
     for (const auto& payload : {previous.checkpoint.serializeJson(), fullSlotPayload(previous.checkpoint)})

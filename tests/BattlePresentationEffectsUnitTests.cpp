@@ -121,7 +121,7 @@ TEST_CASE("BattleAreaPresentation_FirePulseFollowsConfiguredDamageInterval", "[b
     area.createdFrame = 10;
     area.expiresFrameExclusive = 130;
     area.pulseIntervalFrames = 20;
-    CHECK(battleAreaVisualPath(area.style) == std::string_view(BattleAreaFireVisualPath));
+    CHECK(battleAreaEffectId(area.style) == KysChess::EFT_AREA_FIRE);
     CHECK(battleAreaVisualAlpha(area, 30) == 180);
     CHECK(battleAreaVisualAlpha(area, 36) == 110);
     area.pulseIntervalFrames = 30;

@@ -60,6 +60,7 @@ struct ChessSelectionItem
     std::function<void(int)> openCombo;
     std::vector<PanelTextSourceRow> effectRows;
     bool actionEnabled = true;
+    std::string actionLabel;
 };
 
 struct ChessSelectionPosition

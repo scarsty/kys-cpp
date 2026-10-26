@@ -6,7 +6,6 @@
 #include <catch2/generators/catch_generators.hpp>
 
 #include <string_view>
-#include <tuple>
 #include <utility>
 
 using namespace KysChess;
@@ -180,21 +179,17 @@ TEST_CASE("replay prefix reconstruction preserves compatible cross-version evide
     {
         verifyPrefix("dev", "0.2.16");
     }
-    SECTION("0.2.17 replay under the compatible 0.2.18 release")
+    SECTION("0.2.21 replay under the compatible 0.2.22 release")
     {
-        verifyPrefix("0.2.17", "0.2.18");
-    }
-    SECTION("0.2.19 replay under the compatible 0.2.20 release")
-    {
-        verifyPrefix("0.2.19", "0.2.20");
+        verifyPrefix("0.2.21", "0.2.22");
     }
 }
 
 TEST_CASE("compatible releases verify original evidence without weakening integrity checks", "[chess][replay][verify][version]")
 {
-    const auto [previousVersion, currentVersion, nextVersion] = GENERATE(
-        std::tuple{"0.2.17", "0.2.18", "0.2.19"},
-        std::tuple{"0.2.19", "0.2.20", "0.2.21"});
+    constexpr auto previousVersion = "0.2.21";
+    constexpr auto currentVersion = "0.2.22";
+    constexpr auto nextVersion = "0.2.23";
     auto replay = shortReplay(previousVersion);
     const auto content = managementContent(100, Difficulty::Normal, currentVersion);
     CHECK(ChessReplayVerifier::verify(content, replay).valid);

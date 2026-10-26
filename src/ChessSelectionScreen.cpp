@@ -691,6 +691,7 @@ void ChessSelectionScreen::drawChoice()
 
 std::string ChessSelectionScreen::confirmationLabel() const
 {
+    if (!items_[selected_].actionLabel.empty()) return items_[selected_].actionLabel;
     return layout_ == ChessSelectionLayout::Talent ? actionLabel_ + " · " + items_[selected_].title : actionLabel_;
 }
 
