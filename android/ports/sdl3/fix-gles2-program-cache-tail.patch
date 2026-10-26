@@ -1,8 +1,17 @@
 diff --git a/src/render/opengles2/SDL_render_gles2.c b/src/render/opengles2/SDL_render_gles2.c
-index b573255..20a9c92 100644
 --- a/src/render/opengles2/SDL_render_gles2.c
 +++ b/src/render/opengles2/SDL_render_gles2.c
-@@ -513,6 +513,9 @@ static GLES2_ProgramCacheEntry *GLES2_CacheProgram(GLES2_RenderData *data, GLui
+@@ -439,6 +439,9 @@ static GLES2_ProgramCacheEntry *GLES2_CacheProgram(GLES2_RenderData *data, GLuint vertex, GLuint fragment)
+     if (entry) {
+         if (data->program_cache.head != entry) {
++            if (data->program_cache.tail == entry) {
++                data->program_cache.tail = entry->prev;
++            }
+             if (entry->next) {
+                 entry->next->prev = entry->prev;
+             }
+             if (entry->prev) {
+@@ -513,6 +516,9 @@ static GLES2_ProgramCacheEntry *GLES2_CacheProgram(GLES2_RenderData *data, GLuint vertex, GLuint fragment)
      if (data->program_cache.count > GLES2_MAX_CACHED_PROGRAMS) {
          GLES2_ProgramCacheEntry *oldest = data->program_cache.tail;
          data->program_cache.tail = oldest->prev;
