@@ -25,21 +25,19 @@ if ([string]::IsNullOrWhiteSpace($gameTarget))
   $gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
 }
 Ensure-PathExists -Path $gameTarget -Message "Game assets not found at $gameTarget"
-Sync-GameConfig -ProjectDir $paths.ProjectDir -GameDir $gameTarget
-Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
-
-Write-WasmAssetManifest `
+Initialize-WasmGameAssets `
     -ProjectDir $paths.ProjectDir `
     -WasmDir $paths.WasmDir `
-    -GameDir $gameTarget `
-    -OutputPath (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
+    -SourceGameDir $gameTarget `
+    -DestinationGameDir (Join-Path $paths.BuildDir 'kys\game') `
+    -ManifestPath (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
 
 Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -DepsDir $paths.VcpkgWasm
 
 Copy-Item -Force (Join-Path $paths.WasmDir 'serve.py') (Join-Path $paths.BuildDir 'serve.py')
 
 $indexPath = Join-Path $paths.BuildDir 'index.html'
-Build-WasmPromoPage -ProjectDir $paths.ProjectDir -GameDir $gameTarget -OutputPath $indexPath
+Build-WasmPromoPage -ProjectDir $paths.ProjectDir -GameDir (Join-Path $paths.BuildDir 'kys\game') -OutputPath $indexPath
 
 $headersPath = Join-Path $paths.BuildDir '_headers'
 Set-Content -Path $headersPath -NoNewline -Value @'

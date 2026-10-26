@@ -50,7 +50,9 @@ function Invoke-RobocopyMirror
         [Parameter(Mandatory = $true)]
         [string]$Destination,
 
-        [string[]]$ExcludeDirectories = @()
+        [string[]]$ExcludeDirectories = @(),
+
+        [string[]]$ExcludeFiles = @()
     )
 
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
@@ -72,6 +74,12 @@ function Invoke-RobocopyMirror
     {
         $arguments += '/XD'
         $arguments += $ExcludeDirectories
+    }
+
+    if ($ExcludeFiles.Count -gt 0)
+    {
+        $arguments += '/XF'
+        $arguments += $ExcludeFiles
     }
 
     $previousNativeErrorPreference = $null
@@ -159,7 +167,25 @@ function Copy-ReleaseGameAssets
     $sourceSaveDir = Join-Path $SourceGameDir 'save'
     Ensure-PathExists -Path (Join-Path $sourceSaveDir 'game.db') -Message "Required save data missing: $(Join-Path $sourceSaveDir 'game.db')"
 
-    Invoke-RobocopyMirror -Source $SourceGameDir -Destination $DestinationGameDir -ExcludeDirectories @('save')
+    Invoke-RobocopyMirror -Source $SourceGameDir -Destination $DestinationGameDir `
+        -ExcludeDirectories @('save', (Join-Path $SourceGameDir 'font\wasm')) `
+        -ExcludeFiles @((Join-Path $SourceGameDir 'music\mid.sf3'), '*.gz', '*.br')
+
+    # Robocopy leaves excluded destination entries in place, including old WASM outputs.
+    $wasmFontDir = Join-Path ([IO.Path]::GetFullPath($DestinationGameDir)) 'font\wasm'
+    if (Test-Path -LiteralPath $wasmFontDir)
+    {
+        Remove-Item -LiteralPath $wasmFontDir -Recurse
+    }
+    $wasmSoundFont = Join-Path $DestinationGameDir 'music\mid.sf3'
+    if (Test-Path -LiteralPath $wasmSoundFont)
+    {
+        Remove-Item -LiteralPath $wasmSoundFont
+    }
+    Get-ChildItem -LiteralPath $DestinationGameDir -Recurse -File |
+        Where-Object { $_.Extension -in @('.gz', '.br') } |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName }
+
     Sync-GameConfig -ProjectDir (Split-Path -Parent $PSScriptRoot) -GameDir $DestinationGameDir
 
     $destSaveDir = Join-Path $DestinationGameDir 'save'

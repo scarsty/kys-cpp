@@ -12,7 +12,7 @@ The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key d
 - **Threading**: Uses `-pthread` with `PROXY_TO_PTHREAD` — `main()` runs on a real worker thread, enabling standard `std::this_thread::sleep_for`.
 - **Filesystem**: Uses WasmFS with fetch backend (on-demand asset loading from HTTP) and OPFS backend (persistent saves).
 - **Game assets**: Served as static files and fetched on demand via WasmFS fetch backend — no monolithic `.data` file.
-- **Configuration**: `rebuild.ps1`, `build.ps1`, and `package.ps1` synchronize the complete top-level `config/` directory into the selected game directory before generating the manifest. New YAML files are therefore included automatically.
+- **Configuration**: `rebuild.ps1`, `build.ps1`, and `package.ps1` synchronize the complete top-level `config/` directory into their staged game assets before generating the manifest. New YAML files are therefore included automatically.
 
 ## Prerequisites
 
@@ -24,8 +24,10 @@ The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key d
 
 `rebuild.ps1`, `build.ps1`, and `package.ps1` generate `music/mid.sf3` from
 `music/mid.sf2` with Vorbis quality 4, plus `mid.sf3.gz` for nginx `gzip_static`.
-The generator reuses outputs until the source SF2 or converter changes. The
-browser manifest excludes SF2 and HTTP compression sidecars. Native builds
+Builds stage assets under `wasm/build/kys/game/`; packaging stages them under
+`wasm/dist/kys/game/`. Both use real directories, leaving the input game assets
+unchanged. Existing build junctions are replaced without deleting their targets.
+The browser manifest excludes SF2 and HTTP compression sidecars. Native builds
 continue using SF2; release WASM packages omit it. Install WASM dependencies
 through `rebuild.ps1`, whose manifest enables `fluidsynth[sndfile]`.
 
@@ -50,12 +52,17 @@ removing unused text does not alter how retained glyphs are rasterized.
 Font generation runs before each manifest, so source, configuration, database,
 changelog and dictionary changes are picked up automatically. Identical fonts
 and gzip sidecars are not rewritten. The browser manifest excludes the full
-native fonts and compression sidecars; release WASM packages remove the full
-fonts. Native builds continue to load the original `font/*.ttf` files. To regenerate
-the subsets without compiling:
+native fonts and compression sidecars; WASM staging removes the full fonts.
+Windows and Android packaging excludes WASM fonts, SF3, and HTTP compression
+sidecars, including leftovers from older builds. Native builds continue to load
+the original `font/*.ttf` files. To refresh staged assets without compiling:
 
 ```powershell
-python wasm/prepare_fonts.py --game-dir work/game-dev
+$project = (Get-Location).Path
+. ./wasm/WasmCommon.ps1
+Initialize-WasmGameAssets -ProjectDir $project -WasmDir "$project/wasm" `
+    -SourceGameDir "$project/work/game-dev" -DestinationGameDir "$project/wasm/build/kys/game" `
+    -ManifestPath "$project/wasm/build/kys_manifest.js"
 ```
 
 ## Step 1: Install Emscripten SDK
@@ -327,14 +334,11 @@ static SDL_INLINE bool SDL_PutAudioStreamPlanarData(SDL_AudioStream *stream,
 
 ## Step 7: Generate asset manifest
 
-The WasmFS fetch backend requires all files to be pre-registered before they can be accessed. A Python script generates a C++ include file with `wasmfs_create_directory`/`wasmfs_create_file` calls for every game asset:
-
-```bash
-cd /d/projects/kys-cpp/kys-cpp
-python wasm/gen_manifest.py work/game-dev > wasm/wasm_manifest.inc
-```
-
-This must be re-run whenever game assets are added or removed.
+The browser filesystem requires game files to be registered before access.
+`build.ps1` and `rebuild.ps1` stage the game assets, generate the WASM fonts and
+SoundFont, and write `wasm/build/kys_manifest.js`. `package.ps1` repeats this for
+the deployment directory. To refresh assets without compiling, use the staging
+command above. Regenerate after adding or removing game assets.
 
 ## Step 8: Build kys-cpp for WASM
 
@@ -379,11 +383,8 @@ cd /d/projects/kys-cpp/kys-cpp/wasm/build
 python ../serve.py 8080
 ```
 
-The `game/` directory must be accessible relative to the HTML file. Create a symlink if needed:
-
-```bash
-ln -s /d/projects/kys-cpp/kys-cpp/work/game-dev /d/projects/kys-cpp/kys-cpp/wasm/build/game
-```
+The build scripts populate `wasm/build/kys/game/` with the staged browser assets.
+Serve that directory tree alongside the HTML; no link to `work/game-dev` is needed.
 
 Open `http://localhost:8080/kyschess.html` in Chrome 102+ or Edge 102+ (required for SharedArrayBuffer + OPFS).
 

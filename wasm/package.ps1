@@ -9,7 +9,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'WasmCommon.ps1')
-. (Join-Path $PSScriptRoot '..\tools\ReleasePackagingCommon.ps1')
 
 $paths = Get-WasmPaths -WasmDir $PSScriptRoot
 $buildDir = $paths.BuildDir
@@ -30,7 +29,6 @@ foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $buildDir)
 }
 
 Ensure-PathExists -Path $gameDir -Message "Game assets not found at $gameDir"
-Sync-GameConfig -ProjectDir $paths.ProjectDir -GameDir $gameDir
 
 & powershell -ExecutionPolicy Bypass -File (Join-Path $paths.ProjectDir 'tools\GenerateAppIcons.ps1') -Target Wasm
 if ($LASTEXITCODE -ne 0)
@@ -58,18 +56,14 @@ foreach ($assetName in Get-WasmSiteAssetNames)
     Copy-Item -Force (Join-Path $paths.WasmDir $assetName) $distDir
 }
 $distGameDir = Join-Path $distDir 'kys\game'
-Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir $distGameDir -Version $Version
-Build-WasmPromoPage -ProjectDir $paths.ProjectDir -GameDir $gameDir -OutputPath (Join-Path $distDir 'index.html')
-Write-WasmAssetManifest `
+Initialize-WasmGameAssets `
     -ProjectDir $paths.ProjectDir `
     -WasmDir $paths.WasmDir `
-    -GameDir $distGameDir `
-    -OutputPath (Join-Path $distDir (Get-WasmManifestFileName))
-Remove-Item -LiteralPath (Join-Path $distGameDir 'music\mid.sf2')
-foreach ($fontName in @('chinese.ttf', 'english.ttf'))
-{
-    Remove-Item -LiteralPath (Join-Path $distGameDir "font\$fontName")
-}
+    -SourceGameDir $gameDir `
+    -DestinationGameDir $distGameDir `
+    -ManifestPath (Join-Path $distDir (Get-WasmManifestFileName)) `
+    -Version $Version
+Build-WasmPromoPage -ProjectDir $paths.ProjectDir -GameDir $distGameDir -OutputPath (Join-Path $distDir 'index.html')
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 # /*

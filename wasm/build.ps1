@@ -32,13 +32,12 @@ if ([string]::IsNullOrWhiteSpace($gameTarget))
 {
     $gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
 }
-Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
-Sync-GameConfig -ProjectDir $paths.ProjectDir -GameDir $gameTarget
-Write-WasmAssetManifest `
+Initialize-WasmGameAssets `
     -ProjectDir $paths.ProjectDir `
     -WasmDir $paths.WasmDir `
-    -GameDir $gameTarget `
-    -OutputPath (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
+    -SourceGameDir $gameTarget `
+    -DestinationGameDir (Join-Path $paths.BuildDir 'kys\game') `
+    -ManifestPath (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
 
 Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -DepsDir $DepsDir
 

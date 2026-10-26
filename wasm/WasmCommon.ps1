@@ -1,27 +1,11 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot '..\tools\GameConfigCommon.ps1')
+. (Join-Path $PSScriptRoot '..\tools\ReleasePackagingCommon.ps1')
 
 if ($PSVersionTable.PSVersion.Major -ge 7)
 {
     $PSNativeCommandUseErrorActionPreference = $true
-}
-
-function Invoke-NativeCommand
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$FilePath,
-
-        [string[]]$ArgumentList = @()
-    )
-
-    & $FilePath @ArgumentList
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($ArgumentList -join ' ')"
-    }
 }
 
 function Get-WasmPaths
@@ -215,42 +199,6 @@ function Build-WasmPromoPage
     )
 }
 
-function Ensure-PathExists
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Message
-    )
-
-    if (-not (Test-Path $Path))
-    {
-        throw $Message
-    }
-}
-
-function Ensure-GameJunction
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$LinkPath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$TargetPath
-    )
-
-    if (Test-Path $LinkPath)
-    {
-        return
-    }
-
-    Write-Host '=== Creating game junction ==='
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LinkPath) | Out-Null
-    Invoke-NativeCommand -FilePath 'cmd.exe' -ArgumentList @('/c', 'mklink', '/J', $LinkPath, $TargetPath)
-}
-
 function Invoke-WasmConfigureBuild
 {
     param(
@@ -306,7 +254,7 @@ function Get-WasmManifestFileName
     'kys_manifest.js'
 }
 
-function Write-WasmAssetManifest
+function Initialize-WasmGameAssets
 {
     param(
         [Parameter(Mandatory = $true)]
@@ -316,13 +264,25 @@ function Write-WasmAssetManifest
         [string]$WasmDir,
 
         [Parameter(Mandatory = $true)]
-        [string]$GameDir,
+        [string]$SourceGameDir,
 
         [Parameter(Mandatory = $true)]
-        [string]$OutputPath
+        [string]$DestinationGameDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [string]$Version
     )
 
-    Ensure-PathExists -Path $GameDir -Message "Game assets not found at $GameDir"
+    # Older builds linked this directory to the source assets. Delete only the link.
+    $destination = Get-Item -LiteralPath $DestinationGameDir -ErrorAction SilentlyContinue
+    if ($null -ne $destination -and ($destination.Attributes -band [IO.FileAttributes]::ReparsePoint))
+    {
+        [IO.Directory]::Delete($destination.FullName)
+    }
+
+    Copy-ReleaseGameAssets -SourceGameDir $SourceGameDir -DestinationGameDir $DestinationGameDir -Version $Version
 
     Write-Host '=== Subsetting WASM fonts ==='
     Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
@@ -330,18 +290,23 @@ function Write-WasmAssetManifest
         '--project-dir',
         $ProjectDir,
         '--game-dir',
-        $GameDir
+        $DestinationGameDir
     )
     Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
         (Join-Path $WasmDir 'prepare_soundfont.py'),
-        (Join-Path $GameDir 'music\mid.sf2'),
-        (Join-Path $GameDir 'music\mid.sf3')
+        (Join-Path $DestinationGameDir 'music\mid.sf2'),
+        (Join-Path $DestinationGameDir 'music\mid.sf3')
     )
+    foreach ($assetName in Get-WasmExcludedGameAssetNames)
+    {
+        Remove-Item -LiteralPath (Join-Path $DestinationGameDir $assetName)
+    }
+
     Write-Host '=== Generating manifest ==='
     Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
         (Join-Path $WasmDir 'gen_manifest.py'),
-        $GameDir,
-        $OutputPath
+        $DestinationGameDir,
+        $ManifestPath
     )
 }
 
@@ -380,6 +345,13 @@ function Get-WasmDeploymentArtifactNames
     'kys/game/font/wasm/chinese.ttf.gz'
     'kys/game/font/wasm/english.ttf'
     'kys/game/font/wasm/english.ttf.gz'
+}
+
+function Get-WasmExcludedGameAssetNames
+{
+    'music/mid.sf2'
+    'font/chinese.ttf'
+    'font/english.ttf'
 }
 
 function Get-WasmBuildArtifactPaths
@@ -440,6 +412,14 @@ function Assert-WasmDeploymentDirectory
         Ensure-PathExists -Path $artifactPath -Message "WASM deployment artifact missing: $artifactPath"
     }
 
+    foreach ($assetName in Get-WasmExcludedGameAssetNames)
+    {
+        if (Test-Path -LiteralPath (Join-Path $DistDir "kys/game/$assetName"))
+        {
+            throw "WASM deployment contains native-only asset: $assetName"
+        }
+    }
+
     if (Test-Path (Join-Path $DistDir 'kyschess.wasm'))
     {
         throw 'WASM deployment must contain only the gzip executable, not kyschess.wasm.'
@@ -472,6 +452,14 @@ function Assert-WasmDeploymentArchive
             if ($null -eq $entry -or $entry.Length -eq 0)
             {
                 throw "WASM package is missing deployment artifact: $artifactName"
+            }
+        }
+
+        foreach ($assetName in Get-WasmExcludedGameAssetNames)
+        {
+            if ($null -ne $archive.GetEntry("kys/game/$assetName"))
+            {
+                throw "WASM package contains native-only asset: $assetName"
             }
         }
 
@@ -515,29 +503,4 @@ function Assert-WasmDeploymentArchive
     {
         $archive.Dispose()
     }
-}
-
-function Format-FileSize
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [long]$Bytes
-    )
-
-    if ($Bytes -ge 1GB)
-    {
-        return '{0:N2} GB' -f ($Bytes / 1GB)
-    }
-
-    if ($Bytes -ge 1MB)
-    {
-        return '{0:N2} MB' -f ($Bytes / 1MB)
-    }
-
-    if ($Bytes -ge 1KB)
-    {
-        return '{0:N2} KB' -f ($Bytes / 1KB)
-    }
-
-    "$Bytes B"
 }
