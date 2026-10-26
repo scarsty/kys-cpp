@@ -455,7 +455,7 @@ void ChessSelectionScreen::drawOverview()
             .selected = selected_ == index, .focused = keyboard_ && focused_ == static_cast<int>(controls_.size())});
         image(item.image, {area.x + 8, area.y + 8, 36, 36});
         label(item.title, 20, area.x + 54, area.y + 6, item.accent, 190);
-        label(item.badge, 16, area.x + 54, area.y + 32, muted, 190);
+        label(item.badge, 16, area.x + 54, area.y + 32, item.accent, 190);
         control(area, [this, index] { select(index); });
         controls_.back().itemIndex = index;
     }

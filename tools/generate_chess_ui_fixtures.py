@@ -85,6 +85,8 @@ def main():
         rule["類型"] == "出戰加員" for rule in level.get("管理規則", [])))
     partial = capacity_combo["閾值"][0]["人數"]
     balance = yaml.safe_load((ROOT / "config/chess_balance_hard.yaml").read_text(encoding="utf-8"))
+    equipment = yaml.safe_load((ROOT / "config/chess_equipment.yaml").read_text(encoding="utf-8"))["裝備列表"]
+    challenges = yaml.safe_load((ROOT / "config/chess_challenge.yaml").read_text(encoding="utf-8"))["遠征挑戰"]
 
     _, _, exported = run_cli(args.cli.resolve(), args.data_root.resolve(), [
         ("new", NEW_GAME), ("save_game", {"slot": "ui"}), ("export_save", {"slot": "ui"})])
@@ -100,7 +102,8 @@ def main():
     cases = [("no-zhijiang", 0, capacity, 0),
              ("partial-zhijiang", partial, capacity, 0),
              ("active-zhijiang", threshold, capacity + 1, 1),
-             ("lost-zhijiang", threshold - 1, capacity + 1, 0)]
+             ("lost-zhijiang", threshold - 1, capacity + 1, 0),
+             ("equipment-dense", threshold - 1, capacity + 1, 0)]
     output.mkdir(parents=True, exist_ok=True)
     asset_base = Path(os.path.relpath(build, output)).as_posix() + "/"
     summaries = []
@@ -117,6 +120,21 @@ def main():
                 "instanceId": index, "roleId": role_id, "star": 3, "deployed": index <= deployed,
                 "weaponInstanceId": -1, "armorInstanceId": -1, "fightsWon": 12,
                 "luckStacks": 0, "lateBloomerChosen": False}
+        if slug == "equipment-dense":
+            # 雙類型皆超過一頁，並保留換裝提示、已分配標記與超員底列。
+            inventory = state["equipmentInventory"] = {}
+            for equipment_type, field in ((0, "weaponInstanceId"), (1, "armorInstanceId")):
+                entries = [entry for entry in equipment if entry["裝備類型"] == equipment_type][:10]
+                for index, entry in enumerate(entries):
+                    instance_id = len(inventory) + 1
+                    wearer = index + 1 if index < 2 else -1
+                    inventory[str(instance_id)] = {
+                        "instanceId": instance_id, "itemId": entry["裝備ID"],
+                        "assignedChessInstanceId": wearer}
+                    if wearer >= 0:
+                        state["roster"][str(wearer)][field] = instance_id
+            state["nextEquipmentInstanceId"] = len(inventory) + 1
+            state["completedChallengeNames"] = [challenges[0]["名稱"]]
         # 重新保存，讓狀態雜湊、重播 footer 與序列化欄位由目前的原生程式產生。
         _, _, _, observed, _, exported = run_cli(args.cli.resolve(), args.data_root.resolve(), [
             ("new", NEW_GAME), ("import_save", {"slot": "ui", "checkpoint": checkpoint}),

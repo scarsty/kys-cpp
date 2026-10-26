@@ -207,8 +207,7 @@ void ChessPreparationScreen::rebuild()
     constexpr int gutter = 8;
     constexpr int mainTop = 80;
     const int leftWidth = w_ - rightWidth - 32 - gutter;
-    // 手機角落保留給 44 px/dp 的平台按鈕；沿用原有操作列，不另加工具列。
-    const int footerHeight = (GameUtil::isMobileDevice() ? 82 : 52) + (observation_.deploymentOverflow > 0 ? 24 : 0);
+    const int footerHeight = 52 + (observation_.deploymentOverflow > 0 ? 24 : 0);
     footer_ = {16, h_ - footerHeight - 14, w_ - 32, footerHeight};
     const int mainHeight = footer_.y - gutter - mainTop;
     const int benchHeight = 120;
@@ -805,9 +804,13 @@ void ChessPreparationScreen::equipmentInspector()
             {true, equipmentDefinition(session_.content(), right->itemId)->tier, right->itemId});
     });
     constexpr int columns = 3;
-    constexpr int pageSize = columns * 3;
+    constexpr int rows = 3;
+    constexpr int pageSize = columns * rows;
     constexpr int gap = 6;
-    constexpr int cellHeight = 60;
+    // 保留九件總覽；緊湊卡片也為超員底列、替換提示及裝備按鈕留下間距。
+    constexpr int cellHeight = 52;
+    const int gridY = y + 140;
+    const int paginationY = gridY + rows * cellHeight + (rows - 1) * gap + 8;
     const int cellWidth = (width - (columns - 1) * gap) / columns;
     const int pages = std::max(1, (static_cast<int>(inventory.size()) + pageSize - 1) / pageSize);
     listPage_ = std::clamp(listPage_, 0, pages - 1);
@@ -824,13 +827,13 @@ void ChessPreparationScreen::equipmentInspector()
         const auto& equipment = *inventory[index];
         const auto* item = session_.content().item(equipment.itemId);
         const auto* definition = equipmentDefinition(session_.content(), equipment.itemId);
-        PanelFrame frame{x + (slot % columns) * (cellWidth + gap), y + 140 + (slot / columns) * (cellHeight + gap), cellWidth, cellHeight};
+        PanelFrame frame{x + (slot % columns) * (cellWidth + gap), gridY + (slot / columns) * (cellHeight + gap), cellWidth, cellHeight};
         button(std::format("equipment:{}", equipment.instanceId), frame, {}, [this, id = equipment.instanceId] {
             equipmentId_ = id; textPage_ = 0; rebuild();
         }, item->name, true, equipmentId_ == equipment.instanceId, Treatment::Surface);
         controls_.back().equipmentId = equipment.instanceId;
-        image("item", item->id, {frame.x + 8, frame.y + 4, frame.w - 16, 32});
-        text(item->name, frame.x + 4, frame.y + 40, 16, chessRewardTierColor(definition->tier), frame.w - 8);
+        image("item", item->id, {frame.x + 8, frame.y + 4, frame.w - 16, 28});
+        text(item->name, frame.x + 4, frame.y + 34, 16, chessRewardTierColor(definition->tier), frame.w - 8);
         drawings_.push_back([frame, tier = definition->tier] {
             fill({frame.x + 2, frame.y + 6, 2, frame.h - 12}, chessRewardTierColor(tier));
         });
@@ -840,16 +843,16 @@ void ChessPreparationScreen::equipmentInspector()
     if (pages > 1)
     {
         text(std::format("{}–{} / {} 件", listPage_ * pageSize + 1,
-            std::min((listPage_ + 1) * pageSize, static_cast<int>(inventory.size())), inventory.size()), x, y + 350, 17, muted);
-        iconButton("gear-prev", {x + width - 96, y + 336, 44, 44}, Icon::Left, "",
+            std::min((listPage_ + 1) * pageSize, static_cast<int>(inventory.size())), inventory.size()), x, paginationY + 14, 17, muted);
+        iconButton("gear-prev", {x + width - 96, paginationY, 44, 44}, Icon::Left, "",
             [this] { --listPage_; equipmentId_ = -1; rebuild(); }, "上一頁裝備", listPage_ > 0);
-        iconButton("gear-next", {x + width - 44, y + 336, 44, 44}, Icon::Right, "",
+        iconButton("gear-next", {x + width - 44, paginationY, 44, 44}, Icon::Right, "",
             [this] { ++listPage_; equipmentId_ = -1; rebuild(); }, "下一頁裝備", listPage_ + 1 < pages);
     }
     else if (!inventory.empty())
-        text(std::format("{} 件 · 選擇後按{}", inventory.size(), target ? "下方裝備" : "棋子以裝備"), x, y + 350, 17, muted, width);
+        text(std::format("{} 件 · 選擇後按{}", inventory.size(), target ? "下方裝備" : "棋子以裝備"), x, paginationY + 14, 17, muted, width);
     const auto* equipment = equipmentInstance(session_.state(), equipmentId_);
-    const int detailY = y + 388;
+    const int detailY = paginationY + 44 + 12;
     const int bottom = inspector_.y + inspector_.h - 64;
     if (equipment)
     {
