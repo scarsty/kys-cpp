@@ -210,7 +210,32 @@ inline void asset(const std::string& group, int id, SDL_Rect frame, bool bottomA
         }
         return;
     }
-    auto* texture = TextureManager::getInstance()->getTexture(group, id);
+    auto* textures = TextureManager::getInstance();
+    const auto availability = textures->prepareTexture(group, id);
+    if (availability != TextureManager::Availability::Ready)
+    {
+        const int size = std::min({frame.w, frame.h, 28});
+        const SDL_Rect indicator{frame.x + (frame.w - size) / 2, frame.y + (frame.h - size) / 2, size, size};
+        panel(frame.x, frame.y, frame.w, frame.h, quietFill);
+        if (availability == TextureManager::Availability::Loading)
+        {
+            Engine::getInstance()->drawAnimatedRoundedRect(context, indicator.x, indicator.y,
+                indicator.w, indicator.h, Spacing::controlCorner,
+                std::fmod(Engine::getTicks() * 0.001, 1.0));
+            const int dot = std::max(1, size / 8);
+            for (int i = 0; i < 3; ++i)
+            {
+                auto color = context;
+                if (static_cast<int>(Engine::getTicks() / 250) % 3 != i) color.a = 100;
+                Engine::getInstance()->fillColor(color,
+                    indicator.x + size / 2 + (i - 1) * dot * 2 - dot / 2,
+                    indicator.y + (size - dot) / 2, dot, dot);
+            }
+        }
+        else label("!", Type::metadata, indicator.x + size / 3, indicator.y, negative, size);
+        return;
+    }
+    auto* texture = textures->getTexture(group, id);
     if (!texture) return;
     texture->load();
     if (texture->w <= 0 || texture->h <= 0) return;

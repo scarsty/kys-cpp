@@ -34,26 +34,7 @@ bool contains(SDL_Rect frame, SDL_FPoint point)
         && point.y >= frame.y && point.y < frame.y + frame.h;
 }
 
-struct TextureLoadBatch
-{
-    explicit TextureLoadBatch(std::vector<TextureWarpper*> textures)
-        : pending(std::move(textures)), total(pending.size())
-    {
-        std::erase_if(pending, [](const auto* texture) { return !texture || texture->loaded; });
-    }
-
-    ScenePreloader::LoadProgress progress() const { return {total - pending.size() + index, total}; }
-
-    ScenePreloader::LoadProgress advance()
-    {
-        pending[index++]->load();
-        return progress();
-    }
-
-    std::vector<TextureWarpper*> pending;
-    std::size_t total{};
-    std::size_t index{};
-};
+using ScenePreloader::TextureLoadBatch;
 
 bool loadedAsset(const std::string& group, int id, SDL_Rect frame)
 {
@@ -293,26 +274,12 @@ private:
 
     void textureLoad(const std::string& title, const std::string& group, int id)
     {
-        const auto* cached = TextureManager::getInstance()->findTexture(group, id);
-        loads_.add(title, [group, id] {
-            if (auto* texture = TextureManager::getInstance()->getTexture(group, id)) texture->load();
-            return ScenePreloader::LoadProgress{1, 1};
-        }, {cached && cached->loaded ? 1u : 0u, 1});
+        loads_.addTexture(title, group, id);
     }
 
     void textureGroupLoad(const std::string& title, const std::string& path)
     {
-        std::optional<TextureLoadBatch> batch;
-        if (const auto* group = TextureManager::getInstance()->findTextureGroup(path)) batch.emplace(group->group_);
-        const auto progress = batch ? batch->progress() : ScenePreloader::LoadProgress{};
-        loads_.add(title, [path, batch = std::move(batch)]() mutable {
-            if (!batch)
-            {
-                batch.emplace(TextureManager::getInstance()->getTextureGroup(path)->group_);
-                return batch->progress();
-            }
-            return batch->advance();
-        }, progress);
+        loads_.addTextureGroup(title, path);
     }
 
     void audioLoad(const std::string& title, int music, std::vector<int> attacks, std::vector<int> effects)

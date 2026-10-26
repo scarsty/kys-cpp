@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+struct TextureWarpper;
+
 namespace ScenePreloader
 {
 
@@ -26,6 +28,9 @@ struct LoadProgress
 class LoadQueue
 {
 public:
+    void addTexture(const std::string& label, const std::string& group, int id);
+    void addTextureGroup(const std::string& label, const std::string& group);
+
     void add(std::string label, std::function<LoadProgress()> advance, LoadProgress progress = {})
     {
         steps_.push_back({std::move(label), std::move(advance), progress});
@@ -69,8 +74,21 @@ private:
     }
 };
 
+struct TextureLoadBatch
+{
+    explicit TextureLoadBatch(std::vector<TextureWarpper*> textures);
+    LoadProgress progress() const;
+    LoadProgress advance();
+
+private:
+    std::vector<TextureWarpper*> pending_;
+    std::size_t total_{};
+    std::size_t index_{};
+};
+
 void preloadSubSceneAssets(int submapId);
 std::vector<std::pair<std::string, int>> battlefieldAssets(int battlefieldId);
+void showPromptAndPreload(const std::string& message, LoadQueue loads);
 void showPromptAndPreload(const std::string& message, const std::function<void()>& preload);
 
 }

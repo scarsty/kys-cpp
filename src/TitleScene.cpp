@@ -423,11 +423,6 @@ void TitleScene::draw()
 
 #ifdef __EMSCRIPTEN__
     Font::getInstance()->draw("建議使用 Edge / Firefox / Chrome / Opera 瀏覽器", 16, 10, 10, { 180, 180, 180, 180 }, 255);
-    if (!overlay_dismissed_)
-    {
-        overlay_dismissed_ = true;
-        notify_fonts_loaded();
-    }
 #endif
 }
 
@@ -637,6 +632,20 @@ void TitleScene::importExternalSaveSlot(int slot)
 
 void TitleScene::onEntrance()
 {
+#ifdef __EMSCRIPTEN__
+    // 字型已可用，讓不依賴圖片的載入介面接手開機遮罩。
+    if (!overlay_dismissed_)
+    {
+        overlay_dismissed_ = true;
+        notify_fonts_loaded();
+    }
+#endif
+    ScenePreloader::LoadQueue uiLoads;
+    uiLoads.addTextureGroup("操作圖示", "chess-preparation");
+    uiLoads.addTextureGroup("羈絆圖示", "chess-synergies");
+    uiLoads.addTextureGroup("狀態圖示", "chess-status");
+    ScenePreloader::showPromptAndPreload("正在載入介面…", std::move(uiLoads));
+
     Video v(Engine::getInstance()->getWindow());
     v.playVideo(GameUtil::PATH() + "movie/1.mp4");
     Audio::getInstance()->playMusic(16);

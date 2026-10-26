@@ -5,6 +5,12 @@
 #include "filefunc.h"
 #include "strfunc.h"
 
+#ifdef __EMSCRIPTEN__
+EM_JS(int, prepare_ui_texture, (const char* path, int id), {
+    return Module.kysLazyAssets.prepareTexture(UTF8ToString(path), id);
+});
+#endif
+
 namespace
 {
 std::string normalizeGroupFilename(const std::string& filename)
@@ -448,6 +454,16 @@ TextureManager::~TextureManager()
             delete t;
         }
     }
+}
+
+TextureManager::Availability TextureManager::prepareTexture(const std::string& group, int id) const
+{
+#ifdef __EMSCRIPTEN__
+    const auto* cached = findTexture(group, id);
+    if (!cached || !cached->loaded)
+        return static_cast<Availability>(prepare_ui_texture((path_ + group).c_str(), id));
+#endif
+    return Availability::Ready;
 }
 
 void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, const RenderInfo& info, int w, int h)

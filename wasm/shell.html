@@ -267,28 +267,17 @@
                 }
                 // Monkey-patch FS.open: first open() of a lazy file fetches
                 // its content via fetch + Asyncify, pausing wasm until done.
+                var lazyAssets = Module.kysLazyAssets = createLazyAssetLoader(FS);
                 var origOpen = FS.open;
                 FS.open = function(path, flags, mode) {
-                    try {
-                        var node = FS.lookupPath(path, {follow:true}).node;
-                        if (node && node._lazyUrl) {
-                            if (!node._loaded) {
-                                var url = node._lazyUrl;
-                                Asyncify.handleAsync(function() {
-                                    return fetch(url, { cache: 'no-cache' }).then(function(r) {
-                                        if (!r.ok) throw new Error('HTTP ' + r.status + ' for ' + url);
-                                        return r.arrayBuffer();
-                                    }).then(function(ab) {
-                                        node.contents = new Uint8Array(ab);
-                                        node.usedBytes = ab.byteLength;
-                                        node._loaded = true;
-                                    });
-                                });
-                            } else if (typeof Asyncify !== 'undefined' && Asyncify.state === 2) {
-                                Asyncify.handleAsync(function() { return Promise.resolve(); });
-                            }
+                    var node = lazyAssets.find(path);
+                    if (node && node._lazyUrl) {
+                        if (!node._loaded) {
+                            Asyncify.handleAsync(function() { return lazyAssets.load(node); });
+                        } else if (typeof Asyncify !== 'undefined' && Asyncify.state === 2) {
+                            Asyncify.handleAsync(function() { return Promise.resolve(); });
                         }
-                    } catch(e) { /* lookupPath throws for non-lazy paths */ }
+                    }
                     return origOpen.call(this, path, flags, mode);
                 };
                 // Mount IDBFS for persistent save data

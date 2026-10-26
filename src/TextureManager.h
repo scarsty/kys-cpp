@@ -95,6 +95,10 @@ private:
 
 public:
     using RenderInfo = RenderInfo;
+    enum class Availability { Failed = -1, Loading, Ready };
+
+    // 瀏覽器在背景下載資料；就緒前不初始化群組或解碼圖片。
+    Availability prepareTexture(const std::string& group, int id) const;
 
     static TextureManager* getInstance()
     {
