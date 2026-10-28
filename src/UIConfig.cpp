@@ -1,4 +1,4 @@
-#include "UIConfig.h"
+﻿#include "UIConfig.h"
 
 #include "Audio.h"
 #include "Engine.h"
@@ -33,6 +33,7 @@ UIConfig::UIConfig()
     auto volume_options = createVolumeOptions();
     addOption("音樂音量", "music", "volume", volume_options);
     addOption("戰鬥音效", "music", "volumewav", volume_options);
+    addOption("行走模式", "game", "smooth_walking", { "原版", "快速", "標準", "慢速" });
     addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼" });
     addOption("遠征隊規則", "game", "expedition33", { "關閉", "開啟" });
     addOption("戰鬥畫法", "game", "battle_presentation", { "經典", "紙片" });
@@ -113,6 +114,7 @@ void UIConfig::loadConfig()
     for (auto& item : items_)
     {
         int default_value = item.section == "game" && item.key == "texture_top_left_highlight" ? 1 : 0;
+        if (item.section == "game" && item.key == "smooth_walking") { default_value = 2; }
         int value = GameUtil::getInstance()->getInt(item.section, item.key, default_value);
         if (item.section == "music" && (item.key == "volume" || item.key == "volumewav"))
         {

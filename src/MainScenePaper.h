@@ -11,6 +11,9 @@ public:
     virtual void dealEvent(EngineEvent& e) override;
     virtual void onEntrance() override;
 
+protected:
+    bool usesSmoothWalking() const override { return false; }
+
 private:
     Pointf pos45To90(int x, int y) const;
     bool inCameraFront(const std::vector<Pointf>& points);

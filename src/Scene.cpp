@@ -1,5 +1,7 @@
 ﻿#include "Scene.h"
 #include "GameUtil.h"
+#include <algorithm>
+#include <cmath>
 #include <map>
 #include <queue>
 
@@ -9,6 +11,105 @@ Scene::Scene()
 
 Scene::~Scene()
 {
+}
+
+Point Scene::getWalkOffset() const
+{
+    int dx = walk_to_.x - walk_view_from_.x;
+    int dy = walk_to_.y - walk_view_from_.y;
+    return { int(std::lround(-(dx - dy) * TILE_W * walk_progress_)),
+        int(std::lround(-(dx + dy) * TILE_H * walk_progress_)) };
+}
+
+Point Scene::getWalkingPositionOnRender(int x, int y, int view_x, int view_y)
+{
+    auto p = getPositionOnRender(x, y, view_x, view_y);
+    if (walking_)
+    {
+        auto offset = getWalkOffset();
+        p.x += offset.x;
+        p.y += offset.y;
+    }
+    return p;
+}
+
+Point Scene::getWalkingMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
+{
+    if (walking_)
+    {
+        int w, h;
+        Engine::getInstance()->getUISize(w, h);
+        auto offset = getWalkOffset();
+        mouse_x -= int(std::lround(offset.x * double(w) / (render_center_x_ * 2)));
+        mouse_y -= int(std::lround(offset.y * double(h) / (render_center_y_ * 2)));
+    }
+    return getMousePosition(mouse_x, mouse_y, view_x, view_y);
+}
+
+int Scene::walkingDuration() const
+{
+    if (!usesSmoothWalking()) { return 0; }
+    int mode = GameUtil::getInstance()->getInt("game", "smooth_walking", 2);
+    const int durations[] = { 0, 33, 66, 150 };
+    return durations[mode >= 0 && mode < 4 ? mode : 2];
+}
+
+void Scene::cancelWalking()
+{
+    walking_ = false;
+    walk_progress_ = 0;
+    walk_next_started_ = -1;
+}
+
+bool Scene::beginWalking(int x, int y, int view_x, int view_y)
+{
+    int duration = walkingDuration();
+    if (walking_ || !duration || calDistance(man_x_, man_y_, x, y) != 1) { return false; }
+    walk_from_ = { man_x_, man_y_ };
+    walk_to_ = { x, y };
+    walk_view_from_ = { view_x, view_y };
+    double now = Engine::getInstance()->getTicks();
+    walk_started_ = walk_next_started_ >= 0 ? std::max(now - duration, walk_next_started_) : now;
+    walk_next_started_ = -1;
+    walk_duration_ = duration;
+    walk_progress_ = std::clamp((now - walk_started_) / walk_duration_, 0.0, 1.0);
+    walking_ = true;
+    return true;
+}
+
+Point Scene::getWalkingManOffset() const
+{
+    int dx = walk_to_.x - walk_from_.x, dy = walk_to_.y - walk_from_.y;
+    return { int(std::lround((dx - dy) * TILE_W * walk_progress_)),
+        int(std::lround((dx + dy) * TILE_H * walk_progress_)) };
+}
+
+void Scene::finishWalking()
+{
+    if (!walking_) { return; }
+    if (man_x_ == walk_from_.x && man_y_ == walk_from_.y)
+    {
+        man_x_ = walk_to_.x;
+        man_y_ = walk_to_.y;
+        commitWalkingView();
+    }
+    cancelWalking();
+}
+
+bool Scene::updateWalking()
+{
+    if (!walking_) { return false; }
+    if (man_x_ != walk_from_.x || man_y_ != walk_from_.y)
+    {
+        cancelWalking();
+        return false;
+    }
+    walk_progress_ = std::clamp((Engine::getInstance()->getTicks() - walk_started_) / walk_duration_, 0.0, 1.0);
+    if (walk_progress_ < 1) { return false; }
+    double next = walk_started_ + walk_duration_;
+    finishWalking();
+    walk_next_started_ = next;
+    return true;
 }
 
 bool Scene::isWallTile(int tile_number)

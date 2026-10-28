@@ -58,4 +58,8 @@ public:
     bool inNorth() { return man_x_ + man_y_ <= 220; }
     int view_cloud_ = 0;
     int getViewCloud() { return view_cloud_; }
+
+protected:
+    virtual bool usesSmoothWalking() const { return true; }
+
 };

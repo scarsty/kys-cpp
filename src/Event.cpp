@@ -130,6 +130,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     submap_id_ = -1;
     if (subscene_)
     {
+        subscene_->cancelWalking();
         submap_id_ = subscene_->getMapInfo()->ID;
     }
 
@@ -771,26 +772,39 @@ bool Event::checkRoleAttack(int role_id, int low, int high)
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
     if (subscene_ == nullptr) { return; }
-
-    int incx = GameUtil::sign(x1 - x0);
-    int incy = GameUtil::sign(y1 - y0);
-    if (incx)
+    if (!subscene_->walkingDuration())
     {
-        for (int i = x0; i != x1; i += incx)
+        int incx = GameUtil::sign(x1 - x0), incy = GameUtil::sign(y1 - y0);
+        for (int x = x0; x != x1; x += incx)
         {
-            subscene_->tryWalk(i, y0);
-            subscene_->setTowards(subscene_->calTowards(x0, y0, i, y0));
+            subscene_->tryWalk(x, y0);
+            subscene_->setTowards(subscene_->calTowards(x0, y0, x, y0));
             subscene_->drawAndPresent();
         }
+        for (int y = y0; y != y1; y += incy)
+        {
+            subscene_->tryWalk(x1, y);
+            subscene_->setTowards(subscene_->calTowards(x1, y0, x1, y));
+            subscene_->drawAndPresent();
+        }
+        subscene_->setManViewPosition(x1, y1);
+        return;
     }
-    if (incy)
+    subscene_->setManViewPosition(x0, y0);
+    int incx = GameUtil::sign(x1 - x0), incy = GameUtil::sign(y1 - y0);
+    for (int x = x0; x != x1;)
     {
-        for (int i = y0; i != y1; i += incy)
-        {
-            subscene_->tryWalk(x1, i);
-            subscene_->setTowards(subscene_->calTowards(x1, y0, x1, i));
-            subscene_->drawAndPresent();
-        }
+        int next = x + incx;
+        subscene_->setTowards(subscene_->calTowards(x, y0, next, y0));
+        subscene_->walkScriptStep(next, y0);
+        x = next;
+    }
+    for (int y = y0; y != y1;)
+    {
+        int next = y + incy;
+        subscene_->setTowards(subscene_->calTowards(x1, y, x1, next));
+        subscene_->walkScriptStep(x1, next);
+        y = next;
     }
     subscene_->setManViewPosition(x1, y1);
 }

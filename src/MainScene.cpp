@@ -13,6 +13,8 @@
 #include "UI.h"
 #include "UISave.h"
 #include "Weather.h"
+#include <algorithm>
+#include <cmath>
 
 MainScene::MainScene()
 {
@@ -124,7 +126,7 @@ void MainScene::draw()
     if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() > 0)
     {
         const int earth_size = TILE_W * 480 * 2;
-        auto pe = getPositionOnRender(0, 0, man_x_, man_y_);
+        auto pe = getWalkingPositionOnRender(0, 0);
         int earth_x = pe.x - earth_size / 2;
         int earth_y = pe.y - TILE_H * 2 + 1;
         int view_w, view_h;
@@ -163,7 +165,7 @@ void MainScene::draw()
         {
             int ix = man_x_ + i + (sum / 2);
             int iy = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
+            auto p = getWalkingPositionOnRender(ix, iy);
             p.x += x_;
             p.y += y_;
             //auto p = getMapPoint(ix, iy, *_Mx, *_My);
@@ -209,9 +211,13 @@ void MainScene::draw()
                             man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
                         }
                     }
-                    int c = 1024 * (ix + iy) + ix;
-                    //map[2 * c] = {2*c, man_pic_, p };
-                    building_vec[building_count++] = { 2 * c, TextureManager::getInstance()->getTexture("mmap", man_pic_), p };
+                    double visual_x = ix + (walking_ ? (walk_to_.x - ix) * walk_progress_ : 0);
+                    double visual_y = iy + (walking_ ? (walk_to_.y - iy) * walk_progress_ : 0);
+                    int c = int(std::lround(2 * (1024 * (visual_x + visual_y) + visual_x)));
+                    auto man_p = getPositionOnRender(ix, iy, man_x_, man_y_);
+                    man_p.x += x_;
+                    man_p.y += y_;
+                    building_vec[building_count++] = { c, TextureManager::getInstance()->getTexture("mmap", man_pic_), man_p };
                 }
             }
         }
@@ -235,7 +241,7 @@ void MainScene::draw()
         TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
             { ambient_color, 255, 1, 1, 0, 0, std::vector<Color>(4, ambient_color), brightness_v });
     }
-    auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
+    auto p = getWalkingPositionOnRender(cursor_x_, cursor_y_);
     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { { 255, 255, 255, 255 }, 128 });
 
     //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
@@ -247,7 +253,8 @@ void MainScene::backRun()
 {
     rest_time_++;    //只要出现走动，rest_time就会清零
     //云的贴图
-    view_cloud_ = cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
+    auto offset = walking_ ? getWalkOffset() : Point{ 0, 0 };
+    view_cloud_ = cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_ + offset.x, render_center_y_ + offset.y);
 
     Weather::getInstance()->setWeather(inNorth(), view_cloud_);
 }
@@ -255,9 +262,31 @@ void MainScene::backRun()
 void MainScene::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
+    bool arrived = updateWalking();
+    if (arrived
+        && checkEntrance(man_x_, man_y_))
+    {
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
+        total_step_ = 0;
+    }
+    if (!walking_ && way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+    {
+        auto target = Point{ mouse_event_x_, mouse_event_y_ };
+        setMouseEventPoint(-1, -1);
+        if (calDistance(man_x_, man_y_, target.x, target.y) == 1)
+        {
+            towards_ = calTowards(man_x_, man_y_, target.x, target.y);
+            checkEntrance(target.x, target.y);
+        }
+        walk_next_started_ = -1;
+    }
     //强制进入，通常用于开始
     if (force_submap_ >= 0)
     {
+        cancelWalking();
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
         setVisible(true);
         auto sub_map = std::make_shared<SubScene>(force_submap_);
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
@@ -274,6 +303,9 @@ void MainScene::dealEvent(EngineEvent& e)
     if (e.type == EVENT_KEY_UP && e.key.key == K_TAB
         || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK))
     {
+        cancelWalking();
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
         Console c;
     }
     if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
@@ -281,11 +313,14 @@ void MainScene::dealEvent(EngineEvent& e)
         //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
         || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
+        cancelWalking();
+        way_que_.clear();
+        setMouseEventPoint(-1, -1);
         UI::getInstance()->run();
     }
     //LOG("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
-    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay_)
+    if (!walking_ && (walkingDuration() || engine->getTicks() - pre_pressed_ticks_ > key_walk_delay_))
     {
         //键盘走路部分，检测4个方向键
         int pressed = 0;
@@ -327,8 +362,10 @@ void MainScene::dealEvent(EngineEvent& e)
 
         if (pressed)
         {
+            way_que_.clear();
+            setMouseEventPoint(-1, -1);
             //注意，中间空出几个步数是为了可以单步行动，子场景同
-            if (total_step_ < 1 || total_step_ >= first_step_delay_)
+            if (walkingDuration() || total_step_ < 1 || total_step_ >= first_step_delay_)
             {
                 changeTowardsByKey(pressed);
                 getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
@@ -341,7 +378,7 @@ void MainScene::dealEvent(EngineEvent& e)
             if (rest_time_ > 2) { total_step_ = 0; }    //虚拟按键中间可能出现空白帧，此处减少清空的情况，为了第一步可以不连续
         }
 
-        if (pressed && checkEntrance(x, y))
+        if (pressed && !walking_ && checkEntrance(x, y))
         {
             way_que_.clear();
             total_step_ = 0;
@@ -359,7 +396,7 @@ void MainScene::dealEvent(EngineEvent& e)
             }
             tryWalk(x, y);
             way_que_.pop_back();
-            if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+            if (!walking_ && way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
             {
                 towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
                 if (checkEntrance(mouse_event_x_, mouse_event_y_))
@@ -370,7 +407,11 @@ void MainScene::dealEvent(EngineEvent& e)
             }
         }
     }
-    calCursorPosition(man_x_, man_y_);
+    int cursor_mx, cursor_my;
+    engine->getMouseStateInStartWindow(cursor_mx, cursor_my);
+    auto cursor = getWalkingMousePosition(cursor_mx, cursor_my);
+    cursor_x_ = cursor.x;
+    cursor_y_ = cursor.y;
 
     //鼠标寻路
     if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
@@ -378,7 +419,9 @@ void MainScene::dealEvent(EngineEvent& e)
         setMouseEventPoint(-1, -1);
         int mx, my;
         Engine::getInstance()->getMouseStateInStartWindow(mx, my);
-        Point p = getMousePosition(mx, my, x, y);
+        Point p = getWalkingMousePosition(mx, my);
+        x = walking_ ? walk_to_.x : man_x_;
+        y = walking_ ? walk_to_.y : man_y_;
         way_que_.clear();
         if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
         {
@@ -437,6 +480,7 @@ void MainScene::dealEvent(EngineEvent& e)
             }
         }
     }
+    if (!walking_) { walk_next_started_ = -1; }
 }
 
 void MainScene::onEntrance()
@@ -460,10 +504,13 @@ void MainScene::onPressedCancel()
 
 void MainScene::tryWalk(int x, int y)
 {
+    if (walking_) { return; }
     if (canWalk(x, y))
     {
-        man_x_ = x;
-        man_y_ = y;
+        if (!beginWalking(x, y, man_x_, man_y_))
+        {
+            setManPosition(x, y);
+        }
     }
     step_++;
     if (isWater(man_x_, man_y_))
@@ -546,6 +593,9 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
             }
             if (can_enter)
             {
+                cancelWalking();
+                way_que_.clear();
+                setMouseEventPoint(-1, -1);
                 UISave::autoSave();
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();

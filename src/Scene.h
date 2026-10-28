@@ -70,6 +70,12 @@ public:
 
     void setManPosition(int x, int y)
     {
+        if (walking_)
+        {
+            way_que_.clear();
+            setMouseEventPoint(-1, -1);
+        }
+        cancelWalking();
         man_x_ = x;
         man_y_ = y;
     }
@@ -131,5 +137,27 @@ public:
         key_walk_delay_ = d;
     }
 
+    int walkingDuration() const;
+    bool isWalking() const { return walking_; }
+    void cancelWalking();
+    void finishWalking();
+
+protected:
+    virtual bool usesSmoothWalking() const { return false; }
+    virtual void commitWalkingView() {}
+    bool walking_ = false;
+    Point walk_from_{ 0, 0 }, walk_to_{ 0, 0 }, walk_view_from_{ 0, 0 };
+    double walk_started_ = 0, walk_duration_ = 0, walk_progress_ = 0;
+    double walk_next_started_ = -1;
+    bool beginWalking(int x, int y, int view_x, int view_y);
+    bool updateWalking();
+    Point getWalkOffset() const;
+    Point getWalkingManOffset() const;
+    Point getWalkingPositionOnRender(int x, int y, int view_x, int view_y);
+    Point getWalkingPositionOnRender(int x, int y) { return getWalkingPositionOnRender(x, y, man_x_, man_y_); }
+    Point getWalkingMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
+    Point getWalkingMousePosition(int mouse_x, int mouse_y) { return getWalkingMousePosition(mouse_x, mouse_y, man_x_, man_y_); }
+
+public:
     Camera camera_;    //镜头位置
 };
