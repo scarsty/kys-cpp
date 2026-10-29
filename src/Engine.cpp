@@ -3,6 +3,7 @@
 #include "ImGuiLayer.h"
 #include "SystemSettings.h"
 #include "UIRenderer.h"
+#include "TextureUpload.h"
 #include "strfunc.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -186,7 +187,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 
     std::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
 
-    createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, ui_w_, ui_h_);
+    createMainTexture(ui_w_, ui_h_);
     if (!imgui_)
     {
         imgui_ = std::make_unique<ImGuiLayer>();
@@ -286,21 +287,14 @@ void Engine::setWindowPosition(int x, int y) const
     SDL_SetWindowPosition(window_, x, y);
 }
 
-void Engine::createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h)
+void Engine::createMainTexture(int w, int h)
 {
     if (tex_)
     {
         color_cache_.erase(tex_);
         SDL_DestroyTexture(tex_);
     }
-    if (pixfmt < 0)
-    {
-        tex_ = createRenderedTexture(w, h);
-    }
-    else
-    {
-        tex_ = createTexture(pixfmt, a, w, h);
-    }
+    tex_ = createRenderedTexture(w, h);
     setPresentPosition(tex_);
     commitCurrentPresentPosition(tex_);
 }
@@ -329,9 +323,7 @@ void Engine::createAssistTexture(const std::string& name, int w, int h)
         color_cache_.erase(tex);
         SDL_DestroyTexture(tex);
     }
-    int64_t pixfmt = 0;
-    SDL_GetNumberProperty(SDL_GetTextureProperties(tex_), SDL_PROP_TEXTURE_FORMAT_NUMBER, pixfmt);
-    tex = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
+    tex = createRenderedTexture(w, h);
     //tex_ = createRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
@@ -474,7 +466,7 @@ Texture* Engine::createTexture(int w, int h)
 
 Texture* Engine::createRenderedTexture(int w, int h) const
 {
-    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    return createTexture(SDL_PIXELFORMAT_RGBA32, TEXTUREACCESS_TARGET, w, h);
 }
 
 void Engine::updateTexture(Texture* t, uint8_t* buffer, int pitch)
@@ -887,7 +879,7 @@ Texture* Engine::loadImage(const std::string& filename, int as_white, bool trimT
     }
     if (trimTransparent) sur = trimIconSurface(sur);
     if (as_white) { toWhite(sur); }
-    auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
+    auto tex = createNormalizedTextureFromSurface(renderer_, sur);
     if (!tex)
     {
         LOG("SDL_CreateTextureFromSurface failed: {} ({}x{}, {})\n", filename, sur->w, sur->h, SDL_GetError());
@@ -907,7 +899,7 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white, b
     }
     if (trimTransparent) sur = trimIconSurface(sur);
     if (as_white) { toWhite(sur); }
-    auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
+    auto tex = createNormalizedTextureFromSurface(renderer_, sur);
     if (!tex)
     {
         LOG("SDL_CreateTextureFromSurface failed from memory: {} bytes ({}x{}, {})\n", content.size(), sur->w, sur->h, SDL_GetError());
@@ -976,7 +968,7 @@ Texture* Engine::transRGBABitmapToTexture(const uint8_t* src, uint32_t color, in
             p[4 * (y * w + x)] = src[y * stride + x];
         }
     }
-    auto t = SDL_CreateTextureFromSurface(renderer_, s);
+    auto t = createNormalizedTextureFromSurface(renderer_, s);
     SDL_DestroySurface(s);
     setTextureBlendMode(t);
     setTextureAlphaMod(t, 192);
@@ -1801,7 +1793,7 @@ Texture* Engine::createRectTexture(int w, int h, int style) const
             }*/
         }
     }
-    auto square = SDL_CreateTextureFromSurface(renderer_, square_s);
+    auto square = createNormalizedTextureFromSurface(renderer_, square_s);
     setTextureBlendMode(square);
     //setTextureAlphaMod(square, 128);
     SDL_DestroySurface(square_s);
@@ -1822,7 +1814,7 @@ Texture* Engine::createTextTexture(const std::string& fontname, const std::strin
         }
     }
     auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, SDL_Color{ c.r, c.g, c.b, c.a });
-    auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
+    auto text_t = createNormalizedTextureFromSurface(renderer_, text_s);
     SDL_SetTextureScaleMode(text_t, SDL_SCALEMODE_LINEAR);
     SDL_DestroySurface(text_s);
     return text_t;

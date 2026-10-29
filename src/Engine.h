@@ -349,7 +349,7 @@ public:
 
     Renderer* getRenderer() const { return renderer_; }
 
-    void createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h);
+    void createMainTexture(int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(const std::string& name, int w, int h);
     Texture* cloneTexture(Texture* source) const;

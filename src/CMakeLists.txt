@@ -235,6 +235,7 @@ endif()
 if(BUILD_TESTING)
     set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/TestMain.cpp"
+    "${KYS_ROOT}/tests/TextureUploadUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleActionCommitUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleAttackSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleMathUnitTests.cpp"

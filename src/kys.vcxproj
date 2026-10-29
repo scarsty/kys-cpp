@@ -136,6 +136,7 @@
     <ClCompile Include="ChessSystemSettingsMenu.cpp" />
     <ClCompile Include="ChessUiCommon.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="TextureUpload.cpp" />
     <ClCompile Include="PointerInput.cpp" />
     <ClCompile Include="BattleSceneControls.cpp" />
     <ClCompile Include="BattleScenePaperCameraTouch.cpp" />

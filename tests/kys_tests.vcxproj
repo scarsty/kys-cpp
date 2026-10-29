@@ -112,6 +112,8 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="TestMain.cpp" />
+    <ClCompile Include="TextureUploadUnitTests.cpp" />
+    <ClCompile Include="..\src\TextureUpload.cpp" />
     <ClCompile Include="BattleAttackSystemUnitTests.cpp" />
     <ClCompile Include="BattleMathUnitTests.cpp" />
     <ClCompile Include="BattleActionCommitUnitTests.cpp" />
