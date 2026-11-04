@@ -131,6 +131,7 @@
     <ClCompile Include="..\mlcc\PotConv.cpp" />
     <ClCompile Include="..\others\Hanz2Piny.cpp" />
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="McpServer.cpp" />
     <ClCompile Include="Audio.cpp" />
     <ClCompile Include="BattleMap.cpp" />
     <ClCompile Include="BattleCursor.cpp" />
@@ -251,6 +252,7 @@
     <ClInclude Include="UI.h" />
     <ClInclude Include="TitleScene.h" />
     <ClInclude Include="MainScene.h" />
+    <ClInclude Include="McpServer.h" />
     <ClInclude Include="MainScenePaper.h" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="Point.h" />

@@ -1,4 +1,5 @@
 ﻿#include "RunNode.h"
+#include "McpServer.h"
 #include "Audio.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -376,12 +377,15 @@ void RunNode::backRunSelfChilds()
 //检测事件
 void RunNode::dealEventSelfChilds(bool check_event)
 {
+    McpServer::instance().pump(this, check_event);
+    if (McpServer::instance().enabled() && exit_) { return; }
     if (check_event)
     {
         EngineEvent e;
         e.type = EVENT_FIRST;
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
-        while (Engine::getInstance()->pollEvent(e))
+        bool mcp_event = McpServer::instance().takeEvent(e);
+        while (!mcp_event && Engine::getInstance()->pollEvent(e))
         {
             if (isSpecialEvent(e))
             {
@@ -572,6 +576,7 @@ void RunNode::present()
     e->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1, BLENDMODE_NONE);
     e->renderMainTextureToWindow();
     Font::getInstance()->executeDrawCalls();
+    McpServer::instance().captureFrame();
     e->renderPresent();
     e->setRenderMainTexture();
     auto t_delay = refresh_interval_ - t;
