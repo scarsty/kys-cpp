@@ -26,7 +26,10 @@ int main(int argc, char* argv[])
             std::fprintf(stderr, "Invalid argument: %s\n", arg.c_str());
             return 2;
         }
-        else { path = std::move(arg); }
+        else
+        {
+            path = std::move(arg);
+        }
     }
     if (mcp)
     {

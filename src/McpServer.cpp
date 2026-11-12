@@ -1,16 +1,16 @@
 #include "McpServer.h"
-#include "Engine.h"
 #include "BattleScene.h"
+#include "Engine.h"
 #include "InputBox.h"
-#include "Menu.h"
 #include "MainScene.h"
+#include "Menu.h"
 #include "Save.h"
 #include "SubScene.h"
 #include "Talk.h"
 #include "TitleScene.h"
 #include <SDL3_image/SDL_image.h>
-#include <glaze/glaze.hpp>
 #include <array>
+#include <glaze/glaze.hpp>
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
@@ -25,8 +25,8 @@ namespace
 using Json = glz::generic_json<glz::num_mode::i64>;
 constexpr size_t max_line = 65536;
 
-Json object() { return Json::object_t{}; }
-Json array() { return Json::array_t{}; }
+Json object() { return Json::object_t{ }; }
+Json array() { return Json::array_t{ }; }
 const Json* field(const Json& value, const char* name)
 {
     if (!value.is_object()) { return nullptr; }
@@ -62,7 +62,7 @@ Json toolResult(const Json& result, bool failed = false)
     auto content = object();
     content["type"] = "text";
     content["text"] = encode(result);
-    value["content"] = Json::array_t{content};
+    value["content"] = Json::array_t{ content };
     value["isError"] = failed;
     return value;
 }
@@ -89,6 +89,13 @@ Json describe(RunNode* node, int depth = 0)
     value["type"] = nodeType(node);
     value["visible"] = node->getVisible();
     value["selected"] = node->getActiveChildIndex();
+    int x, y, width, height;
+    node->getPosition(x, y);
+    node->getSize(width, height);
+    value["bounds"]["x"] = x;
+    value["bounds"]["y"] = y;
+    value["bounds"]["width"] = width;
+    value["bounds"]["height"] = height;
     if (auto talk = dynamic_cast<Talk*>(node)) { value["text"] = talk->getContent(); }
     if (auto box = dynamic_cast<TextBox*>(node)) { value["text"] = box->getText(); }
     value["children"] = array();
@@ -108,12 +115,13 @@ Json tools()
     auto result = object();
     result["tools"] = array();
     const std::array definitions = {
-        std::pair{"get_game_state", "Read current scene, committed player position and input context."},
-        std::pair{"get_party", "Read the current party. Empty before a game is loaded."},
-        std::pair{"get_inventory", "Read nonempty inventory slots. Empty before a game is loaded."},
-        std::pair{"get_ui_state", "Read the current input node, dialogue and visible child controls."},
-        std::pair{"press_key", "Queue one discrete UI key press, not a held key. Accepted does not mean completed. Disabled during animations and in battle."},
-        std::pair{"capture_screen", "Capture the next fully composed window frame including UI as PNG."}
+        std::pair{ "get_game_state", "Read current scene, committed player position and input context." },
+        std::pair{ "get_party", "Read the current party. Empty before a game is loaded." },
+        std::pair{ "get_inventory", "Read nonempty inventory slots. Empty before a game is loaded." },
+        std::pair{ "get_ui_state", "Read the current input node, dialogue and visible child controls." },
+        std::pair{ "press_key", "Queue one discrete UI key press, not a held key. Accepted does not mean completed. Disabled during animations and in battle." },
+        std::pair{ "click_mouse", "Queue a left or right click at integer logical UI coordinates (see get_game_state.ui_width/ui_height). Does not move the OS cursor. Disabled during animations and in battle." },
+        std::pair{ "capture_screen", "Capture the next fully composed window frame including UI as PNG." }
     };
     for (auto [name, description] : definitions)
     {
@@ -127,12 +135,24 @@ Json tools()
         if (std::string_view(name) == "press_key")
         {
             schema["properties"]["key"]["type"] = "string";
-            schema["properties"]["key"]["enum"] = Json::array_t{"up", "down", "left", "right", "confirm", "cancel", "page_up", "page_down"};
-            schema["required"] = Json::array_t{"key"};
+            schema["properties"]["key"]["enum"] = Json::array_t{ "up", "down", "left", "right", "confirm", "cancel", "page_up", "page_down" };
+            schema["required"] = Json::array_t{ "key" };
+        }
+        if (std::string_view(name) == "click_mouse")
+        {
+            for (auto coordinate : { "x", "y" })
+            {
+                schema["properties"][coordinate]["type"] = "integer";
+                schema["properties"][coordinate]["minimum"] = 0;
+            }
+            schema["properties"]["button"]["type"] = "string";
+            schema["properties"]["button"]["enum"] = Json::array_t{ "left", "right" };
+            schema["required"] = Json::array_t{ "x", "y", "button" };
         }
         tool["inputSchema"] = schema;
-        tool["annotations"]["readOnlyHint"] = std::string_view(name) != "press_key";
-        tool["annotations"]["destructiveHint"] = std::string_view(name) == "press_key";
+        bool control = std::string_view(name) == "press_key" || std::string_view(name) == "click_mouse";
+        tool["annotations"]["readOnlyHint"] = !control;
+        tool["annotations"]["destructiveHint"] = control;
         tool["annotations"]["openWorldHint"] = false;
         result["tools"].get_array().push_back(std::move(tool));
     }
@@ -155,7 +175,7 @@ std::string base64(const unsigned char* bytes, size_t size)
     }
     return result;
 }
-}
+}    //namespace
 
 McpServer& McpServer::instance()
 {
@@ -168,14 +188,22 @@ bool McpServer::start()
 #ifdef _WIN32
     int protocol = _dup(_fileno(stdout));
     if (protocol < 0) { return false; }
-    if (_dup2(_fileno(stderr), _fileno(stdout)) != 0) { _close(protocol); return false; }
+    if (_dup2(_fileno(stderr), _fileno(stdout)) != 0)
+    {
+        _close(protocol);
+        return false;
+    }
     _setmode(protocol, _O_BINARY);
     _setmode(_fileno(stdin), _O_BINARY);
     output_ = _fdopen(protocol, "wb");
 #else
     int protocol = dup(fileno(stdout));
     if (protocol < 0) { return false; }
-    if (dup2(fileno(stderr), fileno(stdout)) < 0) { close(protocol); return false; }
+    if (dup2(fileno(stderr), fileno(stdout)) < 0)
+    {
+        close(protocol);
+        return false;
+    }
     output_ = fdopen(protocol, "w");
 #endif
     return output_ != nullptr;
@@ -205,18 +233,33 @@ void McpServer::pump(RunNode* current, bool interactive)
             DWORD available = 0;
             if (GetFileType(handle) == FILE_TYPE_PIPE)
             {
-                if (!PeekNamedPipe(handle, nullptr, 0, nullptr, &available, nullptr)) { input_closed_ = true; break; }
+                if (!PeekNamedPipe(handle, nullptr, 0, nullptr, &available, nullptr))
+                {
+                    input_closed_ = true;
+                    break;
+                }
                 if (!available) { break; }
             }
-            else if (GetFileType(handle) != FILE_TYPE_DISK) { disconnected_ = true; break; }
-            else { available = DWORD(buffer.size()); }
+            else if (GetFileType(handle) != FILE_TYPE_DISK)
+            {
+                disconnected_ = true;
+                break;
+            }
+            else
+            {
+                available = DWORD(buffer.size());
+            }
             count = _read(_fileno(stdin), buffer.data(), unsigned(std::min<size_t>(available, buffer.size())));
 #else
-            pollfd descriptor{fileno(stdin), POLLIN, 0};
+            pollfd descriptor{ fileno(stdin), POLLIN, 0 };
             if (poll(&descriptor, 1, 0) <= 0) { break; }
             count = int(read(fileno(stdin), buffer.data(), buffer.size()));
 #endif
-            if (count <= 0) { input_closed_ = true; break; }
+            if (count <= 0)
+            {
+                input_closed_ = true;
+                break;
+            }
             for (int i = 0; i < count; ++i)
             {
                 char c = buffer[i];
@@ -226,7 +269,10 @@ void McpServer::pump(RunNode* current, bool interactive)
                     else if (!input_.empty())
                     {
                         if (requests_.size() < 64) { requests_.push_back(std::move(input_)); }
-                        else { disconnected_ = true; }
+                        else
+                        {
+                            disconnected_ = true;
+                        }
                     }
                     input_.clear();
                     discarding_ = false;
@@ -234,7 +280,11 @@ void McpServer::pump(RunNode* current, bool interactive)
                 else if (!discarding_)
                 {
                     input_ += c;
-                    if (input_.size() > max_line) { input_.clear(); discarding_ = true; }
+                    if (input_.size() > max_line)
+                    {
+                        input_.clear();
+                        discarding_ = true;
+                    }
                 }
             }
         }
@@ -242,6 +292,7 @@ void McpServer::pump(RunNode* current, bool interactive)
     if (disconnected_ || (input_closed_ && requests_.empty() && capture_id_.empty()))
     {
         pending_key_ = 0;
+        pending_mouse_button_ = 0;
         RunNode::exitAll();
         current->setExit(true);
         return;
@@ -250,8 +301,10 @@ void McpServer::pump(RunNode* current, bool interactive)
     {
         auto message = std::move(requests_.front());
         requests_.pop_front();
-        try { handle(message, current, interactive); }
-        catch (const std::exception& e)
+        try
+        {
+            handle(message, current, interactive);
+        } catch (const std::exception& e)
         {
             fprintf(stderr, "MCP request failed: %s\n", e.what());
             Json request;
@@ -266,9 +319,13 @@ void McpServer::pump(RunNode* current, bool interactive)
 void McpServer::handle(const std::string& message, RunNode* current, bool interactive)
 {
     Json request;
-    if (glz::read_json(request, message)) { send(encode(error(nullptr, -32700, "Parse error"))); return; }
+    if (glz::read_json(request, message))
+    {
+        send(encode(error(nullptr, -32700, "Parse error")));
+        return;
+    }
     auto id_ptr = field(request, "id");
-    Json id = id_ptr ? *id_ptr : Json{};
+    Json id = id_ptr ? *id_ptr : Json{ };
     auto method = text(field(request, "method"));
     if (!request.is_object() || text(field(request, "jsonrpc")) != "2.0" || method.empty()
         || (id_ptr && !id.is_string() && !id.get_if<int64_t>()))
@@ -293,7 +350,8 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
         auto version = text(field(params, "protocolVersion"));
         if (initialized_ || version.empty() || !field(params, "capabilities") || !field(params, "clientInfo"))
         {
-            send(encode(error(id, -32602, "Invalid initialization"))); return;
+            send(encode(error(id, -32602, "Invalid initialization")));
+            return;
         }
         auto result = object();
         result["protocolVersion"] = version == "2024-11-05" ? version : "2025-06-18";
@@ -305,22 +363,45 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
         send(encode(response(id, result)));
         return;
     }
-    if (method == "ping") { send(encode(response(id, object()))); return; }
-    if (!ready_) { send(encode(error(id, -32000, "Initialize the MCP session first"))); return; }
-    if (method == "tools/list") { send(encode(response(id, tools()))); return; }
-    if (method != "tools/call") { send(encode(error(id, -32601, "Method not found"))); return; }
+    if (method == "ping")
+    {
+        send(encode(response(id, object())));
+        return;
+    }
+    if (!ready_)
+    {
+        send(encode(error(id, -32000, "Initialize the MCP session first")));
+        return;
+    }
+    if (method == "tools/list")
+    {
+        send(encode(response(id, tools())));
+        return;
+    }
+    if (method != "tools/call")
+    {
+        send(encode(error(id, -32601, "Method not found")));
+        return;
+    }
     auto name = text(field(params, "name"));
     auto args_ptr = field(params, "arguments");
     Json args = args_ptr ? *args_ptr : object();
-    if (!args.is_object()) { send(encode(error(id, -32602, "Expected object arguments"))); return; }
-    if (name != "get_game_state" && name != "get_party" && name != "get_inventory" && name != "get_ui_state"
-        && name != "press_key" && name != "capture_screen")
+    if (!args.is_object())
     {
-        send(encode(error(id, -32602, "Unknown tool"))); return;
+        send(encode(error(id, -32602, "Expected object arguments")));
+        return;
     }
-    if (args.get_object().size() != (name == "press_key" ? 1 : 0))
+    if (name != "get_game_state" && name != "get_party" && name != "get_inventory" && name != "get_ui_state"
+        && name != "press_key" && name != "click_mouse" && name != "capture_screen")
     {
-        send(encode(error(id, -32602, "Unexpected tool arguments"))); return;
+        send(encode(error(id, -32602, "Unknown tool")));
+        return;
+    }
+    if (args.get_object().size() != (name == "press_key" ? 1 : name == "click_mouse" ? 3 :
+                                                                                       0))
+    {
+        send(encode(error(id, -32602, "Unexpected tool arguments")));
+        return;
     }
     auto result = object();
     auto scene = RunNode::getPointerFromRoot<Scene>();
@@ -331,6 +412,15 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
         result["interactive"] = interactive;
         result["loaded"] = !Save::getInstance()->getRoles().empty();
         result["battle"] = bool(battle);
+        auto engine = Engine::getInstance();
+        result["ui_width"] = engine->getUIWidth();
+        result["ui_height"] = engine->getUIHeight();
+        int px, py, pw, ph;
+        engine->getPresentRect(px, py, pw, ph);
+        result["present_rect"]["x"] = px;
+        result["present_rect"]["y"] = py;
+        result["present_rect"]["width"] = pw;
+        result["present_rect"]["height"] = ph;
         if (scene)
         {
             result["scene"] = nodeType(scene.get());
@@ -386,24 +476,61 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
     }
     else if (name == "press_key")
     {
-        const std::array keys = {std::pair{"up", K_UP}, std::pair{"down", K_DOWN}, std::pair{"left", K_LEFT},
-            std::pair{"right", K_RIGHT}, std::pair{"confirm", K_RETURN}, std::pair{"cancel", K_ESCAPE},
-            std::pair{"page_up", K_PAGEUP}, std::pair{"page_down", K_PAGEDOWN}};
+        const std::array keys = { std::pair{ "up", K_UP }, std::pair{ "down", K_DOWN }, std::pair{ "left", K_LEFT },
+            std::pair{ "right", K_RIGHT }, std::pair{ "confirm", K_RETURN }, std::pair{ "cancel", K_ESCAPE },
+            std::pair{ "page_up", K_PAGEUP }, std::pair{ "page_down", K_PAGEDOWN } };
         auto key = text(field(args, "key"));
         int code = 0;
-        for (auto [label, value] : keys) { if (key == label) { code = int(value); } }
-        if (!code) { send(encode(error(id, -32602, "Unknown key"))); return; }
-        if (!interactive || battle || pending_key_)
+        for (auto [label, value] : keys)
         {
-            send(encode(response(id, failure("Input unavailable during animation, battle or a pending press")))); return;
+            if (key == label) { code = int(value); }
+        }
+        if (!code)
+        {
+            send(encode(error(id, -32602, "Unknown key")));
+            return;
+        }
+        if (!interactive || battle || pending_key_ || pending_mouse_button_)
+        {
+            send(encode(response(id, failure("Input unavailable during animation, battle or a pending press"))));
+            return;
         }
         pending_key_ = code;
         pending_down_ = true;
         result["accepted"] = true;
     }
+    else if (name == "click_mouse")
+    {
+        auto x = field(args, "x");
+        auto y = field(args, "y");
+        auto button = text(field(args, "button"));
+        auto engine = Engine::getInstance();
+        if (!x || !y || !x->get_if<int64_t>() || !y->get_if<int64_t>()
+            || x->get<int64_t>() < 0 || x->get<int64_t>() >= engine->getUIWidth()
+            || y->get<int64_t>() < 0 || y->get<int64_t>() >= engine->getUIHeight()
+            || (button != "left" && button != "right"))
+        {
+            send(encode(error(id, -32602, "Expected in-bounds integer UI coordinates and left/right button")));
+            return;
+        }
+        if (!interactive || battle || pending_key_ || pending_mouse_button_)
+        {
+            send(encode(response(id, failure("Input unavailable during animation, battle or a pending press"))));
+            return;
+        }
+        pending_mouse_x_ = int(x->get<int64_t>());
+        pending_mouse_y_ = int(y->get<int64_t>());
+        pending_mouse_button_ = button == "left" ? BUTTON_LEFT : BUTTON_RIGHT;
+        pending_mouse_phase_ = 0;
+        result["accepted"] = true;
+    }
     else if (name == "capture_screen")
     {
-        if (!capture_id_.empty()) { send(encode(response(id, failure("A capture is already pending")))); return; }
+        if (!capture_id_.empty())
+        {
+            send(encode(response(id, failure("A capture is already pending"))));
+            return;
+        }
         capture_id_ = encode(id);
         return;
     }
@@ -412,8 +539,31 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
 
 bool McpServer::takeEvent(SDL_Event& event)
 {
+    if (pending_mouse_button_)
+    {
+        int x, y;
+        Engine::getInstance()->uiToWindowSpace(pending_mouse_x_, pending_mouse_y_, x, y);
+        event = { };
+        if (pending_mouse_phase_ == 0)
+        {
+            event.type = EVENT_MOUSE_MOTION;
+            event.motion.x = float(x);
+            event.motion.y = float(y);
+        }
+        else
+        {
+            event.type = pending_mouse_phase_ == 1 ? EVENT_MOUSE_BUTTON_DOWN : EVENT_MOUSE_BUTTON_UP;
+            event.button.button = Uint8(pending_mouse_button_);
+            event.button.down = pending_mouse_phase_ == 1;
+            event.button.clicks = 1;
+            event.button.x = float(x);
+            event.button.y = float(y);
+        }
+        if (++pending_mouse_phase_ == 3) { pending_mouse_button_ = 0; }
+        return true;
+    }
     if (!pending_key_) { return false; }
-    event = {};
+    event = { };
     event.type = pending_down_ ? EVENT_KEY_DOWN : EVENT_KEY_UP;
     event.key.key = pending_key_;
     event.key.down = pending_down_;
@@ -434,7 +584,8 @@ void McpServer::captureFrame()
     {
         if (surface) { SDL_DestroySurface(surface); }
         if (stream) { SDL_CloseIO(stream); }
-        send(encode(response(id, failure("Unable to capture window")))); return;
+        send(encode(response(id, failure("Unable to capture window"))));
+        return;
     }
     auto bytes = static_cast<const unsigned char*>(SDL_GetPointerProperty(SDL_GetIOProperties(stream), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     auto size = SDL_GetIOSize(stream);
@@ -442,14 +593,15 @@ void McpServer::captureFrame()
     {
         SDL_DestroySurface(surface);
         SDL_CloseIO(stream);
-        send(encode(response(id, failure("Captured image exceeds 16 MiB")))); return;
+        send(encode(response(id, failure("Captured image exceeds 16 MiB"))));
+        return;
     }
     auto image = object();
     image["type"] = "image";
     image["mimeType"] = "image/png";
     image["data"] = base64(bytes, size_t(size));
     auto result = object();
-    result["content"] = Json::array_t{std::move(image)};
+    result["content"] = Json::array_t{ std::move(image) };
     SDL_DestroySurface(surface);
     SDL_CloseIO(stream);
     send(encode(response(id, result)));

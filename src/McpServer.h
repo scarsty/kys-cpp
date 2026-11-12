@@ -26,6 +26,9 @@ private:
     bool ready_ = false;
     int pending_key_ = 0;
     bool pending_down_ = false;
+    int pending_mouse_button_ = 0;
+    int pending_mouse_x_ = 0, pending_mouse_y_ = 0;
+    int pending_mouse_phase_ = 0;
     std::deque<std::string> requests_;
     std::string capture_id_;
 

@@ -417,9 +417,9 @@ public:
 
     void resetRenderTarget() const { setRenderTarget(nullptr); }
 
-    static void createWindow() {}
+    static void createWindow() { }
 
-    static void createRenderer() {}
+    static void createRenderer() { }
 
     void renderTexture(Texture* t = nullptr, double angle = 0);
     void renderTexture(Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
@@ -428,7 +428,7 @@ public:
     void renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const std::vector<FPoint>& v2,
         const std::vector<Color>& colors, const std::vector<int>& indices, float top_left_brightness = 0.0f);
     void renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
-        const std::vector<float>& brightness_v = {}, double angle = 0);
+        const std::vector<float>& brightness_v = { }, double angle = 0);
 
     void setTextureTopLeftHighlightEnabled(bool enabled) { texture_top_left_highlight_enabled_ = enabled; }
 
@@ -538,6 +538,17 @@ public:
     }
 
     static void getMouseState(int& x, int& y);
+    class ScopedMousePosition
+    {
+        bool previous_enabled_;
+        int previous_x_, previous_y_;
+
+    public:
+        ScopedMousePosition(bool enabled, int x, int y);
+        ~ScopedMousePosition();
+        ScopedMousePosition(const ScopedMousePosition&) = delete;
+        ScopedMousePosition& operator=(const ScopedMousePosition&) = delete;
+    };
     void getMouseStateInStartWindow(int& x, int& y) const;
     void setMouseState(int x, int y) const;
     void setMouseStateInStartWindow(int x, int y) const;
@@ -572,7 +583,7 @@ private:
     std::unordered_map<int, int> virtual_stick_button_;
     int16_t virtual_stick_axis_[6] = { 0 };
     float touch_pinch_scale_ = 1.0f;
-    SDL_FPoint touch_camera_pan_{};
+    SDL_FPoint touch_camera_pan_{ };
 
 public:
     bool gameControllerGetButton(int key);
@@ -599,7 +610,7 @@ public:
     SDL_FPoint consumeTouchCameraPan()
     {
         SDL_FPoint pan = touch_camera_pan_;
-        touch_camera_pan_ = {};
+        touch_camera_pan_ = { };
         return pan;
     }
 
@@ -651,7 +662,6 @@ public:
         Rect r = { x, y, w, h };
         SDL_SetTextInputArea(window_, &r, 0);
     }
-
 };
 
 struct Prop

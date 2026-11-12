@@ -1,8 +1,8 @@
 ﻿#include "RunNode.h"
-#include "McpServer.h"
 #include "Audio.h"
 #include "Font.h"
 #include "GameUtil.h"
+#include "McpServer.h"
 #include "UISystem.h"
 #include "VirtualStick.h"
 
@@ -396,7 +396,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
         {
             //摇杆移动会产生大量事件，暂时不处理
             EngineEvent e1;
-            while (Engine::getInstance()->pollEvent(e1)) {};
+            while (Engine::getInstance()->pollEvent(e1)) { };
             //右摇杆控制鼠标，手感有问题，待处理
             //if (e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTX || e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
             //{
@@ -454,6 +454,14 @@ void RunNode::dealEventSelfChilds(bool check_event)
         {
             virtual_stick()->dealEvent(e);
         }
+        bool synthetic_mouse = mcp_event && (e.type == EVENT_MOUSE_MOTION || e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP);
+        int mouse_x = 0, mouse_y = 0;
+        if (synthetic_mouse)
+        {
+            mouse_x = int(e.type == EVENT_MOUSE_MOTION ? e.motion.x : e.button.x);
+            mouse_y = int(e.type == EVENT_MOUSE_MOTION ? e.motion.y : e.button.y);
+        }
+        Engine::ScopedMousePosition mouse_position(synthetic_mouse, mouse_x, mouse_y);
         checkStateSelfChilds(e, check_event);
         if (e.type == EVENT_QUIT
             || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
@@ -463,7 +471,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
     }
     else
     {
-        EngineEvent e{};
+        EngineEvent e{ };
+        Engine::ScopedMousePosition mouse_position(false, 0, 0);
         e.type = EVENT_FIRST;
         if (use_virtual_stick_)
         {

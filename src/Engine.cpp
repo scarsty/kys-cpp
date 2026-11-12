@@ -31,7 +31,8 @@ void Engine::extractAssetsIfNeeded()
     const std::string external = SDL_GetAndroidExternalStoragePath();
     const std::string dest = "/sdcard/kys-cpp/game/";
     const std::string marker = dest + ".game_extracted";
-    auto create_parent_dirs = [](const std::string& path) {
+    auto create_parent_dirs = [](const std::string& path)
+    {
         size_t pos = path.find('/', 1);
         while (pos != std::string::npos)
         {
@@ -1145,8 +1146,36 @@ void Engine::putAudioStreamCallback(void* userdata, SDL_AudioStream* stream, int
     }
 }
 
+namespace
+{
+// Scoped to event dispatch so nested loops do not inherit a synthetic cursor.
+bool synthetic_mouse_enabled = false;
+int synthetic_mouse_x = 0, synthetic_mouse_y = 0;
+}    //namespace
+
+Engine::ScopedMousePosition::ScopedMousePosition(bool enabled, int x, int y) :
+    previous_enabled_(synthetic_mouse_enabled), previous_x_(synthetic_mouse_x), previous_y_(synthetic_mouse_y)
+{
+    synthetic_mouse_enabled = enabled;
+    synthetic_mouse_x = x;
+    synthetic_mouse_y = y;
+}
+
+Engine::ScopedMousePosition::~ScopedMousePosition()
+{
+    synthetic_mouse_enabled = previous_enabled_;
+    synthetic_mouse_x = previous_x_;
+    synthetic_mouse_y = previous_y_;
+}
+
 void Engine::getMouseState(int& x, int& y)
 {
+    if (synthetic_mouse_enabled)
+    {
+        x = synthetic_mouse_x;
+        y = synthetic_mouse_y;
+        return;
+    }
     float xf, yf;
     SDL_GetMouseState(&xf, &yf);
     x = xf;

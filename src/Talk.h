@@ -1,18 +1,23 @@
 ﻿#pragma once
 #include "RunNode.h"
-#include <vector>
 #include <string>
+#include <vector>
 
 class Talk : public RunNode
 {
 public:
-    Talk() {}
-    Talk(std::string c, int h = -1) : Talk() { setContent(c); setHeadID(h); }
-    virtual ~Talk() {}
+    Talk() { }
+    Talk(std::string c, int h = -1) : Talk()
+    {
+        setContent(c);
+        setHeadID(h);
+    }
+    virtual ~Talk() { }
 
     virtual void draw() override;
     //virtual void dealEvent(BP_Event& e) override;
     virtual void onPressedOK() override;
+
 private:
     std::string content_;
     int head_id_ = -1;
@@ -21,6 +26,7 @@ private:
     int width_ = 40;
     const int height_ = 4;    //每页行数
     std::vector<std::string> content_lines_;
+
 public:
     void setContent(std::string c) { content_ = c; }
     const std::string& getContent() const { return content_; }
@@ -30,4 +36,3 @@ public:
 
     DEFAULT_CANCEL_EXIT;
 };
-
