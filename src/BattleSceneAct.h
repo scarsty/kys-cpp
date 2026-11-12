@@ -16,6 +16,19 @@
 
 class BattleSceneAct : public BattleScene
 {
+private:
+    static constexpr int PAPER_LOCK_MARK_TEXTURE = 201;
+    static constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
+    static constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
+    static constexpr float PAPER_CAMERA_DEFAULT_DISTANCE = 400.0f;
+    static constexpr float PAPER_CAMERA_MIN_DISTANCE = 220.0f;
+    static constexpr float PAPER_CAMERA_MAX_DISTANCE = 900.0f;
+    static constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
+    static constexpr float PAPER_CAMERA_WHEEL_ZOOM_STEP = 80.0f;
+    static constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
+    static constexpr float PAPER_CAMERA_MAX_HEIGHT = 500.0f;
+    static constexpr float PAPER_ROLE_INFO_TOP_GAP = 4.0f;
+
 public:
     struct AttackEffect
     {

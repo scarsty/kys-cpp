@@ -816,8 +816,7 @@ void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std:
 
     if (angle != 0)
     {
-        const double pi = 3.14159265358979323846;
-        const float rad = float(angle * pi / 180.0);
+        const float rad = float(angle * M_PI / 180.0);
         const float c = float(std::cos(rad));
         const float s = float(std::sin(rad));
         const float cx = x0 + w * 0.5f;
@@ -1145,13 +1144,6 @@ void Engine::putAudioStreamCallback(void* userdata, SDL_AudioStream* stream, int
         SDL_PutAudioStreamData(stream, data.data(), additional_amount);
     }
 }
-
-namespace
-{
-// Scoped to event dispatch so nested loops do not inherit a synthetic cursor.
-bool synthetic_mouse_enabled = false;
-int synthetic_mouse_x = 0, synthetic_mouse_y = 0;
-}    //namespace
 
 Engine::ScopedMousePosition::ScopedMousePosition(bool enabled, int x, int y) :
     previous_enabled_(synthetic_mouse_enabled), previous_x_(synthetic_mouse_x), previous_y_(synthetic_mouse_y)

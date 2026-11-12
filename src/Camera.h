@@ -3,7 +3,8 @@
 #include <vector>
 
 class Camera
-{public:
+{
+public:
     Pointf pos, center;
 
     // 投影输出画布尺寸，单位为像素；结果坐标会落在这个 viewport 的屏幕坐标系中。
@@ -18,6 +19,9 @@ class Camera
     std::vector<Pointf> getProj(const std::vector<Pointf>& v);
 
 private:
+    static float dot(const Pointf& a, const Pointf& b);
+    static Pointf cross(const Pointf& a, const Pointf& b);
+    static Pointf normalized(Pointf p);
     // 默认值只作为调用 setViewport 前的兜底；Paper 模式会按 scene 渲染尺寸设置。
     float viewport_w_ = 800;
     float viewport_h_ = 600;

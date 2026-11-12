@@ -1,19 +1,21 @@
 ﻿#include "Camera.h"
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 #include <cmath>
+#include <math.h>
 
-namespace
-{
-float dot(const Pointf& a, const Pointf& b)
+float Camera::dot(const Pointf& a, const Pointf& b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-Pointf cross(const Pointf& a, const Pointf& b)
+Pointf Camera::cross(const Pointf& a, const Pointf& b)
 {
     return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
 }
 
-Pointf normalized(Pointf p)
+Pointf Camera::normalized(Pointf p)
 {
     auto n = p.norm();
     if (n > 0)
@@ -21,7 +23,6 @@ Pointf normalized(Pointf p)
         p *= 1.0 / n;
     }
     return p;
-}
 }
 
 void Camera::setViewport(float w, float h)
@@ -60,8 +61,7 @@ std::vector<Pointf> Camera::getProj(const std::vector<Pointf>& v)
     }
     auto up = cross(right, forward);
 
-    constexpr float pi = 3.14159265358979323846f;
-    auto fov_rad = fov_ * pi / 180.0f;
+    auto fov_rad = fov_ * float(M_PI) / 180.0f;
     auto focal = viewport_h_ * 0.5f / std::tan(fov_rad * 0.5f);
 
     for (auto& p : v)

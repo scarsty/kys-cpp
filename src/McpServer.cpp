@@ -20,26 +20,21 @@
 #include <unistd.h>
 #endif
 
-namespace
-{
-using Json = glz::generic_json<glz::num_mode::i64>;
-constexpr size_t max_line = 65536;
-
-Json object() { return Json::object_t{ }; }
-Json array() { return Json::array_t{ }; }
-const Json* field(const Json& value, const char* name)
+McpServer::Json McpServer::object() { return Json::object_t{}; }
+McpServer::Json McpServer::array() { return Json::array_t{}; }
+const McpServer::Json* McpServer::field(const Json& value, const char* name)
 {
     if (!value.is_object()) { return nullptr; }
     auto& fields = value.get_object();
     auto it = fields.find(name);
     return it == fields.end() ? nullptr : &it->second;
 }
-std::string text(const Json* value)
+std::string McpServer::text(const Json* value)
 {
     return value && value->is_string() ? value->get<std::string>() : "";
 }
-std::string encode(const Json& value) { return glz::write_json(value).value(); }
-Json response(const Json& id, const Json& result)
+std::string McpServer::encode(const Json& value) { return glz::write_json(value).value(); }
+McpServer::Json McpServer::response(const Json& id, const Json& result)
 {
     auto value = object();
     value["jsonrpc"] = "2.0";
@@ -47,7 +42,7 @@ Json response(const Json& id, const Json& result)
     value["result"] = result;
     return value;
 }
-Json error(const Json& id, int code, const std::string& message)
+McpServer::Json McpServer::error(const Json& id, int code, const std::string& message)
 {
     auto value = object();
     value["jsonrpc"] = "2.0";
@@ -56,7 +51,7 @@ Json error(const Json& id, int code, const std::string& message)
     value["error"]["message"] = message;
     return value;
 }
-Json toolResult(const Json& result, bool failed = false)
+McpServer::Json McpServer::toolResult(const Json& result, bool failed)
 {
     auto value = object();
     auto content = object();
@@ -66,13 +61,13 @@ Json toolResult(const Json& result, bool failed = false)
     value["isError"] = failed;
     return value;
 }
-Json failure(const std::string& message)
+McpServer::Json McpServer::failure(const std::string& message)
 {
     auto value = object();
     value["error"] = message;
     return toolResult(value, true);
 }
-std::string nodeType(RunNode* node)
+std::string McpServer::nodeType(RunNode* node)
 {
     if (dynamic_cast<InputBox*>(node)) { return "input"; }
     if (dynamic_cast<Talk*>(node)) { return "dialogue"; }
@@ -83,7 +78,7 @@ std::string nodeType(RunNode* node)
     if (dynamic_cast<TitleScene*>(node)) { return "title"; }
     return "node";
 }
-Json describe(RunNode* node, int depth = 0)
+McpServer::Json McpServer::describe(RunNode* node, int depth)
 {
     auto value = object();
     value["type"] = nodeType(node);
@@ -110,7 +105,7 @@ Json describe(RunNode* node, int depth = 0)
     }
     return value;
 }
-Json tools()
+McpServer::Json McpServer::tools()
 {
     auto result = object();
     result["tools"] = array();
@@ -158,7 +153,7 @@ Json tools()
     }
     return result;
 }
-std::string base64(const unsigned char* bytes, size_t size)
+std::string McpServer::base64(const unsigned char* bytes, size_t size)
 {
     constexpr char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     std::string result;
@@ -175,8 +170,6 @@ std::string base64(const unsigned char* bytes, size_t size)
     }
     return result;
 }
-}    //namespace
-
 McpServer& McpServer::instance()
 {
     static McpServer server;
@@ -325,7 +318,7 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
         return;
     }
     auto id_ptr = field(request, "id");
-    Json id = id_ptr ? *id_ptr : Json{ };
+    Json id = id_ptr ? *id_ptr : Json{};
     auto method = text(field(request, "method"));
     if (!request.is_object() || text(field(request, "jsonrpc")) != "2.0" || method.empty()
         || (id_ptr && !id.is_string() && !id.get_if<int64_t>()))
@@ -397,8 +390,10 @@ void McpServer::handle(const std::string& message, RunNode* current, bool intera
         send(encode(error(id, -32602, "Unknown tool")));
         return;
     }
-    if (args.get_object().size() != (name == "press_key" ? 1 : name == "click_mouse" ? 3 :
-                                                                                       0))
+    size_t expected_arguments = 0;
+    if (name == "press_key") { expected_arguments = 1; }
+    else if (name == "click_mouse") { expected_arguments = 3; }
+    if (args.get_object().size() != expected_arguments)
     {
         send(encode(error(id, -32602, "Unexpected tool arguments")));
         return;
@@ -543,7 +538,7 @@ bool McpServer::takeEvent(SDL_Event& event)
     {
         int x, y;
         Engine::getInstance()->uiToWindowSpace(pending_mouse_x_, pending_mouse_y_, x, y);
-        event = { };
+        event = {};
         if (pending_mouse_phase_ == 0)
         {
             event.type = EVENT_MOUSE_MOTION;
@@ -563,7 +558,7 @@ bool McpServer::takeEvent(SDL_Event& event)
         return true;
     }
     if (!pending_key_) { return false; }
-    event = { };
+    event = {};
     event.type = pending_down_ ? EVENT_KEY_DOWN : EVENT_KEY_UP;
     event.key.key = pending_key_;
     event.key.down = pending_down_;

@@ -115,6 +115,15 @@ public:
         const Pointf& camera_pos, const Pointf& camera_center);
 
 private:
+    static constexpr float GroundMeshCenterRatio = 0.64f;
+    static constexpr int GroundMeshTargetDivisions = 160;
+    static constexpr int GroundMeshExtensionDivisionsPerSide = 10;
+    static constexpr int GroundMeshOriginalEdgeDivisionsPerSide = 18;
+    static constexpr float GroundEdgeFadeTileCount = 16.0f;
+    static constexpr float GroundHorizonFadeStartRatio = 0.72f;
+    static constexpr float GroundHorizonFadeEndRatio = 1.35f;
+    static constexpr float GroundRadialFadeStartRatio = 0.34f;
+    static constexpr float GroundRadialFadeEndRatio = 0.48f;
     PaperGroundTargets createGroundTargets(Engine* engine, int coordinate_count,
         int tile_width, int tile_height, int requested_extension);
     void bakeGround(Engine* engine);

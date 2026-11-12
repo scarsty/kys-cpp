@@ -20,18 +20,6 @@
 #include <limits>
 #include <string>
 
-namespace
-{
-constexpr float PaperCameraRotateSpeed = 0.035f;
-constexpr float PaperCameraHeightSpeed = 6.0f;
-constexpr float PaperCameraZoomStep = 24.0f;
-constexpr float PaperCameraWheelZoomStep = 80.0f;
-constexpr float PaperCameraMinDistance = 220.0f;
-constexpr float PaperCameraMaxDistance = 900.0f;
-constexpr float PaperCameraMinHeight = 80.0f;
-constexpr float PaperCameraMaxHeight = 500.0f;
-}
-
 BattleScene::BattleScene()
 {
     full_window_ = 1;
@@ -103,8 +91,9 @@ int BattleScene::getTowardsByKey(Keycode key)
     int ui_height = 0;
     Engine::getInstance()->getUISize(ui_width, ui_height);
     return getTowardsByMouse(int((render_center_x_ + screen_direction.x * render_center_x_) * ui_width
-        / (render_center_x_ * 2.0f)), int((render_center_y_ + screen_direction.y * render_center_y_) * ui_height
-        / (render_center_y_ * 2.0f)));
+                                 / (render_center_x_ * 2.0f)),
+        int((render_center_y_ + screen_direction.y * render_center_y_) * ui_height
+            / (render_center_y_ * 2.0f)));
 }
 
 int BattleScene::getTowardsByMouse(int mouse_x, int mouse_y)
@@ -207,14 +196,17 @@ void BattleScene::initializePaperPresentation()
 {
     paper_presentation_.initialize();
     paper_presentation_.initializeScene(Engine::getInstance(), {
-        .earth_layer = &earth_layer_,
-        .building_layer = &building_layer_,
-        .battle_field_id = info_->BattleFieldID,
-        .coordinate_count = COORD_COUNT,
-        .tile_width = TILE_W,
-        .tile_height = TILE_H,
-        .to_world = [this](int x, int y) { return pos45To90(x, y); },
-    });
+                                                                   .earth_layer = &earth_layer_,
+                                                                   .building_layer = &building_layer_,
+                                                                   .battle_field_id = info_->BattleFieldID,
+                                                                   .coordinate_count = COORD_COUNT,
+                                                                   .tile_width = TILE_W,
+                                                                   .tile_height = TILE_H,
+                                                                   .to_world = [this](int x, int y)
+                                                                   {
+                                                                       return pos45To90(x, y);
+                                                                   },
+                                                               });
     auto focus = pos90To45(paper_presentation_.initialFocus().x, paper_presentation_.initialFocus().y);
     select_x_ = focus.x;
     select_y_ = focus.y;
@@ -226,15 +218,9 @@ void BattleScene::drawPaperPresentation()
     auto engine = Engine::getInstance();
     paper_camera_height_ = paper_camera_distance_ * std::tan(paper_camera_pitch_);
 
-    Pointf focus = paper_camera_follow_role_
-        ? paperTileCenter(paper_camera_follow_role_->X(), paper_camera_follow_role_->Y())
-        : paperTileCenter(select_x_, select_y_);
+    Pointf focus = paper_camera_follow_role_ ? paperTileCenter(paper_camera_follow_role_->X(), paper_camera_follow_role_->Y()) : paperTileCenter(select_x_, select_y_);
     paper_camera_.center = focus;
-    paper_camera_.pos = focus + Pointf{
-        std::cos(paper_camera_angle_) * paper_camera_distance_,
-        std::sin(paper_camera_angle_) * paper_camera_distance_,
-        paper_camera_height_
-    };
+    paper_camera_.pos = focus + Pointf{ std::cos(paper_camera_angle_) * paper_camera_distance_, std::sin(paper_camera_angle_) * paper_camera_distance_, paper_camera_height_ };
     paper_camera_.setFov(PaperSky::CameraFov);
     paper_camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
 
@@ -296,8 +282,15 @@ void BattleScene::drawPaperPresentation()
         facing.normTo(1);
         float right = facing.x * paper_right.x + facing.y * paper_right.y;
         float forward = facing.x * view_direction.x + facing.y * view_direction.y;
-        int visible_face = right >= 0 ? (forward >= 0 ? Towards_RightUp : Towards_RightDown)
-            : (forward >= 0 ? Towards_LeftUp : Towards_LeftDown);
+        int visible_face;
+        if (right >= 0)
+        {
+            visible_face = forward >= 0 ? Towards_RightUp : Towards_RightDown;
+        }
+        else
+        {
+            visible_face = forward >= 0 ? Towards_LeftUp : Towards_LeftDown;
+        }
         sprite.tex = TextureManager::getInstance()->getTexture(
             std::format("fight/fight{:03}", role->HeadID), cal_paper_role_pic(role, visible_face));
         sprite.anchor = position;
@@ -386,7 +379,10 @@ void BattleScene::drawPaperPresentation()
     frame.lock_texture_id = 201;
     frame.scene_width = render_center_x_ * 2;
     frame.scene_height = render_center_y_ * 2;
-    frame.render_role_info = [this](Role* role, int x, int y) { renderExtraRoleInfo(role, x, y); };
+    frame.render_role_info = [this](Role* role, int x, int y)
+    {
+        renderExtraRoleInfo(role, x, y);
+    };
     paper_presentation_.renderScene(engine, frame);
     renderBattleSceneOverlays();
     engine->renderTextureToMain("scene");
@@ -416,8 +412,7 @@ void BattleScene::handlePaperCameraEvent()
     paper_camera_distance_ /= engine->consumeTouchPinchScale();
     auto touch_pan = engine->consumeTouchCameraPan();
     paper_camera_angle_ += touch_pan.x / engine->getUIWidth() * M_PI;
-    paper_camera_pitch_ = std::clamp(paper_camera_pitch_ - touch_pan.y / engine->getUIHeight()
-            * (PaperCameraMaxHeight - PaperCameraMinHeight) / paper_camera_distance_,
+    paper_camera_pitch_ = std::clamp(paper_camera_pitch_ - touch_pan.y / engine->getUIHeight() * (PaperCameraMaxHeight - PaperCameraMinHeight) / paper_camera_distance_,
         std::atan(PaperCameraMinHeight / paper_camera_distance_),
         std::atan(PaperCameraMaxHeight / paper_camera_distance_));
     auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
@@ -2065,7 +2060,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     {
         BattleScene* scene;
         ~CameraFollowGuard() { scene->paper_camera_follow_role_ = nullptr; }
-    } camera_follow_guard { this };
+    } camera_follow_guard{ this };
     paper_camera_follow_role_ = r;
 
     //从目标往回找确定路线
@@ -2372,7 +2367,9 @@ void BattleScene::renderAttackTimingCircle(int frame, int frame_count, const std
 
 void BattleScene::renderBlockPrompt(TimingPromptState state)
 {
-    const std::string prompt = state == TimingPromptState::Ready ? "准备" : (state == TimingPromptState::Press ? "按E键" : "成功");
+    std::string prompt = "成功";
+    if (state == TimingPromptState::Ready) { prompt = "准备"; }
+    else if (state == TimingPromptState::Press) { prompt = "按E键"; }
     int font_size = 26;
     constexpr int button_pic = 300;
     int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
@@ -2386,7 +2383,9 @@ void BattleScene::renderBlockPrompt(TimingPromptState state)
     }
     int x = ui_w / 2 - text_w / 2;
     int y = ui_h / 2 + 60;
-    Color color = state == TimingPromptState::Success ? Color{ 255, 150, 40, 255 } : (state == TimingPromptState::Press ? Color{ 255, 40, 40, 255 } : Color{ 255, 255, 255, 255 });
+    Color color{ 255, 255, 255, 255 };
+    if (state == TimingPromptState::Success) { color = { 255, 150, 40, 255 }; }
+    else if (state == TimingPromptState::Press) { color = { 255, 40, 40, 255 }; }
     Font::getInstance()->draw(prompt, font_size, x, y, color, 255);
     if (button_tex != nullptr)
     {
@@ -2515,7 +2514,7 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
                 scene->block_role_offsets_.clear();
             }
         }
-    } offset_guard { this };
+    } offset_guard{ this };
     constexpr int block_pic = 203;
     int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
     auto tex = TextureManager::getInstance()->getTexture("title", block_pic);
@@ -2685,7 +2684,7 @@ void BattleScene::attackTimingSuccessAnimation(Role* attacker, Magic* magic, con
                 scene->block_role_offsets_.clear();
             }
         }
-    } offset_guard { this };
+    } offset_guard{ this };
 
     int act_type = magic->MagicType;
     if (act_type < 0 || act_type >= 5 || attacker->FightFrame[act_type] <= 0)

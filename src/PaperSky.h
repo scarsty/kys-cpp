@@ -33,7 +33,6 @@ private:
         float phase = 0;
     };
 
-    static constexpr float Pi = 3.14159265358979323846f;
     static constexpr float HorizonRatio = 0.74f;
     static constexpr int CloudWindLayerCount = 3;
     static constexpr float CloudWindDirections[CloudWindLayerCount] = { -1.0f, 1.0f, -1.0f };

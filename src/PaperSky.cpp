@@ -84,12 +84,12 @@ void PaperSky::renderTextureQuad(Engine* engine, Texture* texture, float x, floa
 
 float PaperSky::normalizeAngle(float angle) const
 {
-    angle = std::fmod(angle + Pi, 2.0f * Pi);
+    angle = std::fmod(angle + float(M_PI), 2.0f * float(M_PI));
     if (angle < 0)
     {
-        angle += 2.0f * Pi;
+        angle += 2.0f * float(M_PI);
     }
-    return angle - Pi;
+    return angle - float(M_PI);
 }
 
 float PaperSky::smoothStep(float edge0, float edge1, float value)
@@ -105,7 +105,7 @@ float PaperSky::smoothStep(float edge0, float edge1, float value)
 float PaperSky::getHorizontalFovRadians(int viewport_width, int viewport_height) const
 {
     float aspect = float(std::max(1, viewport_width)) / float(std::max(1, viewport_height));
-    float vertical_fov = CameraFov * Pi / 180.0f;
+    float vertical_fov = CameraFov * float(M_PI) / 180.0f;
     return 2.0f * std::atan(std::tan(vertical_fov * 0.5f) * aspect);
 }
 
@@ -143,7 +143,7 @@ void PaperSky::fillDisk(Engine* engine, int center_x, int center_y, int radius, 
         Color color = mixColor(inner_color, outer_color, factor);
         for (int i = 0; i < Segments; i++)
         {
-            float angle = 2.0f * Pi * i / Segments;
+            float angle = 2.0f * float(M_PI) * i / Segments;
             vertices.push_back({ center_x + std::cos(angle) * r, center_y + std::sin(angle) * r });
             source.push_back({ 0.0f, 0.0f });
             colors.push_back(color);
@@ -181,7 +181,7 @@ void PaperSky::renderCloudLayer(Engine* engine, int viewport_width, int viewport
     }
 
     float focal = viewport_height * 0.5f
-        / std::tan(CameraFov * Pi / 180.0f * 0.5f);
+        / std::tan(CameraFov * float(M_PI) / 180.0f * 0.5f);
     float margin = horizontal_fov * 0.55f;
     float time = float(RunNode::getShowTimes()) / 60.0f;
 
@@ -209,7 +209,7 @@ void PaperSky::renderCloudLayer(Engine* engine, int viewport_width, int viewport
         float draw_w = viewport_width * cloud.width_ratio;
         float draw_h = draw_w * float(tex->h) / std::max(1.0f, float(tex->w));
         float cloud_elevation = std::clamp(31.0f - cloud.y_ratio * 38.0f, 6.0f, 30.0f)
-            * Pi / 180.0f;
+            * float(M_PI) / 180.0f;
         float vertical_angle = std::clamp(-pitch + cloud_elevation, -1.35f, 1.35f);
         float projected_y = viewport_height * 0.5f - focal * std::tan(vertical_angle);
         float draw_x = viewport_width * 0.5f + delta / horizontal_fov * viewport_width - draw_w * 0.5f;
@@ -243,7 +243,7 @@ void PaperSky::renderStars(Engine* engine, int viewport_width, int viewport_heig
     int star_bottom = std::clamp(horizon_y, int(viewport_height * 0.12f), int(viewport_height * 0.74f));
     for (int i = 0; i < StarCount; i++)
     {
-        float angle = -Pi + (float(i) + 0.37f * std::sin(i * 12.9898f)) * (2.0f * Pi / StarCount);
+        float angle = -float(M_PI) + (float(i) + 0.37f * std::sin(i * 12.9898f)) * (2.0f * float(M_PI) / StarCount);
         float delta = normalizeAngle(angle - yaw);
         if (delta < -horizontal_fov * 0.55f || delta > horizontal_fov * 0.55f)
         {
@@ -332,8 +332,8 @@ void PaperSky::generateClouds()
 
     for (int i = 0; i < cloud_count; i++)
     {
-        float angle_step = 2.0f * Pi / float(cloud_count);
-        float angle = -Pi + (float(i) + random_float(-0.35f, 0.35f)) * angle_step;
+        float angle_step = 2.0f * float(M_PI) / float(cloud_count);
+        float angle = -float(M_PI) + (float(i) + random_float(-0.35f, 0.35f)) * angle_step;
         float depth = std::clamp(float(random.rand()), 0.0f, 1.0f);
         float depth_curve = smoothStep(0.0f, 1.0f, depth);
         int wind_layer = std::min(int(depth_curve * CloudWindLayerCount), CloudWindLayerCount - 1);
@@ -341,9 +341,7 @@ void PaperSky::generateClouds()
             * random_float(0.82f, 1.18f);
 
         Cloud cloud;
-        cloud.texture_id = i < cloud_texture_count
-            ? (i + texture_offset) % cloud_texture_count
-            : random.rand_int(cloud_texture_count);
+        cloud.texture_id = i < cloud_texture_count ? (i + texture_offset) % cloud_texture_count : random.rand_int(cloud_texture_count);
         cloud.angle = normalizeAngle(angle);
         cloud.y_ratio = std::clamp(lerp(0.04f, 0.72f, depth_curve) + random_float(-0.055f, 0.055f),
             0.02f, 0.78f);
@@ -351,11 +349,12 @@ void PaperSky::generateClouds()
         cloud.width_ratio = std::clamp(lerp(0.0385f, 0.434f, size_depth_curve) * random_float(0.75f, 1.16f),
             0.028f, 0.504f);
         cloud.alpha = uint8_t(std::clamp(int(lerp(30.0f, 220.0f, depth_curve)
-            * random_float(0.78f, 1.15f)), 24, 232));
+                                             * random_float(0.78f, 1.15f)),
+            24, 232));
         cloud.parallax = std::clamp(lerp(0.46f, 1.45f, depth_curve) + random_float(-0.08f, 0.08f),
             0.40f, 1.55f);
         cloud.drift_speed = speed;
-        cloud.phase = random_float(0.0f, 2.0f * Pi);
+        cloud.phase = random_float(0.0f, 2.0f * float(M_PI));
         clouds_.push_back(cloud);
     }
 
@@ -382,7 +381,7 @@ void PaperSky::render(Engine* engine, int viewport_width, int viewport_height,
     }
     float pitch = std::atan2(forward.z, horizontal_length);
     float focal = viewport_height * 0.5f
-        / std::tan(CameraFov * Pi / 180.0f * 0.5f);
+        / std::tan(CameraFov * float(M_PI) / 180.0f * 0.5f);
     int horizon_y = int(viewport_height * 0.5f + focal * std::tan(pitch));
     horizon_y = std::clamp(horizon_y, int(viewport_height * 0.08f), int(viewport_height * 0.74f));
 

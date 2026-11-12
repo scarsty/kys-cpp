@@ -16,6 +16,16 @@ class BattleNetwork;
 
 class BattleScene : public Scene
 {
+private:
+    static constexpr float PaperCameraRotateSpeed = 0.035f;
+    static constexpr float PaperCameraHeightSpeed = 6.0f;
+    static constexpr float PaperCameraZoomStep = 24.0f;
+    static constexpr float PaperCameraWheelZoomStep = 80.0f;
+    static constexpr float PaperCameraMinDistance = 220.0f;
+    static constexpr float PaperCameraMaxDistance = 900.0f;
+    static constexpr float PaperCameraMinHeight = 80.0f;
+    static constexpr float PaperCameraMaxHeight = 500.0f;
+
 public:
     RandomDouble rand_;
 
@@ -219,8 +229,8 @@ public:
     virtual void actAuto(Role* r);                         //自动
     virtual void actRest(Role* r);                         //休息
 
-    virtual void moveAnimation(Role* r, int x, int y);                                                                                  //移动动画
-    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);                              //使用武学动画
+    virtual void moveAnimation(Role* r, int x, int y);                                                                                                                                                                                                      //移动动画
+    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);                                                            //使用武学动画
     virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr, int attack_area_type = -1);    //行动动画
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
@@ -232,9 +242,9 @@ public:
 
     //显示数字
     virtual void showNumberAnimation(
-        int delay = animation_delay_,                                        // 跑几次
-        bool floating = true,                                                // 文字是否悬浮
-        const std::vector<std::pair<int&, int>>& animated_changes = { });    // 是否渐变某些变量
+        int delay = animation_delay_,                                       // 跑几次
+        bool floating = true,                                               // 文字是否悬浮
+        const std::vector<std::pair<int&, int>>& animated_changes = {});    // 是否渐变某些变量
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
     virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);

@@ -217,7 +217,7 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
             }
             continue;
         }
-        deg = atan2(dis2, dis1) * 180 / 3.14159265;
+        deg = atan2(dis2, dis1) * 180 / M_PI;
         //LOG("{} {} {} \n", dis1, dis2, deg);
         if (dis1 < min1 && deg < 15)
         {
@@ -396,7 +396,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
         {
             //摇杆移动会产生大量事件，暂时不处理
             EngineEvent e1;
-            while (Engine::getInstance()->pollEvent(e1)) { };
+            while (Engine::getInstance()->pollEvent(e1)) {};
             //右摇杆控制鼠标，手感有问题，待处理
             //if (e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTX || e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
             //{
@@ -471,7 +471,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
     }
     else
     {
-        EngineEvent e{ };
+        EngineEvent e{};
         Engine::ScopedMousePosition mouse_position(false, 0, 0);
         e.type = EVENT_FIRST;
         if (use_virtual_stick_)

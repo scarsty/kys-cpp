@@ -26,7 +26,7 @@ public:
     static const std::size_t VALSIZE = 32;
 
     // , strand_(io_context_)
-    BattleNetwork(const std::string& strID, const std::string& port) : socket_(io_context_), resolver_(io_context_), work_(io_context_), strID_(strID), port_(port), query_(GameUtil::getInstance()->getString("network", "server", "138.197.200.52"), port_) {};
+    BattleNetwork(const std::string& strID, const std::string& port) : socket_(io_context_), resolver_(io_context_), work_(io_context_), strID_(strID), port_(port), query_(GameUtil::getInstance()->getString("network", "server", "138.197.200.52"), port_) {}
 
     virtual ~BattleNetwork()
     {
@@ -40,11 +40,11 @@ public:
     void asyncRun()
     {
         worker_ = std::thread([this]
-        {
-            LOG("spawning thread\n");
-            io_context_.run();
-            LOG("threading is done\n");
-        });
+            {
+                LOG("spawning thread\n");
+                io_context_.run();
+                LOG("threading is done\n");
+            });
     }
 
     struct SerializableBattleAction
@@ -103,6 +103,8 @@ public:
     virtual void getResults(unsigned int& seed, int& friends, std::vector<RoleSave>& final_roles);
 
 protected:
+    static SerializableRole serializeRole(const RoleSave& role);
+    static RoleSave deserializeRole(const SerializableRole& role);
     void nameSetup();
     virtual void getRandSeed() = 0;
     virtual void waitConnection() = 0;

@@ -21,9 +21,9 @@ public:
     }
 
     static const int TILE_W_0 = 18;    //小图块大小X基准
-    static const int TILE_H_0 = 9;    //小图块大小Y基准
+    static const int TILE_H_0 = 9;     //小图块大小Y基准
     static inline int TILE_W = 18;     //小图块大小X
-    static inline int TILE_H = 9;     //小图块大小Y
+    static inline int TILE_H = 9;      //小图块大小Y
 
     static void setTileScale(int scale)
     {
@@ -143,6 +143,7 @@ public:
     void finishWalking();
 
 protected:
+    void renderLanternScene(Point position);
     virtual bool usesSmoothWalking() const { return false; }
     virtual void commitWalkingView() {}
     bool walking_ = false;

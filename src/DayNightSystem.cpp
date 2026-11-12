@@ -7,11 +7,7 @@
 #include <cmath>
 #include <format>
 
-namespace
-{
-constexpr float Pi = 3.14159265358979323846f;
-
-Color mixColor(Color from, Color to, float factor)
+Color DayNightSystem::mixColor(Color from, Color to, float factor)
 {
     factor = std::clamp(factor, 0.0f, 1.0f);
     auto mix = [factor](uint8_t left, uint8_t right)
@@ -21,11 +17,10 @@ Color mixColor(Color from, Color to, float factor)
     return { mix(from.r, to.r), mix(from.g, to.g), mix(from.b, to.b), mix(from.a, to.a) };
 }
 
-float smoothStep(float edge0, float edge1, float value)
+float DayNightSystem::smoothStep(float edge0, float edge1, float value)
 {
     float t = std::clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
     return t * t * (3.0f - 2.0f * t);
-}
 }
 
 std::shared_ptr<DayNightSystem> DayNightSystem::getInstance()
@@ -71,7 +66,7 @@ DayNightLighting DayNightSystem::getLighting() const
 
 DayNightLighting DayNightSystem::getLighting(float time) const
 {
-    float sun_height = std::sin((time - 0.25f) * 2.0f * Pi);
+    float sun_height = std::sin((time - 0.25f) * 2.0f * float(M_PI));
     float daylight = smoothStep(-0.14f, 0.22f, sun_height);
     float twilight = std::exp(-sun_height * sun_height * 18.0f) * (1.0f - daylight * 0.55f);
     float night = 1.0f - daylight;
@@ -102,7 +97,7 @@ DayNightLighting DayNightSystem::getLighting(float time) const
     lighting.sun_inner = mixColor(Color{ 224, 232, 255, 205 }, Color{ 255, 246, 180, 205 }, daylight);
     lighting.sun_outer = mixColor(Color{ 105, 124, 180, 24 }, Color{ 255, 255, 220, 16 }, daylight);
     lighting.sun_outer = mixColor(lighting.sun_outer, Color{ 235, 118, 86, 24 }, twilight);
-    lighting.sun_azimuth = -Pi + time * 2.0f * Pi;
+    lighting.sun_azimuth = -float(M_PI) + time * 2.0f * float(M_PI);
     lighting.sun_elevation = std::clamp(sun_height * 0.52f, -0.12f, 0.52f);
     lighting.star_alpha = smoothStep(0.10f, 0.48f, night);
     return lighting;

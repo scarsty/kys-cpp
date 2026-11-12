@@ -14,17 +14,6 @@
 #include <limits>
 #include <unordered_map>
 
-namespace
-{
-constexpr float CameraRotateStep = 0.06f;
-constexpr float CameraHeightStep = 8.0f;
-constexpr float ControllerCameraRotateSpeed = 0.035f;
-constexpr float CameraZoomStep = 24.0f;
-constexpr float CameraMinDistance = 220.0f;
-constexpr float CameraMaxDistance = 900.0f;
-constexpr float Pi = 3.14159265358979323846f;
-}
-
 MainScenePaper::MainScenePaper()
 {
 }
@@ -53,13 +42,59 @@ bool MainScenePaper::inCameraFront(const std::vector<Pointf>& points)
 bool MainScenePaper::isMountainTexture(int pic) const
 {
     static constexpr std::array<int, 53> mountain_pics = {
-        1194, 1195, 1196, 1197, 1198, 1199, 1200, 1201,
-        1202, 1203, 1204, 1205, 1206, 1207, 1208, 1209,
-        1348, 1349, 1362, 1363, 1367, 1374, 1375, 1376,
-        1377, 1381, 1383, 1386, 1388, 1390, 1395, 1399,
-        1404, 1405, 1406, 1407, 1408, 1410, 1412, 1413,
-        1417, 1419, 1420, 1422, 1423, 1443, 1449, 1450,
-        1451, 1452, 1453, 1455, 1457,
+        1194,
+        1195,
+        1196,
+        1197,
+        1198,
+        1199,
+        1200,
+        1201,
+        1202,
+        1203,
+        1204,
+        1205,
+        1206,
+        1207,
+        1208,
+        1209,
+        1348,
+        1349,
+        1362,
+        1363,
+        1367,
+        1374,
+        1375,
+        1376,
+        1377,
+        1381,
+        1383,
+        1386,
+        1388,
+        1390,
+        1395,
+        1399,
+        1404,
+        1405,
+        1406,
+        1407,
+        1408,
+        1410,
+        1412,
+        1413,
+        1417,
+        1419,
+        1420,
+        1422,
+        1423,
+        1443,
+        1449,
+        1450,
+        1451,
+        1452,
+        1453,
+        1455,
+        1457,
     };
     return std::ranges::find(mountain_pics, pic) != mountain_pics.end();
 }
@@ -483,7 +518,7 @@ void MainScenePaper::dealEvent(EngineEvent& e)
     }
     camera_distance_ /= engine->consumeTouchPinchScale();
     auto touch_pan = engine->consumeTouchCameraPan();
-    camera_yaw_ += touch_pan.x / engine->getUIWidth() * Pi;
+    camera_yaw_ += touch_pan.x / engine->getUIWidth() * float(M_PI);
     camera_height_ = std::clamp(camera_height_ - touch_pan.y / engine->getUIHeight() * 220.0f, 80.0f, 300.0f);
     auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
     auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
@@ -496,13 +531,13 @@ void MainScenePaper::dealEvent(EngineEvent& e)
         camera_distance_ -= CameraZoomStep * GameUtil::clamp(right_trigger, 0, 20000) / 20000.0f;
     }
     camera_distance_ = std::clamp(camera_distance_, CameraMinDistance, CameraMaxDistance);
-    if (camera_yaw_ > Pi)
+    if (camera_yaw_ > float(M_PI))
     {
-        camera_yaw_ -= Pi * 2.0f;
+        camera_yaw_ -= float(M_PI) * 2.0f;
     }
-    else if (camera_yaw_ < -Pi)
+    else if (camera_yaw_ < -float(M_PI))
     {
-        camera_yaw_ += Pi * 2.0f;
+        camera_yaw_ += float(M_PI) * 2.0f;
     }
 
     int x = man_x_, y = man_y_;

@@ -1,5 +1,10 @@
 ﻿#pragma once
 
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
+#include <math.h>
+
 #include "SDL3/SDL.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
@@ -14,10 +19,6 @@
 #define WIN32_LEAN_AND_MEAN
 #ifndef NOMINMAX
 #define NOMINMAX
-#endif
-
-#ifndef M_PI
-#define M_PI 3.141592653589793
 #endif
 
 //这里是底层部分，将SDL的函数均封装了一次
@@ -252,6 +253,8 @@ enum BlendMode
 class Engine
 {
 private:
+    static inline bool synthetic_mouse_enabled = false;
+    static inline int synthetic_mouse_x = 0, synthetic_mouse_y = 0;
     Engine();
     virtual ~Engine();
 
@@ -417,9 +420,9 @@ public:
 
     void resetRenderTarget() const { setRenderTarget(nullptr); }
 
-    static void createWindow() { }
+    static void createWindow() {}
 
-    static void createRenderer() { }
+    static void createRenderer() {}
 
     void renderTexture(Texture* t = nullptr, double angle = 0);
     void renderTexture(Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
@@ -428,7 +431,7 @@ public:
     void renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const std::vector<FPoint>& v2,
         const std::vector<Color>& colors, const std::vector<int>& indices, float top_left_brightness = 0.0f);
     void renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
-        const std::vector<float>& brightness_v = { }, double angle = 0);
+        const std::vector<float>& brightness_v = {}, double angle = 0);
 
     void setTextureTopLeftHighlightEnabled(bool enabled) { texture_top_left_highlight_enabled_ = enabled; }
 
@@ -583,7 +586,7 @@ private:
     std::unordered_map<int, int> virtual_stick_button_;
     int16_t virtual_stick_axis_[6] = { 0 };
     float touch_pinch_scale_ = 1.0f;
-    SDL_FPoint touch_camera_pan_{ };
+    SDL_FPoint touch_camera_pan_{};
 
 public:
     bool gameControllerGetButton(int key);
@@ -610,7 +613,7 @@ public:
     SDL_FPoint consumeTouchCameraPan()
     {
         SDL_FPoint pan = touch_camera_pan_;
-        touch_camera_pan_ = { };
+        touch_camera_pan_ = {};
         return pan;
     }
 

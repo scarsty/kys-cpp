@@ -30,6 +30,8 @@ public:
     std::string getTimeLabel() const;
 
 private:
+    static Color mixColor(Color from, Color to, float factor);
+    static float smoothStep(float edge0, float edge1, float value);
     float time_of_day_ = -1.0f;
     uint64_t previous_ticks_ = 0;
 };

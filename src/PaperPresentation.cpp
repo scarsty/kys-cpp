@@ -8,19 +8,6 @@
 #include "filefunc.h"
 #include <limits>
 
-namespace
-{
-constexpr float GroundMeshCenterRatio = 0.64f;
-constexpr int GroundMeshTargetDivisions = 160;
-constexpr int GroundMeshExtensionDivisionsPerSide = 10;
-constexpr int GroundMeshOriginalEdgeDivisionsPerSide = 18;
-constexpr float GroundEdgeFadeTileCount = 16.0f;
-constexpr float GroundHorizonFadeStartRatio = 0.72f;
-constexpr float GroundHorizonFadeEndRatio = 1.35f;
-constexpr float GroundRadialFadeStartRatio = 0.34f;
-constexpr float GroundRadialFadeEndRatio = 0.48f;
-}
-
 void PaperPresentation::renderLockMarker(Engine* engine, Camera& camera, const Pointf& position,
     int current_frame, int tile_width, int texture_id) const
 {
@@ -236,7 +223,10 @@ void PaperPresentation::bakeGround(Engine* engine)
         };
         std::vector<GroundTile> ground_tiles;
         ground_tiles.reserve(coordinate_count * coordinate_count);
-        auto tile_index = [coordinate_count](int x, int y) { return x + y * coordinate_count; };
+        auto tile_index = [coordinate_count](int x, int y)
+        {
+            return x + y * coordinate_count;
+        };
         std::vector<int> ground_tile_indices(coordinate_count * coordinate_count, -1);
         std::vector<int> row_first_valid(coordinate_count, -1);
         std::vector<int> row_last_valid(coordinate_count, -1);
@@ -447,15 +437,18 @@ void PaperPresentation::renderGroundMesh(Engine* engine, const PaperGroundTarget
             }
         };
         float margin = size * (1.0f - GroundMeshCenterRatio) * 0.5f;
-        int center_divisions = std::max(16, GroundMeshTargetDivisions
-            - GroundMeshExtensionDivisionsPerSide * 2 - GroundMeshOriginalEdgeDivisionsPerSide * 2);
+        int center_divisions = std::max(16, GroundMeshTargetDivisions - GroundMeshExtensionDivisionsPerSide * 2 - GroundMeshOriginalEdgeDivisionsPerSide * 2);
         add_segment(min_value, 0, GroundMeshExtensionDivisionsPerSide);
         add_segment(0, margin, GroundMeshOriginalEdgeDivisionsPerSide);
         add_segment(margin, size - margin, center_divisions);
         add_segment(size - margin, size, GroundMeshOriginalEdgeDivisionsPerSide);
         add_segment(size, max_value, GroundMeshExtensionDivisionsPerSide);
         std::sort(lines.begin(), lines.end());
-        lines.erase(std::unique(lines.begin(), lines.end(), [](float left, float right) { return std::abs(left - right) <= 0.25f; }), lines.end());
+        lines.erase(std::unique(lines.begin(), lines.end(), [](float left, float right)
+                        {
+                            return std::abs(left - right) <= 0.25f;
+                        }),
+            lines.end());
         return lines.size() < 2 ? std::vector<float>{ min_value, max_value } : lines;
     };
 
@@ -693,7 +686,7 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
         return true;
     };
     auto render_quad = [&](Texture* texture, const std::vector<Pointf>& world,
-        const std::vector<FPoint>& source, Color color, int columns, int rows, float top_left_brightness)
+                           const std::vector<FPoint>& source, Color color, int columns, int rows, float top_left_brightness)
     {
         if (!texture || world.size() != 4 || source.size() != 4 || !in_front(world)) { return; }
         columns = std::clamp(columns, 1, 32);

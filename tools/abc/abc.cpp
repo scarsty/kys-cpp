@@ -3,8 +3,8 @@
 
 #include "abc.h"
 #include "GrpIdxFile.h"
-#include "SimpleCC.h"
 #include "PotConv.h"
+#include "SimpleCC.h"
 #include "TypesABC.h"
 #include "ZipFile.h"
 #include "filefunc.h"
@@ -430,9 +430,7 @@ void trans_fight_frame(std::string path0)
     }
 }
 
-namespace
-{
-std::string make_index_txt_content(const std::vector<int16_t>& index_data, bool* all_zero = nullptr)
+static std::string make_index_txt_content(const std::vector<int16_t>& index_data, bool* all_zero = nullptr)
 {
     std::string content;
     bool has_non_zero = false;
@@ -451,7 +449,7 @@ std::string make_index_txt_content(const std::vector<int16_t>& index_data, bool*
     return content;
 }
 
-std::string get_index_txt_name_in_zip(const std::string& filename)
+static std::string get_index_txt_name_in_zip(const std::string& filename)
 {
     auto pos = filename.find_last_of('/');
     if (pos == std::string::npos)
@@ -461,7 +459,7 @@ std::string get_index_txt_name_in_zip(const std::string& filename)
     return filename.substr(0, pos + 1) + "index.txt";
 }
 
-void trans_index_ka_in_zip(const std::string& zip_filename)
+static void trans_index_ka_in_zip(const std::string& zip_filename)
 {
     ZipFile zip;
     zip.openRead(zip_filename);
@@ -514,8 +512,6 @@ void trans_index_ka_in_zip(const std::string& zip_filename)
         std::print("trans {} in {}\n", f.first, zip_filename);
     }
 }
-}    //namespace
-
 void trans_all_index_ka(std::string path0)
 {
     if (!filefunc::pathExist(path0))
@@ -597,7 +593,7 @@ void saveR0ToDB(int num, std::string path)
 {
     sqlite3* db;
     //此处最好复制一个，先搞搞再说
-    std::string filename = path +"/" + std::to_string(num) + ".db";
+    std::string filename = path + "/" + std::to_string(num) + ".db";
     //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
 
@@ -713,7 +709,7 @@ int expandR(std::string idx, std::string grp, int index, std::string path, bool 
                     }
                 }
                 if (!content.empty())
-                {                    
+                {
                     auto f = std::format("{}/fight{:03}/fightframe.txt", path, r.HeadID);
                     filefunc::writeStringToFile(content, f);
                 }

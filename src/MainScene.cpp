@@ -104,8 +104,7 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 
 void MainScene::draw()
 {
-    auto day_night = DayNightSystem::getInstance();
-    Color ambient_color = day_night->getLighting().ambient_color;
+    Color ambient_color{ 255, 255, 255, 255 };
     Engine::getInstance()->setRenderTarget("scene");
 
     struct DrawInfo
@@ -246,7 +245,7 @@ void MainScene::draw()
 
     //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getTexture(), { 227, 207, 87, 255 });
-    Engine::getInstance()->renderTextureToMain("scene");
+    renderLanternScene({ render_center_x_ + x_, render_center_y_ + y_ - TILE_H * 3 });
 }
 
 void MainScene::backRun()

@@ -19,8 +19,9 @@ inline float clampf(float value, float min_inclusive, float max_inclusive)
     {
         std::swap(min_inclusive, max_inclusive);
     }
-    return value < min_inclusive ? min_inclusive : value < max_inclusive ? value :
-                                                                           max_inclusive;
+    if (value < min_inclusive) { return min_inclusive; }
+    if (value < max_inclusive) { return value; }
+    return max_inclusive;
 }
 
 inline void normalize_point(float x, float y, Vec2* out)
@@ -208,7 +209,6 @@ void ParticleSystem::addParticles(int count)
     // Mode Gravity: A
     if (_emitterMode == Mode::GRAVITY)
     {
-
         // radial accel
         for (int i = start; i < _particleCount; ++i)
         {
@@ -530,13 +530,11 @@ float ParticleSystem::getSpeed() const
 
 void ParticleSystem::setSpeedVar(float speedVar)
 {
-
     modeA.speedVar = speedVar;
 }
 
 float ParticleSystem::getSpeedVar() const
 {
-
     return modeA.speedVar;
 }
 
@@ -578,7 +576,6 @@ void ParticleSystem::setEndRadiusVar(float endRadiusVar)
 
 float ParticleSystem::getEndRadiusVar() const
 {
-
     return modeB.endRadiusVar;
 }
 

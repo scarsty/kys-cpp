@@ -13,9 +13,9 @@
 #include "Timer.h"
 #include "UI.h"
 #include "Weather.h"
-#include <format>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <format>
 
 SubScene::SubScene()
 {
@@ -54,8 +54,7 @@ void SubScene::setID(int id)
 
 void SubScene::draw()
 {
-    auto day_night = DayNightSystem::getInstance();
-    Color ambient_color = day_night->getLighting().ambient_color;
+    Color ambient_color{ 255, 255, 255, 255 };
     //int k = 0;
     struct DrawInfo
     {
@@ -227,7 +226,18 @@ void SubScene::draw()
         }
     }
     if (!man_drawn) { draw_man(); }
-    Engine::getInstance()->renderTextureToMain("scene");
+    auto lamp = getWalkingPositionOnRender(man_x_, man_y_, view_x_, view_y_);
+    double lamp_height = submap_info_->BuildingHeight(man_x_, man_y_);
+    if (walking_)
+    {
+        auto offset = getWalkingManOffset();
+        lamp.x += offset.x;
+        lamp.y += offset.y;
+        lamp_height += (submap_info_->BuildingHeight(walk_to_.x, walk_to_.y) - lamp_height) * walk_progress_;
+    }
+    lamp.x += x_;
+    lamp.y += y_ - int(std::lround(lamp_height * (TILE_W / 18))) - TILE_H * 3;
+    renderLanternScene(lamp);
     //LOG("%g\n", t0.getElapsedTime());
 }
 

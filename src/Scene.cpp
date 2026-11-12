@@ -1,9 +1,11 @@
 ﻿#include "Scene.h"
+#include "DayNightSystem.h"
 #include "GameUtil.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
 #include <queue>
+#include <stdexcept>
 
 Scene::Scene()
 {
@@ -11,6 +13,67 @@ Scene::Scene()
 
 Scene::~Scene()
 {
+}
+
+void Scene::renderLanternScene(Point position)
+{
+    auto engine = Engine::getInstance();
+    auto ambient = DayNightSystem::getInstance()->getLighting().ambient_color;
+    if (ambient.r == 255 && ambient.g == 255 && ambient.b == 255)
+    {
+        engine->renderTextureToMain("scene");
+        return;
+    }
+    int w, h;
+    engine->getAssistTextureSize("scene", w, h);
+    auto target = engine->getTexture("lantern-scene");
+    int target_w = 0, target_h = 0;
+    if (target) { engine->getTextureSize(target, target_w, target_h); }
+    if (!target || target_w != w || target_h != h)
+    {
+        engine->createAssistTexture("lantern-scene", w, h);
+    }
+    if (!engine->getTexture("lantern-scene"))
+    {
+        LOG("Cannot create lantern scene texture: {}\n", SDL_GetError());
+        throw std::runtime_error("Cannot create lantern scene texture");
+    }
+    engine->setRenderTarget("lantern-scene");
+    engine->fillColor({ 0, 0, 0, 255 }, 0, 0, w, h, BLENDMODE_NONE);
+    float radius = TILE_W * 8.0f;
+    int spacing = std::max(1, TILE_W);
+    int columns = (w + spacing - 1) / spacing;
+    int rows = (h + spacing - 1) / spacing;
+    std::vector<FPoint> points;
+    std::vector<Color> colors;
+    std::vector<int> indices;
+    points.reserve((columns + 1) * (rows + 1));
+    colors.reserve(points.capacity());
+    indices.reserve(columns * rows * 6);
+    for (int y = 0; y <= rows; y++)
+    {
+        for (int x = 0; x <= columns; x++)
+        {
+            float px = float(std::min(x * spacing, w));
+            float py = float(std::min(y * spacing, h));
+            float dx = px - position.x, dy = py - position.y;
+            float t = std::clamp(1.0f - std::sqrt(dx * dx + dy * dy) / radius, 0.0f, 1.0f);
+            float light = t * t * (3.0f - 2.0f * t);
+            auto channel = [light](uint8_t base, int warm)
+            {
+                return uint8_t(std::lround(base + (std::max(int(base), warm) - base) * light));
+            };
+            points.push_back({ px, py });
+            colors.push_back({ channel(ambient.r, 255), channel(ambient.g, 239), channel(ambient.b, 208), 255 });
+            if (x < columns && y < rows)
+            {
+                int i = y * (columns + 1) + x;
+                indices.insert(indices.end(), { i, i + 1, i + columns + 2, i, i + columns + 2, i + columns + 1 });
+            }
+        }
+    }
+    engine->renderTextureMesh(engine->getTexture("scene"), points, points, colors, indices);
+    engine->renderTextureToMain("lantern-scene");
 }
 
 Point Scene::getWalkOffset() const

@@ -15,6 +15,12 @@ protected:
     bool usesSmoothWalking() const override { return false; }
 
 private:
+    static constexpr float CameraRotateStep = 0.06f;
+    static constexpr float CameraHeightStep = 8.0f;
+    static constexpr float ControllerCameraRotateSpeed = 0.035f;
+    static constexpr float CameraZoomStep = 24.0f;
+    static constexpr float CameraMinDistance = 220.0f;
+    static constexpr float CameraMaxDistance = 900.0f;
     Pointf pos45To90(int x, int y) const;
     bool inCameraFront(const std::vector<Pointf>& points);
     bool isMountainTexture(int pic) const;

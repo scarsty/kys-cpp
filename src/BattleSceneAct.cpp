@@ -3,21 +3,6 @@
 #include "filefunc.h"
 #include <limits>
 
-namespace
-{
-constexpr int PAPER_LOCK_MARK_TEXTURE = 201;
-constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
-constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
-constexpr float PAPER_CAMERA_DEFAULT_DISTANCE = 400.0f;
-constexpr float PAPER_CAMERA_MIN_DISTANCE = 220.0f;
-constexpr float PAPER_CAMERA_MAX_DISTANCE = 900.0f;
-constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
-constexpr float PAPER_CAMERA_WHEEL_ZOOM_STEP = 80.0f;
-constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
-constexpr float PAPER_CAMERA_MAX_HEIGHT = 500.0f;
-constexpr float PAPER_ROLE_INFO_TOP_GAP = 4.0f;
-}
-
 bool BattleSceneAct::usePaperPresentation() const
 {
     return GameUtil::getInstance()->getInt("game", "battle_presentation", 0) != 0;
@@ -302,21 +287,20 @@ void BattleSceneAct::initializePaperPresentation()
 {
     paper_presentation_.initialize();
     paper_presentation_.initializeScene(Engine::getInstance(), {
-        .earth_layer = &earth_layer_,
-        .building_layer = &building_layer_,
-        .battle_field_id = info_->BattleFieldID,
-        .coordinate_count = COORD_COUNT,
-        .tile_width = TILE_W,
-        .tile_height = TILE_H,
-        .to_world = [this](int x, int y) { return pos45To90(x, y); },
-    });
+                                                                   .earth_layer = &earth_layer_,
+                                                                   .building_layer = &building_layer_,
+                                                                   .battle_field_id = info_->BattleFieldID,
+                                                                   .coordinate_count = COORD_COUNT,
+                                                                   .tile_width = TILE_W,
+                                                                   .tile_height = TILE_H,
+                                                                   .to_world = [this](int x, int y)
+                                                                   {
+                                                                       return pos45To90(x, y);
+                                                                   },
+                                                               });
     camera_focus_ = paper_presentation_.initialFocus();
     free_camera_pitch_ = std::atan(camera_height_ / free_camera_distance_);
-    camera_pos_ = camera_focus_ + Pointf{
-        std::cos(camera_angle_) * free_camera_distance_,
-        std::sin(camera_angle_) * free_camera_distance_,
-        camera_height_
-    };
+    camera_pos_ = camera_focus_ + Pointf{ std::cos(camera_angle_) * free_camera_distance_, std::sin(camera_angle_) * free_camera_distance_, camera_height_ };
 }
 
 void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
@@ -650,7 +634,10 @@ void BattleSceneAct::drawPaperPresentation()
             paper_frame.role_info_top_gap = PAPER_ROLE_INFO_TOP_GAP;
             paper_frame.scene_width = render_center_x_ * 2;
             paper_frame.scene_height = render_center_y_ * 2;
-            paper_frame.render_role_info = [this](Role* role, int x, int y) { renderExtraRoleInfo(role, x, y); };
+            paper_frame.render_role_info = [this](Role* role, int x, int y)
+            {
+                renderExtraRoleInfo(role, x, y);
+            };
             paper_presentation_.renderScene(Engine::getInstance(), paper_frame);
             Engine::getInstance()->renderTextureToMain("scene");
             if (sword_light_)
@@ -852,7 +839,7 @@ void BattleSceneAct::drawPaperPresentation()
         }
         if (!vf.empty())
         {
-            Engine::getInstance()->renderTexture(earth_texture2, nullptr, vf, { });
+            Engine::getInstance()->renderTexture(earth_texture2, nullptr, vf, {});
         }
         for (int turn = 0; turn < 2; turn++)
         {
@@ -989,7 +976,6 @@ void BattleSceneAct::drawPaperPresentation()
     //}
 }
 
-
 int BattleSceneAct::realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir, const Pointf& paper_right, int current_face_towards)
 {
     Pointf n = dir;
@@ -1005,8 +991,11 @@ int BattleSceneAct::realTowardsToCameraFaceTowards(const Pointf& dir, const Poin
     if (std::abs(right) < right_epsilon)
     {
         bool keep_right = current_face_towards == Towards_RightUp || current_face_towards == Towards_RightDown;
-        return keep_right ? (forward > 0 ? Towards_RightUp : Towards_RightDown)
-                          : (forward > 0 ? Towards_LeftUp : Towards_LeftDown);
+        if (keep_right)
+        {
+            return forward > 0 ? Towards_RightUp : Towards_RightDown;
+        }
+        return forward > 0 ? Towards_LeftUp : Towards_LeftDown;
     }
     if (right > 0 && forward > 0) { return Towards_RightUp; }
     if (right > 0 && forward <= 0) { return Towards_RightDown; }

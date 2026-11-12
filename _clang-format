@@ -36,7 +36,7 @@ BreakBeforeBraces: Custom
 BreakBeforeTernaryOperators: false
 BreakConstructorInitializers: AfterColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
-Cpp11BracedListStyle: false
+Cpp11BracedListStyle: Block
 DerivePointerAlignment: false
 EmptyLineBeforeAccessModifier: LogicalBlock
 FixNamespaceComments: true
@@ -51,7 +51,7 @@ ReferenceAlignment: Left
 RemoveSemicolon: true
 SeparateDefinitionBlocks: Leave
 SpaceBeforeCpp11BracedList: false
-SpaceInEmptyBlock: false
+SpaceInEmptyBraces: Never
 SpacesBeforeTrailingComments: 4
 SpacesInContainerLiterals: false
 UseTab: Never
