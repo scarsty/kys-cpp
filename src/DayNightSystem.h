@@ -23,13 +23,14 @@ public:
 
     void backRun() override;
 
-    float getTimeOfDay() const { return time_of_day_; }
+    float getTimeOfDay() const;
     bool isDynamic() const;
     DayNightLighting getLighting() const;
     DayNightLighting getLighting(float time_of_day) const;
     std::string getTimeLabel() const;
 
 private:
+    int timeMode() const;
     static Color mixColor(Color from, Color to, float factor);
     static float smoothStep(float edge0, float edge1, float value);
     float time_of_day_ = -1.0f;

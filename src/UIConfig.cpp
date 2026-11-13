@@ -42,7 +42,7 @@ UIConfig::UIConfig()
     addOption("文字顯示", "game", "simplified_chinese", { "繁體", "簡體" });
     addOption("手柄震動", "game", "controller_rumble", { "關閉", "開啟" });
     addOption("虛擬手柄", "game", "use_virtual_stick", { "關閉", "開啟" });
-    addOption("動態晝夜", "game", "dynamic_day_night", { "關閉", "開啟" });
+    addOption("時間系統", "game", "time_mode", { "變化", "正午", "子夜" });
     addOption("貼圖左上高光", "game", "texture_top_left_highlight", { "關閉", "開啟" });
     addOption("全屏", "game", "fullscreen", { "關閉", "開啟" });
 
@@ -115,6 +115,10 @@ void UIConfig::loadConfig()
     {
         int default_value = item.section == "game" && item.key == "texture_top_left_highlight" ? 1 : 0;
         if (item.section == "game" && item.key == "smooth_walking") { default_value = 2; }
+        if (item.section == "game" && item.key == "time_mode")
+        {
+            default_value = GameUtil::getInstance()->getInt("game", "dynamic_day_night", 1) != 0 ? 0 : 1;
+        }
         int value = GameUtil::getInstance()->getInt(item.section, item.key, default_value);
         if (item.section == "music" && (item.key == "volume" || item.key == "volumewav"))
         {

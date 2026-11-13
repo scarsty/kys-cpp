@@ -1,38 +1,45 @@
+# IDE and local editor state
+.vs/
+.vscode/
 *.opendb
-*.db
+*.aps
+
+# Build outputs and compiler intermediates
 Debug/*
 Release/*
-work/*
+x86/
+Win32/
+x64/
+build/
+build.log
+src/CMakeFiles/*
 *.tlog
 *.idb
 *.iobj
 *.ipdb
-x86/
-.vs/
-*.zip
-src/CMakeFiles/*
-*.aps
-Win32/
-x64/
-common/*
+
+# Local dependencies and game resources
+work/*
 common
 include/*
 bass24-linux
 bassmidi24-linux
-build
+vcpkg_installed/
 game
 hades
 kys-c++
-.vscode
 
+# Android build outputs and IDE state
 kys-cpp-androidstudio/app/.cxx
 kys-cpp-androidstudio/app/lib/arm64-v8a
 kys-cpp-androidstudio/.gradle
 kys-cpp-androidstudio/.idea
 kys-cpp-androidstudio/app/jni/include/
-build.log
-vcpkg_installed
-tools/__pycache__
-*.apk
 kys-cpp-androidstudio/libkys_cpp.so
+*.apk
+
+# Generated caches, databases and archives
+tools/__pycache__/
+*.db
+*.zip
 AGENTS.md

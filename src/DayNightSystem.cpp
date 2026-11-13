@@ -32,6 +32,11 @@ std::shared_ptr<DayNightSystem> DayNightSystem::getInstance()
 void DayNightSystem::backRun()
 {
     uint64_t now = Engine::getTicks();
+    if (!isDynamic())
+    {
+        previous_ticks_ = now;
+        return;
+    }
     if (time_of_day_ < 0.0f)
     {
         RandomDouble random;
@@ -42,12 +47,6 @@ void DayNightSystem::backRun()
 
     double elapsed_seconds = (now - previous_ticks_) / 1000.0;
     previous_ticks_ = now;
-    if (!isDynamic())
-    {
-        time_of_day_ = 0.5f;
-        return;
-    }
-
     double cycle_seconds = GameUtil::getInstance()->getReal("game", "day_night_cycle_seconds", 1800.0);
     cycle_seconds = (std::max)(1.0, cycle_seconds);
     time_of_day_ = std::fmod(time_of_day_ + float(elapsed_seconds / cycle_seconds), 1.0f);
@@ -55,12 +54,27 @@ void DayNightSystem::backRun()
 
 bool DayNightSystem::isDynamic() const
 {
-    return GameUtil::getInstance()->getInt("game", "dynamic_day_night", 1) != 0;
+    return timeMode() == 0;
+}
+
+int DayNightSystem::timeMode() const
+{
+    auto config = GameUtil::getInstance();
+    int legacy = config->getInt("game", "dynamic_day_night", 1) != 0 ? 0 : 1;
+    return config->getInt("game", "time_mode", legacy);
+}
+
+float DayNightSystem::getTimeOfDay() const
+{
+    int mode = timeMode();
+    if (mode == 1) { return 0.5f; }
+    if (mode == 2) { return 0.0f; }
+    return time_of_day_ < 0.0f ? 0.5f : time_of_day_;
 }
 
 DayNightLighting DayNightSystem::getLighting() const
 {
-    float time = time_of_day_ < 0.0f ? 0.5f : time_of_day_;
+    float time = getTimeOfDay();
     return getLighting(time);
 }
 
@@ -105,7 +119,7 @@ DayNightLighting DayNightSystem::getLighting(float time) const
 
 std::string DayNightSystem::getTimeLabel() const
 {
-    float time = time_of_day_ < 0.0f ? 0.5f : time_of_day_;
+    float time = getTimeOfDay();
     int minutes = int(time * 24.0f * 60.0f) % (24 * 60);
     const char* period = "深夜";
     if (time >= 0.20f && time < 0.30f)

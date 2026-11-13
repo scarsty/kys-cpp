@@ -137,6 +137,17 @@ void SubScene::draw()
         //#endif
     }
     std::vector<Color> color_v(4, ambient_color);
+    auto lamp = getWalkingPositionOnRender(man_x_, man_y_, view_x_, view_y_);
+    double lamp_height = submap_info_->BuildingHeight(man_x_, man_y_);
+    if (walking_)
+    {
+        auto offset = getWalkingManOffset();
+        lamp.x += offset.x;
+        lamp.y += offset.y;
+        lamp_height += (submap_info_->BuildingHeight(walk_to_.x, walk_to_.y) - lamp_height) * walk_progress_;
+    }
+    lamp.x += x_;
+    lamp.y += y_ - int(std::lround(lamp_height * (TILE_W / 18))) - TILE_H * 3;
     std::vector<float> brighness_v = { 0.5f, 0, 0, 0 };
     //color_v[0] = { 128, 128, 128, 255 };
     //color_v[1] = { 192, 192, 192, 255 };
@@ -197,7 +208,23 @@ void SubScene::draw()
                 if (num > 0)
                 {
                     std::vector<float> building_brightness = Scene::isWallTile(num) ? std::vector<float>{} : brighness_v;
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h, { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, building_brightness });
+                    auto building_colors = color_v;
+                    if (Scene::isWallTile(num))
+                    {
+                        auto wall_at = [&](int x, int y)
+                        {
+                            return !isOutLine(x, y) && Scene::isWallTile(submap_info_->Building(x, y) / 2);
+                        };
+                        int along_x = int(wall_at(ix - 1, iy)) + int(wall_at(ix + 1, iy));
+                        int along_y = int(wall_at(ix, iy - 1)) + int(wall_at(ix, iy + 1));
+                        bool x_direction = along_x >= along_y;
+                        if (along_x == along_y)
+                        {
+                            x_direction = !(num >= 1410 && num <= 1436) && !(num >= 1816 && num <= 1849);
+                        }
+                        building_colors = wallLanternColors(num, ix, iy, { p.x, p.y - h }, lamp, x_direction);
+                    }
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h, { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, building_colors, building_brightness });
                 }
                 if (!man_drawn && tile_depth >= man_depth)
                 {
@@ -226,17 +253,6 @@ void SubScene::draw()
         }
     }
     if (!man_drawn) { draw_man(); }
-    auto lamp = getWalkingPositionOnRender(man_x_, man_y_, view_x_, view_y_);
-    double lamp_height = submap_info_->BuildingHeight(man_x_, man_y_);
-    if (walking_)
-    {
-        auto offset = getWalkingManOffset();
-        lamp.x += offset.x;
-        lamp.y += offset.y;
-        lamp_height += (submap_info_->BuildingHeight(walk_to_.x, walk_to_.y) - lamp_height) * walk_progress_;
-    }
-    lamp.x += x_;
-    lamp.y += y_ - int(std::lround(lamp_height * (TILE_W / 18))) - TILE_H * 3;
     renderLanternScene(lamp);
     //LOG("%g\n", t0.getElapsedTime());
 }

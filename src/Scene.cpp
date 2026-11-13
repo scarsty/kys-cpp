@@ -1,6 +1,7 @@
 ﻿#include "Scene.h"
 #include "DayNightSystem.h"
 #include "GameUtil.h"
+#include "TextureManager.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -13,6 +14,54 @@ Scene::Scene()
 
 Scene::~Scene()
 {
+}
+
+std::vector<Color> Scene::wallLanternColors(int number, int x, int y, Point position, Point lamp, bool along_x)
+{
+    auto ambient = DayNightSystem::getInstance()->getLighting().ambient_color;
+    double man_x = man_x_, man_y = man_y_;
+    if (walking_)
+    {
+        man_x += (walk_to_.x - man_x_) * walk_progress_;
+        man_y += (walk_to_.y - man_y_) * walk_progress_;
+    }
+    auto texture = TextureManager::getInstance()->getTexture("smap", number);
+    if (!texture)
+    {
+        LOG("Missing wall texture: {}\n", number);
+        throw std::runtime_error("Missing wall texture");
+    }
+    texture->load();
+    float left = float(position.x - texture->dx), top = float(position.y - texture->dy);
+    std::vector<FPoint> corners{ { left, top }, { left + texture->w, top },
+        { left + texture->w, top + texture->h }, { left, top + texture->h } };
+    std::vector<Color> colors;
+    for (auto corner : corners)
+    {
+        // Sample the wall plane rather than assigning one direction factor per tile.
+        double along = (corner.x - position.x) / TILE_W;
+        double dx = man_x - x, dy = man_y - y;
+        if (along_x) { dx -= along; }
+        else
+        {
+            dy += along;
+        }
+        double distance = std::hypot(dx, dy);
+        double facing = 0;
+        if (distance > 0) { facing = std::clamp((along_x ? dy : dx) / distance, 0.0, 1.0); }
+        float t = std::clamp(1.0f - std::hypot(corner.x - lamp.x, corner.y - lamp.y) / (TILE_W * 8.0f), 0.0f, 1.0f);
+        double light = t * t * (3 - 2 * t);
+        auto channel = [&](uint8_t base, int warm)
+        {
+            // Compensate the later radial pass so only the local light is directional.
+            double added = (std::max(int(base), warm) - base) * light;
+            double total = base + added;
+            if (total == 0) { return uint8_t(255); }
+            return uint8_t(std::lround(255 * (base + added * facing) / total));
+        };
+        colors.push_back({ channel(ambient.r, 255), channel(ambient.g, 239), channel(ambient.b, 208), 255 });
+    }
+    return colors;
 }
 
 void Scene::renderLanternScene(Point position)

@@ -143,6 +143,7 @@ public:
     void finishWalking();
 
 protected:
+    std::vector<Color> wallLanternColors(int number, int x, int y, Point position, Point lamp, bool along_x);
     void renderLanternScene(Point position);
     virtual bool usesSmoothWalking() const { return false; }
     virtual void commitWalkingView() {}
