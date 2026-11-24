@@ -34,7 +34,7 @@ UIConfig::UIConfig()
     addOption("音樂音量", "music", "volume", volume_options);
     addOption("戰鬥音效", "music", "volumewav", volume_options);
     addOption("行走模式", "game", "smooth_walking", { "原版", "快速", "標準", "慢速" });
-    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼" });
+    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼", "RTS" });
     addOption("遠征隊規則", "game", "expedition33", { "關閉", "開啟" });
     addOption("戰鬥畫法", "game", "battle_presentation", { "經典", "紙片" });
     addOption("格擋輔助", "game", "easy_block", { "關閉", "開啟" });

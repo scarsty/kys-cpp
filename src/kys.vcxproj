@@ -139,6 +139,7 @@
     <ClCompile Include="BattleScene.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
     <ClCompile Include="BattleSceneHades.cpp" />
+    <ClCompile Include="BattleSceneRTS.cpp" />
     <ClCompile Include="BattleSceneSekiro.cpp" />
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="ChemistryEngine.cpp" />
@@ -210,6 +211,7 @@
     <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
+    <ClInclude Include="BattleSceneRTS.h" />
     <ClInclude Include="BattleSceneSekiro.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />

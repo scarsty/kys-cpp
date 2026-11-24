@@ -2,6 +2,7 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "BattleSceneHades.h"
+#include "BattleSceneRTS.h"
 #include "BattleSceneSekiro.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -525,6 +526,12 @@ bool Event::tryBattle(int battle_id, int get_exp)
         auto battle = std::make_shared<BattleSceneSekiro>();
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
+        result = battle->run();
+    }
+    else if (battle_mode == 4)
+    {
+        auto battle = std::make_shared<BattleSceneRTS>();
+        battle->setID(battle_id);
         result = battle->run();
     }
     clearTalkBox();
